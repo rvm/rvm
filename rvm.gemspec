@@ -20,7 +20,6 @@ Gem::Specification.new do |s|
   s.files = [
     "INSTALL",
      "README",
-     "bash/colors",
      "bash/rvm",
      "bash/rvm-setup",
      "rvm.gemspec"
