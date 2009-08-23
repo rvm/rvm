@@ -1,22 +1,22 @@
 #!/bin/bash
 
 #
-# Author:  Wayne E. Seguin
-# Version: 0.0.1
-# License: MIT
-# Updated: 2009.08.21
+rvm_author="Wayne E. Seguin"
+rvm_version="0.0.1"
+rvm_updated="2009.08.21"
+#
+# License: See LICENSE
 #
 
 #
 # Functions
 #
-
 function usage {
   cat <<-Usage
 
   Usage:
 
-    $0 Action [Package] [Options]
+    $0 Action [Implementation] [Options]
 
   Action:
 
@@ -25,17 +25,18 @@ function usage {
     path     - Set path for current ruby
     info     - Show information for current ruby
     gemdir   - Switch to gem directory for installation (new login shell)
-    gemdup   - Clone source package version gems to target package versoin
+    gemdup   - Clone source implementation version gems to currently used version
     setup    - Place rvm to in default path (~/.bin/ && .profile)
     * usage  - Show this usage information
 
-  Package:
+  Implementation:
 
     * ruby   - MRI/YARV Ruby (The Standard)
     jruby    - jRuby
     ree      - Ruby Enterprise Edition
     rubinius - Rubinius
     leopard  - Leopard's system Ruby ( Mac OS X only )
+    default  - Resets to the default system ruby
   
   Options: 
 
@@ -56,7 +57,7 @@ function usage {
     * gem-dup
     * Rubinius
     * Shell detection instead of simply assuming bash
-    * Package Managers option
+    * Package Managers option ???
 
 Usage
 }
@@ -82,7 +83,7 @@ function package-manager {
 
 function ruby-info {
   full_version=$(ruby -v)
-  ruby_package=$(echo "$full_version" | awk '{print $1}')
+  ruby_implementation=$(echo "$full_version" | awk '{print $1}')
   ruby_version=$(echo "$full_version" | awk '{print $2}')
   ruby_patchlevel=$(echo "$full_version" | sed 's/^.*(//' | sed 's/).*$//')
   ruby_date=$(echo "$full_version" | sed 's/^.*(\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\).*$/\1/')
@@ -90,7 +91,7 @@ function ruby-info {
 
   cat <<-Info
 ruby:
-  package:      "$ruby_package"
+  implementation:      "$ruby_implementation"
   version:      "$ruby_version"
   date:         "$ruby_date"
   platform:     "$ruby_platform"
@@ -120,13 +121,13 @@ function ruby-install-source {
     if [ ! -f "$package_name.tar.gz" ] ; then $curl $url ; fi
     tar xzf $package_name.tar.gz && cd $package_name/
   fi
-  ./configure --prefix=$package_path/$package_name --enable-shared && make && make install 
+  ./configure --prefix=$install_path/$package_name --enable-shared && make && make install 
   popd
 }
 
 function ruby-install {
 
-  case "$package" in
+  case "$implementation" in
     leopard) # no-op
       system_type=`uname`
       if [ "$system_type" = "Darwin" ] ; then
@@ -149,29 +150,29 @@ function ruby-install {
         if [ ! -f "$package_name.tar.gz" ] ; then $curl $url ; fi
         tar xzf $package_name.tar.gz && cd $package_name/
       fi
-      cd ruby-enterprise-$version-$patchlevel && ./installer -a $package_path/ruby-enterprise-$version-$patchlevel --dont-install-useful-gems &&
-      cd $source_path
+      cd ruby-enterprise-$version-$patchlevel && ./installer -a $install_path/ruby-enterprise-$version-$patchlevel --dont-install-useful-gems
       popd
     ;;
 
     jruby)
       version=${version-1.3.1} # 1.2.0, 1.3.1
       patchlevel="" # No patchlevel for jRuby
-      package_name="$package-$version"
-      url="http://dist.codehaus.org/$package/$version/$package-bin-$version.zip"
+      package_name="$implementation-bin-$version"
+      package_dir="$implementation-$version"
+      url="http://dist.codehaus.org/$implementation/$version/$package_name.zip"
       pushd $source_path
       if [ -d $package_name ]  ; then
         cd $package_name
       else
-        if [ ! -f "$package-bin-$version.zip" ] ; then $curl $url ; fi
-        jar xf $package-bin-$version.zip && cd $package_name/
+        if [ ! -f "$package_name.zip" ] ; then $curl $url ; fi
+        jar xf $package_name.zip && cd $package_name/
       fi
-      mkdir -p $package_path/$package-$version/bin/
+      mkdir -p $install_path/$package_dir/bin/
       for binary in jruby jgem jirb ; do
-        ln -sf $source_path/$package-$version/bin/$binary $source_path/$package-$version/bin/${binary#j}
+        ln -sf $source_path/$package_dir/bin/$binary $source_path/$package_dir/bin/${binary#j}
       done
-      rsync -ag $source_path/$package-$version/ $package_path/$package-$version/
-      cd $source_path/$package-$version/tool/nailgun && make
+      rsync -ag $source_path/$package_dir/ $install_path/$package_dir/
+      cd $source_path/$package_dir/tool/nailgun && make
       popd
       ruby-gi jruby-openssl
     ;;
@@ -181,7 +182,7 @@ function ruby-install {
       ruby-install-source $version ${patchlevel-$3}
     ;;
 
-    *) fail "Ruby interpreter '$package' is not known."
+    *) fail "Ruby implementation '$implementation' is not known."
 
   esac
 
@@ -192,8 +193,14 @@ function ruby-install {
 }
 
 function ruby-use {
+  case "$implementation" in
 
-  case "$package" in
+    default)
+      rm -f ~/.rvmrc
+      unset ruby_home
+      unset GEM_HOME
+      set -x 
+    ;;
 
     leopard)
       ruby_home="/System/Library/Frameworks/Ruby.framework/Versions/Current/usr"
@@ -201,9 +208,9 @@ function ruby-use {
     ;;
 
     jruby)
-      version="${version-1.3.1}"
+      version="${$version-1.3.1}"
       if [ "$version" = "1.2.0" -o "$version" = "1.3.1" ] ; then
-        ruby_home="$package_path/jruby-$version"
+        ruby_home="$install_path/jruby-$version"
         GEM_HOME="$HOME/.gem/jruby/1.8"
         alias ruby_ng="jruby --ng"
         alias ruby_ng_server="jruby --ng-server"
@@ -216,7 +223,7 @@ function ruby-use {
       version=${version-1.8.6}
       if [ "$version" = "1.8.6" ] ; then
         patchlevel="${3-20090610}"
-        ruby_home="$package_path/ruby-enterprise-$version-$patchlevel"
+        ruby_home="$install_path/ruby-enterprise-$version-$patchlevel"
         GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"
       else
         fail "Unknown Ruby Enterprise Edition version: $version"
@@ -226,15 +233,15 @@ function ruby-use {
     ruby)
       if [ "$version" = "1.8.6" ] ; then
         patchlevel="${patchlevel-369}"
-        ruby_home="$package_path/ruby-1.8.6-p$patchlevel"
+        ruby_home="$install_path/ruby-1.8.6-p$patchlevel"
         GEM_HOME="$HOME/.gem/ruby/1.8"
       elif [ "$version" = "1.8.7" ] ; then
         patchlevel="${patchlevel-174}"
-        ruby_home="$package_path/ruby-1.8.7-p$patchlevel"
+        ruby_home="$install_path/ruby-1.8.7-p$patchlevel"
         GEM_HOME="$HOME/.gem/ruby/1.8"
       elif [ "$version" = "1.9.1" -o "$version" = "1.9" ] ; then
         patchlevel="${patchlevel-243}"
-        ruby_home="$package_path/ruby-1.9.1-p$patchlevel"
+        ruby_home="$install_path/ruby-1.9.1-p$patchlevel"
         GEM_HOME="$HOME/.gem/ruby/1.9.1"
       else
         fail "Unknown ruby version: $version"
@@ -243,24 +250,37 @@ function ruby-use {
     # rubinius)
 
     *)
-      fail "Ruby interpreter '$package' is not known."
+      fail "Ruby implementation '$implementation' is not known."
 
   esac
 
-  if [ ! -d $ruby_home ] ; then
-    warn "$package $version is not installed, installing."
-    ruby-install $package $version $patchlevel
+  if [ ! -z "$ruby_home" ] ; then
+    MY_RUBY_HOME=$ruby_home
+    RUBY_VERSION="$($ruby_home/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
+    export GEM_HOME ruby_home MY_RUBY_HOME RUBY_VERSION
+
+    if [ ! -d $ruby_home ] ; then
+      warn "$implementation $version is not installed, installing."
+      ruby-install $implementation $version $patchlevel
+    fi
+
+    # Setup rvmrc for launching bash with new ruby.
+    echo "original_path=$PATH ; export original_path" > ~/.rvmrc
+    echo "PATH=$ruby_home/bin:$GEM_HOME/bin:\$PATH ; export PATH" > ~/.rvmrc
+    for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ruby_home ; do
+      eval "export $variable"
+      eval value=\$${variable}
+      echo "${variable}='$value' ; export ${variable}" >> ~/.rvmrc
+    done
   fi
-  MY_RUBY_HOME=ruby_home
-  export GEM_HOME MY_RUBY_HOME ruby_home
-  PATH="$ruby_home/bin:$ruby_original_path:$GEM_HOME/bin:$PATH" ; export PATH 
-  RUBY_VERSION="$(ruby -v | ruby -v | sed 's/^\(.*\) (.*$/\1/')" ; export RUBY_VERSION
+  PATH="/bin:/usr/bin:"
+  source ~/.bash_profile
   bash --login # TODO: shell agnostic
 }
  
 function ruby-gem-dir {
 
-  case "$package" in
+  case "$implementation" in
     leopard) GEM_HOME="$HOME/.gem/ruby/1.8"  ;;
     jruby)   GEM_HOME="$HOME/.gem/jruby/1.8" ;;
     ree)     GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"  ;;
@@ -277,16 +297,16 @@ function ruby-gem-dir {
     ;;
     # rubinius)
     *)
-      fail "Ruby interpreter '$package' is not known."
+      fail "Ruby implementation '$implementation' is not known."
   esac
   echo $GEM_HOME
   cd $GEM_HOME
   bash --login # TODO: shell agnostic
 }
 
-# clones from source package/version to current
+# clones from source implementation/version to current
 function ruby-gem-dup {
-  source_package=$1 ; source_version=$2
+  source_implementation=$1 ; source_version=$2
 
   # Compile list of all gems with versions from source directory.
   # if version is already installed on target version
@@ -297,18 +317,19 @@ function ruby-gem-dup {
 }
 
 function rvm-setup {
-  if [ -s ~/.bin/rvm ] ; then
-    info "RVM is already setup (~/.bin/rvm), checking path."
-    if [ `grep '~/.bin' ~/.profile` ] ; then
-      info "RVM is already in your path (~/.profile)."
-    else
-      echo "PATH=~/.bin:\$PATH" >> ~/.profile
-    fi
-  else
-    rm -f ~/.bin/rvm
-    cd `which rvm`
-    bash/rvm-setup
-  fi
+  rm -f ~/.bin/rvm
+  bindir=$(dirname `which rvm`)
+  gemsdir="$(dirname $bindir)/gems"
+  cd $gemsdir/`ls -t ~/.gem/ruby/1.8/gems | grep rvm | head -n 1`
+  bash/rvm-setup
+
+  info "~/.bin/rvm is symlinked to the gem's rvm script and ~/.bin is in your path.\n" \
+    "You may now use rvm via the command line the next time you open a terminal shell."
+}
+
+function rvm-version {
+  info "rvm $rvm_version"
+  exit 0
 }
 
 #
@@ -319,13 +340,13 @@ if [ -z "$ruby_original_path" ] ; then ruby_original_path=$PATH ; export ruby_or
 while [ $# -gt 0 ] ; do
   arg="$1" ; shift
   case "$arg" in 
-    install|use|path|info|gemdir|gemclone)
+    install|use|path|info|gemdir|gemclone|setup)
                      action=$arg                ;;
-    ruby|jruby|ree|leopard)
-                     package="$arg"             ;;
+    ruby|jruby|ree|leopard|default)
+                     implementation="$arg"      ;;
     -v|--version)    version="$1"      ; shift  ;;
     -l|--level)      patchlevel="$1"   ; shift  ;;
-    -p|--prefix)     package_path="$1" ; shift  ;;  
+    -p|--prefix)     install_path="$1" ; shift  ;;  
     -m|--manager)    manager="$1"      ; shift  ;;
     -d|--debug)      debug=true                 ;;
     *)               usage ; exit 1
@@ -333,7 +354,7 @@ while [ $# -gt 0 ] ; do
 done 
 
 curl="curl -O -L -s "
-package=${package-'ruby'}
+implementation=${implementation-'ruby'}
 username=`whoami`
 if [ "$username" = "root" ] ; then 
   prefix_path=${prefix-/usr/local/}
@@ -341,25 +362,40 @@ else
   prefix_path=${prefix-$HOME/.}
 fi
 # TODO: Sanitize user input, ensure that there is a / a the end...
-source_path="${prefix_path}src"
-package_path="${prefix_path}rubies"
+source_path="${prefix_path}rubies/src"
+install_path="${prefix_path}rubies"
 
 #version=${version-}
 #patchlevel=${patchlevel-}
 
-mkdir -p $source_path $package_path
+mkdir -p $source_path $install_path
 
 #
 # Main Program Logic
 #
 case "$action" in
-  install) ruby-install $package $version $patchlevel ;;
-  use)     ruby-use     $package $version $patchlevel ;;
-  gemdir)  ruby-gem-dir $package $version $patchlevel ;;
-  gemdup)  ruby-gem-dup $package $version $patchlevel ;;
-  path)    ruby-path    $package $version $patchlevel ;;
-  info)    ruby-info    $package $version $patchlevel ;;
-  setup)   rvm-setup                                  ;;
+  install) 
+    if [ "$implementation" = "all" ] ; then 
+      for implementation in ruby jruby ree ; do
+        if [ "$implementation" = "ruby" ] ; then
+          for versions in 1.8.6 1.8.7 1.9.1 ; do
+            ruby-install 
+          done
+        else
+            ruby-install 
+        fi
+      done
+    else
+      ruby-install $implementation $version $patchlevel 
+    fi
+  ;;
+  use)     ruby-use     $implementation $version $patchlevel ;;
+  gemdir)  ruby-gem-dir $implementation $version $patchlevel ;;
+  gemdup)  ruby-gem-dup $implementation $version $patchlevel ;;
+  path)    ruby-path    $implementation $version $patchlevel ;;
+  info)    ruby-info    $implementation $version $patchlevel ;;
+  version) rvm-version                                       ;;
+  setup)   rvm-setup                                         ;;
   *) usage ; fail  "unknown action '$action'"
 esac
 

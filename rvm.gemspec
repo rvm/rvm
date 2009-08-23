@@ -21,8 +21,7 @@ Gem::Specification.new do |s|
     "INSTALL",
      "README",
      "bash/rvm",
-     "bash/rvm-setup",
-     "rvm.gemspec"
+     "bash/rvm-setup"
   ]
   s.homepage = %q{http://github.com/wayneeseguin/rvm}
   s.rdoc_options = ["--inline-source", "--charset=UTF-8"]
