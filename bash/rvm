@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rvm_author="Wayne E. Seguin"
-rvm_version="0.0.4"
+rvm_version="0.0.5"
 rvm_updated="2009.08.23"
 
 #
@@ -116,9 +116,10 @@ Info
 
 function rvm-install-source {
 
-  case "${version-$1}" in
+  version="${1:-1.8.6}"
+  case "$version" in
     1.9|1.9.1) major="1.9" ; minor="1" ; level="${2-243}" ;;
-    1.9.2)     major="1.9" ; minor="2" ; level="review1" ;;
+    1.9.2)     major="1.9" ; minor="2" ; level="${2-review1}" ;;
     1.8|1.8.6) major="1.8" ; minor="6" ; level="${2-369}" ;;
         1.8.7) major="1.8" ; minor="7" ; level="${2-174}" ;;
     *) fail "Ruby version '$version' is unknown."
@@ -153,7 +154,7 @@ function rvm-install-source {
 
 }
 
-function rvm-install {
+function rvm-install-ruby {
 
   case "$implementation" in
 
@@ -176,7 +177,7 @@ function rvm-install {
 
     jruby)
       version=${version-1.3.1} # 1.2.0, 1.3.1
-      patchlevel="" # No patchlevel for jRuby
+      unset patchlevel # No patchlevel for jRuby
       package_name="$implementation-bin-$version"
       package_dir="$implementation-$version"
       url="http://dist.codehaus.org/$implementation/$version/$package_name.zip"
@@ -199,8 +200,7 @@ function rvm-install {
     ;;
 
     ruby)
-      version=${version-1.8.6}
-      rvm-install-source $version ${patchlevel-$3}
+      rvm-install-source ${version-1.8.6} ${patchlevel-$3}
     ;;
 
     *) fail "Ruby implementation '$implementation' is not known."
@@ -246,22 +246,26 @@ function rvm-use {
     ;;
 
     ruby)
-      if [ "$version" = "1.8.6" ] ; then
-        level="${patchlevel-369}"
-        MY_RUBY_HOME="$install_path/ruby-1.8.6-p$level"
-        GEM_HOME="$HOME/.gem/ruby/1.8"
-      elif [ "$version" = "1.8.7" ] ; then
+      if [ "$version" = "1.8.7" ] ; then
         level="${patchlevel-174}"
         MY_RUBY_HOME="$install_path/ruby-1.8.7-p$level"
         GEM_HOME="$HOME/.gem/ruby/1.8"
-      elif [ "$version" = "1.9.1" -o "$version" = "1.9" ] ; then
-        level="${patchlevel-243}"
-        MY_RUBY_HOME="$install_path/ruby-1.9.1-p$level"
-        GEM_HOME="$HOME/.gem/ruby/1.9"
+
+      elif [ "${version%\.*}" = "1.8" ] ; then
+        level="${patchlevel-369}"
+        MY_RUBY_HOME="$install_path/ruby-1.8.6-p$level"
+        GEM_HOME="$HOME/.gem/ruby/1.8"
+
       elif [ "$version" = "1.9.2" ] ; then
         level="${patchlevel-review1}"
         MY_RUBY_HOME="$install_path/ruby-1.9.2-p$level"
-        GEM_HOME="$HOME/.gem/ruby/1.9"
+        GEM_HOME="$HOME/.gem/ruby/1.9.2"
+
+      elif [ "${version%\.*}" = "1.9" ] ; then
+        level="${patchlevel-243}"
+        MY_RUBY_HOME="$install_path/ruby-1.9.1-p$level"
+        GEM_HOME="$HOME/.gem/ruby/1.9.1"
+
       else
         fail "Unknown ruby version: $version"
       fi
@@ -278,7 +282,7 @@ function rvm-use {
 
     if [ ! -d $MY_RUBY_HOME ] ; then
       warn "$implementation $version is not installed, installing."
-      rvm-install $implementation $version $level
+      rvm-install-ruby $implementation $version $level
     fi
 
     # Setup ~/.rvm/current
@@ -293,8 +297,13 @@ function rvm-use {
   fi
 
   info "Switching to $implementation $version $patchlevel ..."
-  exec bash --login
-
+  if [ ! -z "$BASH_VERSION" ] ; then
+    exec bash -l
+  elif [ ! -z "$ZSH_VERSION" ] ; then
+    exec zsh -l
+  else
+    fail "Your shell '$0' is not supported."
+  fi
 }
  
 function rvm-gem-dir {
@@ -305,8 +314,13 @@ function rvm-gem-dir {
     ruby)
       if [ "${version%\.*}" = "1.8" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.8"
+
+      elif [ "$version" = "1.9.2" ] ; then
+        GEM_HOME="$HOME/.gem/ruby/1.9.2"
+
       elif [ "${version%\.*}" = "1.9" ] ; then
-        GEM_HOME="$HOME/.gem/ruby/1.9"
+        GEM_HOME="$HOME/.gem/ruby/1.9.1"
+
       else
         fail "Unknown ruby version: $version"
       fi
@@ -316,7 +330,7 @@ function rvm-gem-dir {
   esac
 
   if [ -d $GEM_HOME ] ; then
-    cd $GEM_HOME
+    echo $GEM_HOME && cd $GEM_HOME
   else
     fail "$implementation $version GEM directory does not exist."
   fi
@@ -338,26 +352,25 @@ function rvm-src-dir {
     ree)
       version=${version-1.8.6}
       if [ "$version" = "1.8.6" ] ; then
-        patchlevel="${3-20090610}"
-        src_dir="$source_path/ruby-enterprise-$version-$patchlevel"
+        src_dir="$source_path/ruby-enterprise-$version-"${3-20090610}""
       else
         fail "Unknown Ruby Enterprise Edition version: $version"
       fi
     ;;
 
     ruby)
-      if [ "$version" = "1.8.6" -o "$version" = "1.8" ] ; then
-        level="${patchlevel-369}"
-        src_dir="$source_path/ruby-1.8.6-p$level"
-      elif [ "$version" = "1.8.7" ] ; then
-        level="${patchlevel-174}"
-        src_dir="$source_path/ruby-1.8.7-p$level"
-      elif [ "$version" = "1.9.1" -o "$version" = "1.9" ] ; then
-        level="${patchlevel-243}"
-        src_dir="$source_path/ruby-1.9.1-p$level"
+      if [ "$version" = "1.8.7" ] ; then
+        src_dir="$source_path/ruby-1.8.7-p${patchlevel-174}"
+
+      elif [ "${version%\.*}" = "1.8" ] ; then
+        src_dir="$source_path/ruby-1.8.6-p${patchlevel-369}"
+
       elif [ "$version" = "1.9.2" ] ; then
-        level="${patchlevel-review1}"
-        src_dir="$source_path/ruby-1.9.2-p$level"
+        src_dir="$source_path/ruby-1.9.2-p${patchlevel-review1}"
+
+      elif [ "${version%\.*}" = "1.9" ] ; then
+        src_dir="$source_path/ruby-1.9.1-p${patchlevel-243}"
+
       else
         fail "Unknown ruby version: $version"
       fi
@@ -439,7 +452,9 @@ function rvm {
   
   mkdir -p $source_path $install_path
 
-  original_path=`cat $install_path/.original_path`
+  if [ -f ~/.rvm/original_path ] ; then
+    original_path=`cat ~/.rvm/original_path`
+  fi
   if [ -z "$original_path" ] ; then 
     echo $PATH > $install_path/.original_path
     original_path=$PATH
@@ -451,14 +466,14 @@ function rvm {
         for implementation in ruby jruby ree ; do
           if [ "$implementation" = "ruby" ] ; then
             for version in 1.8.6 1.8.7 1.9.1 1.9.2 ; do
-              rvm-install $implementation $version $patchlevel 
+              rvm-install-ruby $implementation $version $patchlevel 
             done
           else
-              rvm-install $implementation $version $patchlevel 
+              rvm-install-ruby $implementation $version $patchlevel 
           fi
         done
       else
-        rvm-install $implementation $version $patchlevel 
+        rvm-install-ruby $implementation $version $patchlevel 
       fi
     ;;
     use)     rvm-use     $implementation $version $patchlevel ;;
