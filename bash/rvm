@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rvm_author="Wayne E. Seguin"
-rvm_version="0.0.2"
+rvm_version="0.0.4"
 rvm_updated="2009.08.23"
 
 #
@@ -26,7 +26,8 @@ function usage {
     info     - Show information for current ruby
     gemdir   - Switch to gem directory for installation (new login shell)
     srcdir   - Switch to src directory for the current ruby installation
-    gemdup   - Clone source implementation version gems to currently used version
+    gemdup   - Clone source implementation version gems to currently used version 
+               (expiramental)
     install  - Install a ruby version, default is from source
     debug    - Emit environment and configuration information for debugging
 
@@ -63,8 +64,9 @@ function usage {
     $ gem install rvm       # Install the rvm gem
     $ rvm-install           # Install rvm, adds source hooks to ~/.bash_profile
     $ rvm install jruby     # Install jRuby, default 1.3.1
-    $ rvm use ruby -v 1.9.1 # Use Ruby 1.9, install first if not installed
-    $ rvm use -v 1.9        # Equivalent to above, because of defaults
+    $ rvm use ruby -v 1.9.1 # Use Ruby 1.9.1, install first if not installed
+    $ rvm use 1.9           # Equivalent to above, due to dof efaults
+    $ rvm use 1.8           # Use Ruby 1.8.6, install first if not installed
     $ rvm use default       # Use the system default (as if no rvm)
 
   TODO: (in order)
@@ -116,13 +118,14 @@ Info
 function ruby-install-source {
 
   case "${version-$1}" in
-    1.9|1.9.1) major="1.9" ; minor="1" ; patchlevel="${2-243}" ;;
-    1.8|1.8.6) major="1.8" ; minor="6" ; patchlevel="${2-369}" ;;
-        1.8.7) major="1.8" ; minor="7" ; patchlevel="${2-174}" ;;
+    1.9|1.9.1) major="1.9" ; minor="1" ; level="${2-243}" ;;
+    1.9.2)     major="1.9" ; minor="2" ; level="review1" ;;
+    1.8|1.8.6) major="1.8" ; minor="6" ; level="${2-369}" ;;
+        1.8.7) major="1.8" ; minor="7" ; level="${2-174}" ;;
     *) fail "Ruby version '$version' is unknown."
   esac
 
-  package_name="ruby-$major.$minor-p$patchlevel"
+  package_name="ruby-$major.$minor-p$level"
   url="ftp://ftp.ruby-lang.org/pub/ruby/$major/$package_name.tar.gz"
  
   pushd $source_path
@@ -134,6 +137,19 @@ function ruby-install-source {
   fi
   ./configure --prefix=$install_path/$package_name ${configure-'--enable-shared'} && make && make install 
   chmod +x $install_path/$package_name/bin/*
+
+  # Now install rubygems for this ruby version.
+  gem_package_name="rubygems-1.3.5"
+  gem_url="http://rubyforge.org/frs/download.php/60718/$gem_package_name.tgz"
+  if [ -d $gem_package_name ]  ; then
+    cd $gem_package_name
+  else
+    if [ ! -f $gem_package_name.tgz ] ; then $curl $gem_url ; fi
+    tar zxf $gem_package_name.tgz && cd $gem_package_name
+  fi
+  # Well this is fun... fix nil error on require_paths:
+  sed -i '' "s/require_paths\.join/require_paths.to_a.join/" $source_path/$package_name/$gem_package_name/lib/rubygems/gem_path_searcher.rb 
+  $install_path/$package_name/bin/ruby ./setup.rb
   popd
 
 }
@@ -232,17 +248,21 @@ function ruby-use {
 
     ruby)
       if [ "$version" = "1.8.6" ] ; then
-        patchlevel="${patchlevel-369}"
-        MY_RUBY_HOME="$install_path/ruby-1.8.6-p$patchlevel"
+        level="${patchlevel-369}"
+        MY_RUBY_HOME="$install_path/ruby-1.8.6-p$level"
         GEM_HOME="$HOME/.gem/ruby/1.8"
       elif [ "$version" = "1.8.7" ] ; then
-        patchlevel="${patchlevel-174}"
-        MY_RUBY_HOME="$install_path/ruby-1.8.7-p$patchlevel"
+        level="${patchlevel-174}"
+        MY_RUBY_HOME="$install_path/ruby-1.8.7-p$level"
         GEM_HOME="$HOME/.gem/ruby/1.8"
       elif [ "$version" = "1.9.1" -o "$version" = "1.9" ] ; then
-        patchlevel="${patchlevel-243}"
-        MY_RUBY_HOME="$install_path/ruby-1.9.1-p$patchlevel"
-        GEM_HOME="$HOME/.gem/ruby/1.9.1"
+        level="${patchlevel-243}"
+        MY_RUBY_HOME="$install_path/ruby-1.9.1-p$level"
+        GEM_HOME="$HOME/.gem/ruby/1.9"
+      elif [ "$version" = "1.9.2" ] ; then
+        level="${patchlevel-review1}"
+        MY_RUBY_HOME="$install_path/ruby-1.9.2-p$level"
+        GEM_HOME="$HOME/.gem/ruby/1.9"
       else
         fail "Unknown ruby version: $version"
       fi
@@ -259,7 +279,7 @@ function ruby-use {
 
     if [ ! -d $MY_RUBY_HOME ] ; then
       warn "$implementation $version is not installed, installing."
-      ruby-install $implementation $version $patchlevel
+      ruby-install $implementation $version $level
     fi
 
     # Setup ~/.rvm/current
@@ -284,12 +304,10 @@ function ruby-gem-dir {
     jruby)   GEM_HOME="$HOME/.gem/jruby/1.8" ;;
     ree)     GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"  ;;
     ruby)
-      if [ "$version" = "1.8.6" -o "$version" = "1.8" ] ; then
+      if [ "${version%\.*}" = "1.8" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.8"
-      elif [ "$version" = "1.8.7" ] ; then
-        GEM_HOME="$HOME/.gem/ruby/1.8"
-      elif [ "$version" = "1.9.1" -o "$version" = "1.9" ] ; then
-        GEM_HOME="$HOME/.gem/ruby/1.9.1"
+      elif [ "${version%\.*}" = "1.9" ] ; then
+        GEM_HOME="$HOME/.gem/ruby/1.9"
       else
         fail "Unknown ruby version: $version"
       fi
@@ -330,14 +348,17 @@ function ruby-src-dir {
 
     ruby)
       if [ "$version" = "1.8.6" -o "$version" = "1.8" ] ; then
-        patchlevel="${patchlevel-369}"
-        src_dir="$source_path/ruby-1.8.6-p$patchlevel"
+        level="${patchlevel-369}"
+        src_dir="$source_path/ruby-1.8.6-p$level"
       elif [ "$version" = "1.8.7" ] ; then
-        patchlevel="${patchlevel-174}"
-        src_dir="$source_path/ruby-1.8.7-p$patchlevel"
+        level="${patchlevel-174}"
+        src_dir="$source_path/ruby-1.8.7-p$level"
       elif [ "$version" = "1.9.1" -o "$version" = "1.9" ] ; then
-        patchlevel="${patchlevel-243}"
-        src_dir="$source_path/ruby-1.9.1-p$patchlevel"
+        level="${patchlevel-243}"
+        src_dir="$source_path/ruby-1.9.1-p$level"
+      elif [ "$version" = "1.9.2" ] ; then
+        level="${patchlevel-review1}"
+        src_dir="$source_path/ruby-1.9.2-p$level"
       else
         fail "Unknown ruby version: $version"
       fi
@@ -391,7 +412,7 @@ function rvm {
                        action=$token              ;;
       ruby|jruby|ree|default|all)
                        implementation="$token"    ;;
-      1.8|1.9|1.8.6|1.8.7|1.9.1|1.2.0|1.3.1)
+      1.8|1.9|1.8.6|1.8.7|1.9.1|1.9.2|1.2.0|1.3.1)
                        version="$token"           ;;
       -v|--version)    version="$1"      ; shift  ;;
       -l|--level)      patchlevel="$1"   ; shift  ;;
@@ -430,7 +451,7 @@ function rvm {
       if [ "$implementation" = "all" ] ; then 
         for implementation in ruby jruby ree ; do
           if [ "$implementation" = "ruby" ] ; then
-            for version in 1.8.6 1.8.7 1.9.1 ; do
+            for version in 1.8.6 1.8.7 1.9.1 1.9.2 ; do
               ruby-install $implementation $version $patchlevel 
             done
           else
