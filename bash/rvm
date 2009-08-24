@@ -21,23 +21,20 @@ function usage {
 
   Action:
 
-    install  - Install a ruby version, default is from source
+    * usage  - Show this usage information
     use      - Switch to using a specific ruby versio (new login shell)
-    path     - Set path for current ruby
     info     - Show information for current ruby
     gemdir   - Switch to gem directory for installation (new login shell)
     gemdup   - Clone source implementation version gems to currently used version
-    setup    - Place rvm to in default path (~/.bin/ && .profile)
+    install  - Install a ruby version, default is from source
     debug    - Emit environment and configuration information for debugging
-    * usage  - Show this usage information
 
   Implementation:
 
-    * ruby   - MRI/YARV Ruby (The Standard)
+    * ruby   - MRI/YARV Ruby (The Standard), defaults to 1.8.6
     jruby    - jRuby
     ree      - Ruby Enterprise Edition
     rubinius - Rubinius (NIY)
-    leopard  - Leopard's system Ruby ( Mac OS X only )
     default  - Resets to the default system ruby
     all      - Used with install, installs all latest known versions
   
@@ -51,11 +48,27 @@ function usage {
 
   Notes:
 
-    * Defaults are denoted with a * prefix.
+    * Defaults above are denoted with a '*' prefix.
+    * rvm is intended to be run as an individual user (not root, yet)
+    * All ruby installation, configuration and source files are in ~/.rvm
+    * To manually reset to defaults: "rm -f ~/.rvm/current", then open new shell
+    * To preserve previous gem installations for a particular ruby version copy,
+      move, symlink or copy the old gem directory to (1.8 for 1.8.X): 
+      ~/.gem/\$interpreter/\$version
+
+  Examples:
+
+    $ gem install rvm       # Install the rvm gem
+    $ rvm-install           # Install rvm, adds source hooks to ~/.bash_profile
+    $ rvm install jruby     # Install jRuby, default 1.3.1
+    $ rvm use ruby -v 1.9.1 # Use Ruby 1.9, install first if not installed
+    $ rvm use -v 1.9        # Equivalent to above, because of defaults
+    $ rvm use default       # Use the system default (as if no rvm)
 
   TODO: (in order)
 
     * Documentation
+    * Change gemdir to simply allow for a path to base gem dir to clone from
     * Debug level messages
     * Rubinius (not in first revisions)
     * Shell detection instead of simply assuming bash (not in first revisions)
@@ -125,14 +138,6 @@ function ruby-install-source {
 function ruby-install {
 
   case "$implementation" in
-    leopard) # no-op
-      system_type=`uname`
-      if [ "$system_type" = "Darwin" ] ; then
-        echo "Leopard ruby is not installable via rvm."
-      else
-        fail "leopard ruby is the default ruby installed on Mac OS X (Darwin), you are on: $system_type"
-      fi
-    ;;
 
     ree)
       version=${version-1.8.6}
@@ -200,11 +205,7 @@ function ruby-use {
       unset ruby_home
       unset GEM_HOME
     ;;
-
-    leopard)
-      ruby_home="/System/Library/Frameworks/Ruby.framework/Versions/Current/usr"
-      GEM_HOME="$HOME/.gem/ruby/1.8"
-    ;;
+    #leopard) ruby_home="/System/Library/Frameworks/Ruby.framework/Versions/Current/usr"; GEM_HOME="$HOME/.gem/ruby/1.8" ;;
 
     jruby)
       version="${version-1.3.1}"
@@ -281,7 +282,6 @@ function ruby-use {
 function ruby-gem-dir {
 
   case "$implementation" in
-    leopard) GEM_HOME="$HOME/.gem/ruby/1.8"  ;;
     jruby)   GEM_HOME="$HOME/.gem/jruby/1.8" ;;
     ree)     GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"  ;;
     ruby)
@@ -310,7 +310,6 @@ function ruby-gem-dup {
 
   # TODO: use ruby-gem-dir for this once it has stabilized
   case "$source_implementation" in
-    leopard) gemdir="$HOME/.gem/ruby/1.8"  ;;
     jruby)   gemdir="$HOME/.gem/jruby/1.8" ;;
     ree)     gemdir="$HOME/.gem/ruby-enterprise/1.8"  ;;
     ruby)
@@ -340,24 +339,7 @@ function ruby-gem-dup {
 
 }
 
-function rvm-setup {
-
-  rm -f ~/.bin/rvm
-  bindir=$(dirname `which rvm`)
-  gemsdir="$(dirname $bindir)/gems"
-  cd $gemsdir/`ls -t ~/.gem/ruby/1.8/gems | grep rvm | head -n 1`
-  bash/rvm-setup
-
-  info "~/.bin/rvm is symlinked to the gem's rvm script and ~/.bin is in your path.\n" \
-       "You may now use rvm via the command line the next time you open a terminal shell."
-
-}
-
-function rvm-version {
-
-  info "rvm $rvm_version"
-
-}
+function rvm-version { info "rvm $rvm_version" ; }
 
 function rvm {
 
@@ -366,14 +348,14 @@ function rvm {
     case "$arg" in 
       install|use|path|info|gemdir|gemdup|setup|version|debug)
                        action=$arg                ;;
-      ruby|jruby|ree|leopard|default|all)
+      ruby|jruby|ree|default|all)
                        implementation="$arg"      ;;
       -v|--version)    version="$1"      ; shift  ;;
       -l|--level)      patchlevel="$1"   ; shift  ;;
       -p|--prefix)     install_path="$1" ; shift  ;;  
       -m|--manager)    manager="$1"      ; shift  ;;
       -d|--debug)      debug=true                 ;;
-      *)               usage
+      *)               usage ; return 1
     esac 
   done 
   
@@ -417,10 +399,8 @@ function rvm {
     use)     ruby-use     $implementation $version $patchlevel ;;
     gemdir)  ruby-gem-dir $implementation $version $patchlevel ;;
     gemdup)  ruby-gem-dup $implementation $version $patchlevel ;;
-    path)    ruby-path    $implementation $version $patchlevel ;;
     info)    ruby-info    $implementation $version $patchlevel ;;
     version) rvm-version                                       ;;
-    setup)   rvm-setup                                         ;;
     debug)   
              rvm-version
              info "GEM_HOME: $GEM_HOME\nMY_RUBY_HOME: $MY_RUBY_HOME"
@@ -428,8 +408,14 @@ function rvm {
              info "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"%5}')"
              info "\n.bash_profile: \n$(cat ~/.bash_profile | tail -n 5)\n"
              info "\n.rvm/current: \n$(cat ~/.rvm/current)\n"
+             return 0
     ;;
-    *) usage ; fail  "unknown action '$action'"
+    *) 
+             usage 
+             if [ ! -z "$action" ] ; then
+               fail  "unknown action '$action'"
+             fi
+             return 1
   esac
 
 }

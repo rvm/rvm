@@ -5,7 +5,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{rvm}
-  s.version = "0.0.1"
+  s.version = "0.0.2"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Wayne E. Seguin"]
@@ -22,7 +22,8 @@ Gem::Specification.new do |s|
      "LICENCE",
      "README",
      "bash/rvm",
-     "bash/rvm-install"
+     "bash/rvm-install",
+     "lib/rvm.rb"
   ]
   s.homepage = %q{http://github.com/wayneeseguin/rvm}
   s.rdoc_options = ["--inline-source", "--charset=UTF-8"]
