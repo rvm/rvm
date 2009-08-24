@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rvm_author="Wayne E. Seguin"
-rvm_version="0.0.1"
+rvm_version="0.0.2"
 rvm_updated="2009.08.23"
 
 #
@@ -17,7 +17,7 @@ function usage {
 
   Usage:
 
-    $0 Action [Implementation] [Options]
+    rvm Action [Implementation] [Options]
 
   Action:
 
@@ -28,6 +28,7 @@ function usage {
     gemdir   - Switch to gem directory for installation (new login shell)
     gemdup   - Clone source implementation version gems to currently used version
     setup    - Place rvm to in default path (~/.bin/ && .profile)
+    debug    - Emit environment and configuration information for debugging
     * usage  - Show this usage information
 
   Implementation:
@@ -35,9 +36,10 @@ function usage {
     * ruby   - MRI/YARV Ruby (The Standard)
     jruby    - jRuby
     ree      - Ruby Enterprise Edition
-    rubinius - Rubinius (NI)
+    rubinius - Rubinius (NIY)
     leopard  - Leopard's system Ruby ( Mac OS X only )
     default  - Resets to the default system ruby
+    all      - Used with install, installs all latest known versions
   
   Options: 
 
@@ -45,9 +47,7 @@ function usage {
     -l|--level      - Patch level for the specified Ruby version
     -p|--prefix     - Package and source directory prefix, with trailing slash!
                       Default is a users home directory and /usr/local/ for root
-    -m|--manager    - Package Manager to use, one of:
-                      {port,aptitude,apt-get,emerge,yum,pacman}
-    -d|--debug      - Toggle debug mode on
+    -d|--debug      - Toggle debug mode on for extra messages (NIY)
 
   Notes:
 
@@ -55,6 +55,8 @@ function usage {
 
   TODO: (in order)
 
+    * Documentation
+    * Debug level messages
     * Rubinius (not in first revisions)
     * Shell detection instead of simply assuming bash (not in first revisions)
 
@@ -362,9 +364,9 @@ function rvm {
   while [ $# -gt 0 ] ; do
     arg="$1" ; shift
     case "$arg" in 
-      install|use|path|info|gemdir|gemdup|setup|version)
+      install|use|path|info|gemdir|gemdup|setup|version|debug)
                        action=$arg                ;;
-      ruby|jruby|ree|leopard|default)
+      ruby|jruby|ree|leopard|default|all)
                        implementation="$arg"      ;;
       -v|--version)    version="$1"      ; shift  ;;
       -l|--level)      patchlevel="$1"   ; shift  ;;
@@ -401,11 +403,11 @@ function rvm {
       if [ "$implementation" = "all" ] ; then 
         for implementation in ruby jruby ree ; do
           if [ "$implementation" = "ruby" ] ; then
-            for versions in 1.8.6 1.8.7 1.9.1 ; do
-              ruby-install 
+            for version in 1.8.6 1.8.7 1.9.1 ; do
+              ruby-install $implementation $version $patchlevel 
             done
           else
-              ruby-install 
+              ruby-install $implementation $version $patchlevel 
           fi
         done
       else
@@ -419,6 +421,14 @@ function rvm {
     info)    ruby-info    $implementation $version $patchlevel ;;
     version) rvm-version                                       ;;
     setup)   rvm-setup                                         ;;
+    debug)   
+             rvm-version
+             info "GEM_HOME: $GEM_HOME\nMY_RUBY_HOME: $MY_RUBY_HOME"
+             info "ruby: `which ruby`\ngem: `which gem`\nirb: `which irb`"
+             info "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"%5}')"
+             info "\n.bash_profile: \n$(cat ~/.bash_profile | tail -n 5)\n"
+             info "\n.rvm/current: \n$(cat ~/.rvm/current)\n"
+    ;;
     *) usage ; fail  "unknown action '$action'"
   esac
 
