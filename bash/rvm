@@ -25,6 +25,7 @@ function usage {
     use      - Switch to using a specific ruby versio (new login shell)
     info     - Show information for current ruby
     gemdir   - Switch to gem directory for installation (new login shell)
+    srcdir   - Switch to src directory for the current ruby installation
     gemdup   - Clone source implementation version gems to currently used version
     install  - Install a ruby version, default is from source
     debug    - Emit environment and configuration information for debugging
@@ -69,6 +70,7 @@ function usage {
 
     * Documentation
     * Change gemdir to simply allow for a path to base gem dir to clone from
+    * rvm gemdir default
     * Debug level messages
     * Rubinius (not in first revisions)
     * Shell detection instead of simply assuming bash (not in first revisions)
@@ -83,7 +85,7 @@ function debug { log "\e[4;34m <d> $*" ; }
 function info  { log "\e[0;32m <i> $*" ; }
 function warn  { log "\e[0;33m <w> $*" ; }
 function error { log "\e[0;31m <e> $*" ; }
-function fail  { log "\e[0;31m <e> $*" ; }
+function fail  { log "\e[0;31m <e> $*" ; return 1 ; }
 
 function ruby-gi { gem install -q --no-rdoc --no-ri $* ; }
 
@@ -285,7 +287,7 @@ function ruby-gem-dir {
     jruby)   GEM_HOME="$HOME/.gem/jruby/1.8" ;;
     ree)     GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"  ;;
     ruby)
-      if [ "$version" = "1.8.6" ] ; then
+      if [ "$version" = "1.8.6" -o "$version" = "1.8" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.8"
       elif [ "$version" = "1.8.7" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.8"
@@ -298,39 +300,77 @@ function ruby-gem-dir {
     *)
       fail "Ruby implementation '$implementation' is not known."
   esac
-  cd $GEM_HOME
+
+  if [ -d $GEM_HOME ] ; then
+    cd $GEM_HOME
+  else
+    fail "$implementation $version GEM directory does not exist."
+  fi
+
+}
+
+function ruby-src-dir {
+  case "$implementation" in
+
+    jruby)
+      version="${version-1.3.1}"
+      if [ "$version" = "1.2.0" -o "$version" = "1.3.1" ] ; then
+        src_dir="$source_path/$implementation-$version"
+      else
+        fail "Unknown jRuby version: $version"
+      fi
+    ;;
+
+    ree)
+      version=${version-1.8.6}
+      if [ "$version" = "1.8.6" ] ; then
+        patchlevel="${3-20090610}"
+        src_dir="$source_path/ruby-enterprise-$version-$patchlevel"
+      else
+        fail "Unknown Ruby Enterprise Edition version: $version"
+      fi
+    ;;
+
+    ruby)
+      if [ "$version" = "1.8.6" -o "$version" = "1.8" ] ; then
+        patchlevel="${patchlevel-369}"
+        src_dir="$source_path/ruby-1.8.6-p$patchlevel"
+      elif [ "$version" = "1.8.7" ] ; then
+        patchlevel="${patchlevel-174}"
+        src_dir="$source_path/ruby-1.8.7-p$patchlevel"
+      elif [ "$version" = "1.9.1" -o "$version" = "1.9" ] ; then
+        patchlevel="${patchlevel-243}"
+        src_dir="$source_path/ruby-1.9.1-p$patchlevel"
+      else
+        fail "Unknown ruby version: $version"
+      fi
+    ;;
+
+    *)
+      fail "Ruby implementation '$implementation' is not known."
+      return 1
+  esac
+
+  if [ -d $src_dir ] ; then
+    cd $src_dir
+  else
+    fail "$implementation $version source directory does not exist."
+  fi
 
 }
 
 # clones from source implementation/version to current
 function ruby-gem-dup {
 
-  source_implementation=${1-ruby}
-  source_version=${2-1.8.6}
-
-  # TODO: use ruby-gem-dir for this once it has stabilized
-  case "$source_implementation" in
-    jruby)   gemdir="$HOME/.gem/jruby/1.8" ;;
-    ree)     gemdir="$HOME/.gem/ruby-enterprise/1.8"  ;;
-    ruby)
-      if [ "$source_version" = "1.8.6" ] ; then
-        gemdir="$HOME/.gem/ruby/1.8"
-      elif [ "$source_version" = "1.8.7" ] ; then
-        gemdir="$HOME/.gem/ruby/1.8"
-      elif [ "$source_version" = "1.9.1" -o "$version" = "1.9" ] ; then
-        gemdir="$HOME/.gem/ruby/1.9.1"
-      fi
-    ;;
-  esac
-
-  if [ ! -z "$gemdir" ] ; then
-    for gem_name_version in `ls $gemdir/gems` ; do
+  gem_dir=$1 # TODO: check for and remove trailing /gems
+  if [ ! -z "$gem_dir" ] ; then
+    for gem_name_version in `ls $gem_dir/gems` ; do
       gem_name=${gem_name_version%-*}
       gem_version=${gem_name_version##*-}
       if [ -d $GEM_HOME/gems/$gem_name_version ] ; then
         echo "$gem_name_version already installed."
       else
-        ruby-gi $gemdir/cache/$gem_name-$gem_version.gem
+        ruby-gi $gem_dir/cache/$gem_name-$gem_version.gem
       fi
     done
   else
@@ -343,16 +383,23 @@ function rvm-version { info "rvm $rvm_version" ; }
 
 function rvm {
 
+  # Cleanup, aisle 3
+  for variable in action implementation patchlevel version source_path install_path manager debug prefix_path ; do 
+    eval "unset $variable" 
+  done
   while [ $# -gt 0 ] ; do
-    arg="$1" ; shift
-    case "$arg" in 
-      install|use|path|info|gemdir|gemdup|setup|version|debug)
-                       action=$arg                ;;
+    token="$1" ; shift
+    case "$token" in 
+      install|use|path|info|gemdir|gemdup|setup|version|debug|srcdir)
+                       action=$token              ;;
       ruby|jruby|ree|default|all)
-                       implementation="$arg"      ;;
+                       implementation="$token"    ;;
+      1.8|1.9|1.8.6|1.8.7|1.9.1|1.2.0|1.3.1)
+                       version="$token"           ;;
       -v|--version)    version="$1"      ; shift  ;;
       -l|--level)      patchlevel="$1"   ; shift  ;;
       -p|--prefix)     install_path="$1" ; shift  ;;  
+      -s|--source)     source_path="$1"  ; shift  ;;  
       -m|--manager)    manager="$1"      ; shift  ;;
       -d|--debug)      debug=true                 ;;
       *)               usage ; return 1
@@ -369,7 +416,7 @@ function rvm {
   fi
 
   # TODO: Sanitize user input, ensure that there is a / a the end...
-  source_path="${prefix_path}rvm/src"
+  source_path="${source_path-${prefix_path}rvm/src}"
   install_path="${prefix_path}rvm"
   
   mkdir -p $source_path $install_path
@@ -398,6 +445,7 @@ function rvm {
     ;;
     use)     ruby-use     $implementation $version $patchlevel ;;
     gemdir)  ruby-gem-dir $implementation $version $patchlevel ;;
+    srcdir)  ruby-src-dir $implementation $version $patchlevel ;;
     gemdup)  ruby-gem-dup $implementation $version $patchlevel ;;
     info)    ruby-info    $implementation $version $patchlevel ;;
     version) rvm-version                                       ;;
