@@ -10,10 +10,10 @@ Gem::Specification.new do |s|
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Wayne E. Seguin"]
   s.date = %q{2009-08-23}
-  s.default_executable = %q{rvm}
+  s.default_executable = %q{rvm-install}
   s.description = %q{Manages Ruby interpreter installations and switching between them.}
   s.email = %q{wayneeseguin@gmail.com}
-  s.executables = ["rvm"]
+  s.executables = ["rvm-install"]
   s.extra_rdoc_files = [
     "README"
   ]
@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
     "INSTALL",
      "README",
      "bash/rvm",
-     "bash/rvm-setup"
+     "bash/rvm-install"
   ]
   s.homepage = %q{http://github.com/wayneeseguin/rvm}
   s.rdoc_options = ["--inline-source", "--charset=UTF-8"]
