@@ -1,6 +1,6 @@
 desc "Build the rvm gem and then install it (NO sudo)."
 task :gem do
-    puts `gem uninstall rvm ; rm -f ./rvm*.gem; gem build rvm.gemspec ; gem install ./rvm*.gem --no-ri -l`
+  exec "gem uninstall rvm && rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
 end
 
 namespace :gem do
