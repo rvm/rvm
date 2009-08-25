@@ -3,7 +3,7 @@
 rvm_author="Wayne E. Seguin"
 rvm_author_email="wayneeseguin@gmail.com"
 rvm_website="http://github.com/wayneeseguin/rvm"
-rvm_version="0.0.14"
+rvm_version="0.0.15"
 rvm_updated="2009.08.25"
 
 #
@@ -183,6 +183,9 @@ function rvm-install-source {
   make install > $install_path/$package_name/install.log 2> $install_path/$package_name/install.error.log
   chmod +x $install_path/$package_name/bin/*
 
+  # Create the ~/.rvm/bin/$package_name
+  ln -s $install_path/$package_name/bin/ruby $install_path/bin/$package_name
+
   # Now install rubygems for this ruby version.
   rvm-log-info "\tInstalling rubygems dedicated to $package_name..."
   gem_package_name="rubygems-1.3.5"
@@ -231,6 +234,8 @@ function rvm-install-ruby {
       mkdir -p $install_path/$package_name
       ./installer -a $install_path/ruby-enterprise-$version-$patchlevel --dont-install-useful-gems > $install_path/$package_name/install.log 2> $install_path/$package_name/install.error.log 
       chmod +x $install_path/$package_name/bin/*
+
+      ln -s $install_path/$package_name/bin/ruby $install_path/bin/$package_name
 
       rvm-log-info "\tInstalling rubygems dedicated to $package_name..."
       gem_package_name="rubygems-1.3.5"
@@ -283,6 +288,9 @@ function rvm-install-ruby {
       for binary in jruby jgem jirb ; do
         ln -sf $install_path/$package_name/bin/$binary $install_path/$package_name/bin/${binary#j}
       done
+
+      ln -s $install_path/$package_name/bin/ruby $install_path/bin/$package_name
+
       for gem_name in rake jruby-openssl ; do
         rvm-log-info "Installing $gem_name"
         $install_path/$package_name/bin/jgem install $gem_name --no-rdoc --no-ri -q >> $install_path/$package_name/gems.install.log
@@ -429,12 +437,15 @@ function rvm-use {
 
   esac
 
+  # Now actually use it.
   if [ ! "$implementation" = "default" ] ; then
+    # Install if not installed
     if [ ! -d $MY_RUBY_HOME ] ; then
       rvm-log-warn "$implementation $version is not installed."
       rvm-install-ruby $implementation $version $level
     fi
 
+    # Set as 'current'
     RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
     export GEM_HOME MY_RUBY_HOME RUBY_VERSION
 
@@ -652,7 +663,7 @@ function rvm {
   source_path="${source_path-"$prefix_path/src"}"
   install_path="${prefix_path}rvm"
   
-  mkdir -p $prefix_path $source_path $install_path
+  mkdir -p $prefix_path $source_path $install_path/bin
 
   if [ ! -f $install_path/default ] ; then 
     for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME PATH ; do
