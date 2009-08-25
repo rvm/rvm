@@ -3,7 +3,7 @@
 rvm_author="Wayne E. Seguin"
 rvm_author_email="wayneeseguin@gmail.com"
 rvm_website="http://github.com/wayneeseguin/rvm"
-rvm_version="0.0.5"
+rvm_version="0.0.6"
 rvm_updated="2009.08.23"
 
 #
@@ -100,12 +100,12 @@ Usage
 }
 
 # Logging functions based on level
-function log   { echo -e "\n $* \e[0m\n" ; }
-function debug { log "\e[4;34m <d> $*" ; }
-function info  { log "\e[0;32m <i> $*" ; }
-function warn  { log "\e[0;33m <w> $*" ; }
-function error { log "\e[0;31m <e> $*" ; }
-function fail  { log "\e[0;31m <e> $*" ; return 1 ; }
+function log   { echo -e "\n $* \e[0m" ; }
+function debug { log "\e[4;34m <d> \e[0m$*" ; }
+function info  { log "\e[0;32m <i> \e[0m$*" ; }
+function warn  { log "\e[0;33m <w> \e[0m$*" ; }
+function error { log "\e[0;31m <e> \e[0m$*" ; }
+function fail  { log "\e[0;31m <e> \e[0m$*" ; return 1 ; }
 
 function rvm-gi { gem install -q --no-rdoc --no-ri $* ; }
 
@@ -146,17 +146,33 @@ function rvm-install-source {
   package_name="ruby-$major.$minor-p$level"
   url="ftp://ftp.ruby-lang.org/pub/ruby/$major/$package_name.tar.gz"
  
-  pushd $source_path
+  info "Installing Ruby from source to: $install_path/$package_name"
+  mkdir -p $install_path/$package_name
+  
+  pushd $source_path > /dev/null
   if [ -d $package_name ]  ; then
     cd $package_name
   else
-    if [ ! -f "$package_name.tar.gz" ] ; then curl -O -L -s $url ; fi
-    tar xzf $package_name.tar.gz && cd $package_name/
+    if [ ! -f "$package_name.tar.gz" ] ; then 
+      info "\tDownloading $package_name, this may take a while depending on your connection..."
+      curl -O -L -s $url 
+    fi
+    info "\tExtracting $package_name..."
+    tar xzf $package_name.tar.gz && cd $package_dir/
   fi
-  ./configure --prefix=$install_path/$package_name ${configure-'--enable-shared'} && make && make install 
+
+  info "\tConfiguring $package_name using ${configure-'--enable-shared'}, this may take a while depending on your cpu(s)..."
+  ./configure --prefix=$install_path/$package_name ${configure-'--enable-shared'} > $install_path/$package_name/configure.log 2> $install_path/$package_name/configure.error.log
+
+  info "\tCompiling $package_name, this may take a while, depending on your cpu(s)..."
+  make > $install_path/$package_name/make.log 2> $install_path/$package_name/make.error.log
+
+  info "\tInstalling $package_name"
+  make install > $install_path/$package_name/install.log 2> $install_path/$package_name/install.error.log
   chmod +x $install_path/$package_name/bin/*
 
   # Now install rubygems for this ruby version.
+  info "\tInstalling rubygems dedicated to $package_name..."
   gem_package_name="rubygems-1.3.5"
   gem_url="http://rubyforge.org/frs/download.php/60718/$gem_package_name.tgz"
   if [ -d $gem_package_name ]  ; then
@@ -167,8 +183,14 @@ function rvm-install-source {
   fi
   # Well this is fun... fix nil error on require_paths:
   sed -i '' "s/require_paths\.join/require_paths.to_a.join/" $source_path/$package_name/$gem_package_name/lib/rubygems/gem_path_searcher.rb 
-  $install_path/$package_name/bin/ruby ./setup.rb
-  popd
+  $install_path/$package_name/bin/ruby ./setup.rb > $install_path/$package_name/rubygems.install.log 2> $install_path/$package_name/rubygems.install.error.log
+  popd > /dev/null
+  info "Installation of $package_name complete."
+
+  for gem_name in rake ; do
+    info "Installing $gem_name"
+    $install_path/$package_name/bin/gem install $gem_name --no-rdoc --no-ri -q >> $install_path/$package_name/gems.install.log
+  done
 
 }
 
@@ -181,40 +203,79 @@ function rvm-install-ruby {
       patchlevel=${patchlevel-20090610}
       package_name="ruby-enterprise-$version-$patchlevel"
       url="http://rubyforge.org/frs/download.php/58677/$package_name.tar.gz"
-      pushd $source_path 
+      info "Installing Ruby Enterprise Edition from source to: $install_path/$package_name"
+      pushd $source_path > /dev/null
       if [ -d $package_name ]  ; then
         cd $package_name
       else
-        if [ ! -f "$package_name.tar.gz" ] ; then curl -O -L -s $url ; fi
-        tar xzf $package_name.tar.gz && cd $package_name/
+        if [ ! -f "$package_name.tar.gz" ] ; then 
+          info "\tDownloading $package_name, this may take a while depending on your connection..."
+          curl -O -L -s $url
+        fi
+        info "\tExtracting $package_name..."
+        tar xzf $package_name.tar.gz && cd $package_name
       fi
-      cd ruby-enterprise-$version-$patchlevel && ./installer -a $install_path/ruby-enterprise-$version-$patchlevel --dont-install-useful-gems
-      popd
+
+      info "\tInstalling $package_name, this may take a while, depending on your cpu(s)..."
+      mkdir -p $install_path/$package_name
+      ./installer -a $install_path/ruby-enterprise-$version-$patchlevel --dont-install-useful-gems > $install_path/$package_name/install.log 2> $install_path/$package_name/install.error.log 
       chmod +x $install_path/$package_name/bin/*
+
+      info "\tInstalling rubygems dedicated to $package_name..."
+      gem_package_name="rubygems-1.3.5"
+      gem_url="http://rubyforge.org/frs/download.php/60718/$gem_package_name.tgz"
+      if [ -d $gem_package_name ]  ; then
+        cd $gem_package_name
+      else
+        if [ ! -f $gem_package_name.tgz ] ; then curl -O -L -s $gem_url ; fi
+        tar zxf $gem_package_name.tgz && cd $gem_package_name
+      fi
+      # Well this is fun... fix nil error on require_paths:
+      sed -i '' "s/require_paths\.join/require_paths.to_a.join/" $source_path/$package_name/$gem_package_name/lib/rubygems/gem_path_searcher.rb 
+      $install_path/$package_name/bin/ruby ./setup.rb > $install_path/$package_name/rubygems.install.log 2> $install_path/$package_name/rubygems.install.error.log
+      info "Installation of $package_name complete."
+      popd > /dev/null
+      
+      for gem_name in rake ; do
+        info "Installing $gem_name"
+        $install_path/$package_name/bin/gem install $gem_name --no-rdoc --no-ri -q >> $install_path/$package_name/gems.install.log
+      done
     ;;
 
     jruby)
       version=${version-1.3.1} # 1.2.0, 1.3.1
       unset patchlevel # No patchlevel for jRuby
-      package_name="$implementation-bin-$version"
-      package_dir="$implementation-$version"
-      url="http://dist.codehaus.org/$implementation/$version/$package_name.zip"
-      pushd $source_path
-      if [ -d $package_name ]  ; then
-        cd $package_name
+      zipfile="$implementation-bin-$version"
+      package_name="$implementation-$version"
+      url="http://dist.codehaus.org/$implementation/$version/$zipfile.zip"
+
+      info "Installing jRuby to: $install_path/$package_name"
+      mkdir -p $install_path/$package_name
+      pushd $source_path > /dev/null
+      if [ -d $zipfile ]  ; then
+        cd $zipfile
       else
-        if [ ! -f "$package_name.zip" ] ; then curl -O -L -s $url ; fi
-        jar xf $package_name.zip && cd $package_name/
+        if [ ! -f "$zipfile.zip" ] ; then 
+          info "\tDownloading $zipfile, this may take a while depending on your connection..."
+          curl -O -L -s $url 
+        fi
+        info "\tExtracting $zipfile..."
+        jar xf $zipfile.zip
       fi
-      mkdir -p $install_path/$package_dir/bin/
+
+      info "\tInstalling $package_name..."
+      mkdir -p $install_path/$package_name/bin/
+      rsync -ag $source_path/$package_name/ $install_path/$package_name/
+      cd $source_path/$package_name/tool/nailgun && make > $install_path/$package_name/install.nailgun.log 2> $install_path/$package_name/install.error.nailgun.log 
+      popd > /dev/null
+      chmod +x $install_path/$package_name/bin/*
       for binary in jruby jgem jirb ; do
-        ln -sf $source_path/$package_dir/bin/$binary $source_path/$package_dir/bin/${binary#j}
+        ln -sf $install_path/$package_name/bin/$binary $install_path/$package_name/bin/${binary#j}
       done
-      rsync -ag $source_path/$package_dir/ $install_path/$package_dir/
-      cd $source_path/$package_dir/tool/nailgun && make
-      popd
-      chmod +x $install_path/$package_dir/bin/*
-      rvm-gi jruby-openssl
+      for gem_name in rake jruby-openssl ; do
+        info "Installing $gem_name"
+        $install_path/$package_name/bin/jgem install $gem_name --no-rdoc --no-ri -q >> $install_path/$package_name/gems.install.log
+      done
     ;;
 
     ruby)
@@ -227,8 +288,6 @@ function rvm-install-ruby {
     *) fail "Ruby implementation '$implementation' is not known."
 
   esac
-
-  rvm-gi rake
 
 }
 
@@ -298,13 +357,13 @@ function rvm-use {
   esac
 
   if [ ! "$implementation" = "default" ] ; then
-    RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
-    export GEM_HOME MY_RUBY_HOME RUBY_VERSION
-
     if [ ! -d $MY_RUBY_HOME ] ; then
-      warn "$implementation $version is not installed, installing."
+      warn "$implementation $version is not installed."
       rvm-install-ruby $implementation $version $level
     fi
+
+    RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
+    export GEM_HOME MY_RUBY_HOME RUBY_VERSION
 
     # Setup ~/.rvm/current
     echo "PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:\$PATH ; export PATH" > ~/.rvm/current
@@ -323,27 +382,27 @@ function rvm-use {
   elif [ ! -z "$ZSH_VERSION" ] ; then
     exec zsh -l
   else
-    fail "Your shell '$0' is not supported."
+    fail "Your shell is not supported bash and zsh are currently supported."
   fi
 }
  
 function rvm-gem-dir {
 
-  case "$implementation" in
+  case "${1-implementation}" in
     jruby)   GEM_HOME="$HOME/.gem/jruby/1.8" ;;
     ree)     GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"  ;;
     ruby)
-      if [ "$version" = "1.8" -o "$version" = "1.8.6" ] ; then
+      if [ "${2-version}" = "1.8" -o "${2-version}" = "1.8.6" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.8"
 
-      elif [ "$version" = "1.9.2" ] ; then
+      elif [ "${2-version}" = "1.9.2" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.9.2"
 
-      elif [ "$version" = "1.9" -o "$version" = "1.9.1" ] ; then
+      elif [ "${2-version}" = "1.9" -o "${2-version}" = "1.9.1" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.9.1"
 
       else
-        fail "Unknown ruby version: $version"
+        fail "Unknown Version: ${2-version}"
       fi
     ;;
     *)
@@ -430,7 +489,7 @@ function rvm-gem-dup {
 
 }
 
-function rvm-version { info "rvm $rvm_version" ; }
+function rvm-version { echo "rvm $rvm_version ($rvm_updated) [$rvm_website]" ; }
 
 function rvm {
 
@@ -447,7 +506,14 @@ function rvm {
                        implementation="$token"                 ;;
       1.8|1.8.6|1.8.7|1.9|1.9.1|1.9.2|1.2.0|1.3.1)
                        version="$token"                        ;;
-      -v|--version)    version="$1"      ; shift               ;;
+      -v|--version)    
+                       if [ -z "$1" ] ; then  
+                         action="version"
+                       else 
+                         version="$1"
+                       fi
+                       shift
+      ;;
       -l|--level)      patchlevel="$1"   ; shift               ;;
       -p|--prefix)     install_path="$1" ; shift               ;;  
       -s|--source)     source_path="$1"  ; shift               ;; # Undocumented / untested "feature"
