@@ -35,11 +35,11 @@ function rvm-usage {
     list      - Show currently installed versions
     gemdir    - Switch to gem directory for installation (new login shell)
     srcdir    - Switch to src directory for the current ruby installation
-    gemdup    - Clone source implementation version gems to currently used version 
+    gemdup    - Clone source version gems to current version 
                 (highly expiramental) Example: rvm gemdup ~/.gem/ruby/1.8/
     install   - Install a ruby version, default is from source
     uninstall - Uninstall a ruby version
-    debug     - Emit environment and configuration information for debugging
+    debug     - Emit environment & configuration information for *current* ruby
 
   Implementation:
 
@@ -121,23 +121,25 @@ function rvm-gi { gem install -q --no-rdoc --no-ri $* ; }
 
 function rvm-info {
 
-  full_version=$(ruby -v)
-  ruby_implementation=$(echo "$full_version" | awk '{print $1}')
-  ruby_version=$(echo "$full_version" | awk '{print $2}')
-  ruby_patchlevel=$(echo "$full_version" | sed 's/^.*(//' | sed 's/).*$//')
-  ruby_date=$(echo "$full_version" | sed 's/^.*(\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\).*$/\1/')
-  ruby_platform=$(echo "$full_version" | sed 's/^.*\[//' | sed 's/\].*$//')
-
   cat <<-Info
+
 ruby:
-  implementation: "$ruby_implementation"
-  version:        "$ruby_version"
-  date:           "$ruby_date"
-  platform:       "$ruby_platform"
-  patchlevel:     "$ruby_patchlevel"
-  gem_home:       "${GEM_HOME-not set}"
-  ruby_home:      "${ruby_home-not set}"
-  full_version:   "$full_version"
+  interpreter:  "$(ruby -v | awk '{print $1}')"
+  version:      "$(ruby -v | awk '{print $2}')"
+  date:         "$(ruby -v | sed 's/^.*(\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\).*$/\1/')"
+  platform:     "$(ruby -v | sed 's/^.*\[//' | sed 's/\].*$//')"
+  patchlevel:   "$(ruby -v | sed 's/^.*(//' | sed 's/).*$//')"
+  full_version: "$(ruby -v)"
+
+homes:
+  gem:          "${GEM_HOME-not set}"
+  ruby:         "${MY_RUBY_HOME-not set}"
+
+binaries:
+  ruby:         "$(which ruby)"
+  irb:          "$(which irb)"
+  gem:          "$(which gem)"
+
 Info
 
 }
@@ -628,7 +630,6 @@ function rvm {
       -p|--prefix)     install_path="$1" ; shift               ;;  
       -s|--source)     source_path="$1"  ; shift               ;; # Undocumented / untested "feature"
       -c|--configure)  configure="$1"    ; shift               ;;
-      -m|--manager)    manager="$1"      ; shift               ;;
       -u|--gemdup)     action="gemdup" ; gem_dir="$1" ; shift  ;;
       -d|--debug)      debug=1                                 ;;
       *)               rvm-usage ; return 1
@@ -640,10 +641,9 @@ function rvm {
   else
     implementation=${implementation-'ruby'}
   fi
-  username=`whoami`
 
   # TODO: Sanitize user input, ensure that there is a / a the end...
-  if [ "$username" = "root" ] ; then 
+  if [ "`whoami`" = "root" ] ; then 
     fail "root user support is not yet implemented."
     #prefix_path=${prefix-/usr/local/}
   else
@@ -683,7 +683,6 @@ function rvm {
     ruby -r rubygems -e "puts Gem::default_path.compact[1] || Gem::default_path.compact.first" > $install_path/default_system_gem_path
   fi
 
-  
   if [ "$debug" = "1" ] ; then set -x ; fi
 
   case "$action" in
@@ -712,11 +711,11 @@ function rvm {
     version)   rvm-version                                        ;;
     debug)     
                rvm-version
-               info "GEM_HOME: $GEM_HOME\nMY_RUBY_HOME: $MY_RUBY_HOME"
-               info "ruby: `which ruby`\ngem: `which gem`\nirb: `which irb`"
+               rvm-info
                info "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"%5}')"
-               info "\n.bash_profile: \n$(cat ~/.bash_profile | tail -n 5)\n"
-               info "\n$install_path/current: \n$($install_path/current)\n"
+               info ".bash_profile: \n$(cat ~/.bash_profile | tail -n 5)\n"
+               info ".zprofile: \n$(cat ~/.zprofile | tail -n 5)\n"
+               info "$install_path/current: \n$(cat $install_path/current)\n"
                return 0
     ;;
     *) 
@@ -728,7 +727,7 @@ function rvm {
                return 1
   esac
 
-  set +x
+  if [ "$debug" = "1" ] ; then set +x ; fi
 
 }
 
