@@ -3,7 +3,7 @@
 rvm_author="Wayne E. Seguin"
 rvm_author_email="wayneeseguin@gmail.com"
 rvm_website="http://github.com/wayneeseguin/rvm"
-rvm_version="0.0.8"
+rvm_version="0.0.9"
 rvm_updated="2009.08.25"
 
 #
@@ -81,6 +81,8 @@ function rvm-usage {
   TODO: (in order)
 
     * rvm gemdir default
+    * root support
+    * Settings file, user overridable
 
   Credits:
 
@@ -292,16 +294,78 @@ function rvm-install-ruby {
 
 }
 
+function rvm-uninstall {
+
+  implementation="${1-$implementation}"
+  case "$implementation" in
+
+    jruby)
+      version="${version-1.3.1}"
+      if [ "$version" = "1.2.0" -o "$version" = "1.3.1" ] ; then
+        package_name="jruby*-$version"
+      else
+        fail "Unknown jRuby version: $version"
+      fi
+    ;;
+
+    ree)
+      version=${version-1.8.6}
+      if [ "$version" = "1.8.6" ] ; then
+        package_name="$install_path/ruby-enterprise-$version-${3-20090610}"
+      else
+        fail "Unknown Ruby Enterprise Edition version: $version"
+      fi
+    ;;
+
+    ruby)
+      if [ "$version" = "1.8.7" ] ; then
+        package_name="ruby-1.8.7-p${patchlevel-174}"
+
+      elif [ "$version" = "1.8.6" -o "$version" = "1.8" ] ; then
+        package_name="ruby-1.8.6-p${patchlevel-369}"
+
+      elif [ "$version" = "1.9.2" ] ; then
+        package_name="ruby-1.9.2-p${patchlevel-review1}"
+
+      elif [ "$version" = "1.9.1" -o "$version" = "1.9" ] ; then
+        package_name="ruby-1.9.1-p${patchlevel-243}"
+
+      else
+        fail "Unknown ruby version: $version"
+      fi
+    ;;
+
+    *)
+      fail "Ruby implementation '$implementation' is not known."
+
+  esac
+
+  if [ ! -z "$package_name" ] ; then
+    for path in $source_path $install_path ; do
+      if [ -d $path/$package_name ] ; then
+        info "Removing $path/$package_name"
+        rm -rf $path/$package_name
+      fi
+    done
+  else
+    fail "Cannot uninstall unknown package '$package_name'"
+  fi
+
+}
+
 function rvm-use {
 
   implementation="${1-$implementation}"
   case "$implementation" in
 
     default)
+      # TODO: There is a reproducible bug here when switching off of 1.8.7...
+      #       Seems that the path is not reset properly.
       rm -f ~/.rvm/current
       unset MY_RUBY_HOME
       unset GEM_HOME
       unset RUBY_VERSION
+      PATH=$original_path ; export PATH
     ;;
     #leopard) MY_RUBY_HOME="/System/Library/Frameworks/Ruby.framework/Versions/Current/usr"; GEM_HOME="$HOME/.gem/ruby/1.8" ;;
 
@@ -503,7 +567,7 @@ function rvm {
   while [ $# -gt 0 ] ; do
     token="$1" ; shift
     case "$token" in 
-      install|use|path|info|gemdir|setup|version|debug|srcdir)
+      install|uninstall|use|path|info|gemdir|setup|version|debug|srcdir)
                        action=$token                           ;;
       ruby|jruby|ree|default|all)
                        implementation="$token"                 ;;
@@ -573,28 +637,29 @@ function rvm {
         rvm-install-ruby $implementation $version $patchlevel 
       fi
     ;;
-    use)     rvm-use     $implementation $version $patchlevel ;;
-    gemdir)  rvm-gem-dir $implementation $version $patchlevel ;;
-    srcdir)  rvm-src-dir $implementation $version $patchlevel ;;
-    gemdup)  rvm-gem-dup $implementation $version $patchlevel ;;
-    info)    rvm-info    $implementation $version $patchlevel ;;
-    version) rvm-version                                       ;;
-    debug)   
-             rvm-version
-             info "GEM_HOME: $GEM_HOME\nMY_RUBY_HOME: $MY_RUBY_HOME"
-             info "ruby: `which ruby`\ngem: `which gem`\nirb: `which irb`"
-             info "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"%5}')"
-             info "\n.bash_profile: \n$(cat ~/.bash_profile | tail -n 5)\n"
-             info "\n.rvm/current: \n$(cat ~/.rvm/current)\n"
-             return 0
+    uninstall) rvm-uninstall $implementation $version $patchlevel ;;
+    use)       rvm-use     $implementation $version $patchlevel ;;
+    gemdir)    rvm-gem-dir $implementation $version $patchlevel ;;
+    srcdir)    rvm-src-dir $implementation $version $patchlevel ;;
+    gemdup)    rvm-gem-dup $implementation $version $patchlevel ;;
+    info)      rvm-info    $implementation $version $patchlevel ;;
+    version)   rvm-version                                       ;;
+    debug)     
+               rvm-version
+               info "GEM_HOME: $GEM_HOME\nMY_RUBY_HOME: $MY_RUBY_HOME"
+               info "ruby: `which ruby`\ngem: `which gem`\nirb: `which irb`"
+               info "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"%5}')"
+               info "\n.bash_profile: \n$(cat ~/.bash_profile | tail -n 5)\n"
+               info "\n.rvm/current: \n$(cat ~/.rvm/current)\n"
+               return 0
     ;;
     *) 
-             if [ ! -z "$action" ] ; then
-               fail  "unknown action '$action'"
-             else
-               rvm-usage 
-             fi
-             return 1
+               if [ ! -z "$action" ] ; then
+                 fail  "unknown action '$action'"
+               else
+                 rvm-usage 
+               fi
+               return 1
   esac
 
   set +x
