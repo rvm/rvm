@@ -5,7 +5,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{rvm}
-  s.version = "0.0.9"
+  s.version = "0.0.10"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Wayne E. Seguin"]
@@ -29,7 +29,7 @@ Gem::Specification.new do |s|
   s.rdoc_options = ["--inline-source", "--charset=UTF-8"]
   s.require_paths = ["lib"]
   s.rubyforge_project = %q{dynamicreports}
-  s.rubygems_version = %q{1.3.4}
+  s.rubygems_version = %q{1.3.5}
   s.summary = %q{Ruby Version Manager (rvm)}
 
   if s.respond_to? :specification_version then

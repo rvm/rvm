@@ -3,7 +3,7 @@
 rvm_author="Wayne E. Seguin"
 rvm_author_email="wayneeseguin@gmail.com"
 rvm_website="http://github.com/wayneeseguin/rvm"
-rvm_version="0.0.9"
+rvm_version="0.0.10"
 rvm_updated="2009.08.25"
 
 #
@@ -364,11 +364,9 @@ function rvm-use {
     default)
       # TODO: There is a reproducible bug here when switching off of 1.8.7...
       #       Seems that the path is not reset properly.
-      rm -f ~/.rvm/current
-      unset MY_RUBY_HOME
-      unset GEM_HOME
-      unset RUBY_VERSION
-      PATH=$original_path ; export PATH
+      rm -f $install_path/current
+      source $install_path/default
+      PATH="$default_path" ; export PATH
     ;;
     #leopard) MY_RUBY_HOME="/System/Library/Frameworks/Ruby.framework/Versions/Current/usr"; GEM_HOME="$HOME/.gem/ruby/1.8" ;;
 
@@ -435,15 +433,12 @@ function rvm-use {
     RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
     export GEM_HOME MY_RUBY_HOME RUBY_VERSION
 
-    # Setup ~/.rvm/current
-    echo "PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:\$PATH ; export PATH" > ~/.rvm/current
+    echo "PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$default_path ; export PATH" > $install_path/current
     for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do
       eval "export $variable"
       eval value=\$${variable}
-      echo "${variable}='$value' ; export ${variable}" >> ~/.rvm/current
+      echo "${variable}='$value' ; export ${variable}" >> $install_path/current
     done
-  else
-    PATH=$original_path ; export PATH
   fi
 
   info "Switching to $implementation $version $patchlevel ..."
@@ -458,13 +453,13 @@ function rvm-use {
 
 function rvm-list {
   echo -e "\nruby:"
-  ls -l ~/.rvm/ | awk '/ ruby-[1-2].*/ { print " - " $NF  }'
+  ls -l $install_path/ | awk '/ ruby-[1-2].*/ { print " - " $NF  }'
   echo
   echo "jruby:"
-  ls -l ~/.rvm/ | awk '/jruby-.*/ { print " - " $NF }'
+  ls -l $install_path/ | awk '/jruby-.*/ { print " - " $NF }'
   echo
   echo "ree:"
-  ls ~/.rvm/ | awk '/ruby-enterprise-.*/ { print " - " $NF }'
+  ls $install_path/ | awk '/ruby-enterprise-.*/ { print " - " $NF }'
   echo
 }
  
@@ -487,6 +482,9 @@ function rvm-gem-dir {
         fail "Unknown Version: ${2-version}"
       fi
     ;;
+    default)
+      warn "Not Implemented Yet."
+    ;;
     *)
       fail "Ruby implementation '$implementation' is not known."
   esac
@@ -500,11 +498,11 @@ function rvm-gem-dir {
 }
 
 function rvm-src-dir {
-  case "$implementation" in
+  case "${1-implementation}" in
 
     jruby)
-      version="${version-1.3.1}"
-      if [ "$version" = "1.2.0" -o "$version" = "1.3.1" ] ; then
+      version=${version-1.3.1}
+      if [ "${2-version}" = "1.2.0" -o "${2-version}" = "1.3.1" ] ; then
         src_dir="$source_path/$implementation-$version"
       else
         fail "Unknown jRuby version: $version"
@@ -513,29 +511,33 @@ function rvm-src-dir {
 
     ree)
       version=${version-1.8.6}
-      if [ "$version" = "1.8.6" ] ; then
-        src_dir="$source_path/ruby-enterprise-$version-"${3-20090610}""
+      if [ "${2-version}" = "1.8.6" -o "${2-version}" = "1.8" ] ; then
+        src_dir="$source_path/ruby-enterprise-${2-version}-"${3-20090610}""
       else
-        fail "Unknown Ruby Enterprise Edition version: $version"
+        fail "Unknown Ruby Enterprise Edition version: ${2-version}"
       fi
     ;;
 
     ruby)
-      if [ "$version" = "1.8.7" ] ; then
+      if [ "${2-version}" = "1.8.7" ] ; then
         src_dir="$source_path/ruby-1.8.7-p${patchlevel-174}"
 
-      elif [ "${version%\.*}" = "1.8" ] ; then
+      elif [ "${2-version}" = "1.8" -o "${2-version}" = "1.8.6" ] ; then
         src_dir="$source_path/ruby-1.8.6-p${patchlevel-369}"
 
-      elif [ "$version" = "1.9.2" ] ; then
+      elif [ "${2-version}" = "1.9.2" ] ; then
         src_dir="$source_path/ruby-1.9.2-p${patchlevel-review1}"
 
-      elif [ "${version%\.*}" = "1.9" ] ; then
+      elif [ "${2-version}" = "1.9" -o "${2-version}" = "1.9.1" ] ; then
         src_dir="$source_path/ruby-1.9.1-p${patchlevel-243}"
 
       else
-        fail "Unknown ruby version: $version"
+        fail "unknown Ruby version: ${2-version}"
       fi
+    ;;
+
+    default)
+      warn "Invalid request, rvm cannot change to the default source directory."
     ;;
 
     *)
@@ -585,9 +587,13 @@ function rvm {
       install|uninstall|use|path|info|gemdir|setup|version|debug|srcdir|list)
                        action=$token                           ;;
       ruby|jruby|ree|default|all)
-                       implementation="$token"                 ;;
+                       implementation="$token"
+                       action="${action-use}"
+      ;;
       1.8|1.8.6|1.8.7|1.9|1.9.1|1.9.2|1.2.0|1.3.1)
-                       version="$token"                        ;;
+                       version="$token"  
+                       action="${action-use}"
+      ;;
       -v|--version)    
                        if [ -z "$1" ] ; then  
                          action="version"
@@ -621,17 +627,24 @@ function rvm {
   else
     prefix_path=${prefix-$HOME/.}
   fi
-  source_path="${source_path-${prefix_path}rvm/src}"
+  source_path="${source_path-$install_path/src}"
   install_path="${prefix_path}rvm"
   
-  mkdir -p ~/.rvm/ $source_path $install_path
+  mkdir -p $prefix_path $source_path $install_path
 
-  if [ -f ~/.rvm/original_path ] ; then
-    original_path=`cat ~/.rvm/original_path`
+  if [ ! -f $install_path/default ] ; then 
+    for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME PATH ; do
+      eval "export $variable"
+      eval value=\$${variable}
+      echo "${variable}='$value' ; export ${variable}" >> $install_path/default
+    done
   fi
-  if [ -z "$original_path" ] ; then 
-    echo $PATH > $install_path/.original_path
-    original_path=$PATH
+
+  if [ -s $install_path/default_path ] ; then
+    default_path=`cat $install_path/default_path`
+  else
+    echo $PATH > $install_path/default_path
+    default_path=$PATH
   fi
 
   if [ "$debug" = "1" ] ; then set -x ; fi
@@ -666,7 +679,7 @@ function rvm {
                info "ruby: `which ruby`\ngem: `which gem`\nirb: `which irb`"
                info "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"%5}')"
                info "\n.bash_profile: \n$(cat ~/.bash_profile | tail -n 5)\n"
-               info "\n.rvm/current: \n$(cat ~/.rvm/current)\n"
+               info "\n$install_path/current: \n$($install_path/current)\n"
                return 0
     ;;
     *) 
