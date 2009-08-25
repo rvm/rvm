@@ -78,11 +78,14 @@ function rvm-usage {
     $ rvm use 1.8                 # Use Ruby 1.8.6, installs if necessary
     $ rvm use default             # Use the system default (as if no rvm)
     $ rvm gemdup ~/.gem/ruby/1.8/ # Install gems from ~/.gem/ruby/1.8/
+    $ rvm gemdir                  # Switch to gems directory for current ruby
+    $ rvm gemdir system           # Switch to the system gems directory
+    $ rvm gemdir system user      # Switch to the system user gems directory
+    $ rvm gemdir ruby 1.9         # Switch to gems directory for ruby 1.9.1
 
   TODO: (in order)
 
     * rvm gemdup 
-    * rvm gemdir default
     * root support
     * Settings file, user overridable
     * Show current in rvm list, if applicable
@@ -465,25 +468,34 @@ function rvm-list {
  
 function rvm-gem-dir {
 
-  case "${1-implementation}" in
+  implementation=${1-$implementation}
+  if [ "$implementation" = "" ] ; then implementation="current" ; fi
+
+  case "$implementation" in
     jruby)   GEM_HOME="$HOME/.gem/jruby/1.8" ;;
     ree)     GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"  ;;
     ruby)
-      if [ "${2-version}" = "1.8" -o "${2-version}" = "1.8.6" ] ; then
+      if [ "${2-$version}" = "1.8" -o "${2-$version}" = "1.8.6" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.8"
 
-      elif [ "${2-version}" = "1.9.2" ] ; then
+      elif [ "${2-$version}" = "1.9.2" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.9.2"
 
-      elif [ "${2-version}" = "1.9" -o "${2-version}" = "1.9.1" ] ; then
+      elif [ "${2-$version}" = "1.9" -o "${2-$version}" = "1.9.1" ] ; then
         GEM_HOME="$HOME/.gem/ruby/1.9.1"
 
       else
-        fail "Unknown Version: ${2-version}"
+        fail "Unknown Version: ${2-$version}"
       fi
     ;;
-    default)
-      warn "Not Implemented Yet."
+    current)
+      GEM_HOME=$(ruby -r rubygems -e "puts Gem::default_path.compact.first")
+    ;;
+    system)
+      GEM_HOME=$default_system_gem_path
+    ;;
+    user)
+      GEM_HOME=$default_gem_path
     ;;
     *)
       fail "Ruby implementation '$implementation' is not known."
@@ -498,11 +510,11 @@ function rvm-gem-dir {
 }
 
 function rvm-src-dir {
-  case "${1-implementation}" in
+  case "${1-$implementation}" in
 
     jruby)
       version=${version-1.3.1}
-      if [ "${2-version}" = "1.2.0" -o "${2-version}" = "1.3.1" ] ; then
+      if [ "${2-$version}" = "1.2.0" -o "${2-$version}" = "1.3.1" ] ; then
         src_dir="$source_path/$implementation-$version"
       else
         fail "Unknown jRuby version: $version"
@@ -511,28 +523,28 @@ function rvm-src-dir {
 
     ree)
       version=${version-1.8.6}
-      if [ "${2-version}" = "1.8.6" -o "${2-version}" = "1.8" ] ; then
-        src_dir="$source_path/ruby-enterprise-${2-version}-"${3-20090610}""
+      if [ "${2-$version}" = "1.8.6" -o "${2-$version}" = "1.8" ] ; then
+        src_dir="$source_path/ruby-enterprise-${2-$version}-"${3-20090610}""
       else
-        fail "Unknown Ruby Enterprise Edition version: ${2-version}"
+        fail "Unknown Ruby Enterprise Edition version: ${2-$version}"
       fi
     ;;
 
     ruby)
-      if [ "${2-version}" = "1.8.7" ] ; then
+      if [ "${2-$version}" = "1.8.7" ] ; then
         src_dir="$source_path/ruby-1.8.7-p${patchlevel-174}"
 
-      elif [ "${2-version}" = "1.8" -o "${2-version}" = "1.8.6" ] ; then
+      elif [ "${2-$version}" = "1.8" -o "${2-$version}" = "1.8.6" ] ; then
         src_dir="$source_path/ruby-1.8.6-p${patchlevel-369}"
 
-      elif [ "${2-version}" = "1.9.2" ] ; then
+      elif [ "${2-$version}" = "1.9.2" ] ; then
         src_dir="$source_path/ruby-1.9.2-p${patchlevel-review1}"
 
-      elif [ "${2-version}" = "1.9" -o "${2-version}" = "1.9.1" ] ; then
+      elif [ "${2-$version}" = "1.9" -o "${2-$version}" = "1.9.1" ] ; then
         src_dir="$source_path/ruby-1.9.1-p${patchlevel-243}"
 
       else
-        fail "unknown Ruby version: ${2-version}"
+        fail "unknown Ruby version: ${2-$version}"
       fi
     ;;
 
@@ -556,7 +568,7 @@ function rvm-src-dir {
 # clones from source implementation/version to current
 function rvm-gem-dup {
 
-  gem_dir=$1 # TODO: check for and remove trailing /gems
+  gem_dir=${1-$default_gem_path} # TODO: check for and remove trailing /gems
   if [ ! -z "$gem_dir" ] ; then
     for gem_name_version in `ls $gem_dir/gems` ; do
       gem_name=${gem_name_version%-*}
@@ -584,11 +596,21 @@ function rvm {
   while [ $# -gt 0 ] ; do
     token="$1" ; shift
     case "$token" in 
-      install|uninstall|use|path|info|gemdir|setup|version|debug|srcdir|list)
+      install|uninstall|use|path|info|setup|version|debug|srcdir|list)
                        action=$token                           ;;
       ruby|jruby|ree|default|all)
                        implementation="$token"
                        action="${action-use}"
+      ;;
+      gemdir)
+        action=$token
+        if [ "$2" = "system" ] ; then
+          implementation="system" 
+        elif [ "$1" = "user" ] ; then 
+          implementation="user" 
+        else
+          implementation="current" 
+        fi
       ;;
       1.8|1.8.6|1.8.7|1.9|1.9.1|1.9.2|1.2.0|1.3.1)
                        version="$token"  
@@ -647,6 +669,21 @@ function rvm {
     default_path=$PATH
   fi
 
+  # default (user) gem path
+  if [ -s $install_path/default_gem_path ] ; then
+    default_gem_path=`cat $install_path/default_gem_path`
+  else
+    ruby -r rubygems -e "puts Gem::default_path.compact.first" > $install_path/default_gem_path
+  fi
+
+  # system gem path
+  if [ -s $install_path/default_system_gem_path ] ; then
+    default_system_gem_path=`cat $install_path/default_system_gem_path`
+  else
+    ruby -r rubygems -e "puts Gem::default_path.compact[1] || Gem::default_path.compact.first" > $install_path/default_system_gem_path
+  fi
+
+  
   if [ "$debug" = "1" ] ; then set -x ; fi
 
   case "$action" in
