@@ -27,7 +27,7 @@ begin
     gemspec.description     = "Manages Ruby interpreter installations and switching between them."
     gemspec.platform        = Gem::Platform::RUBY
     gemspec.files           = ["INSTALL", "README", "LICENCE", "rvm.gemspec", "bash/*", Dir::glob("lib/**/**")].flatten
-    gemspec.executables     = Dir::glob("bin/*").map{ |script| File::basename script }
+    gemspec.executables     = Dir::glob("bin/rvm-*").map{ |script| File::basename script }
     gemspec.require_path    = "lib"
     gemspec.has_rdoc        = File::exist?("doc")
     gemspec.rdoc_options    = ["--inline-source", "--charset=UTF-8"]
