@@ -12,7 +12,7 @@ namespace :gem do
   end
 
   desc "Install the rvm gem (NO sudo)."
-  task :install do 
+  task :install do
     %x{gem install rvm*.gem --no-rdoc --no-ri -l}
   end
 end
