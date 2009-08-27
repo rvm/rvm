@@ -140,7 +140,7 @@ Info
 
 function rvm-curl {
   pushd $rvm_archives_path > /dev/null
-  eval $curl "$1"
+  eval $rvm_curl "$1"
   popd > /dev/null
 }
 
@@ -156,10 +156,10 @@ function rvm-install-source {
   esac
 
   rvm_package_name="ruby-$major.$minor-p$level"
-  url="ftp://ftp.ruby-lang.org/pub/ruby/$major/$rvm_package_name.tar.gz"
+  rvm_url="ftp://ftp.ruby-lang.org/pub/ruby/$major/$rvm_package_name.tar.gz"
 
   rvm-log-info "Installing Ruby from source to: $rvm_install_path/$rvm_package_name"
-  mkdir -p $rvm_install_path/$rvm_package_name $log_path/$rvm_package_name
+  mkdir -p $log_path/$rvm_package_name
 
   pushd $rvm_source_path > /dev/null
   if [ -d $rvm_package_name ]  ; then
@@ -167,14 +167,16 @@ function rvm-install-source {
   else
     if [ ! -f "$rvm_archives_path/$rvm_package_name.tar.gz" ] ; then
       rvm-log-info "\tDownloading $rvm_package_name, this may take a while depending on your connection..."
-      rvm-curl $url
+      rvm-curl $rvm_url
     fi
     rvm-log-info "\tExtracting $rvm_package_name..."
-    nice -n $niceness tar xzf $rvm_package_name.tar.gz && cd $rvm_package_name
+    mkdir -p $rvm_source_path/$rvm_package_name
+    nice -n $niceness tar xzf $rvm_archives_path/$rvm_package_name.tar.gz -C $rvm_source_path
   fi
 
-  rvm-log-info "\tConfiguring $rvm_package_name using ${configure:-'--enable-shared'}, this may take a while depending on your cpu(s)..."
-  nice -n $niceness ./configure --prefix=$rvm_install_path/$rvm_package_name ${configure:-'--enable-shared'} > $log_path/$rvm_package_name/configure.log 2> $log_path/$rvm_package_name/configure.error.log
+  cd $rvm_source_path/$rvm_package_name
+  rvm-log-info "\tConfiguring $rvm_package_name using ${configure:-"--enable-shared"}, this may take a while depending on your cpu(s)..."
+  nice -n $niceness ./configure --prefix=$rvm_install_path/$rvm_package_name ${configure:-"--enable-shared"} > $log_path/$rvm_package_name/configure.log 2> $log_path/$rvm_package_name/configure.error.log
 
   rvm-log-info "\tCompiling $rvm_package_name, this may take a while, depending on your cpu(s)..."
   nice -n $niceness make > $log_path/$rvm_package_name/make.log 2> $log_path/$rvm_package_name/make.error.log
@@ -186,15 +188,16 @@ function rvm-install-source {
   ln -fs $rvm_install_path/$rvm_package_name/bin/ruby $rvm_install_path/bin/$rvm_package_name
 
   rvm-log-info "\tInstalling rubygems dedicated to $rvm_package_name..."
-  gem_package_name="rubygems-1.3.5"
-  gem_url="http://rubyforge.org/frs/download.php/60718/$gem_package_name.tgz"
-  if [ -d $gem_package_name ]  ; then
-    cd $gem_package_name
+  rvm_gem_package_name="rubygems-1.3.5"
+  rvm_gem_url="http://rubyforge.org/frs/download.php/60718/$rvm_gem_package_name.tgz"
+  if [ -d $rvm_source_path/$rvm_gem_package_name ]  ; then
+    cd $rvm_source_path/$rvm_gem_package_name
   else
-    if [ ! -f "$rvm_archives_path/$gem_package_name.tgz" ] ; then rvm-curl $gem_package_name.tgz ; fi
-    nice -n $niceness tar zxf $gem_package_name.tgz && cd $gem_package_name
+    if [ ! -f "$rvm_archives_path/$rvm_gem_package_name.tgz" ] ; then rvm-curl $rvm_gem_url ; fi
+    mkdir -p $rvm_source_path/$rvm_gem_package_name
+    nice -n $niceness tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
   fi
-  nice -n $niceness $rvm_install_path/$rvm_package_name/bin/ruby ./setup.rb > $log_path/$rvm_package_name/rubygems.install.log 2> $log_path/$rvm_package_name/rubygems.install.error.log
+  nice -n $niceness $rvm_install_path/$rvm_package_name/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb > $log_path/$rvm_package_name/rubygems.install.log 2> $log_path/$rvm_package_name/rubygems.install.error.log
   popd > /dev/null
   rvm-log-info "Installation of $rvm_package_name complete."
 
@@ -206,7 +209,9 @@ function rvm-install-source {
 
 function rvm-install-ruby {
 
-  ruby_options=$RUBYOPT ; unset RUBYOPT
+  if [ -z "$RUBYOPT" ] ; then
+    ruby_options=$RUBYOPT ; unset RUBYOPT
+  fi
 
   case "$rvm_implementation" in
 
@@ -214,22 +219,25 @@ function rvm-install-ruby {
       rvm_version=${rvm_version:-1.8.6}
       rvm_patchlevel=${rvm_patchlevel:-20090610}
       rvm_package_name="ruby-enterprise-$rvm_version-$rvm_patchlevel"
-      url="http://rubyforge.org/frs/download.php/58677/$rvm_package_name.tar.gz"
+      rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_package_name.tar.gz"
       rvm-log-info "Installing Ruby Enterprise Edition from source to: $rvm_install_path/$rvm_package_name"
       pushd $rvm_source_path > /dev/null
-      if [ -d $rvm_package_name ]  ; then
-        cd $rvm_package_name
+      if [ -d $rvm_source_path/$rvm_package_name ]  ; then
+        cd $rvm_source_path/$rvm_package_name
       else
         if [ ! -f "$rvm_archives_path/$rvm_package_name.tar.gz" ] ; then
           rvm-log-info "\tDownloading $rvm_package_name, this may take a while depending on your connection..."
-          rvm-curl $url
+          rvm-curl $rvm_url
         fi
         rvm-log-info "\tExtracting $rvm_package_name..."
-        nice -n $niceness tar xzf $rvm_package_name.tar.gz && cd $rvm_package_name
+        mkdir -p $rvm_source_path/$rvm_package_name
+        nice -n $niceness tar xzf $rvm_archives_path/$rvm_package_name.tar.gz -C $rvm_source_path
       fi
 
       rvm-log-info "\tInstalling $rvm_package_name, this may take a while, depending on your cpu(s)..."
-      mkdir -p $rvm_install_path/$rvm_package_name $log_path/$rvm_package_name
+      mkdir -p $log_path/$rvm_package_name
+
+      cd $rvm_source_path/$rvm_package_name
       nice -n $niceness ./installer -a $rvm_install_path/ruby-enterprise-$rvm_version-$rvm_patchlevel --dont-install-useful-gems > $log_path/$rvm_package_name/install.log 2> $log_path/$rvm_package_name/install.error.log
       chmod +x $rvm_install_path/$rvm_package_name/bin/*
 
@@ -237,14 +245,15 @@ function rvm-install-ruby {
 
       rvm-log-info "\tInstalling rubygems dedicated to $rvm_package_name..."
       gem_package_name="rubygems-1.3.5"
-      gem_url="http://rubyforge.org/frs/download.php/60718/$gem_package_name.tgz"
+      rvm_gem_url="http://rubyforge.org/frs/download.php/60718/$gem_package_name.tgz"
       if [ -d $gem_package_name ]  ; then
-        cd $gem_package_name
+        cd $rvm_source_path/$gem_package_name
       else
-        if [ ! -f "$rvm_archives_path/$gem_package_name.tgz" ] ; then rvm-curl $gem_url ; fi
-        nice -n $niceness tar zxf $gem_package_name.tgz && cd $gem_package_name
+        if [ ! -f "$rvm_archives_path/$gem_package_name.tgz" ] ; then rvm-curl $rvm_gem_url ; fi
+        mkdir -p $rvm_source_path/$gem_package_name
+        nice -n $niceness tar zxf $rvm_archives_path/$gem_package_name.tgz -C $rvm_source_path
       fi
-      nice -n $niceness $rvm_install_path/$rvm_package_name/bin/ruby ./setup.rb > $log_path/$rvm_package_name/rubygems.install.log 2> $log_path/$rvm_package_name/rubygems.install.error.log
+      nice -n $niceness $rvm_install_path/$rvm_package_name/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb > $log_path/$rvm_package_name/rubygems.install.log 2> $log_path/$rvm_package_name/rubygems.install.error.log
       rvm-log-info "Installation of $rvm_package_name complete."
       popd > /dev/null
 
@@ -257,22 +266,22 @@ function rvm-install-ruby {
     jruby)
       rvm_version=${rvm_version:-1.3.1} # 1.2.0, 1.3.1
       unset rvm_patchlevel # No patchlevel for jRuby
-      zipfile="$rvm_implementation-bin-$rvm_version"
+      rvm_package_file="$rvm_implementation-bin-$rvm_version"
       rvm_package_name="$rvm_implementation-$rvm_version"
-      url="http://dist.codehaus.org/$rvm_implementation/$rvm_version/$zipfile.zip"
+      rvm_url="http://dist.codehaus.org/$rvm_implementation/$rvm_version/$rvm_package_file.zip"
 
       rvm-log-info "Installing jRuby to: $rvm_install_path/$rvm_package_name"
-      mkdir -p $rvm_install_path/$rvm_package_name $log_path/$rvm_package_name
+      mkdir -p $log_path/$rvm_package_name
       pushd $rvm_source_path > /dev/null
-      if [ -d $zipfile ]  ; then
-        cd $zipfile
+      if [ -d $rvm_package_name ]  ; then
+        cd $rvm_source_path/$rvm_package_name
       else
-        if [ ! -f "$rvm_archives_path/$zipfile.zip" ] ; then
-          rvm-log-info "\tDownloading $zipfile, this may take a while depending on your connection..."
-          rvm-curl $url
+        if [ ! -f "$rvm_archives_path/$rvm_package_file.zip" ] ; then
+          rvm-log-info "\tDownloading $rvm_package_file, this may take a while depending on your connection..."
+          rvm-curl $rvm_url
         fi
-        rvm-log-info "\tExtracting $zipfile..."
-        nice -n $niceness jar xf $zipfile.zip
+        rvm-log-info "\tExtracting $rvm_package_file..."
+        nice -n $niceness unzip -q $rvm_archives_path/$rvm_package_file.zip -d $rvm_source_path
       fi
 
       rvm-log-info "\tInstalling $rvm_package_name..."
@@ -316,7 +325,7 @@ function rvm-uninstall {
   case "$rvm_implementation" in
 
     jruby)
-      rvm_version="${rvm_version:-'1.3.1'}"
+      rvm_version="${rvm_version:-1.3.1}"
       if [ "$rvm_version" = "1.2.0" -o "$rvm_version" = "1.3.1" ] ; then
         rvm_package_name="jruby*-$rvm_version"
       else
@@ -325,9 +334,9 @@ function rvm-uninstall {
     ;;
 
     ree)
-      rvm_version=${rvm_version:-'1.8.6'}
+      rvm_version=${rvm_version:-1.8.6}
       if [ "$rvm_version" = "1.8.6" ] ; then
-        rvm_package_name="ruby-enterprise-$rvm_version-${3:-'20090610'}"
+        rvm_package_name="ruby-enterprise-$rvm_version-${3:-20090610}"
       else
         rvm-log-fail "Unknown Ruby Enterprise Edition version: $rvm_version"
       fi
@@ -646,13 +655,13 @@ function rvm {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|use|path|info|setup|version|srcdir|list|symlinks|reset|debug)
+      install|uninstall|use|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload)
         rvm_action=$rvm_token
       ;;
 
       ruby|jruby|ree|default|all)
         rvm_implementation="$rvm_token"
-        rvm_action="${rvm_action:-'use'}"
+        rvm_action="${rvm_action:-use}"
       ;;
 
       gemdir)
@@ -664,7 +673,7 @@ function rvm {
           rvm_implementation="user"  ; shift
         fi
 
-        rvm_implementation="${rvm_implementation:-'current'}"
+        rvm_implementation="${rvm_implementation:-current}"
       ;;
 
       gemdup)
@@ -708,17 +717,17 @@ function rvm {
 
   if [ "$rvm_debug" = "1" ] ; then set -x ; fi
 
-  curl=`which curl`
+  rvm_curl=`which curl`
   if [ $? -ne 0 ] ; then
     rvm-log-fail "rvm expects that curl is available, which curl shows no curl :("
   else
-    curl="$curl -O -L -s"
+    rvm_curl="$rvm_curl -O -L -s"
   fi
 
   if [ -z "$rvm_implementation" -a -z "$rvm_version" ] ; then
     rvm_implementation="default"
   else
-    rvm_implementation=${rvm_implementation:-'ruby'}
+    rvm_implementation=${rvm_implementation:-ruby}
   fi
 
   niceness=${niceness:-0}
@@ -726,7 +735,7 @@ function rvm {
   # TODO: Sanitize user input, ensure that there is a / a the end...
   if [ "`whoami`" = "root" ] ; then
     rvm-log-fail "root user support is not yet implemented."
-    #rvm_prefix_path=${rvm_prefix_path:-'/usr/local/'}
+    #rvm_prefix_path=${rvm_prefix_path:-/usr/local/}
   else
     rvm_prefix_path=${rvm_prefix_path:-"$HOME/."}
   fi
