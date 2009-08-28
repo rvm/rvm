@@ -1,4 +1,15 @@
 task :default => [:gem]
+puts <<-LOCAL_INSTALL_WARNING
+
+  \033[0;33mINSTALLING FROM SOURCE\033[0m
+
+  If you're using rvm from source, don't build the gem
+  Instead, run one of the following from the rvm source root
+
+    \033[0;32mFor first-time install:  ./bash/rvm-install\033[0m
+      \033[0;32mFor updating install:  ./bash/rvm-update\033[0m
+
+LOCAL_INSTALL_WARNING
 
 desc "Build the rvm gem and then install it (NO sudo)."
 task :gem do
