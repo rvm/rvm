@@ -147,16 +147,30 @@ function rvm-curl {
 function rvm-install-source {
 
   rvm_version="${1:-1.8.6}"
+  # TODO: Refactor this :/
   case "$rvm_version" in
-    1.9|1.9.1) rvm_major="1.9" ; rvm_minor="1" ; rvm_patch_level="${2:-243}" ;;
+    1.9|1.9.1) rvm_major="1.9" ; rvm_minor="1" ; rvm_patch_level="${2:-243}"     ;;
     1.9.2)     rvm_major="1.9" ; rvm_minor="2" ; rvm_patch_level="${2:-review1}" ;;
-    1.8|1.8.6) rvm_major="1.8" ; rvm_minor="6" ; rvm_patch_level="${2:-369}" ;;
-        1.8.7) rvm_major="1.8" ; rvm_minor="7" ; rvm_patch_level="${2:-174}" ;;
+    1.8|1.8.6) rvm_major="1.8" ; rvm_minor="6" ; rvm_patch_level="${2:-369}"     ;;
+        1.8.7) rvm_major="1.8" ; rvm_minor="7" ; rvm_patch_level="${2:-174}"     ;;
+    1.8.5)     rvm_major="1.8" ; rvm_minor="5" ; rvm_patch_level="${2:-115}"     ;;
+    # TODO: simply snatch the trailing number instead of all the lines below.
+    1.8.4)     rvm_major="1.8" ; rvm_minor="4" ; unset rvm_patch_level           ;;
+    1.8.3)     rvm_major="1.8" ; rvm_minor="3" ; unset rvm_patch_level           ;;
+    1.8.2)     rvm_major="1.8" ; rvm_minor="2" ; unset rvm_patch_level           ;;
+    1.8.1)     rvm_major="1.8" ; rvm_minor="1" ; unset rvm_patch_level           ;;
+    1.8.0)     rvm_major="1.8" ; rvm_minor="0" ; unset rvm_patch_level           ;;
     *) rvm-log-fail "Ruby version '$rvm_version' is unknown."
   esac
 
-  rvm_package_name="ruby-$rvm_major.$rvm_minor-p$rvm_patch_level"
+  if [ -z "$rvm_patch_level" ] ; then
+    rvm_package_name="ruby-$rvm_major.$rvm_minor"
+  else
+    rvm_package_name="ruby-$rvm_major.$rvm_minor-p$rvm_patch_level"
+  fi
+
   rvm_url="ftp://ftp.ruby-lang.org/pub/ruby/$rvm_major/$rvm_package_name.tar.gz"
+  http://rubyforge.org/frs/download.php/33464/ruby-1.8.5-p115.tar.gz
 
   rvm-log-info "Installing Ruby from source to: $rvm_install_path/$rvm_package_name"
   mkdir -p $rvm_log_path/$rvm_package_name
@@ -220,8 +234,8 @@ function rvm-install-ruby {
 
     ree)
       rvm_version=${rvm_version:-1.8.6}
-      rvm_patchlevel=${rvm_patchlevel:-20090610}
-      rvm_package_name="ruby-enterprise-$rvm_version-$rvm_patchlevel"
+      rvm_patch_level=${rvm_patch_level:-20090610}
+      rvm_package_name="ruby-enterprise-$rvm_version-$rvm_patch_level"
       rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_package_name.tar.gz"
       rvm-log-info "Installing Ruby Enterprise Edition from source to: $rvm_install_path/$rvm_package_name"
       pushd $rvm_source_path > /dev/null
@@ -241,7 +255,7 @@ function rvm-install-ruby {
       mkdir -p $rvm_log_path/$rvm_package_name
 
       cd $rvm_source_path/$rvm_package_name
-      nice -n $niceness ./installer -a $rvm_install_path/ruby-enterprise-$rvm_version-$rvm_patchlevel --dont-install-useful-gems > $rvm_log_path/$rvm_package_name/install.log 2> $rvm_log_path/$rvm_package_name/install.error.log
+      nice -n $niceness ./installer -a $rvm_install_path/ruby-enterprise-$rvm_version-$rvm_patch_level --dont-install-useful-gems > $rvm_log_path/$rvm_package_name/install.log 2> $rvm_log_path/$rvm_package_name/install.error.log
       chmod +x $rvm_install_path/$rvm_package_name/bin/*
 
       ln -fs $rvm_install_path/$rvm_package_name/bin/ruby $rvm_install_path/bin/$rvm_package_name
@@ -271,7 +285,7 @@ function rvm-install-ruby {
 
     jruby)
       rvm_version=${rvm_version:-1.3.1} # 1.2.0, 1.3.1
-      unset rvm_patchlevel # No patchlevel for jRuby
+      unset rvm_patch_level # No patchlevel for jRuby
       rvm_package_file="$rvm_implementation-bin-$rvm_version"
       rvm_package_name="$rvm_implementation-$rvm_version"
       rvm_url="http://dist.codehaus.org/$rvm_implementation/$rvm_version/$rvm_package_file.zip"
@@ -309,7 +323,7 @@ function rvm-install-ruby {
     ;;
 
     ruby)
-      rvm-install-source ${rvm_version:-1.8.6} ${rvm_patchlevel:-$3}
+      rvm-install-source ${rvm_version:-1.8.6} ${rvm_patch_level:-$3}
     ;;
 
     default)
@@ -328,6 +342,8 @@ function rvm-install-ruby {
 function rvm-uninstall {
 
   rvm_implementation="${1:-$rvm_implementation}"
+  if [ "$rvm_version" = "1.8" ] ; then rvm_version="1.8.6" ; fi
+  if [ "$rvm_version" = "1.9" ] ; then rvm_version="1.9.1" ; fi
   case "$rvm_implementation" in
 
     jruby)
@@ -350,17 +366,22 @@ function rvm-uninstall {
 
     ruby)
       if [ "$rvm_version" = "1.8.7" ] ; then
-        rvm_package_name="ruby-1.8.7-p${rvm_patchlevel:-174}"
+        rvm_package_name="ruby-${rvm_version}-p${rvm_patch_level:-174}"
 
-      elif [ "$rvm_version" = "1.8.6" -o "$rvm_version" = "1.8" ] ; then
-        rvm_package_name="ruby-1.8.6-p${rvm_patchlevel:-369}"
+      elif [ "$rvm_version" = "1.8.6" ] ; then
+        rvm_package_name="ruby-${rvm_version}-p${rvm_patch_level:-369}"
 
       elif [ "$rvm_version" = "1.9.2" ] ; then
-        rvm_package_name="ruby-1.9.2-p${rvm_patchlevel:-review1}"
+        rvm_package_name="ruby-${rvm_version}-p${rvm_patch_level:-review1}"
 
-      elif [ "$rvm_version" = "1.9.1" -o "$rvm_version" = "1.9" ] ; then
-        rvm_package_name="ruby-1.9.1-p${rvm_patchlevel:-243}"
+      elif [ "$rvm_version" = "1.9.1" ] ; then
+        rvm_package_name="ruby-${rvm_version}-p${rvm_patch_level:-243}"
 
+      elif [ "$rvm_version" = "1.8.5" ] ; then
+        rvm_package_name="ruby-${rvm_version}-p${rvm_patch_level:-115}"
+
+      elif [ "$rvm_version" = "1.8.0" -o "$rvm_version" = "1.8.1" -o "$rvm_version" = "1.8.2" -o "$rvm_version" = "1.8.3" -o "$rvm_version" = "1.8.4" -o ] ; then
+        rvm_package_name="ruby-${rvm_version}"
       else
         rvm-log-fail "Unknown ruby version: $rvm_version"
       fi
@@ -384,6 +405,15 @@ function rvm-uninstall {
 
 }
 
+#function rvm-switch {
+  # Determine and set:
+  # rvm_implementation
+  # rvm_version
+  # rvm_patch_level (optional)
+  # rvm_ruby_home
+  # rvm_gem_home
+#}
+
 function rvm-use {
 
   rvm_implementation="${1:-$rvm_implementation}"
@@ -400,7 +430,7 @@ function rvm-use {
       rvm_version="${rvm_version:-1.3.1}"
       if [ "$rvm_version" = "1.2.0" -o "$rvm_version" = "1.3.1" ] ; then
         MY_RUBY_HOME="$rvm_install_path/jruby-$rvm_version"
-        GEM_HOME="$HOME/.gem/jruby/1.8"
+        GEM_HOME="$rvm_gem_path/jruby/1.8"
         alias ruby_ng="jruby --ng"
         alias ruby_ng_server="jruby --ng-server"
       else
@@ -411,44 +441,55 @@ function rvm-use {
     ree)
       rvm_version=${rvm_version:-1.8.6}
       if [ "$rvm_version" = "1.8.6" ] ; then
-        rvm_patchlevel="${3:-20090610}"
-        MY_RUBY_HOME="$rvm_install_path/ruby-enterprise-$rvm_version-$rvm_patchlevel"
-        GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"
+        rvm_patch_level="${3:-20090610}"
+        MY_RUBY_HOME="$rvm_install_path/ruby-enterprise-$rvm_version-$rvm_patch_level"
+        GEM_HOME="$rvm_gem_path/ruby-enterprise/1.8"
       else
         rvm-log-fail "Unknown Ruby Enterprise Edition version: $rvm_version"
       fi
     ;;
 
     ruby)
-      if [ "$rvm_version" = "1.8.7" ] ; then
-        level="${rvm_patchlevel:-174}"
-        MY_RUBY_HOME="$rvm_install_path/ruby-1.8.7-p$level"
-        GEM_HOME="$HOME/.gem/ruby/1.8.7"
+      if [ "$rvm_version" = "1.8" ] ; then rvm_version="1.8.6" ; fi
+      if [ "$rvm_version" = "1.9" ] ; then rvm_version="1.9.1" ; fi
 
-      elif [ "$rvm_version" = "1.8.6" -o "$rvm_version" = "1.8" ] ; then
-        level="${rvm_patchlevel:-369}"
-        MY_RUBY_HOME="$rvm_install_path/ruby-1.8.6-p$level"
-        GEM_HOME="$HOME/.gem/ruby/1.8.6"
+      # TODO: Refactor this, simplify.
+      if [ "$rvm_version" = "1.8.7" ] ; then
+        rvm_patch_level="${rvm_patch_level:-174}"
+
+      elif [ "$rvm_version" = "1.8.6" ] ; then
+        rvm_patch_level="${rvm_patch_level:-369}"
 
       elif [ "$rvm_version" = "1.9.2" ] ; then
-        level="${rvm_patchlevel:-review1}"
-        MY_RUBY_HOME="$rvm_install_path/ruby-1.9.2-p$level"
-        GEM_HOME="$HOME/.gem/ruby/1.9.2"
+        rvm_patch_level="${rvm_patch_level:-review1}"
 
-      elif [ "$rvm_version" = "1.9.1" -o "$rvm_version" = "1.9" ] ; then
-        level="${rvm_patchlevel:-243}"
-        MY_RUBY_HOME="$rvm_install_path/ruby-1.9.1-p$level"
-        GEM_HOME="$HOME/.gem/ruby/1.9.1"
+      elif [ "$rvm_version" = "1.9.1" ] ; then
+        rvm_patch_level="${rvm_patch_level:-243}"
+
+      elif [ "$rvm_version" = "1.8.5" ] ; then
+        rvm_patch_level="${rvm_patch_level:-115}"
+
+      elif [ "$rvm_version" = "1.8.0" -o "$rvm_version" = "1.8.1" -o "$rvm_version" = "1.8.2" -o "$rvm_version" = "1.8.3" -o "$rvm_version" = "1.8.4" ] ; then
+        unset rvm_patch_level
 
       else
         rvm-log-fail "Unknown ruby version: $rvm_version"
       fi
+
+      if [ -z "$rvm_patch_level" ] ; then
+        MY_RUBY_HOME="$rvm_install_path/ruby-${rvm_version}"
+      else
+        MY_RUBY_HOME="$rvm_install_path/ruby-${rvm_version}-p${rvm_patch_level}"
+      fi
+      # TODO: rvm_gem_home
+      GEM_HOME="$rvm_gem_path/$rvm_implementation/$rvm_version"
     ;;
 
     *)
       rvm-log-fail "Ruby implementation '$rvm_implementation' is not known."
 
   esac
+  # TODO: Base this off of a) rvm_package_name, b) $rvm_version and c) $rvm_implementation
 
   # Now actually use it.
   if [ ! "$rvm_implementation" = "default" ] ; then
@@ -470,7 +511,7 @@ function rvm-use {
     done
   fi
 
-  rvm-log-info "Switching to $rvm_implementation $rvm_version $rvm_patchlevel ...\n"
+  rvm-log-info "Switching to $rvm_implementation $rvm_version $rvm_patch_level ...\n"
   if [ ! -z "$BASH_VERSION" ] ; then
     exec bash -l
   elif [ ! -z "$ZSH_VERSION" ] ; then
@@ -524,26 +565,33 @@ function rvm-gem-dir {
 
   rvm_implementation=${1:-$rvm_implementation}
   if [ -z "$rvm_implementation" ] ; then rvm_implementation="current" ; fi
+  if [ "$rvm_implementation" = "current" -o "$rvm_implementation" = "default" ] ; then
+    if [ ! -z "$rvm_version" ] ; then rvm_implementation="ruby" ; fi
+  fi
 
   case "$rvm_implementation" in
-    jruby)   GEM_HOME="$HOME/.gem/jruby/1.8" ;;
-    ree)     GEM_HOME="$HOME/.gem/ruby-enterprise/1.8"  ;;
+    jruby)
+      rvm_version="${rvm_version:-1.3.1}"
+      GEM_HOME="$rvm_gem_path/jruby/${rvm_version}"
+    ;;
+    ree)
+      rvm_version="${rvm_version:-1.8.6}"
+      GEM_HOME="$rvm_gem_path/ruby-enterprise/${rvm_version}"
+    ;;
     ruby)
-      if [ "${2:-$rvm_version}" = "1.8" -o "${2:-$rvm_version}" = "1.8.6" ] ; then
-        GEM_HOME="$HOME/.gem/ruby/1.8"
+      if [ "$rvm_version" = "1.8" ] ; then rvm_version="1.8.6" ; fi
+      if [ "$rvm_version" = "1.9" ] ; then rvm_version="1.9.1" ; fi
 
-      elif [ "${2:-$rvm_version}" = "1.9.2" ] ; then
-        GEM_HOME="$HOME/.gem/ruby/1.9.2"
+      rvm_version="${2:-$rvm_version}"
 
-      elif [ "${2:-$rvm_version}" = "1.9" -o "${2:-$rvm_version}" = "1.9.1" ] ; then
-        GEM_HOME="$HOME/.gem/ruby/1.9.1"
-
+      if [ -d "$rvm_gem_path/$rvm_implementation/$rvm_version" ] ; then
+        GEM_HOME="$rvm_gem_path/$rvm_implementation/$rvm_version"
       else
-        rvm-log-fail "Unknown Version: ${2:-$rvm_version}"
+        rvm-log-fail "Unknown version 1.8.6 or not in stalled: $rvm_version"
       fi
     ;;
     current)
-      GEM_HOME=$(ruby -r rubygems -e "puts Gem::default_path.compact.first")
+      GEM_HOME=$($default_system_ruby -r rubygems -e "puts Gem::default_path.compact.first")
     ;;
     system)
       GEM_HOME=$default_system_gem_path
@@ -565,11 +613,10 @@ function rvm-gem-dir {
 
 function rvm-src-dir {
   case "${1:-$rvm_implementation}" in
-
     jruby)
       rvm_version=${rvm_version:-1.3.1}
       if [ "${2:-$rvm_version}" = "1.2.0" -o "${2:-$rvm_version}" = "1.3.1" ] ; then
-        src_dir="$rvm_source_path/$rvm_implementation-$rvm_version"
+        rvm_ruby_source_dir="$rvm_source_path/$rvm_implementation-$rvm_version"
       else
         rvm-log-fail "Unknown jRuby version: $rvm_version"
       fi
@@ -578,27 +625,43 @@ function rvm-src-dir {
     ree)
       rvm_version=${rvm_version:-1.8.6}
       if [ "${2:-$rvm_version}" = "1.8.6" -o "${2:-$rvm_version}" = "1.8" ] ; then
-        src_dir="$rvm_source_path/ruby-enterprise-${2:-$rvm_version}-"${3:-20090610}""
+        rvm_ruby_source_dir="$rvm_source_path/ruby-enterprise-${2:-$rvm_version}-"${3:-20090610}""
       else
         rvm-log-fail "Unknown Ruby Enterprise Edition version: ${2:-$rvm_version}"
       fi
     ;;
 
     ruby)
-      if [ "${2:-$rvm_version}" = "1.8.7" ] ; then
-        src_dir="$rvm_source_path/ruby-1.8.7-p${rvm_patchlevel:-174}"
+      if [ "$rvm_version" = "1.8" ] ; then rvm_version="1.8.6" ; fi
+      if [ "$rvm_version" = "1.9" ] ; then rvm_version="1.9.1" ; fi
 
-      elif [ "${2:-$rvm_version}" = "1.8" -o "${2:-$rvm_version}" = "1.8.6" ] ; then
-        src_dir="$rvm_source_path/ruby-1.8.6-p${rvm_patchlevel:-369}"
+      rvm_version="${2:-$rvm_version}"
 
-      elif [ "${2:-$rvm_version}" = "1.9.2" ] ; then
-        src_dir="$rvm_source_path/ruby-1.9.2-p${rvm_patchlevel:-review1}"
+      if [ "$rvm_version" = "1.8.7" ] ; then
+        rvm_patch_level="${rvm_patch_level:-174}"
 
-      elif [ "${2:-$rvm_version}" = "1.9" -o "${2:-$rvm_version}" = "1.9.1" ] ; then
-        src_dir="$rvm_source_path/ruby-1.9.1-p${rvm_patchlevel:-243}"
+      elif [ "$rvm_version" = "1.8.6" ] ; then
+        rvm_patch_level="${rvm_patch_level:-369}"
+
+      elif [ "$rvm_version" = "1.9.2" ] ; then
+        rvm_patch_level="${rvm_patch_level:-review1}"
+
+      elif [ "${rvm_version}" = "1.91" ] ; then
+        rvm_patch_level="${rvm_patch_level:-243}"
+
+      elif [ "$rvm_version" = "1.8.5" ] ; then
+        rvm_patch_level="${rvm_patch_level:-369}"
+
+      elif [ "$rvm_version" = "1.8.0" -o "$rvm_version" = "1.8.1" -o "$rvm_version" = "1.8.2" -o "$rvm_version" = "1.8.3" -o "$rvm_version" = "1.8.4" ] ; then
+        unset rvm_patch_level
 
       else
         rvm-log-fail "unknown Ruby version: ${2:-$rvm_version}"
+      fi
+      if [ -z "$rvm_patch_level" ] ; then
+        rvm_ruby_source_dir="$rvm_implementation-${rvm_version}"
+      else
+        rvm_ruby_source_dir="$rvm_source_path/$rvm_implementation-$rvm_version-p$rvm_patch_level"
       fi
     ;;
 
@@ -611,8 +674,8 @@ function rvm-src-dir {
       return 1
   esac
 
-  if [ -d $src_dir ] ; then
-    cd $src_dir
+  if [ -d $rvm_ruby_source_dir ] ; then
+    cd $rvm_ruby_source_dir
   else
     rvm-log-fail "$rvm_implementation $rvm_version source directory does not exist."
   fi
@@ -623,23 +686,24 @@ function rvm-src-dir {
 function rvm-gem-dup {
 
   if [ "$1" = "default" ] ; then
-    gem_dir="$default_user_gem_path"
+    rvm_source_gem_dir="$default_user_gem_path"
   elif [ "$1" = "system" ] ; then
-    gem_dir="$default_system_gem_path"
+    rvm_source_gem_dir="$default_system_gem_path"
   else
-    gem_dir=${1:-$default_user_gem_path} # TODO: check for and remove trailing /gems
+    rvm_source_gem_dir=${1:-$default_user_gem_path} # TODO: check for and remove trailing /gems
   fi
 
-  if [ ! -z "$gem_dir" ] ; then
-    for gem_name_version in `ls $gem_dir/gems` ; do
-      gem_name=${gem_name_version%-*}
-      gem_version=${gem_name_version##*-}
-      if [ -d $GEM_HOME/gems/$gem_name_version ] ; then
-        echo "$gem_name_version already installed."
+  if [ ! -z "$rvm_source_gem_dir" ] ; then
+    for rvm_gem_name_version in `ls $rvm_source_gem_dir/gems` ; do
+      rvm_gem_name=${rvm_gem_name_version%-*}
+      rvm_gem_version=${rvm_gem_name_version##*-}
+      if [ -d $GEM_HOME/gems/$rvm_gem_name_version ] ; then
+        echo "$rvm_gem_name_version already installed."
       else
-        rvm-gi $gem_dir/cache/$gem_name-$gem_version.gem
+        rvm-gi $rvm_source_gem_dir/cache/$rvm_gem_name-$rvm_gem_version.gem
       fi
     done
+    unset rvm_gem_name_version rvm_gem_name rvm_gem_version
   else
     rvm-log-fail "Unknown $rvm_implementation version: $rvm_version"
   fi
@@ -651,7 +715,7 @@ function rvm-version { echo "rvm $rvm_meta_version ($rvm_meta_updated) [$rvm_met
 function rvm {
 
   # Cleanup, aisle 3
-  for variable in rvm_action rvm_implementation rvm_patchlevel rvm_version rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_package_name; do
+  for variable in rvm_action rvm_implementation rvm_patch_level rvm_version rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_package_name rvm_gem_path ; do
     eval "unset $variable"
   done ; unset variable
 
@@ -672,9 +736,11 @@ function rvm {
 
       gemdir)
         rvm_action=$rvm_token
+
         if [ "$1" = "system" ] ; then
           rvm_implementation="system" ; shift
         fi
+
         if [ "$1" = "user" ] ; then
           rvm_implementation="user"  ; shift
         fi
@@ -696,7 +762,7 @@ function rvm {
         fi
       ;;
 
-      1.8|1.8.6|1.8.7|1.9|1.9.1|1.9.2|1.2.0|1.3.1)
+      1.8|1.8.0|1.8.1|1.8.2|1.8.3|1.8.4|1.8.5|1.8.6|1.8.7|1.9|1.9.1|1.9.2|1.2.0|1.3.1)
                        rvm_version="$rvm_token"
                        rvm_action="${rvm_action:-use}"
       ;;
@@ -710,11 +776,12 @@ function rvm {
                        shift
       ;;
 
-      -l|--level)      rvm_patchlevel="$1"    ; shift ;;
+      -l|--level)      rvm_patch_level="$1"   ; shift ;;
       -p|--prefix)     rvm_prefix_path="$1"   ; shift ;;
       -b|--bin)        rvm_bin_path="$1"      ; shift ;; # Undocumented / untested "feature"
       -s|--source)     rvm_source_path="$1"   ; shift ;; # Undocumented / untested "feature"
       -a|--archive)    rvm_archives_path="$1" ; shift ;;
+      -g|--gems)       rvm_gem_path="$1"      ; shift ;;
       -c|--configure)  configure="$1"         ; shift ;;
       -n|--nice)       niceness="$1"          ; shift ;;
       -d|--debug)      rvm_debug=1                    ;;
@@ -755,6 +822,7 @@ function rvm {
   rvm_source_path="${rvm_source_path:-"${rvm_install_path}/src"}"
   rvm_log_path=${rvm_log_path:-"${rvm_install_path}/log"}
   rvm_bin_path=${rvm_bin_path:-"${rvm_install_path}/bin"}
+  rvm_gem_path=${rvm_gem_path:-$HOME/.gem}
 
   PATH=$rvm_bin_path:$PATH ; export PATH
 
@@ -808,16 +876,16 @@ function rvm {
           fi
         done
       else
-        rvm-install-ruby $rvm_implementation $rvm_version $rvm_patchlevel
+        rvm-install-ruby $rvm_implementation $rvm_version $rvm_patch_level
       fi
     ;;
-    uninstall) rvm-uninstall $rvm_implementation $rvm_version $rvm_patchlevel ;;
-    use)       rvm-use       $rvm_implementation $rvm_version $rvm_patchlevel ;;
+    uninstall) rvm-uninstall $rvm_implementation $rvm_version $rvm_patch_level ;;
+    use)       rvm-use       $rvm_implementation $rvm_version $rvm_patch_level ;;
     list)      rvm-list                                                       ;;
-    gemdir)    rvm-gem-dir   $rvm_implementation $rvm_version $rvm_patchlevel ;;
-    srcdir)    rvm-src-dir   $rvm_implementation $rvm_version $rvm_patchlevel ;;
-    gemdup)    rvm-gem-dup   $rvm_implementation $rvm_version $rvm_patchlevel ;;
-    info)      rvm-info      $rvm_implementation $rvm_version $rvm_patchlevel ;;
+    gemdir)    rvm-gem-dir   $rvm_implementation $rvm_version $rvm_patch_level ;;
+    srcdir)    rvm-src-dir   $rvm_implementation $rvm_version $rvm_patch_level ;;
+    gemdup)    rvm-gem-dup   $rvm_implementation $rvm_version $rvm_patch_level ;;
+    info)      rvm-info      $rvm_implementation $rvm_version $rvm_patch_level ;;
     symlinks)  rvm-symlinks                                                   ;;
     version)   rvm-version                                                    ;;
     reset)     rvm-reset                                                      ;;
