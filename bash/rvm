@@ -89,7 +89,7 @@ Usage
 function rvm-log   {
 
   case "$1" in
-    debug) shift ; echo -e "\n\033[4;34m <d> $* \033[0m" ;;
+    debug) shift ; echo -e "\n\033[0;35m <d> $* \033[0m" ;;
     info)  shift ; echo -e "\n\033[0;32m <i> $* \033[0m" ;;
     warn)  shift ; echo -e "\n\033[0;33m <w> $* \033[0m" ;;
     fail)  shift ; echo -e "\n\033[0;31m <e> $* \033[0m" ; return 1 ;;
@@ -111,32 +111,6 @@ function rvm-remove-from-path {
 
 function rvm-gi { gem install -q --no-rdoc --no-ri $* ; }
 function rvm-gems-install { for gem in $* ; do rvm-gi $gem ; done }
-
-function rvm-info {
-  if [ -z "$rvm_selected" ] ; then rvm-select $* ; fi
-
-cat <<Info
-ruby:
-  interpreter:  "$(ruby -v | awk '{print $1}')"
-  version:      "$(ruby -v | awk '{print $2}')"
-  date:         "$(ruby -v | sed 's/^.*(\([0-9]\{4\}\(-[0-9][0-9]\)\{2\}\).*$/\1/')"
-  platform:     "$(ruby -v | sed 's/^.*\[//' | sed 's/\].*$//')"
-  patchlevel:   "$(ruby -v | sed 's/^.*(//' | sed 's/).*$//')"
-  full_version: "$(ruby -v)"
-
-homes:
-  gem:          "${GEM_HOME:-'not set'}"
-  ruby:         "${MY_RUBY_HOME:-'not set'}"
-
-binaries:
-  ruby:         "$(which ruby)"
-  irb:          "$(which irb)"
-  gem:          "$(which gem)"
-
-Info
-
-return 0
-}
 
 function rvm-set-defaults {
 
@@ -207,6 +181,8 @@ function rvm-initialize {
   rvm_log_path=${rvm_log_path:-"${rvm_install_path}/log"}
   rvm_bin_path=${rvm_bin_path:-"${rvm_install_path}/bin"}
   rvm_gem_path=${rvm_gem_path:-"${rvm_install_path}/gems"}
+
+  rvm_ruby_svn_tag_url="http://svn.ruby-lang.org/repos/ruby/tags"
 
   rvm-clean-path
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
@@ -709,17 +685,19 @@ function rvm-parse-args {
                        shift
       ;;
 
-      -l|--level)      rvm_ruby_patch_level="$1"   ; shift ;;
-      -p|--prefix)     rvm_prefix_path="$1"   ; shift ;;
-      -b|--bin)        rvm_bin_path="$1"      ; shift ;; # Undocumented / untested "feature"
-      -s|--source)     rvm_source_path="$1"   ; shift ;; # Undocumented / untested "feature"
-      -a|--archive)    rvm_archives_path="$1" ; shift ;;
-      -g|--gems)       rvm_gem_path="$1"      ; shift ;;
-      -c|--configure)  rvm_ruby_configure="$1"; shift ;;
-      -n|--nice)       rvm_niceness="$1"      ; shift ;;
-      -f|--file)       rvm_ruby_args="$1"     ; shift ;; # Run ruby on a file:
-      -u|--default)    rvm_set_default=1              ;;
-      -d|--debug)      rvm_debug=1                    ;;
+      -l|--level)      rvm_ruby_patch_level="$1" ; shift ;;
+      -p|--prefix)     rvm_prefix_path="$1"      ; shift ;;
+      -b|--bin)        rvm_bin_path="$1"         ; shift ;;
+      -s|--source)     rvm_source_path="$1"      ; shift ;;
+      -a|--archive)    rvm_archives_path="$1"    ; shift ;;
+      -g|--gems)       rvm_gem_path="$1"         ; shift ;;
+      -c|--configure)  rvm_ruby_configure="$1"   ; shift ;;
+      -t|--tag)        rvm_ruby_tag="$1"         ; shift ;;
+      -a|--archive)    rvm_archives_path="$1"    ; shift ;;
+      -n|--nice)       rvm_niceness="$1"         ; shift ;;
+      -f|--file)       rvm_ruby_args="$1"        ; shift ;;
+      -u|--default)    rvm_set_default=1                 ;;
+      -d|--debug)      rvm_debug=1                       ;;
 
       default|system)
         rvm_action="use"
@@ -765,13 +743,12 @@ function rvm {
     ;;
     uninstall) rvm-uninstall $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level ;;
     use)       rvm-use       $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level ;;
-    list)      rvm-list                                                        ;;
+    list)      rvm-list                                                                    ;;
     gemdir)    rvm-gem-dir   $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level ;;
     srcdir)    rvm-src-dir   $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level ;;
     gemdup)    rvm-gem-dup   $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level ;;
-    info)      rvm info                                                        ;;
-    symlinks)  rvm-symlinks                                                    ;;
-    version)   rvm-version                                                     ;;
+    symlinks)  rvm-symlinks                                                                ;;
+    version)   rvm-version                                                                 ;;
     rubydo)
                if [ ! -z "$rvm_ruby_version" ] ; then
                  rvm-select $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
@@ -789,16 +766,42 @@ function rvm {
                # TODO: how can we use bin_path here for reload, default file?
     reload)    source ~/.rvm/bin/rvm                                           ;;
     error)     rvm-log "fail" "$rvm_error_message ( see: rvm usage )" ; return 1;                 ;;
-    debug)
+    info|debug)
                rvm-version
-               rvm-info
-               rvm-log "info" "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"$5}')"
-               for file in .bash_profile .zshrc ; do
-                 if [ -s $file ] ; then
-                   rvm-log "info" "~/$file: \n$(cat ~/$file| tail -n 5)\n"
+cat <<-Info
+
+ruby:
+  interpreter:  "$(ruby -v | awk '{print $1}')"
+  version:      "$(ruby -v | awk '{print $2}')"
+  date:         "$(ruby -v | sed 's/^.*(\([0-9]\{4\}\(-[0-9][0-9]\)\{2\}\).*$/\1/')"
+  platform:     "$(ruby -v | sed 's/^.*\[//' | sed 's/\].*$//')"
+  patchlevel:   "$(ruby -v | sed 's/^.*(//' | sed 's/).*$//')"
+  full_version: "$(ruby -v)"
+
+homes:
+  gem:          "${GEM_HOME:-'not set'}"
+  ruby:         "${MY_RUBY_HOME:-'not set'}"
+
+binaries:
+  ruby:         "$(which ruby)"
+  irb:          "$(which irb)"
+  gem:          "$(which gem)"
+Info
+
+               if [ "$rvm_action" = "debug" ] ; then
+                 rvm-log "info" "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"$5}')"
+                 for file in .bash_profile .bashrc .zshrc ; do
+                   if [ -s $file ] ; then
+                     rvm-log "debug" "~/$file:\n$(cat ~/$file | grep rvm)\n"
+                   fi
+                 done
+                 if [ -s $rvm_install_path/current ] ; then
+                   rvm-log "debug" "$rvm_install_path/current:\n$($rvm_install_path/current)\n"
                  fi
-               done
-               rvm-log "info" "$rvm_install_path/current: \n$(cat $rvm_install_path/current)\n"
+                 if [ -e $rvm_install_path/bin/rvm ] ; then
+                   rvm-log "debug" "rvm script in bin:\n$(ls -laht $rvm_install_path/bin/rvm)"
+                 fi
+               fi
                return 0
     ;;
     *)
