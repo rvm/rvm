@@ -87,11 +87,12 @@ Usage
 
 # Logging functions based on level
 function rvm-log   {
+
   case "$1" in
-    debug) echo -e "\n\033[4;34m <d> $* \033[0m" ;;
-    info)  echo -e "\n\033[0;32m <i> $* \033[0m" ;;
-    warn)  echo -e "\n\033[0;33m <w> $* \033[0m" ;;
-    fail)  echo -e "\n\033[0;31m <e> $* \033[0m" ; return 1 ;;
+    debug) shift ; echo -e "\n\033[4;34m <d> $* \033[0m" ;;
+    info)  shift ; echo -e "\n\033[0;32m <i> $* \033[0m" ;;
+    warn)  shift ; echo -e "\n\033[0;33m <w> $* \033[0m" ;;
+    fail)  shift ; echo -e "\n\033[0;31m <e> $* \033[0m" ; return 1 ;;
     *) echo -e "$*"
   esac
 }
@@ -634,7 +635,7 @@ function rvm-execute {
 }
 
 function rvm-cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message
 }
 
 function rvm-get-user-defaults {
@@ -731,12 +732,14 @@ function rvm-parse-args {
         rvm_ruby_interpreter="system"
       ;;
       *)
-      rvm-usage
-      rvm-log "fail" "Unrecognized command line argument(s): '$rvm_token $*'"
+      rvm_action="error"
+      rvm_error_message="Unrecognized command line argument(s): '$rvm_token $*'"
+      break;
     esac
-    if [ ! -z "$rvm_ruby_args" ] ; then break; fi
+    if [ ! -z "$rvm_ruby_args" -o ! -z "$rvm_error_message" ] ; then break; fi
   done
 
+  if [ ! -z "$rvm_error_message" ] ; then return 1 ; fi
   if [ -z "$rvm_debug" ] ; then set +x ; else set -x ; fi
 
 }
@@ -791,6 +794,7 @@ function rvm {
     reset)     rvm-reset                                                       ;;
                # TODO: how can we use bin_path here for reload, default file?
     reload)    source ~/.rvm/bin/rvm                                           ;;
+    error)     rvm-log "fail" "$rvm_error_message ( see: rvm usage )" ; return 1;                 ;;
     debug)
                rvm-version
                rvm-info
