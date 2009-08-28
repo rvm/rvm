@@ -96,12 +96,13 @@ function rvm-log   {
   esac
 }
 
-function rvm-clean-path { PATH=`echo $PATH | tr -s ':' '\n' |  awk '!($0 in a){a[$0];print}' | tr -s '\n' ':'` ; export PATH ; }
+function rvm-clean-path { PATH=`echo $PATH | tr -s ':' '\n' | awk '!($0 in a){a[$0];print}' | tr -s '\n' ':'` ; export PATH ; }
+function rvm-remove-from-path { PATH=`echo $PATH | tr -s ':' '\n' | grep -v "\.rvm" | tr -s '\n' ':'` ; export PATH ; }
 function rvm-gi { gem install -q --no-rdoc --no-ri $* ; }
 function rvm-gems-install { for gem in $* ; do rvm-gi $gem ; done }
 
 function rvm-info {
-  rvm-select $*
+  if [ -z "$rvm_selected" ] ; then rvm-select $* ; fi
 
   cat <<-Info
 
@@ -137,11 +138,11 @@ function rvm-set-defaults {
     done
   fi
 
-  rvm-clean-path
   if [ -s $rvm_install_path/default_path ] ; then
     rvm_default_path=`cat $rvm_install_path/default_path`
   else
     rvm-clean-path # Clean the path the first time we compute default path.
+    rvm-remove-from-path
     echo $PATH > $rvm_install_path/default_path
     rvm_default_path=$PATH
   fi
@@ -176,12 +177,6 @@ function rvm-initialize {
     rvm_curl="$rvm_curl -O -L -s"
   fi
 
-  if [ -z "$rvm_implementation" -a -z "$rvm_version" ] ; then
-    rvm_implementation="default"
-  else
-    rvm_implementation=${rvm_implementation:-ruby}
-  fi
-
   niceness=${niceness:-0}
 
   # TODO: Sanitize user input, ensure that there is a / a the end...
@@ -200,9 +195,10 @@ function rvm-initialize {
   rvm_source_path="${rvm_source_path:-"${rvm_install_path}/src"}"
   rvm_log_path=${rvm_log_path:-"${rvm_install_path}/log"}
   rvm_bin_path=${rvm_bin_path:-"${rvm_install_path}/bin"}
-  rvm_gem_path=${rvm_gem_path:-$HOME/.gem}
+  rvm_gem_path=${rvm_gem_path:-"${rvm_install_path}/gems"}
 
-  rvm_result=$(echo "PATH" | grep '$rvm_bin_path')
+  rvm-clean-path
+  rvm_result=$(echo $PATH | grep 'rvm\/bin:')
   if [ -z $rvm_result ] ; then
     PATH=$rvm_bin_path:$PATH ; export PATH
   fi
@@ -420,8 +416,9 @@ function rvm-uninstall {
 
 }
 
-# rvm-switch implementation version patch_level
+# rvm-select implementation version patch_level
 function rvm-select {
+
   rvm_implementation="${1:-$rvm_implementation}"
   rvm_implementation="${rvm_implementation:-ruby}"
 
@@ -429,10 +426,6 @@ function rvm-select {
   if [ "$rvm_version" = "1.9" ] ; then rvm_version="1.9.1" ; fi
 
   case "$rvm_implementation" in
-
-    default)
-      unset rvm_implementation rvm_version rvm_patch_level
-    ;;
 
     jruby)
       rvm_version="${rvm_version:-1.3.1}"
@@ -481,6 +474,9 @@ function rvm-select {
       fi
     ;;
 
+    system|default)
+      unset rvm_implementation rvm_version
+    ;;
     *)
       rvm-log "fail" "Ruby implementation '$rvm_implementation' is not known."
   esac
@@ -510,12 +506,11 @@ function rvm-use {
   if [ -z "$rvm_selected" ] ; then rvm-select $* ; fi
 
   # Now actually use it.
-  if [ "$rvm_implementation" = "default" ] ; then
+  if [ "$rvm_implementation" = "default" -o "$rvm_implementation" = "system" -o -z "$rvm_implementation" ] ; then
     #rm -f $rvm_install_path/current
     unset GEM_HOME MY_RUBY_HOME
-    source $rvm_install_path/default
     PATH="$rvm_default_path" ; export PATH
-    rvm-cleanup-variables
+    #rvm-cleanup-variables
   else
     GEM_HOME=$rvm_gem_home
     MY_RUBY_HOME=$rvm_ruby_home
@@ -565,6 +560,7 @@ function rvm-list {
 }
 
 function rvm-reset {
+
   rvm-select "default"
 
   PATH="$rvm_default_path" ; export PATH
@@ -624,6 +620,11 @@ function rvm-gem-dup {
 
 }
 
+function rvm-execute {
+  if [ -z "$rvm_selected" ] ; then rvm-select $* ; fi
+  $rvm_ruby_home/bin/ruby $rvm_ruby_args
+}
+
 function rvm-toggle-debug {
   if [ -z "$rvm_debug" ] ; then set +x ; else set -x ; fi
 }
@@ -642,8 +643,14 @@ function rvm-parse-args {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|use|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload)
+      install|uninstall|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload)
         rvm_action=$rvm_token
+      ;;
+      use)
+        rvm_action=$rvm_token
+        if [ "$1" = "default" -o -z "$1" ] ; then
+          rvm_implementation="system" ; shift
+        fi
       ;;
 
       ruby|jruby|ree|default|all)
@@ -679,7 +686,15 @@ function rvm-parse-args {
         fi
       ;;
 
-      1.8|1.8.0|1.8.1|1.8.2|1.8.3|1.8.4|1.8.5|1.8.6|1.8.7|1.9|1.9.1|1.9.2|1.2.0|1.3.1)
+      do|alldo) rvm_action=$rvm_token ;;
+
+      1.8|1.8.0|1.8.1|1.8.2|1.8.3|1.8.4|1.8.5|1.8.6|1.8.7|1.9|1.9.1|1.9.2)
+                       rvm_implementation="ruby"
+                       rvm_version="$rvm_token"
+                       rvm_action="${rvm_action:-use}"
+      ;;
+      1.2.0|1.3.1)
+                       rvm_implementation="jruby"
                        rvm_version="$rvm_token"
                        rvm_action="${rvm_action:-use}"
       ;;
@@ -701,12 +716,20 @@ function rvm-parse-args {
       -g|--gems)       rvm_gem_path="$1"      ; shift ;;
       -c|--configure)  configure="$1"         ; shift ;;
       -n|--nice)       niceness="$1"          ; shift ;;
+      -e|--execute)    rvm_ruby_args=$*
+                       break                          ;;
       -u|--default)    rvm_set_default=1              ;;
       -d|--debug)      rvm_debug=1                    ;;
+
+      default|system)
+        rvm_action="use"
+        rvm_implementation="system"
+      ;;
       *)
       rvm-usage
       rvm-log "fail" "Unrecognized command line argument(s): '$rvm_token $*'"
     esac
+    if [ ! -z "$rvm_ruby_args" ] ; then break; fi
   done
 
   rvm-toggle-debug
@@ -715,10 +738,10 @@ function rvm-parse-args {
 function rvm {
 
   rvm-cleanup-variables
-  rvm-set-defaults
   rvm-get-user-defaults
-  rvm-parse-args $*
   rvm-initialize
+  rvm-set-defaults
+  rvm-parse-args $*
 
   case "$rvm_action" in
     install)
@@ -746,6 +769,19 @@ function rvm {
     info)      rvm info                                                        ;;
     symlinks)  rvm-symlinks                                                    ;;
     version)   rvm-version                                                     ;;
+    rubydo)    rvm-select $rvm-implementation $rvm_version
+               command="$rvm_ruby_home/bin/ruby -e '$rvm_ruby_args'"
+               echo $command
+               eval "$command"
+               ;;
+    alldo)
+               for rvm_binary in `ls ~/.rvm/bin/ruby-*` ; do
+                 rvm_command="$rvm_binary -e '$rvm_ruby_args'"
+                 echo $rvm_command
+                 eval "$rvm_command"
+               done
+               return 0
+               ;;
     reset)     rvm-reset                                                       ;;
                # TODO: how can we use bin_path here for reload, default file?
     reload)    source ~/.rvm/bin/rvm                                           ;;
