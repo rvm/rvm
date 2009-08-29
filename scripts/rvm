@@ -212,18 +212,33 @@ function rvm-install-source {
   rvm-log "info" "Installing Ruby from source to: $rvm_install_path/$rvm_ruby_package_name"
   mkdir -p $rvm_log_path/$rvm_ruby_package_name
 
+
+
   pushd $rvm_source_path > /dev/null
-  if [ -d $rvm_source_path/$rvm_ruby_package_name ]  ; then
+
+  if [ -z "$rvm_ruby_tag" ] ; then
+    if [ ! -d $rvm_source_path/$rvm_ruby_package_name ]  ; then
+      rvm-log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
+      rvm-curl $rvm_url
+      rvm-log "info" "\tExtracting $rvm_ruby_package_name ..."
+      mkdir -p $rvm_source_path/$rvm_ruby_package_name
+      nice -n $rvm_niceness tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
+    fi
     cd $rvm_source_path/$rvm_ruby_package_name
   else
-    rvm-log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
-    rvm-curl $rvm_url
-    rvm-log "info" "\tExtracting $rvm_ruby_package_name..."
-    mkdir -p $rvm_source_path/$rvm_ruby_package_name
-    nice -n $rvm_niceness tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
+    rvm_ruby_svn_url="http://svn.ruby-lang.org/repos/ruby"
+    if [ ! -s "$rvm_source_path/$rvm_ruby_interpreter.tags" ] ; then
+      svn list $rvm_ruby_svn_url/tags/ | grep '^v' > $rvm_source_path/${rvm_ruby_interpreter}.tags
+      # sed 's/^v//' | sed 's/\///' | awk -F'_' '{print 1 $2 " " $3 " " $4 }
+    fi
+    rvm_ruby_tags=$(cat $rvm_source_path/$rvm_ruby_interpreter.tags)
+    # TODO: Check if tag v is valid against rvm_ruby_tags ^
+    rvm_ruby_patch_level=$(echo $rvm_ruby_tag | awk -F '_' '{print $NF}')
+    mkdir -p $rvm_source_path/$rvm_ruby_package_name && cd $rvm_source_path/$rvm_ruby_package_name
+    svn checkout -q -f $rvm_ruby_svn_url/tags/v$rvm_ruby_tag .
+    autoconf
   fi
 
-  cd $rvm_source_path/$rvm_ruby_package_name
   rvm-log "info" "\tConfiguring $rvm_ruby_package_name using ${rvm_ruby_configure:-"--enable-shared"}, this may take a while depending on your cpu(s)..."
   nice -n $rvm_niceness ./configure --prefix=$rvm_install_path/$rvm_ruby_package_name ${rvm_ruby_configure:-"--enable-shared"} > $rvm_log_path/$rvm_ruby_package_name/configure.log 2> $rvm_log_path/$rvm_ruby_package_name/configure.error.log
 
@@ -285,7 +300,7 @@ function rvm-install-ruby {
       mkdir -p $rvm_log_path/$rvm_ruby_package_name
 
       cd $rvm_source_path/$rvm_ruby_package_name
-      nice -n $rvm_niceness ./installer -a $rvm_install_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
+      nice -n $rvm_niceness ./installer -a $rvm_install_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
       chmod +x $rvm_install_path/$rvm_ruby_package_name/bin/*
 
       ln -fs $rvm_install_path/$rvm_ruby_package_name/bin/ruby $rvm_install_path/bin/$rvm_ruby_package_name
@@ -495,8 +510,14 @@ function rvm-use {
     MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
     IRBRC="$rvm_ruby_irbrc" ; export IRBRC
 
+    # Install if not installed
+    if [ ! -d $MY_RUBY_HOME ] ; then
+      rvm-log "warn" "$rvm_ruby_interpreter $rvm_ruby_version is not installed."
+      rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version $level
+    fi
+
     if [ ! -s "$rvm_ruby_irbrc" ] ; then
-    rvm_irbrc_file=$(cat <<Config
+      rvm_irbrc_file=$(cat <<Config
   @prompt = {
     :PROMPT_I => "${rvm_ruby_package_name} > ", # default prompt
     :PROMPT_S => "${rvm_ruby_package_name}%l> ", # known continuation
@@ -513,15 +534,9 @@ function rvm-use {
 Config
 )
 
-    echo "$rvm_irbrc_file" > $rvm_ruby_home/.irbrc
+      echo "$rvm_irbrc_file" > $rvm_ruby_home/.irbrc
     fi
     PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_default_path ; export PATH
-
-    # Install if not installed
-    if [ ! -d $MY_RUBY_HOME ] ; then
-      rvm-log "warn" "$rvm_ruby_interpreter $rvm_ruby_version is not installed."
-      rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version $level
-    fi
 
     if [ ! -z "$rvm_set_default" ] ; then
       RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
