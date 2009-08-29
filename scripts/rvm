@@ -212,8 +212,6 @@ function rvm-install-source {
   rvm-log "info" "Installing Ruby from source to: $rvm_install_path/$rvm_ruby_package_name"
   mkdir -p $rvm_log_path/$rvm_ruby_package_name
 
-
-
   pushd $rvm_source_path > /dev/null
 
   if [ -z "$rvm_ruby_tag" ] ; then
@@ -233,9 +231,8 @@ function rvm-install-source {
     fi
     rvm_ruby_tags=$(cat $rvm_source_path/$rvm_ruby_interpreter.tags)
     # TODO: Check if tag v is valid against rvm_ruby_tags ^
-    rvm_ruby_patch_level=$(echo $rvm_ruby_tag | awk -F '_' '{print $NF}')
     mkdir -p $rvm_source_path/$rvm_ruby_package_name && cd $rvm_source_path/$rvm_ruby_package_name
-    svn checkout -q -f $rvm_ruby_svn_url/tags/v$rvm_ruby_tag .
+    svn checkout -q --force $rvm_ruby_svn_url/tags/$rvm_ruby_tag .
     autoconf
   fi
 
@@ -406,7 +403,7 @@ function rvm-uninstall {
 function rvm-select {
 
   rvm_ruby_interpreter="${1:-$rvm_ruby_interpreter}"
-  rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}"
+  rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}" # Default is standard ruby
 
   if [ "$rvm_ruby_version" = "1.8" ] ; then rvm_ruby_version="1.8.6" ; fi
   if [ "$rvm_ruby_version" = "1.9" ] ; then rvm_ruby_version="1.9.1" ; fi
@@ -434,21 +431,26 @@ function rvm-select {
     ;;
 
     ruby)
-      rvm_ruby_version=${rvm_ruby_version:-1.8.6}
+      if [ ! -z "$rvm_ruby_tag" ] ; then
+        rvm_ruby_version=$(echo $rvm_ruby_tag | sed 's/^v//' | sed 's/\///' | awk -F'_' '{print 1 "." $2 "." $3 }')
+        rvm_ruby_patch_level=$rvm_ruby_tag # $(echo $rvm_ruby_tag | sed 's/^v//' | sed 's/\///' | awk -F'_' '{print $4 }')
+      fi
+
+      rvm_ruby_version=${rvm_ruby_version:-1.8.6} # Default verison is 1.8.6
       if [ "$rvm_ruby_version" = "1.9.1" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-243}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-p243}"
 
       elif [ "$rvm_ruby_version" = "1.9.2" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-review1}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-preview1}"
 
       elif [ "$rvm_ruby_version" = "1.8.6" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-369}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-p369}"
 
       elif [ "$rvm_ruby_version" = "1.8.7" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-174}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-p174}"
 
       elif [ "$rvm_ruby_version" = "1.8.5" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-115}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-p115}"
 
       elif [ "$rvm_ruby_version" = "1.8.0" -o "$rvm_ruby_version" = "1.8.1" -o "$rvm_ruby_version" = "1.8.2" -o "$rvm_ruby_version" = "1.8.3" -o "$rvm_ruby_version" = "1.8.4" ] ; then
         unset rvm_ruby_patch_level
@@ -460,6 +462,10 @@ function rvm-select {
 
     system|default)
       unset rvm_ruby_interpreter rvm_ruby_version
+      rvm-cleanup-variables
+      if [ -e $rvm_install_path/current ] ; then
+        source $rvm_install_path/current
+      fi
     ;;
     *)
       rvm-log "fail" "Ruby implementation '$rvm_ruby_interpreter' is not known."
@@ -500,11 +506,13 @@ function rvm-use {
 
   if [ -z "$rvm_selected" ] ; then rvm-select $* ; fi
 
-  # Now actually use it.
   if [ "$rvm_ruby_interpreter" = "default" -o "$rvm_ruby_interpreter" = "system" -o -z "$rvm_ruby_interpreter" ] ; then
-    #rm -f $rvm_install_path/current
     unset GEM_HOME MY_RUBY_HOME IRBRC
+    rvm-cleanup-variables
     PATH="$rvm_default_path" ; export PATH
+    if [ -e $rvm_install_path/current ] ; then
+      source $rvm_install_path/current
+    fi
   else
     GEM_HOME=$rvm_gem_home ; export GEM_HOME
     MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
@@ -513,7 +521,7 @@ function rvm-use {
     # Install if not installed
     if [ ! -d $MY_RUBY_HOME ] ; then
       rvm-log "warn" "$rvm_ruby_interpreter $rvm_ruby_version is not installed."
-      rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version $level
+      rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
     fi
 
     if [ ! -s "$rvm_ruby_irbrc" ] ; then
@@ -533,7 +541,7 @@ function rvm-use {
   require "irb/completion" rescue nil
 Config
 )
-
+      # TODO: Prepend users irbrc, keep custom path
       echo "$rvm_irbrc_file" > $rvm_ruby_home/.irbrc
     fi
     PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_default_path ; export PATH
@@ -722,6 +730,10 @@ function rvm-parse-args {
                        shift
       ;;
 
+      -t|--tag)        rvm_ruby_tag="$1";
+                       rvm_action="${rvm_action:-use}"
+                       shift                             ;;
+
       -l|--level)      rvm_ruby_patch_level="$1" ; shift ;;
       -p|--prefix)     rvm_prefix_path="$1"      ; shift ;;
       -b|--bin)        rvm_bin_path="$1"         ; shift ;;
@@ -729,7 +741,6 @@ function rvm-parse-args {
       -a|--archive)    rvm_archives_path="$1"    ; shift ;;
       -g|--gems)       rvm_gem_path="$1"         ; shift ;;
       -c|--configure)  rvm_ruby_configure="$1"   ; shift ;;
-      -t|--tag)        rvm_ruby_tag="$1"         ; shift ;;
       -a|--archive)    rvm_archives_path="$1"    ; shift ;;
       -n|--nice)       rvm_niceness="$1"         ; shift ;;
       -f|--file)       rvm_ruby_args="$1"        ; shift ;;
