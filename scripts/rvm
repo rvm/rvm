@@ -216,7 +216,7 @@ function rvm-install-source {
 
   if [ -z "$rvm_ruby_tag" -a -z "$rvm_ruby_rev" ] ; then
     if [ ! -d $rvm_source_path/$rvm_ruby_package_name ]  ; then
-      rvm_url="ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"
+      rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
       rvm-log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
       rvm-curl $rvm_url
 
@@ -253,14 +253,26 @@ function rvm-install-source {
     autoconf
   fi
 
-  rvm-log "info" "\tConfiguring $rvm_ruby_package_name using ${rvm_ruby_configure:-"--enable-shared"}, this may take a while depending on your cpu(s)..."
-  nice -n $rvm_niceness ./configure --prefix=$rvm_install_path/$rvm_ruby_package_name ${rvm_ruby_configure:-"--enable-shared"} > $rvm_log_path/$rvm_ruby_package_name/configure.log 2> $rvm_log_path/$rvm_ruby_package_name/configure.error.log
+  if [ -s ./configure ] ; then
+    rvm-log "info" "\tConfiguring $rvm_ruby_package_name using ${rvm_ruby_configure:-"--enable-shared"}, this may take a while depending on your cpu(s)..."
+    nice -n $rvm_niceness ./configure --prefix=$rvm_install_path/$rvm_ruby_package_name ${rvm_ruby_configure:-"--enable-shared"} > $rvm_log_path/$rvm_ruby_package_name/configure.log 2> $rvm_log_path/$rvm_ruby_package_name/configure.error.log
+  else
+    rvm-log "warn" "\tSkipping configure step, ./configure file does not exist."
+  fi
 
   rvm-log "info" "\tCompiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
-  nice -n $rvm_niceness make > $rvm_log_path/$rvm_ruby_package_name/make.log 2> $rvm_log_path/$rvm_ruby_package_name/make.error.log
+  if [ -z "$rvm_ruby_make" ] ; then
+    nice -n $rvm_niceness make > $rvm_log_path/$rvm_ruby_package_name/make.log 2> $rvm_log_path/$rvm_ruby_package_name/make.error.log
+  else
+    nice -n $rvm_niceness $rvm_ruby_make > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
+  fi
+  if [ -z "$rvm_ruby_make" ] ; then
+    rvm-log "info" "\tInstalling $rvm_ruby_package_name"
+    nice -n $rvm_niceness make install > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
+  else
+    nice -n $rvm_niceness $rvm_ruby_make_install > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
+  fi
 
-  rvm-log "info" "\tInstalling $rvm_ruby_package_name"
-  nice -n $rvm_niceness make install > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
   chmod +x $rvm_install_path/$rvm_ruby_package_name/bin/*
 
   ln -fs $rvm_install_path/$rvm_ruby_package_name/bin/ruby $rvm_install_path/bin/$rvm_ruby_package_name
@@ -296,6 +308,20 @@ function rvm-install-ruby {
 
   case "$rvm_ruby_interpreter" in
 
+    macruby)
+      if [ "`uname`" = "Darwin" ] ; then
+        rvm_ruby_repo_url="http://svn.macosforge.org/repository/ruby/MacRuby"
+        rvm_ruby_configure=""
+        rvm_ruby_make="rake"
+        rvm_ruby_make_install="rake install"
+        rvm_ruby_tag="${rvm_ruby_version:-0.4}"
+        DESTDIR="$rvm_install_path/$rvm_ruby_package_name" ; export DESTDIR
+        rvm-install-source $*
+        unset DESTDIR
+      else
+          rvm-log "fail" "MacRuby can only be installed on a Darwin OS."
+      fi
+    ;;
     ruby-enterprise|ree)
       rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_ruby_package_name.tar.gz"
       rvm-log "info" "Installing Ruby Enterprise Edition from source to: $rvm_install_path/$rvm_ruby_package_name"
@@ -426,6 +452,14 @@ function rvm-select {
   if [ "$rvm_ruby_version" = "1.9" ] ; then rvm_ruby_version="1.9.1" ; fi
 
   case "$rvm_ruby_interpreter" in
+    macruby)
+      if [ "`uname`" = "Darwin" ] ; then
+        rvm_ruby_version=${rvm_ruby_version:-0.4}
+        unset rvm_ruby_patch_level
+      else
+        rvm-log "fail" "MacRuby can only be installed on a Darwin OS."
+      fi
+    ;;
 
     jruby)
       rvm_ruby_version="${rvm_ruby_version:-1.3.1}"
@@ -675,7 +709,7 @@ function rvm-execute {
 }
 
 function rvm-cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message IRBRC rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message IRBRC rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install
 }
 
 function rvm-get-user-defaults {
@@ -697,7 +731,7 @@ function rvm-parse-args {
         fi
       ;;
 
-      ruby|jruby|ree|default|all)
+      ruby|jruby|ree|macruby|rubinius|default|all)
         rvm_ruby_interpreter="$rvm_token"
         rvm_action="${rvm_action:-use}"
       ;;
