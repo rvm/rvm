@@ -134,6 +134,12 @@ function rvm-set-defaults {
     rvm_default_path=$PATH
   fi
 
+  rvm_default_ps1=`rvm-cache rvm_default_ps1`
+  if [ -z "$rvm_default_ps1" ] ; then
+    rvm_default_ps1=$PS1
+    rvm-cache "rvm_default_ps1" "$rvm_default_ps1"
+  fi
+
   if [ -s $rvm_install_path/default_user_gem_path ] ; then
     rvm_default_user_gem_path=`cat $rvm_install_path/default_user_gem_path`
   else
@@ -651,6 +657,10 @@ Config
     fi
     PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_default_path ; export PATH
 
+    if [ ! -z "$PS1" ] ; then
+      PS1="\033[0;32m${rvm_ruby_package_name}\033[0m:: ${rvm_default_ps1}" ; export PS1
+    fi
+
     if [ ! -z "$rvm_set_default" ] ; then
       RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
       export GEM_HOME MY_RUBY_HOME RUBY_VERSION
@@ -756,16 +766,24 @@ function rvm-execute {
 
 function rvm-cache {
   rvm_cache_file="$rvm_config_path/cache"
-  if [ -z "$1" ] ; then
+  touch $rvm_cache_file
+  key="$1" ; shift
+
+  if [ -z "$key" ] ; then
     rvm-log "fail" "rvm-cache must be called with at least one argument: rvm-cache key [value]"
   else
-    if [ -z "$2" ] ; then # get
-      grep "^$1=" $rvm_cache_file | awk -F '=' '{print $2}'
-    else # set
-      if [ -z "$(grep "^$1=" $rvm_cache_file)" ] ; then # append
-        echo "$1=$2" >> $rvm_cache_file
-      else # overwrite
-        sed -i~ "s/^$1=.*$/$1=$2/" $rvm_cache_file
+    if [ "$key" = "unset" -o "$key" = "delete" ] ; then
+      sed -i~ "s/^$2=.*$//" $rvm_cache_file
+    else
+      value="$*"
+      if [ -z "$value" ] ; then # get
+        grep "^$key=" $rvm_cache_file | awk -F'=' '{print $2}'
+      else # set
+        if [ -z "$(grep "^$key=" $rvm_cache_file)" ] ; then # append
+          echo "$key=$value" >> $rvm_cache_file
+        else # overwrite
+          sed -i~ "s/^$key=.*$/$key=$value/" $rvm_cache_file
+        fi
       fi
     fi
   fi
