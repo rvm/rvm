@@ -184,9 +184,9 @@ function rvm-initialize {
   rvm_bin_path=${rvm_bin_path:-"${rvm_install_path}/bin"}
   rvm_gem_path=${rvm_gem_path:-"${rvm_install_path}/gems"}
 
-  rvm_ruby_repo_url="http://svn.ruby-lang.org/repos/ruby"
-  #rvm_jruby_repo_url=""
-  #rvm_rubinius_repo_url=""
+  rvm_ruby_repo_url="${rvm_ruby_repo_url:-"http://svn.ruby-lang.org/repos/ruby"}"
+  rvm_rubinius_repo_url="${rvm_rubinius_repo_url:-"git://github.com/evanphx/rubinius.git"}"
+  #rvm_jruby_repo_url="rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
 
   rvm-clean-path
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
@@ -322,6 +322,24 @@ function rvm-install-ruby {
           rvm-log "fail" "MacRuby can only be installed on a Darwin OS."
       fi
     ;;
+
+    rubinius)
+      rvm_ruby_repo_url=$rvm_rubinius_repo_url
+      rvm_ruby_configure=""
+      rvm_ruby_make="rake"
+      rvm_ruby_make_install="rake install"
+      rvm_ruby_tag="${rvm_ruby_version:-0.4}"
+      # TODO: Check if already git repo, then git pull origin master && build
+      if [ ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
+        rm -rf $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
+        git clone --depth 1 $rvm_ruby_repo_url $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
+      fi
+      cd $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version && rake build
+      for binary in ruby irb ; do
+        ln -fs $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/rbx $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/$binary
+      done
+    ;;
+
     ruby-enterprise|ree)
       rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_ruby_package_name.tar.gz"
       rvm-log "info" "Installing Ruby Enterprise Edition from source to: $rvm_install_path/$rvm_ruby_package_name"
@@ -459,6 +477,16 @@ function rvm-select {
       else
         rvm-log "fail" "MacRuby can only be installed on a Darwin OS."
       fi
+    ;;
+
+    rubinius)
+      rvm_ruby_version="head"
+      unset rvm_ruby_patch_level
+      rvm_ruby_repo_url=$rvm_rubinius_repo_url
+      rvm_ruby_configure=""
+      rvm_ruby_make="build"
+      rvm_ruby_make_install=""
+      #rvm_ruby_rev="head"
     ;;
 
     jruby)
@@ -770,47 +798,52 @@ function rvm-parse-args {
       ;;
 
       1.8|1.8.0|1.8.1|1.8.2|1.8.3|1.8.4|1.8.5|1.8.6|1.8.7|1.9|1.9.1|1.9.2)
-                       rvm_ruby_interpreter="ruby"
-                       rvm_ruby_version="$rvm_token"
-                       rvm_action="${rvm_action:-use}"
+                         rvm_ruby_interpreter="ruby"
+                         rvm_ruby_version="$rvm_token"
+                         rvm_action="${rvm_action:-use}"
       ;;
       1.2.0|1.3.1)
-                       rvm_ruby_interpreter="jruby"
-                       rvm_ruby_version="$rvm_token"
-                       rvm_action="${rvm_action:-use}"
+                         rvm_ruby_interpreter="jruby"
+                         rvm_ruby_version="$rvm_token"
+                         rvm_action="${rvm_action:-use}"
       ;;
 
       -v|--version)
-                       if [ -z "$1" ] ; then
-                         rvm_action="version"
-                       else
-                         rvm_ruby_version="$1"
-                       fi
-                       shift
+                         if [ -z "$1" ] ; then
+                           rvm_action="version"
+                         else
+                           rvm_ruby_version="$1"
+                         fi
+                         shift
       ;;
 
-      -t|--tag)        rvm_ruby_tag="$1";
-                       rvm_action="${rvm_action:-use}"
-                       shift                             ;;
-      -r|--rev)        rvm_ruby_rev="$1";
-                       rvm_action="${rvm_action:-use}"
-                       shift                             ;;
+      -t|--tag)          rvm_ruby_tag="$1";
+                         rvm_action="${rvm_action:-use}"
+                         shift                             ;;
+      -r|--rev)          rvm_ruby_rev="$1";
+                         rvm_action="${rvm_action:-use}"
+                         shift                             ;;
+      -b|--branch)       rvm_ruby_rev="$1";
+                         rvm_action="${rvm_action:-use}"
+                         shift                             ;;
 
-      -l|--level)      rvm_ruby_patch_level="$1" ; shift ;;
-      -p|--prefix)     rvm_prefix_path="$1"      ; shift ;;
-      -b|--bin)        rvm_bin_path="$1"         ; shift ;;
-      -s|--source)     rvm_source_path="$1"      ; shift ;;
-      -a|--archive)    rvm_archives_path="$1"    ; shift ;;
-      -g|--gems)       rvm_gem_path="$1"         ; shift ;;
-      -c|--configure)  rvm_ruby_configure="$1"   ; shift ;;
-      -a|--archive)    rvm_archives_path="$1"    ; shift ;;
-      -n|--nice)       rvm_niceness="$1"         ; shift ;;
-      -f|--file)       rvm_ruby_args="$1"        ; shift ;;
-      -h|--help)       rvm_action=help           ; shift ;;
-      -u|--default)    rvm_set_default=1                 ;;
-      -d|--debug)      rvm_debug=1                       ;;
-      -m|--gem-set)    rvm_gem_set_name="$1"     ; shift ;;
-      --rm-gem-set)    rvm_gem_set_name_rm="$1"  ; shift ;;
+
+      -P|--prefix)       rvm_prefix_path="$1"      ; shift ;;
+      -B|--bin)          rvm_bin_path="$1"         ; shift ;;
+      -S|--source)       rvm_source_path="$1"      ; shift ;;
+      -A|--archive)      rvm_archives_path="$1"    ; shift ;;
+      -G|--gems)         rvm_gem_path="$1"         ; shift ;;
+      -C|--configure)    rvm_ruby_configure="$1"   ; shift ;;
+      -M|--make)         rvm_ruby_make="$1"        ; shift ;;
+      -I|--make-install) rvm_ruby_make_install="$1"   ; shift ;;
+      -l|--level)        rvm_ruby_patch_level="$1" ; shift ;;
+      -n|--nice)         rvm_niceness="$1"         ; shift ;;
+      -f|--file)         rvm_ruby_args="$1"        ; shift ;;
+      -h|--help)         rvm_action=help           ; shift ;;
+      -d|--default)      rvm_set_default=1                 ;;
+      --debug)           rvm_debug=1                       ;;
+      -m|--gem-set)      rvm_gem_set_name="$1"     ; shift ;;
+      --rm-gem-set)      rvm_gem_set_name_rm="$1"  ; shift ;;
 
       default|system)
         rvm_action="use"
