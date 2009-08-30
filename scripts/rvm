@@ -186,8 +186,12 @@ function rvm-initialize {
 
   rvm_ruby_repo_url="${rvm_ruby_repo_url:-"http://svn.ruby-lang.org/repos/ruby"}"
   rvm_rubinius_repo_url="${rvm_rubinius_repo_url:-"git://github.com/evanphx/rubinius.git"}"
-  #rvm_jruby_repo_url="rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
+  rvm_macruby_repo_url="${rvm_macruby_repo_url:-"http://svn.macosforge.org/repository/ruby/MacRuby"}"
+  rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
 
+  if [ ! -z "$rvm_ruby_configure" ] ; then
+    rvm_ruby_configure="$(echo $rvm_ruby_configure | tr ',-' ' -')"
+  fi
   rvm-clean-path
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
   if [ -z $rvm_result ] ; then
@@ -310,13 +314,31 @@ function rvm-install-ruby {
 
     macruby)
       if [ "`uname`" = "Darwin" ] ; then
-        rvm_ruby_repo_url="http://svn.macosforge.org/repository/ruby/MacRuby"
+        rvm_ruby_repo_url=$rvm_macruby_repo_url
         rvm_ruby_configure=""
-        rvm_ruby_make="rake"
+        rvm_ruby_make="rake macruby:build"
         rvm_ruby_make_install="rake install"
-        rvm_ruby_tag="${rvm_ruby_version:-0.4}"
+        rvm_ruby_rev="head"
         DESTDIR="$rvm_install_path/$rvm_ruby_package_name" ; export DESTDIR
-        rvm-install-source $*
+        if [ -z "$rvm_ruby_rev" ] ; then
+          # TODO: Check if tag v is valid
+          rvm_ruby_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
+          rvm_ruby_rev=""
+        else
+          if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
+            rvm_ruby_url=$rvm_ruby_repo_url/trunk
+            rvm_ruby_rev=""
+          else
+            rvm_ruby_url=$rvm_ruby_repo_url/trunk
+            rvm_ruby_rev="-r $rvm_ruby_rev"
+          fi
+        fi
+        rvm-log "info" "\tRetrieving MacRuby from $rvm_url"
+        #mkdir -p $rvm_source_path/$rvm_ruby_package_name
+        # TODO: Instead of always forcing, check if it's already svn for correct url and simply check out required revision
+        #svn checkout -q $rvm_rev --force $rvm_url $rvm_source_path/$rvm_ruby_package_name
+        cd $rvm_source_path/$rvm_ruby_package_name
+        rvm-install-source
         unset DESTDIR
       else
           rvm-log "fail" "MacRuby can only be installed on a Darwin OS."
@@ -328,7 +350,7 @@ function rvm-install-ruby {
       rvm_ruby_configure=""
       rvm_ruby_make="rake"
       rvm_ruby_make_install="rake install"
-      rvm_ruby_tag="${rvm_ruby_version:-0.4}"
+      #rvm_ruby_rev="head"
       # TODO: Check if already git repo, then git pull origin master && build
       if [ ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
         rm -rf $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
@@ -472,7 +494,8 @@ function rvm-select {
   case "$rvm_ruby_interpreter" in
     macruby)
       if [ "`uname`" = "Darwin" ] ; then
-        rvm_ruby_version=${rvm_ruby_version:-0.4}
+        rvm_ruby_repo_url=$rvm_macruby_repo_url
+        rvm_ruby_version="head" # For now we are only supporting latest
         unset rvm_ruby_patch_level
       else
         rvm-log "fail" "MacRuby can only be installed on a Darwin OS."
