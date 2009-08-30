@@ -586,14 +586,15 @@ function rvm-select {
     rvm_major_version=$(echo $rvm_ruby_version | awk -F'.' '{ print $2 }')
     rvm_minor_version=$(echo $rvm_ruby_version | awk -F'.' '{ print $3 }')
 
-    if [ -z "$rvm_gem_set_name_rm" -a -d $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name ] ; then
-      rm -rf $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name/
-      if [ "$rvm_gem_set_name_rm" = "$rvm_gem_set_name" ] ; then unset rvm_gem_set_name ; fi
-    fi
     if [ -z "$rvm_gem_set_name" ] ; then
       rvm_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version"
     else
-      rvm_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
+      if [ ! -z "$rvm_gem_set_name_rm" -a -d $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name ] ; then
+        rm -rf $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name/
+        if [ "$rvm_gem_set_name_rm" = "$rvm_gem_set_name" ] ; then unset rvm_gem_set_name ; fi
+      else
+        rvm_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
+      fi
     fi
     mkdir -p $rvm_gem_home
 
@@ -847,6 +848,16 @@ function rvm-parse-args {
 
       do|rubydo)
         rvm_action=$rvm_token
+        temp=$(echo $1 | awk '{print substr($1, 0, 1)}')
+        if [ "$temp" != "-" ] ; then
+          if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
+            rvm_ruby_version=$(echo "$1" | tr ',' ' ') ; shift
+          else
+            rvm_ruby_version=$1 ; shift
+          fi
+        else
+          unset rvm_ruby_version
+        fi
         unset rvm_ruby_interpreter
       ;;
 
@@ -950,14 +961,31 @@ function rvm {
     version)   rvm-version                                                                 ;;
     rubydo)
                if [ ! -z "$rvm_ruby_version" ] ; then
-                 rvm-select $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
-                 rvm_command="$rvm_ruby_binary $rvm_ruby_args"
-                 eval $rvm_command
-               else # all
-                 for rvm_ruby_binary in `/bin/ls $rvm_install_path/bin/ruby-*` ; do
+                 rvm_ruby_versions=$(echo $rvm_ruby_version | tr ',' ' ')
+                 for rvm_ruby_version in $rvm_ruby_versions ; do
+                   temp=$(echo $rvm_ruby_version | awk '{print substr($1, 0, 1)}')
+                   if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
+                     rvm_ruby_interpreter="ruby"
+                   else
+                     rvm_ruby_interpreter="$rvm_ruby_version"
+                     unset rvm_ruby_version
+                   fi
+                   unset temp
+                   rvm-select $rvm_ruby_interpreter $rvm_ruby_version
+
                    rvm_command="$rvm_ruby_binary $rvm_ruby_args"
                    echo "$(basename $rvm_ruby_binary):"
                    eval $rvm_command
+                   unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary
+                 done
+               else # all
+                 rvm_ruby_versions=`/bin/ls $rvm_install_path/bin/ruby-*`
+                 for rvm_ruby_binary in $rvm_ruby_versions ; do
+                   if [ -x $rvm_ruby_binary ] ; then
+                     rvm_command="$rvm_ruby_binary $rvm_ruby_args"
+                     echo "$(basename $rvm_ruby_binary):"
+                     eval $rvm_command
+                   fi
                  done
                fi
                ;;
