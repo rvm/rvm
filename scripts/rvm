@@ -183,6 +183,7 @@ function rvm-initialize {
   rvm_log_path=${rvm_log_path:-"${rvm_install_path}/log"}
   rvm_bin_path=${rvm_bin_path:-"${rvm_install_path}/bin"}
   rvm_gem_path=${rvm_gem_path:-"${rvm_install_path}/gems"}
+  rvm_config_path=${rvm_config_path:-"${rvm_install_path}/config"}
 
   rvm_ruby_repo_url="${rvm_ruby_repo_url:-"http://svn.ruby-lang.org/repos/ruby"}"
   rvm_rubinius_repo_url="${rvm_rubinius_repo_url:-"git://github.com/evanphx/rubinius.git"}"
@@ -231,12 +232,6 @@ function rvm-install-source {
     cd $rvm_source_path/$rvm_ruby_package_name
   else
     if [ -z "$rvm_ruby_rev" ] ; then
-      #if [ ! -s "$rvm_source_path/$rvm_ruby_interpreter.tags" ] ; then
-      #  svn list $rvm_ruby_repo_url/tags/ | grep '^v' > $rvm_source_path/${rvm_ruby_interpreter}.tags
-      #  # sed 's/^v//' | sed 's/\///' | awk -F'_' '{print 1 $2 " " $3 " " $4 }
-      #fi
-      #rvm_ruby_tags=$(cat $rvm_source_path/$rvm_ruby_interpreter.tags)
-
       # TODO: Check if tag v is valid
       rvm_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
       rvm_rev=""
@@ -759,8 +754,25 @@ function rvm-execute {
   $rvm_ruby_home/bin/ruby $rvm_ruby_args
 }
 
+function rvm-cache {
+  rvm_cache_file="$rvm_config_path/cache"
+  if [ -z "$1" ] ; then
+    rvm-log "fail" "rvm-cache must be called with at least one argument: rvm-cache key [value]"
+  else
+    if [ -z "$2" ] ; then # get
+      grep "^$1=" $rvm_cache_file | awk -F '=' '{print $2}'
+    else # set
+      if [ -z "$(grep "^$1=" $rvm_cache_file)" ] ; then # append
+        echo "$1=$2" >> $rvm_cache_file
+      else # overwrite
+        sed -i~ "s/^$1=.*$/$1=$2/" $rvm_cache_file
+      fi
+    fi
+  fi
+}
+
 function rvm-cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message IRBRC rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message IRBRC rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path
 }
 
 function rvm-get-user-defaults {
