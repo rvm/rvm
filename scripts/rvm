@@ -346,23 +346,6 @@ function rvm-install-ruby {
       fi
     ;;
 
-    rubinius)
-      rvm_ruby_repo_url=$rvm_rubinius_repo_url
-      rvm_ruby_configure=""
-      rvm_ruby_make="rake"
-      rvm_ruby_make_install="rake install"
-      #rvm_ruby_rev="head"
-      # TODO: Check if already git repo, then git pull origin master && build
-      if [ ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
-        rm -rf $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
-        git clone --depth 1 $rvm_ruby_repo_url $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
-      fi
-      cd $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version && rake build
-      for binary in ruby irb ; do
-        ln -fs $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/rbx $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/$binary
-      done
-    ;;
-
     ruby-enterprise|ree)
       rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_ruby_package_name.tar.gz"
       rvm-log "info" "Installing Ruby Enterprise Edition from source to: $rvm_install_path/$rvm_ruby_package_name"
@@ -409,20 +392,48 @@ function rvm-install-ruby {
       done
     ;;
 
+    rubinius)
+      rvm_ruby_repo_url=$rvm_rubinius_repo_url
+      rvm_ruby_configure=""
+      rvm_ruby_make="rake"
+      rvm_ruby_make_install="rake install"
+      #rvm_ruby_rev="head"
+      # TODO: Check if already git repo, then git pull origin master && build
+      if [ ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
+        rm -rf $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
+        git clone --depth 1 $rvm_ruby_repo_url $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
+      fi
+      cd $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version && rake build
+      for binary in ruby irb ; do
+        ln -fs $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/rbx $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/$binary
+      done
+    ;;
+
     jruby)
       rvm_package_file="$rvm_ruby_interpreter-bin-$rvm_ruby_version"
       rvm_url="http://dist.codehaus.org/$rvm_ruby_interpreter/$rvm_ruby_version/$rvm_package_file.zip"
+      rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
 
       rvm-log "info" "Installing jRuby to: $rvm_install_path/$rvm_ruby_package_name"
       mkdir -p $rvm_log_path/$rvm_ruby_package_name
       pushd $rvm_source_path > /dev/null
-      if [ -d $rvm_ruby_package_name ]  ; then
-        cd $rvm_source_path/$rvm_ruby_package_name
+
+
+      if [ ! -z "$rvm_ruby_rev" ] ; then
+        if [ ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
+          git clone --depth 1 $rvm_jruby_repo_url $rvm_source_path/$rvm_ruby_package_name
+          cd $rvm_source_path/$rvm_ruby_package_name && ant
+        fi
       else
-        rvm-log "info" "\tDownloading $rvm_package_file, this may take a while depending on your connection..."
-        rvm-curl $rvm_url
-        rvm-log "info" "\tExtracting $rvm_package_file..."
-        nice -n $rvm_niceness unzip -q $rvm_archives_path/$rvm_package_file.zip -d $rvm_source_path
+        if [ -d $rvm_source_path/$rvm_ruby_package_name ]  ; then
+          cd $rvm_source_path/$rvm_ruby_package_name
+        else
+          rvm-log "info" "\tDownloading $rvm_package_file, this may take a while depending on your connection..."
+          rvm-curl $rvm_url
+          rvm-log "info" "\tExtracting $rvm_package_file..."
+          nice -n $rvm_niceness unzip -q $rvm_archives_path/$rvm_package_file.zip -d $rvm_source_path
+          cd $rvm_source_path/$rvm_ruby_package_name
+        fi
       fi
 
       rvm-log "info" "\tInstalling $rvm_ruby_package_name..."
