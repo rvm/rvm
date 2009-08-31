@@ -53,7 +53,8 @@ function __rvm_usage {
     jruby     - jRuby
     rubinius  - Rubinius
     ree       - Ruby Enterprise Edition
-    default   - Use the default system ruby
+    system    - Use the system ruby (eg. pre-rvm state)
+    default   - Use rvm set default ruby and system if it hasn't been set.
 
   Options:
 
@@ -585,12 +586,8 @@ function __rvm_select {
       fi
     ;;
 
-    system|default)
-      unset rvm_ruby_interpreter rvm_ruby_version
-      __rvm_cleanup-variables
-      if [ -e $rvm_install_path/current ] ; then
-        source $rvm_install_path/current
-      fi
+    default|system)
+      #noop?
     ;;
     *)
       __rvm_log "fail" "Ruby implementation '$rvm_ruby_interpreter' is not known."
@@ -639,14 +636,15 @@ function __rvm_select {
 function __rvm_use {
 
   if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
+  if [ -z "$rvm_ruby_interpreter" ] ; then rvm_ruby_interpreter="default" ; fi
 
-  if [ "$rvm_ruby_interpreter" = "default" -o "$rvm_ruby_interpreter" = "system" -o -z "$rvm_ruby_interpreter" ] ; then
+  if [ "$rvm_ruby_interpreter" = "default" -o "$rvm_ruby_interpreter" = "system" ] ; then
     unset GEM_HOME MY_RUBY_HOME IRBRC
-    __rvm_cleanup-variables
     PATH="$rvm_default_path" ; export PATH
-    if [ -e $rvm_install_path/current ] ; then
+    if [ "$rvm_ruby_interpreter" = "default" -a -s $rvm_install_path/current ] ; then
       source $rvm_install_path/current
     fi
+
   else
     GEM_HOME=$rvm_gem_home ; export GEM_HOME
     MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
@@ -724,7 +722,7 @@ function __rvm_list {
 
 function __rvm_reset {
 
-  __rvm_select "default"
+  __rvm_select "system"
 
   PATH="$rvm_default_path" ; export PATH
   for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do unset $variable ; done
