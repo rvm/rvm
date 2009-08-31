@@ -65,14 +65,16 @@ function rvm-usage {
 
   Options:
 
-    -v|--version    - Ruby Package Version, defaults to 'latest'
-    -l|--level      - Patch level for the specified Ruby version
-    -p|--prefix     - Package and source directory prefix, with trailing slash!
-                      Default is a users home directory and /usr/local/ for root
-    -c|--configure  - Options for source compile (default: --enable-shared)
-    -a|--archives   - Directory to place downladed files into (~/.rvm/archives/)
-    -n|--nice       - Niceness level (default: 0)
-    -d|--debug      - Toggle debug mode on for extra messages (NYI)
+    -v|--version   - Ruby Package Version, defaults to 'latest'
+    -l|--level     - Patch level for the specified Ruby version
+    -p|--prefix    - Package and source directory prefix, with trailing slash!
+                     Default is a users home directory and /usr/local/ for root
+    -c|--configure - Options for source compile (default: --enable-shared)
+    -a|--archives  - Directory to place downladed files into (~/.rvm/archives/)
+    -n|--nice      - Niceness level (default: 0)
+    -d|--debug     - Toggle debug mode on for very verbose output.
+    -m|--gem-set   - Named gem set for switching between different gem sets
+    --rm-gem-set   - Removes a named gemset.
 
   Resources:
 
@@ -132,6 +134,12 @@ function rvm-set-defaults {
     rvm_default_path=$PATH
   fi
 
+  rvm_default_ps1=`rvm-cache rvm_default_ps1`
+  if [ -z "$rvm_default_ps1" ] ; then
+    rvm_default_ps1=$PS1
+    rvm-cache "rvm_default_ps1" "$rvm_default_ps1"
+  fi
+
   if [ -s $rvm_install_path/default_user_gem_path ] ; then
     rvm_default_user_gem_path=`cat $rvm_install_path/default_user_gem_path`
   else
@@ -181,9 +189,16 @@ function rvm-initialize {
   rvm_log_path=${rvm_log_path:-"${rvm_install_path}/log"}
   rvm_bin_path=${rvm_bin_path:-"${rvm_install_path}/bin"}
   rvm_gem_path=${rvm_gem_path:-"${rvm_install_path}/gems"}
+  rvm_config_path=${rvm_config_path:-"${rvm_install_path}/config"}
 
-  rvm_ruby_svn_tag_url="http://svn.ruby-lang.org/repos/ruby/tags"
+  rvm_ruby_repo_url="${rvm_ruby_repo_url:-"http://svn.ruby-lang.org/repos/ruby"}"
+  rvm_rubinius_repo_url="${rvm_rubinius_repo_url:-"git://github.com/evanphx/rubinius.git"}"
+  rvm_macruby_repo_url="${rvm_macruby_repo_url:-"http://svn.macosforge.org/repository/ruby/MacRuby"}"
+  rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
 
+  if [ ! -z "$rvm_ruby_configure" ] ; then
+    rvm_ruby_configure="$(echo $rvm_ruby_configure | tr ',-' ' -')"
+  fi
   rvm-clean-path
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
   if [ -z $rvm_result ] ; then
@@ -205,37 +220,64 @@ function rvm-install-source {
 
   if [ -z "$rvm_selected" ] ; then rvm-select $* ; fi
 
-  if [ -z "$rvm_ruby_patch_level" ] ; then
-    rvm_ruby_package_name="$rvm_ruby_interpreter-$rvm_major_version.$rvm_minor_version"
-  else
-    rvm_ruby_package_name="$rvm_ruby_interpreter-$rvm_major_version.$rvm_minor_version-$rvm_ruby_patch_level"
-  fi
-
-  rvm_url="ftp://ftp.ruby-lang.org/pub/ruby/$rvm_major_version/$rvm_ruby_package_name.tar.gz"
-
   rvm-log "info" "Installing Ruby from source to: $rvm_install_path/$rvm_ruby_package_name"
   mkdir -p $rvm_log_path/$rvm_ruby_package_name
 
   pushd $rvm_source_path > /dev/null
-  if [ -d $rvm_source_path/$rvm_ruby_package_name ]  ; then
+
+  if [ -z "$rvm_ruby_tag" -a -z "$rvm_ruby_rev" ] ; then
+    if [ ! -d $rvm_source_path/$rvm_ruby_package_name ]  ; then
+      rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
+      rvm-log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
+      rvm-curl $rvm_url
+
+      rvm-log "info" "\tExtracting $rvm_ruby_package_name ..."
+      mkdir -p $rvm_source_path/$rvm_ruby_package_name
+      nice -n $rvm_niceness tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
+    fi
     cd $rvm_source_path/$rvm_ruby_package_name
   else
-    rvm-log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
-    rvm-curl $rvm_url
-    rvm-log "info" "\tExtracting $rvm_ruby_package_name..."
+    if [ -z "$rvm_ruby_rev" ] ; then
+      # TODO: Check if tag v is valid
+      rvm_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
+      rvm_rev=""
+    else
+      if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
+        rvm_url=$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}
+        rvm_rev=""
+      else
+        rvm_url=$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}
+        rvm_rev="-r $rvm_ruby_rev"
+      fi
+    fi
+    rvm-log "info" "\tRetrieving Ruby from $rvm_url"
     mkdir -p $rvm_source_path/$rvm_ruby_package_name
-    nice -n $rvm_niceness tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
+    # TODO: Instead of always forcing, check if it's already svn for correct url and simply check out required revision
+    svn checkout -q $rvm_rev --force $rvm_url $rvm_source_path/$rvm_ruby_package_name
+    cd $rvm_source_path/$rvm_ruby_package_name
+    autoconf
   fi
 
-  cd $rvm_source_path/$rvm_ruby_package_name
-  rvm-log "info" "\tConfiguring $rvm_ruby_package_name using ${rvm_ruby_configure:-"--enable-shared"}, this may take a while depending on your cpu(s)..."
-  nice -n $rvm_niceness ./configure --prefix=$rvm_install_path/$rvm_ruby_package_name ${rvm_ruby_configure:-"--enable-shared"} > $rvm_log_path/$rvm_ruby_package_name/configure.log 2> $rvm_log_path/$rvm_ruby_package_name/configure.error.log
+  if [ -s ./configure ] ; then
+    rvm-log "info" "\tConfiguring $rvm_ruby_package_name using ${rvm_ruby_configure:-"--enable-shared"}, this may take a while depending on your cpu(s)..."
+    nice -n $rvm_niceness ./configure --prefix=$rvm_install_path/$rvm_ruby_package_name ${rvm_ruby_configure:-"--enable-shared"} > $rvm_log_path/$rvm_ruby_package_name/configure.log 2> $rvm_log_path/$rvm_ruby_package_name/configure.error.log
+  else
+    rvm-log "warn" "\tSkipping configure step, ./configure file does not exist."
+  fi
 
   rvm-log "info" "\tCompiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
-  nice -n $rvm_niceness make > $rvm_log_path/$rvm_ruby_package_name/make.log 2> $rvm_log_path/$rvm_ruby_package_name/make.error.log
+  if [ -z "$rvm_ruby_make" ] ; then
+    nice -n $rvm_niceness make > $rvm_log_path/$rvm_ruby_package_name/make.log 2> $rvm_log_path/$rvm_ruby_package_name/make.error.log
+  else
+    nice -n $rvm_niceness $rvm_ruby_make > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
+  fi
+  if [ -z "$rvm_ruby_make" ] ; then
+    rvm-log "info" "\tInstalling $rvm_ruby_package_name"
+    nice -n $rvm_niceness make install > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
+  else
+    nice -n $rvm_niceness $rvm_ruby_make_install > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
+  fi
 
-  rvm-log "info" "\tInstalling $rvm_ruby_package_name"
-  nice -n $rvm_niceness make install > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
   chmod +x $rvm_install_path/$rvm_ruby_package_name/bin/*
 
   ln -fs $rvm_install_path/$rvm_ruby_package_name/bin/ruby $rvm_install_path/bin/$rvm_ruby_package_name
@@ -271,8 +313,40 @@ function rvm-install-ruby {
 
   case "$rvm_ruby_interpreter" in
 
-    ree)
-      rvm_ruby_package_name="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
+    macruby)
+      if [ "`uname`" = "Darwin" ] ; then
+        rvm_ruby_repo_url=$rvm_macruby_repo_url
+        rvm_ruby_configure=""
+        rvm_ruby_make="rake macruby:build"
+        rvm_ruby_make_install="rake install"
+        rvm_ruby_rev="head"
+        DESTDIR="$rvm_install_path/$rvm_ruby_package_name" ; export DESTDIR
+        if [ -z "$rvm_ruby_rev" ] ; then
+          # TODO: Check if tag v is valid
+          rvm_ruby_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
+          rvm_ruby_rev=""
+        else
+          if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
+            rvm_ruby_url=$rvm_ruby_repo_url/trunk
+            rvm_ruby_rev=""
+          else
+            rvm_ruby_url=$rvm_ruby_repo_url/trunk
+            rvm_ruby_rev="-r $rvm_ruby_rev"
+          fi
+        fi
+        rvm-log "info" "\tRetrieving MacRuby from $rvm_url"
+        #mkdir -p $rvm_source_path/$rvm_ruby_package_name
+        # TODO: Instead of always forcing, check if it's already svn for correct url and simply check out required revision
+        #svn checkout -q $rvm_rev --force $rvm_url $rvm_source_path/$rvm_ruby_package_name
+        cd $rvm_source_path/$rvm_ruby_package_name
+        rvm-install-source
+        unset DESTDIR
+      else
+          rvm-log "fail" "MacRuby can only be installed on a Darwin OS."
+      fi
+    ;;
+
+    ruby-enterprise|ree)
       rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_ruby_package_name.tar.gz"
       rvm-log "info" "Installing Ruby Enterprise Edition from source to: $rvm_install_path/$rvm_ruby_package_name"
       pushd $rvm_source_path > /dev/null
@@ -290,7 +364,7 @@ function rvm-install-ruby {
       mkdir -p $rvm_log_path/$rvm_ruby_package_name
 
       cd $rvm_source_path/$rvm_ruby_package_name
-      nice -n $rvm_niceness ./installer -a $rvm_install_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
+      nice -n $rvm_niceness ./installer -a $rvm_install_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc > $rvm_log_path/$rvm_ruby_package_name/install.log 2> $rvm_log_path/$rvm_ruby_package_name/install.error.log
       chmod +x $rvm_install_path/$rvm_ruby_package_name/bin/*
 
       ln -fs $rvm_install_path/$rvm_ruby_package_name/bin/ruby $rvm_install_path/bin/$rvm_ruby_package_name
@@ -318,23 +392,48 @@ function rvm-install-ruby {
       done
     ;;
 
+    rubinius)
+      rvm_ruby_repo_url=$rvm_rubinius_repo_url
+      rvm_ruby_configure=""
+      rvm_ruby_make="rake"
+      rvm_ruby_make_install="rake install"
+      #rvm_ruby_rev="head"
+      # TODO: Check if already git repo, then git pull origin master && build
+      if [ ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
+        rm -rf $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
+        git clone --depth 1 $rvm_ruby_repo_url $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
+      fi
+      cd $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version && rake build
+      for binary in ruby irb ; do
+        ln -fs $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/rbx $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/$binary
+      done
+    ;;
+
     jruby)
-      rvm_ruby_version=${rvm_ruby_version:-1.3.1}
-      unset rvm_ruby_patch_level # No patchlevel for jRuby
       rvm_package_file="$rvm_ruby_interpreter-bin-$rvm_ruby_version"
-      rvm_ruby_package_name="$rvm_ruby_interpreter-$rvm_ruby_version"
       rvm_url="http://dist.codehaus.org/$rvm_ruby_interpreter/$rvm_ruby_version/$rvm_package_file.zip"
+      rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
 
       rvm-log "info" "Installing jRuby to: $rvm_install_path/$rvm_ruby_package_name"
       mkdir -p $rvm_log_path/$rvm_ruby_package_name
       pushd $rvm_source_path > /dev/null
-      if [ -d $rvm_ruby_package_name ]  ; then
-        cd $rvm_source_path/$rvm_ruby_package_name
+
+
+      if [ ! -z "$rvm_ruby_rev" ] ; then
+        if [ ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
+          git clone --depth 1 $rvm_jruby_repo_url $rvm_source_path/$rvm_ruby_package_name
+          cd $rvm_source_path/$rvm_ruby_package_name && ant
+        fi
       else
-        rvm-log "info" "\tDownloading $rvm_package_file, this may take a while depending on your connection..."
-        rvm-curl $rvm_url
-        rvm-log "info" "\tExtracting $rvm_package_file..."
-        nice -n $rvm_niceness unzip -q $rvm_archives_path/$rvm_package_file.zip -d $rvm_source_path
+        if [ -d $rvm_source_path/$rvm_ruby_package_name ]  ; then
+          cd $rvm_source_path/$rvm_ruby_package_name
+        else
+          rvm-log "info" "\tDownloading $rvm_package_file, this may take a while depending on your connection..."
+          rvm-curl $rvm_url
+          rvm-log "info" "\tExtracting $rvm_package_file..."
+          nice -n $rvm_niceness unzip -q $rvm_archives_path/$rvm_package_file.zip -d $rvm_source_path
+          cd $rvm_source_path/$rvm_ruby_package_name
+        fi
       fi
 
       rvm-log "info" "\tInstalling $rvm_ruby_package_name..."
@@ -388,6 +487,7 @@ function rvm-uninstall {
         rm -f $rvm_bin_path/$rvm_ruby_package_name
       fi
     done ; unset dir
+    rm -rf $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version*/
   else
     rvm-log "fail" "Cannot uninstall unknown package '$rvm_ruby_package_name'"
   fi
@@ -398,51 +498,73 @@ function rvm-uninstall {
 function rvm-select {
 
   rvm_ruby_interpreter="${1:-$rvm_ruby_interpreter}"
-  rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}"
+  rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}" # Default is standard ruby
 
   if [ "$rvm_ruby_version" = "1.8" ] ; then rvm_ruby_version="1.8.6" ; fi
   if [ "$rvm_ruby_version" = "1.9" ] ; then rvm_ruby_version="1.9.1" ; fi
 
   case "$rvm_ruby_interpreter" in
+    macruby)
+      if [ "`uname`" = "Darwin" ] ; then
+        rvm_ruby_repo_url=$rvm_macruby_repo_url
+        rvm_ruby_version="head" # For now we are only supporting latest
+        unset rvm_ruby_patch_level
+      else
+        rvm-log "fail" "MacRuby can only be installed on a Darwin OS."
+      fi
+    ;;
+
+    rubinius)
+      rvm_ruby_version="head"
+      unset rvm_ruby_patch_level
+      rvm_ruby_repo_url=$rvm_rubinius_repo_url
+      rvm_ruby_configure=""
+      rvm_ruby_make="build"
+      rvm_ruby_make_install=""
+      #rvm_ruby_rev="head"
+    ;;
 
     jruby)
       rvm_ruby_version="${rvm_ruby_version:-1.3.1}"
-      if [ "$rvm_ruby_version" = "1.2.0" -o "$rvm_ruby_version" = "1.3.1" ] ; then
-        rvm_ruby_package_name="$rvm_ruby_interpreter*-$rvm_ruby_version"
-      else
+      unset rvm_ruby_patch_level
+      if [ "$rvm_ruby_version" != "1.2.0" -a "$rvm_ruby_version" != "1.3.1" ] ; then
         rvm-log "fail" "Unknown jRuby version: $rvm_ruby_version"
       fi
       alias jruby_ng="jruby --ng"
       alias jruby_ng_server="jruby --ng-server"
     ;;
 
-    ree)
+    ruby-enterprise|ree)
+      rvm_ruby_interpreter="ruby-enterprise"
       rvm_ruby_version=${rvm_ruby_version:-1.8.6}
       rvm_ruby_patch_level="${3:-20090610}"
 
-      if [ "$rvm_ruby_version" = "1.8.6" ] ; then
-        rvm_ruby_package_name="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
-      else
+      if [ "$rvm_ruby_version" != "1.8.6" ] ; then
         rvm-log "fail" "Unknown Ruby Enterprise Edition version: $rvm_ruby_version"
       fi
     ;;
 
     ruby)
-      rvm_ruby_version=${rvm_ruby_version:-1.8.6}
+      if [ ! -z "$rvm_ruby_tag" ] ; then
+        rvm_ruby_version=$(echo $rvm_ruby_tag | sed 's/^v//' | sed 's/\///' | awk -F'_' '{print 1 "." $2 "." $3 }')
+        rvm_ruby_patch_level=$rvm_ruby_tag # $(echo $rvm_ruby_tag | sed 's/^v//' | sed 's/\///' | awk -F'_' '{print $4 }')
+      fi
+
+      rvm_ruby_version=${rvm_ruby_version:-1.8.6} # Default verison is 1.8.6
       if [ "$rvm_ruby_version" = "1.9.1" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-243}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-p243}"
 
       elif [ "$rvm_ruby_version" = "1.9.2" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-review1}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-preview1}"
 
       elif [ "$rvm_ruby_version" = "1.8.6" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-369}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-p369}"
 
       elif [ "$rvm_ruby_version" = "1.8.7" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-174}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-p174}"
 
       elif [ "$rvm_ruby_version" = "1.8.5" ] ; then
-        rvm_ruby_patch_level="p${rvm_ruby_patch_level:-115}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level:-p115}"
 
       elif [ "$rvm_ruby_version" = "1.8.0" -o "$rvm_ruby_version" = "1.8.1" -o "$rvm_ruby_version" = "1.8.2" -o "$rvm_ruby_version" = "1.8.3" -o "$rvm_ruby_version" = "1.8.4" ] ; then
         unset rvm_ruby_patch_level
@@ -454,15 +576,37 @@ function rvm-select {
 
     system|default)
       unset rvm_ruby_interpreter rvm_ruby_version
+      rvm-cleanup-variables
+      if [ -e $rvm_install_path/current ] ; then
+        source $rvm_install_path/current
+      fi
     ;;
     *)
       rvm-log "fail" "Ruby implementation '$rvm_ruby_interpreter' is not known."
   esac
 
+  if [ ! -z "$rvm_ruby_rev" ] ; then
+    if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
+      rvm_ruby_patch_level="head"
+    else
+      rvm_ruby_patch_level="$rvm_ruby_rev"
+    fi
+  fi
+
   if [ ! -z "$rvm_ruby_interpreter" -a ! -z "$rvm_ruby_version" ] ; then
-    rvm_major_version=$(echo $rvm_ruby_version | awk -F'.' '{ print $1 "." $2 }')
+    rvm_major_version=$(echo $rvm_ruby_version | awk -F'.' '{ print $2 }')
     rvm_minor_version=$(echo $rvm_ruby_version | awk -F'.' '{ print $3 }')
-    rvm_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version"
+
+    if [ -z "$rvm_gem_set_name" ] ; then
+      rvm_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version"
+    else
+      if [ ! -z "$rvm_gem_set_name_rm" -a -d $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name ] ; then
+        rm -rf $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name/
+        if [ "$rvm_gem_set_name_rm" = "$rvm_gem_set_name" ] ; then unset rvm_gem_set_name ; fi
+      else
+        rvm_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
+      fi
+    fi
     mkdir -p $rvm_gem_home
 
     if [ -z "$rvm_ruby_patch_level" ] ; then
@@ -472,6 +616,7 @@ function rvm-select {
       rvm_ruby_package_name="${rvm_ruby_package_name:-"$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level"}"
       rvm_ruby_home="${rvm_ruby_home:-"$rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level"}"
     fi
+    rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
     rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
     rvm_selected=1
   else
@@ -484,21 +629,48 @@ function rvm-use {
 
   if [ -z "$rvm_selected" ] ; then rvm-select $* ; fi
 
-  # Now actually use it.
   if [ "$rvm_ruby_interpreter" = "default" -o "$rvm_ruby_interpreter" = "system" -o -z "$rvm_ruby_interpreter" ] ; then
-    #rm -f $rvm_install_path/current
-    unset GEM_HOME MY_RUBY_HOME
+    unset GEM_HOME MY_RUBY_HOME IRBRC
+    rvm-cleanup-variables
     PATH="$rvm_default_path" ; export PATH
-    #rvm-cleanup-variables
+    if [ -e $rvm_install_path/current ] ; then
+      source $rvm_install_path/current
+    fi
   else
     GEM_HOME=$rvm_gem_home ; export GEM_HOME
     MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
-    PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_default_path ; export PATH
+    IRBRC="$rvm_ruby_irbrc" ; export IRBRC
 
     # Install if not installed
     if [ ! -d $MY_RUBY_HOME ] ; then
       rvm-log "warn" "$rvm_ruby_interpreter $rvm_ruby_version is not installed."
-      rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version $level
+      rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
+    fi
+
+    if [ ! -s "$rvm_ruby_irbrc" ] ; then
+      rvm_irbrc_file=$(cat <<Config
+  @prompt = {
+    :PROMPT_I => "${rvm_ruby_package_name} > ", # default prompt
+    :PROMPT_S => "${rvm_ruby_package_name}%l> ", # known continuation
+    :PROMPT_C => "${rvm_ruby_package_name} > ",
+    :PROMPT_N => "${rvm_ruby_package_name} ?> ", # unknown continuation
+    :RETURN => " => %s \n",
+    :AUTO_INDENT => true
+  }
+  @prompt_mode = :DEFAULT
+  IRB.conf[:PROMPT][@prompt_mode] = @prompt
+  IRB.conf[:PROMPT_MODE] = @prompt_mode
+
+  require "irb/completion" rescue nil
+Config
+)
+      # TODO: Prepend users irbrc, keep custom path
+      echo "$rvm_irbrc_file" > $rvm_ruby_home/.irbrc
+    fi
+    PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_default_path ; export PATH
+
+    if [ ! -z "$PS1" ] ; then
+      PS1="\033[0;32m${rvm_ruby_package_name}\033[0m:: ${rvm_default_ps1}" ; export PS1
     fi
 
     if [ ! -z "$rvm_set_default" ] ; then
@@ -604,8 +776,33 @@ function rvm-execute {
   $rvm_ruby_home/bin/ruby $rvm_ruby_args
 }
 
+function rvm-cache {
+  rvm_cache_file="$rvm_config_path/cache"
+  touch $rvm_cache_file
+  key="$1" ; shift
+
+  if [ -z "$key" ] ; then
+    rvm-log "fail" "rvm-cache must be called with at least one argument: rvm-cache key [value]"
+  else
+    if [ "$key" = "unset" -o "$key" = "delete" ] ; then
+      sed -i~ "s/^$2=.*$//" $rvm_cache_file
+    else
+      value="$*"
+      if [ -z "$value" ] ; then # get
+        grep "^$key=" $rvm_cache_file | awk -F'=' '{print $2}'
+      else # set
+        if [ -z "$(grep "^$key=" $rvm_cache_file)" ] ; then # append
+          echo "$key=$value" >> $rvm_cache_file
+        else # overwrite
+          sed -i~ "s/^$key=.*$/$key=$value/" $rvm_cache_file
+        fi
+      fi
+    fi
+  fi
+}
+
 function rvm-cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message IRBRC rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path
 }
 
 function rvm-get-user-defaults {
@@ -627,7 +824,7 @@ function rvm-parse-args {
         fi
       ;;
 
-      ruby|jruby|ree|default|all)
+      ruby|jruby|ree|macruby|rubinius|default|all)
         rvm_ruby_interpreter="$rvm_token"
         rvm_action="${rvm_action:-use}"
       ;;
@@ -662,43 +859,66 @@ function rvm-parse-args {
 
       do|rubydo)
         rvm_action=$rvm_token
+        temp=$(echo $1 | awk '{print substr($1, 0, 1)}')
+        if [ "$temp" != "-" ] ; then
+          if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
+            rvm_ruby_version=$(echo "$1" | tr ',' ' ') ; shift
+          else
+            rvm_ruby_version=$1 ; shift
+          fi
+        else
+          unset rvm_ruby_version
+        fi
         unset rvm_ruby_interpreter
       ;;
 
       1.8|1.8.0|1.8.1|1.8.2|1.8.3|1.8.4|1.8.5|1.8.6|1.8.7|1.9|1.9.1|1.9.2)
-                       rvm_ruby_interpreter="ruby"
-                       rvm_ruby_version="$rvm_token"
-                       rvm_action="${rvm_action:-use}"
+                         rvm_ruby_interpreter="ruby"
+                         rvm_ruby_version="$rvm_token"
+                         rvm_action="${rvm_action:-use}"
       ;;
       1.2.0|1.3.1)
-                       rvm_ruby_interpreter="jruby"
-                       rvm_ruby_version="$rvm_token"
-                       rvm_action="${rvm_action:-use}"
+                         rvm_ruby_interpreter="jruby"
+                         rvm_ruby_version="$rvm_token"
+                         rvm_action="${rvm_action:-use}"
       ;;
 
       -v|--version)
-                       if [ -z "$1" ] ; then
-                         rvm_action="version"
-                       else
-                         rvm_ruby_version="$1"
-                       fi
-                       shift
+                         if [ -z "$1" ] ; then
+                           rvm_action="version"
+                         else
+                           rvm_ruby_version="$1"
+                         fi
+                         shift
       ;;
 
-      -l|--level)      rvm_ruby_patch_level="$1" ; shift ;;
-      -p|--prefix)     rvm_prefix_path="$1"      ; shift ;;
-      -b|--bin)        rvm_bin_path="$1"         ; shift ;;
-      -s|--source)     rvm_source_path="$1"      ; shift ;;
-      -a|--archive)    rvm_archives_path="$1"    ; shift ;;
-      -g|--gems)       rvm_gem_path="$1"         ; shift ;;
-      -c|--configure)  rvm_ruby_configure="$1"   ; shift ;;
-      -t|--tag)        rvm_ruby_tag="$1"         ; shift ;;
-      -a|--archive)    rvm_archives_path="$1"    ; shift ;;
-      -n|--nice)       rvm_niceness="$1"         ; shift ;;
-      -f|--file)       rvm_ruby_args="$1"        ; shift ;;
-      -h|--help)       rvm_action=help           ; shift ;;
-      -u|--default)    rvm_set_default=1                 ;;
-      -d|--debug)      rvm_debug=1                       ;;
+      -t|--tag)          rvm_ruby_tag="$1";
+                         rvm_action="${rvm_action:-use}"
+                         shift                             ;;
+      -r|--rev)          rvm_ruby_rev="$1";
+                         rvm_action="${rvm_action:-use}"
+                         shift                             ;;
+      -b|--branch)       rvm_ruby_rev="$1";
+                         rvm_action="${rvm_action:-use}"
+                         shift                             ;;
+
+
+      -P|--prefix)       rvm_prefix_path="$1"      ; shift ;;
+      -B|--bin)          rvm_bin_path="$1"         ; shift ;;
+      -S|--source)       rvm_source_path="$1"      ; shift ;;
+      -A|--archive)      rvm_archives_path="$1"    ; shift ;;
+      -G|--gems)         rvm_gem_path="$1"         ; shift ;;
+      -C|--configure)    rvm_ruby_configure="$1"   ; shift ;;
+      -M|--make)         rvm_ruby_make="$1"        ; shift ;;
+      -I|--make-install) rvm_ruby_make_install="$1"   ; shift ;;
+      -l|--level)        rvm_ruby_patch_level="$1" ; shift ;;
+      -n|--nice)         rvm_niceness="$1"         ; shift ;;
+      -f|--file)         rvm_ruby_args="$1"        ; shift ;;
+      -h|--help)         rvm_action=help           ; shift ;;
+      -d|--default)      rvm_set_default=1                 ;;
+      --debug)           rvm_debug=1                       ;;
+      -m|--gem-set)      rvm_gem_set_name="$1"     ; shift ;;
+      --rm-gem-set)      rvm_gem_set_name_rm="$1"  ; shift ;;
 
       default|system)
         rvm_action="use"
@@ -733,10 +953,10 @@ function rvm {
             for rvm_ruby_version in 1.8.6 1.8.7 1.9.1 1.9.2 ; do
               rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version
             done
-            unset rvm_ruby_version
           else
             rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version
           fi
+          unset rvm_ruby_version
         done
       else
         rvm-install-ruby $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
@@ -752,21 +972,38 @@ function rvm {
     version)   rvm-version                                                                 ;;
     rubydo)
                if [ ! -z "$rvm_ruby_version" ] ; then
-                 rvm-select $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
-                 rvm_command="$rvm_ruby_binary $rvm_ruby_args"
-                 eval $rvm_command
-               else # all
-                 for rvm_ruby_binary in `/bin/ls ~/.rvm/bin/ruby-*` ; do
+                 rvm_ruby_versions=$(echo $rvm_ruby_version | tr ',' ' ')
+                 for rvm_ruby_version in $rvm_ruby_versions ; do
+                   temp=$(echo $rvm_ruby_version | awk '{print substr($1, 0, 1)}')
+                   if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
+                     rvm_ruby_interpreter="ruby"
+                   else
+                     rvm_ruby_interpreter="$rvm_ruby_version"
+                     unset rvm_ruby_version
+                   fi
+                   unset temp
+                   rvm-select $rvm_ruby_interpreter $rvm_ruby_version
+
                    rvm_command="$rvm_ruby_binary $rvm_ruby_args"
                    echo "$(basename $rvm_ruby_binary):"
                    eval $rvm_command
+                   unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary
+                 done
+               else # all
+                 rvm_ruby_versions=`/bin/ls $rvm_install_path/bin/ruby-*`
+                 for rvm_ruby_binary in $rvm_ruby_versions ; do
+                   if [ -x $rvm_ruby_binary ] ; then
+                     rvm_command="$rvm_ruby_binary $rvm_ruby_args"
+                     echo "$(basename $rvm_ruby_binary):"
+                     eval $rvm_command
+                   fi
                  done
                fi
                ;;
     reset)     rvm-reset                                                       ;;
                # TODO: how can we use bin_path here for reload, default file?
-    reload)    source ~/.rvm/bin/rvm                                           ;;
-    error)     rvm-log "fail" "$rvm_error_message ( see: rvm usage )" ; return 1;                 ;;
+    reload)    source ~/.rvm/scripts/rvm                                       ;;
+    error)     rvm-log "fail" "$rvm_error_message ( see: rvm usage )" ; return 1;          ;;
     info|debug)
                rvm-version
 cat <<-Info
@@ -787,6 +1024,11 @@ binaries:
   ruby:         "$(which ruby)"
   irb:          "$(which irb)"
   gem:          "$(which gem)"
+
+environment:
+  GEM_HOME:     "$GEM_HOME"
+  MY_RUBY_HOME: "$MY_RUBY_HOME"
+  IRBRC:        "$IRBRC"
 Info
 
                if [ "$rvm_action" = "debug" ] ; then

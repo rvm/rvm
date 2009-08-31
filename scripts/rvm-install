@@ -1,0 +1,101 @@
+#!/bin/bash
+
+user=`whoami`
+if [ "$user" = "root" ] ; then
+  echo -e "\033[0;31m <e> \033[0mroot user support is not yet implemented.\033[0m"
+  exit 1
+fi
+
+info="\n\033[0;32m<i>\033[0m"
+question="\n\033[0;32m<?>\033[0m"
+
+echo -e "Installing rvm source to ~/.rvm/scripts/rvm..."
+cwd=$(pwd)
+rvm_dir=~/.rvm
+mkdir -p $rvm_dir
+
+for dir in src scripts bin log archives config gems examples ; do
+  mkdir -p $rvm_dir/$dir
+done
+
+for file in ~/.bash_profile ~/.bashrc ~/.zshrc ; do
+  if [ -s $file ] ; then
+    echo -e "\n\033[0;33m<w>\033[0m Ensuring that rvm script location in $file is scripts/rvm not bin/rvm"
+    sed -i.orig 's/rvm\/bin\/rvm/rvm\/scripts\/rvm/g' $file
+  fi
+done
+
+if [ -f ~/.rvm/bin/rvm ] ; then
+  echo -e "\n\033[0;33m<w>\033[0m Removing old rvm file from ~/.rvm/bin/rvm"
+  rm -f ~/.rvm/bin/rvm
+fi
+
+for dir in scripts examples ; do
+  mkdir -p $rvm_dir/$dir
+  for file in `/bin/ls $dir/`; do
+    cp $cwd/$dir/$file $rvm_dir/$dir/$file
+  done
+done
+
+# State what is required to use rvm
+echo -e "\n\033[0;32mrvm\033[0m is a shell script that allows a user to manage multiple ruby versions in their own account."
+echo -e "$info In order to use rvm the following line must occur in your shell's loading files:"
+echo -e "\n\033[0;32m    (a)\033[0m if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi"
+
+while : ; do
+  echo -n -e "$question Do you want this (s)cript to set this up for you, or do it (m)anually yourself ('s' or 'm')? "
+  read response
+  if [ "${response:0:1}" = "s" ] ; then
+    echo 'w00t!'
+    break
+  elif [ "${response:0:1}" = "m" ] ; then
+    echo -e "$info Please make sure that this line is in place."
+    break
+  fi
+done
+
+if [ "${response:0:1}" = "s" ] ; then
+
+  while : ; do
+    echo -n -e "$question Do you use b(a)sh or (z)sh or b(o)th for your shell (the default on most *nix systems is bash, press control + C to cancel the installation)\n(a/z/o)? "
+    read response
+    if [ "${response:0:1}" = "a" ] ; then
+      user_shell="bash"
+      break
+    elif [ "${response:0:1}" = "z" ] ; then
+      user_shell="zsh"
+      break
+    elif [ "${response:0:1}" = "o" ] ; then
+      user_shell="both"
+      break
+    fi
+  done
+
+  if [ "$user_shell" = "bash" -o "$user_shell" = "both" ] ; then
+
+    touch ~/.bash_profile
+    if [ -z "`grep '\.rvm/scripts/rvm' ~/.bash_profile`" ] ; then
+      echo "Adding 'if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi' to your ~/.bash_profile."
+      echo "if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi" >> ~/.bash_profile
+    fi
+    touch ~/.bashrc
+    if [ -z "`grep '\.rvm/scripts/rvm' ~/.bashrc`" ] ; then
+      echo "Adding 'if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi' to your ~/.bashrc."
+      echo "if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi" >> ~/.bashrc
+    fi
+
+  fi
+
+  if [ "$user_shell" = "zsh" -o "$user_shell" = "both" ] ; then
+
+    touch ~/.zshrc
+    if [ -z "`grep '\.rvm/scripts/rvm' ~/.zshrc`" ] ; then
+      echo "Adding 'if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi' to your ~/.zshrc."
+      echo "if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi" >> ~/.zshrc
+    fi
+  fi
+
+fi
+
+source $rvm_dir/scripts/rvm-update
+
