@@ -130,11 +130,16 @@ function __rvm_gems-install { for gem in $* ; do __rvm_gi $gem ; done }
 function __rvm_set-defaults {
 
   # TODO: Store defaults in "defaults/" dir.
-  if [ ! -f $rvm_install_path/default ] ; then
-    for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME PATH ; do
-      eval "export $variable"
+  if [ ! -s $rvm_install_path/default ] ; then
+    for variable in rvm_prompt RUBY_VERSION GEM_HOME MY_RUBY_HOME PATH ; do
       eval value=\$${variable}
-      echo "${variable}='$value' ; export ${variable}" >> $rvm_install_path/default
+      if [ -z "$value" ] ; then
+        echo "unset ${variable}" >> $rvm_install_path/default
+      else
+        eval "export $variable"
+        eval value=\$${variable}
+        echo "${variable}='$value' ; export ${variable}" >> $rvm_install_path/default
+      fi
     done
   fi
 
@@ -207,7 +212,8 @@ function __rvm_initialize {
   rvm_ruby_repo_url="${rvm_ruby_repo_url:-"http://svn.ruby-lang.org/repos/ruby"}"
   # Rubinius sha1's will be available after RC1.
   rvm_rubinius_repo_url="${rvm_rubinius_repo_url:-"git://github.com/evanphx/rubinius.git"}"
-  rvm_macruby_repo_url="${rvm_macruby_repo_url:-"http://svn.macosforge.org/repository/ruby/MacRuby"}"
+  #rvm_macruby_repo_url="${rvm_macruby_repo_url:-"http://svn.macosforge.org/repository/ruby/MacRuby"}"
+  rvm_macruby_repo_url="${rvm_macruby_repo_url:-"git://github.com/masterkain/macruby.git"}"
   rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
 
   __rvm_clean-path
@@ -265,9 +271,23 @@ function __rvm_install-source {
     __rvm_log "info" "\tRetrieving Ruby from $rvm_url"
     mkdir -p $rvm_source_path/$rvm_ruby_package_name
     # TODO: Instead of always forcing, check if it's already svn for correct url and simply check out required revision
-    svn checkout -q $rvm_rev --force $rvm_url $rvm_source_path/$rvm_ruby_package_name
+
+        cd $rvm_install_path/$rvm_ruby_package_name
+    if [ ! -z "`echo $rvm_url | grep '^git'`" ] ; then
+      if [ -d $rvm_install_path/$rvm_ruby_package_name ] ; then
+        rm -rf $rvm_install_path/$rvm_ruby_package_name
+      fi
+      git clone --depth 1 $rvm_ruby_repo_url $rvm_install_path/$rvm_ruby_package_name
+    else
+      if [ -d "$rvm_install_path/$rvm_ruby_package_name/.svn" ] ; then
+        cd $rvm_install_path/$rvm_ruby_package_name
+        svn checkout -q $rvm_rev
+      else
+        svn checkout -q $rvm_rev --force $rvm_url $rvm_source_path/$rvm_ruby_package_name
+      fi
+    fi
     cd $rvm_source_path/$rvm_ruby_package_name
-    autoconf
+    if [ ! -s Makefile -a -z "$rvm_ruby_configure"] ; then autoconf ; fi
   fi
 
   if [ -s ./configure ] ; then
@@ -363,12 +383,6 @@ function __rvm_install-ruby {
             rvm_ruby_rev="-r $rvm_ruby_rev"
           fi
         fi
-        __rvm_log "info" "\tRetrieving MacRuby from $rvm_ruby_repo_url"
-        mkdir -p $rvm_source_path/$rvm_ruby_package_name
-        # TODO: Instead of always forcing, check if it's already svn for correct url and simply check out required revision
-        svn checkout -q $rvm_rev --force $rvm_ruby_repo_url $rvm_source_path/$rvm_ruby_package_name
-        if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_log_path/$rvm_ruby_package_name/*.error.log" ; return 1 ; fi
-        cd $rvm_source_path/$rvm_ruby_package_name
         __rvm_install-source
         unset DESTDIR
       else
