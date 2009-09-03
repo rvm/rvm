@@ -304,8 +304,9 @@ function __rvm_install-source {
   if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
   if [ -s ./configure ] ; then
     __rvm_log "info" "\tConfiguring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
-    command="nice -n $rvm_niceness ./configure --prefix=$rvm_ruby_home $rvm_ruby_configure"
-    eval $command > $rvm_ruby_log_path/configure.log 2> $rvm_ruby_log_path/configure.error.log
+    # command="nice -n $rvm_niceness ./configure --prefix=$rvm_ruby_home $rvm_ruby_configure"
+    # eval $command > $rvm_ruby_log_path/configure.log 2> $rvm_ruby_log_path/configure.error.log
+    __rvm_run "configure" ./configure --prefix=$rvm_ruby_home $rvm_ruby_configure
     if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
   else
     __rvm_log "warn" "\tSkipping configure step, ./configure file does not exist."
@@ -885,9 +886,13 @@ function __rvm_gem-dup {
 
 }
 
-function __rvm_execute {
-  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
-  $rvm_ruby_home/bin/ruby $rvm_ruby_args
+function __rvm_run {
+  log_file="1" ; shift
+  command="$*"
+  if [ $rvm_debug ] ; then __rvm_log "debug" "Executing: $command" ; fi
+  eval "nice -n $rvm_niceness $command" > $rvm_ruby_log_path/log_file.log 2> $rvm_ruby_log_path/log_file.error.log
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/log_file.error.log" ; return 1 ; fi
+  unset log_file command
 }
 
 function __rvm_cache {
@@ -1041,6 +1046,7 @@ function __rvm_parse-args {
       -f|--file)         rvm_ruby_args="$1"        ; shift ;;
       -h|--help)         rvm_action=help           ; shift ;;
       -d|--default)      rvm_set_default=1                 ;;
+      --head)            rvm_ruby_rev="head"               ;;
       --trace|--debug)   rvm_debug=1                       ;;
       --force)           rvm_force=1                       ;;
       --set-prompt)      rvm_set_prompt=1                  ;;
@@ -1118,9 +1124,17 @@ function rvm {
     reload)    source ~/.rvm/scripts/rvm                                            ;;
     implode)   __rvm_implode                                                        ;;
     update)
-      gem install rvm --no-rdoc --no-ri -q &&
-      rvm-update &&
-      source ~/.rvm/scripts/rvm # TODO: rvm_install_path:
+      if [ "$rvm_ruby_rev" = "head" ] ; then
+        if [ -d $rvm_source_path/rvm/.git ] ; then
+          cd $rvm_source_path/rvm/ && git pull origin master
+        else
+          cd $rvm_source_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/
+        fi
+        ./scripts/rvm-update
+      else
+        # TODO: rvm_install_path:
+        gem install rvm --no-rdoc --no-ri -q && rvm-update && source ~/.rvm/scripts/rvm
+      fi
     ;;
     error)     __rvm_log "fail" "$rvm_error_message ( see: rvm usage )" ; return 1; ;;
     info|debug)
