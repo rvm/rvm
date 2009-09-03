@@ -183,11 +183,16 @@ function __rvm_set-defaults {
 
 function __rvm_initialize {
 
-  rvm_curl=`which curl`
+  rvm_fetch=`which curl`
   if [ $? -ne 0 ] ; then
-    __rvm_log "fail" "rvm expects that curl is available, which curl shows no curl :("
+    rvm_fetch=`which wget`
+    if [ $? -ne 0 ] ; then
+      rvm_fetch="wget -q -c "
+    else
+    __rvm_log "fail" "rvm expects either curl or wget, neither seem to be in your path :("
+    fi
   else
-    rvm_curl="$rvm_curl -O -L -s -C - "
+    rvm_fetch="$rvm_fetch -O -L -s -C - "
   fi
 
   rvm_niceness=${rvm_niceness:-0}
@@ -227,10 +232,10 @@ function __rvm_initialize {
   mkdir -p $rvm_source_path $rvm_bin_path $rvm_archives_path
 }
 
-function __rvm_curl {
+function __rvm_fetch {
 
   pushd $rvm_archives_path > /dev/null
-  eval $rvm_curl "$1"
+  eval $rvm_fetch "$1"
   popd > /dev/null
 
 }
@@ -253,7 +258,7 @@ function __rvm_install-source {
     if [ ! -d $rvm_ruby_src_path ]  ; then
       rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
       __rvm_log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
-      __rvm_curl $rvm_url
+      __rvm_fetch $rvm_url
       if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
 
       __rvm_log "info" "\tExtracting $rvm_ruby_package_name ..."
@@ -347,7 +352,7 @@ RubyWrapper
   if [ -d $rvm_source_path/$rvm_gem_package_name ]  ; then
     cd $rvm_source_path/$rvm_gem_package_name
   else
-    __rvm_curl $rvm_gem_url
+    __rvm_fetch $rvm_gem_url
     if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
     mkdir -p $rvm_source_path/$rvm_gem_package_name
     nice -n $rvm_niceness tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
@@ -436,7 +441,7 @@ function __rvm_install-ruby {
         cd $rvm_ruby_src_path
       else
         __rvm_log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
-        __rvm_curl $rvm_url
+        __rvm_fetch $rvm_url
         if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
         __rvm_log "info" "\tExtracting $rvm_ruby_package_name..."
         mkdir -p $rvm_ruby_src_path
@@ -460,7 +465,7 @@ function __rvm_install-ruby {
       if [ -d $rvm_source_path/$rvm_gem_package_name ]  ; then
         cd $rvm_source_path/$rvm_gem_package_name
       else
-        __rvm_curl $rvm_gem_url
+        __rvm_fetch $rvm_gem_url
         if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
         mkdir -p $rvm_source_path/$rvm_gem_package_name
         nice -n $rvm_niceness tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
@@ -518,7 +523,7 @@ function __rvm_install-ruby {
           cd $rvm_ruby_src_path
         else
           __rvm_log "info" "\tDownloading $rvm_package_file, this may take a while depending on your connection..."
-          __rvm_curl $rvm_url
+          __rvm_fetch $rvm_url
           __rvm_log "info" "\tExtracting $rvm_package_file..."
           nice -n $rvm_niceness unzip -q $rvm_archives_path/$rvm_package_file.zip -d $rvm_source_path
           cd $rvm_ruby_src_path
