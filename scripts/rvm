@@ -111,7 +111,7 @@ function __rvm_log   {
     debug) shift ; echo -e "\n\033[0;35m <d> $* \033[0m" ;;
     info)  shift ; echo -e "\n\033[0;32m <i> $* \033[0m" ;;
     warn)  shift ; echo -e "\n\033[0;33m <w> $* \033[0m" ;;
-    fail)  shift ; echo -e "\n\033[0;31m <e> $* \033[0m" ; return 1 ;;
+    fail)  shift ; echo -e "\n\033[0;31m <e> $* \033[0m" ; popd 2> /dev/null ; return 1 ;;
     *) echo -e "$*"
   esac
 }
@@ -236,7 +236,7 @@ function __rvm_fetch {
 
   pushd $rvm_archives_path > /dev/null
   eval $rvm_fetch "$1"
-  popd > /dev/null
+  popd 2> /dev/null
 
 }
 
@@ -259,7 +259,7 @@ function __rvm_install-source {
       rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
       __rvm_log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
       __rvm_fetch $rvm_url
-      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
 
       __rvm_log "info" "\tExtracting $rvm_ruby_package_name ..."
       mkdir -p $rvm_ruby_src_path
@@ -302,15 +302,15 @@ function __rvm_install-source {
     fi
   fi
   cd $rvm_ruby_src_path
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
   if [ ! -s $rvm_ruby_src_path/Makefile -a "$rvm_ruby_interpreter" = "ruby" ] ; then autoconf ; fi
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
   if [ -s ./configure ] ; then
     __rvm_log "info" "\tConfiguring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
     # command="nice -n $rvm_niceness ./configure --prefix=$rvm_ruby_home $rvm_ruby_configure"
     # eval $command > $rvm_ruby_log_path/configure.log 2> $rvm_ruby_log_path/configure.error.log
     __rvm_run "configure" ./configure --prefix=$rvm_ruby_home $rvm_ruby_configure
-    if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+    if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
   else
     __rvm_log "warn" "\tSkipping configure step, ./configure file does not exist."
   fi
@@ -321,14 +321,14 @@ function __rvm_install-source {
   else
     nice -n $rvm_niceness $rvm_ruby_make > $rvm_ruby_log_path/install.log 2> $rvm_ruby_log_path/install.error.log
   fi
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
   if [ -z "$rvm_ruby_make" ] ; then
     __rvm_log "info" "\tInstalling $rvm_ruby_package_name"
     nice -n $rvm_niceness make install > $rvm_ruby_log_path/install.log 2> $rvm_ruby_log_path/install.error.log
   else
     nice -n $rvm_niceness $rvm_ruby_make_install > $rvm_ruby_log_path/install.log 2> $rvm_ruby_log_path/install.error.log
   fi
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
 
   chmod +x $rvm_ruby_home/bin/*
 
@@ -353,7 +353,7 @@ RubyWrapper
     cd $rvm_source_path/$rvm_gem_package_name
   else
     __rvm_fetch $rvm_gem_url
-    if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+    if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
     mkdir -p $rvm_source_path/$rvm_gem_package_name
     nice -n $rvm_niceness tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
   fi
@@ -361,7 +361,7 @@ RubyWrapper
   sed -i.orig "s/require_paths\.join/require_paths.to_a.join/" $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb
 
   nice -n $rvm_niceness $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb > $rvm_ruby_log_path/rubygems.install.log 2> $rvm_ruby_log_path/rubygems.install.error.log
-  popd > /dev/null
+  popd 2> /dev/null
 
 
   for rvm_gem_name in rake ; do
@@ -442,19 +442,19 @@ function __rvm_install-ruby {
       else
         __rvm_log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
         __rvm_fetch $rvm_url
-        if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+        if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
         __rvm_log "info" "\tExtracting $rvm_ruby_package_name..."
         mkdir -p $rvm_ruby_src_path
         nice -n $rvm_niceness tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
       fi
-      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
 
       __rvm_log "info" "\tInstalling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
       mkdir -p $rvm_ruby_log_path
 
       cd $rvm_ruby_src_path
       nice -n $rvm_niceness ./installer -a $rvm_install_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc > $rvm_ruby_log_path/install.log 2> $rvm_ruby_log_path/install.error.log
-      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
       chmod +x $rvm_ruby_home/bin/*
 
       ln -fs $rvm_ruby_home/bin/ruby $rvm_install_path/bin/$rvm_ruby_package_name
@@ -466,17 +466,17 @@ function __rvm_install-ruby {
         cd $rvm_source_path/$rvm_gem_package_name
       else
         __rvm_fetch $rvm_gem_url
-        if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+        if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
         mkdir -p $rvm_source_path/$rvm_gem_package_name
         nice -n $rvm_niceness tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
       fi
-      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
       # Well this is fun... fix nil error on require_paths:
       sed -i.orig "s/require_paths\.join/require_paths.to_a.join/" $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb > $rvm_ruby_log_path/rubygems.install.log 2> $rvm_ruby_log_path/rubygems.install.error.log
 
       nice -n $rvm_niceness $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb > $rvm_ruby_log_path/rubygems.install.log 2> $rvm_ruby_log_path/rubygems.install.error.log
       __rvm_log "info" "Installation of $rvm_ruby_package_name complete."
-      popd > /dev/null
+      popd 2> /dev/null
 
       for rvm_gem_name in rake ; do
         __rvm_log "info" "Installing $rvm_gem_name"
@@ -497,7 +497,7 @@ function __rvm_install-ruby {
         git clone --depth 1 $rvm_ruby_repo_url $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version
       fi
       cd $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version && $rvm_rubinius_jit rake build
-      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
       for binary in ruby irb ; do
         ln -fs $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/rbx $rvm_install_path/$rvm_ruby_interpreter-$rvm_ruby_version/bin/$binary
       done
@@ -529,14 +529,14 @@ function __rvm_install-ruby {
           cd $rvm_ruby_src_path
         fi
       fi
-      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
 
       __rvm_log "info" "\tInstalling $rvm_ruby_package_name..."
       mkdir -p $rvm_ruby_home/bin/
       rsync -ag $rvm_ruby_src_path/ $rvm_ruby_home/
-      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; return 1 ; fi
+      if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
       cd $rvm_ruby_src_path/tool/nailgun && make > $rvm_ruby_log_path/install.nailgun.log 2> $rvm_ruby_log_path/install.error.nailgun.log
-      popd > /dev/null
+      popd 2> /dev/null
       chmod +x $rvm_ruby_home/bin/*
       for binary in jruby jgem jirb ; do
         ln -fs $rvm_ruby_home/bin/$binary $rvm_ruby_home/bin/${binary#j}
@@ -894,7 +894,7 @@ function __rvm_run {
   command="$*"
   if [ $rvm_debug ] ; then __rvm_log "debug" "Executing: $command" ; fi
   eval "nice -n $rvm_niceness $command" > $rvm_ruby_log_path/log_file.log 2> $rvm_ruby_log_path/log_file.error.log
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/log_file.error.log" ; return 1 ; fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/log_file.error.log" ; popd 2> /dev/null ; return 1 ; fi
   unset log_file command
 }
 
@@ -1069,7 +1069,7 @@ function __rvm_parse-args {
     if [ ! -z "$rvm_ruby_args" -o ! -z "$rvm_error_message" ] ; then break; fi
   done
 
-  if [ ! -z "$rvm_error_message" ] ; then return 1 ; fi
+  if [ ! -z "$rvm_error_message" ] ; then popd 2> /dev/null ; return 1 ; fi
   if [ -z "$rvm_debug" ] ; then set +x ; else set -x ; fi
 
 }
@@ -1139,7 +1139,7 @@ function rvm {
         gem install rvm --no-rdoc --no-ri -q && rvm-update && source ~/.rvm/scripts/rvm
       fi
     ;;
-    error)     __rvm_log "fail" "$rvm_error_message ( see: rvm usage )" ; return 1; ;;
+    error)     __rvm_log "fail" "$rvm_error_message ( see: rvm usage )" ; popd 2> /dev/null ; return 1; ;;
     info|debug)
                __rvm_version
 cat <<-Info
