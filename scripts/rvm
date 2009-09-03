@@ -261,20 +261,6 @@ function __rvm_install-source {
       nice -n $rvm_niceness tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
     fi
   else
-    if [ -z "$rvm_ruby_rev" ] ; then
-      # TODO: Check if tag v is valid
-      rvm_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
-      rvm_rev=""
-    else
-      if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
-        rvm_url=$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}
-        rvm_rev=""
-      else
-        rvm_url=$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}
-        rvm_rev="-r $rvm_ruby_rev"
-      fi
-    fi
-
     __rvm_log "info" "\tRetrieving Ruby from $rvm_url"
     if [ ! -z "`echo $rvm_url | grep '^git'`" ] ; then
       if [ -d "$rvm_source_path/$rvm_ruby_package_name/.git" ] ; then
@@ -288,6 +274,20 @@ function __rvm_install-source {
         git clone --depth 1 $rvm_ruby_repo_url $rvm_source_path/$rvm_ruby_package_name
       fi
     else
+      if [ -z "$rvm_ruby_rev" ] ; then
+        # TODO: Check if tag v is valid
+        rvm_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
+        rvm_rev=""
+      else
+        if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
+          rvm_url=$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}
+          rvm_rev=""
+        else
+          rvm_url=$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}
+          rvm_rev="-r $rvm_ruby_rev"
+        fi
+      fi
+
       if [ -d "$rvm_source_path/$rvm_ruby_package_name/.svn" ] ; then
         cd $rvm_source_path/$rvm_ruby_package_name
         svn checkout -q $rvm_rev
@@ -356,13 +356,15 @@ RubyWrapper
   nice -n $rvm_niceness $rvm_install_path/$rvm_ruby_package_name/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb > $rvm_log_path/$rvm_ruby_package_name/rubygems.install.log 2> $rvm_log_path/$rvm_ruby_package_name/rubygems.install.error.log
   popd > /dev/null
 
+  set -x
   for binary in gem irb erb ri rdoc testrb ; do
-  sed -i.orig "2i\\
+  sed -i.orig "2i\
   ENV[\"GEM_HOME\"]=\"$rvm_gem_home\"
   ENV[\"PATH\"]=\"$rvm_ruby_home/bin:$rvm_gem_home/bin:\"
 
 " $rvm_install_path/$rvm_ruby_package_name/bin/$binary
   done
+  set +x
 
   __rvm_log "info" "Installation of rubygems for $rvm_ruby_package_name is complete."
 
@@ -371,7 +373,7 @@ RubyWrapper
     nice -n $rvm_niceness $rvm_install_path/$rvm_ruby_package_name/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q >> $rvm_log_path/$rvm_ruby_package_name/gems.install.log 2> $rvm_log_path/$rvm_ruby_package_name/gems.error.log
   done
 
-  sed -i.orig "2i\\
+  sed -i.orig "2i\
   ENV[\"GEM_HOME\"]=\"$rvm_gem_home\"
   ENV[\"PATH\"]=\"$rvm_ruby_home/bin:$rvm_gem_home/bin:\"
 
@@ -398,14 +400,14 @@ function __rvm_install-ruby {
         DESTDIR="$rvm_install_path/$rvm_ruby_package_name" ; export DESTDIR
         if [ -z "$rvm_ruby_rev" ] ; then
           # TODO: Check if tag v is valid
-          rvm_ruby_repo_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
-          rvm_ruby_rev=""
+          #rvm_ruby_repo_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
+          rvm_ruby_rev="head" # For now, until nightly release are available.
         else
           if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
-            rvm_ruby_repo_url=$rvm_ruby_repo_url/trunk
-            rvm_ruby_rev=""
+            #rvm_ruby_repo_url=$rvm_ruby_repo_url/trunk
+            rvm_ruby_rev="head"
           else
-            rvm_ruby_repo_url=$rvm_ruby_repo_url/trunk
+            #rvm_ruby_repo_url=$rvm_ruby_repo_url/trunk
             rvm_ruby_rev="-r $rvm_ruby_rev"
           fi
         fi
