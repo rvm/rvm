@@ -23,7 +23,6 @@ Gem::Specification.new do |s|
      "config/cache",
      "examples/rvmrc",
      "lib/rvm.rb",
-     "rvm.gemspec",
      "scripts/rvm",
      "scripts/rvm-install",
      "scripts/rvm-update"
