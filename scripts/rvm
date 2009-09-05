@@ -65,7 +65,6 @@ function __rvm_usage {
     -l|--level      - Patch level for the specified Ruby version
     -p|--prefix     - Package and source directory prefix, with trailing slash!
                       Default is a users home directory and /usr/local/ for root
-    -c|--configure  - Options for source compile (default: --enable-shared=true)
     -a|--archives   - Directory to place downladed files into (~/.rvm/archives/)
     -n|--nice       - Niceness level (default: 0)
     -m|--gem-set    - Named gem set for switching between different gem sets
@@ -81,6 +80,8 @@ function __rvm_usage {
     -A|--archive    - Specify archive directory to use (tabralls / zips)
     -G|--gems       - Specify root gem path to use
     -C|--configure  - Specify custom configure options, comma separated
+                      default: --enable-shared=true
+    --re-configure  - Force installer to re-run configure if already run
     -M|--make       - Specify a custom make command
     -I|--make-install - "     a custom make install command
 
@@ -326,11 +327,13 @@ function __rvm_install-source {
 
   if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
 
-  if [ -s ./configure ] ; then
+  if [ -s ./Makefile -a -z "$rvm_re_configure"] ; then
+    __rvm_log "warn" "\tSkipping configure step, Makefile exists so configure must have already been run."
+  elif [ -s ./configure ] ; then
     __rvm_log "info" "\tConfiguring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
     __rvm_run "configure" ./configure --prefix=$rvm_ruby_home $rvm_ruby_configure
   else
-    __rvm_log "warn" "\tSkipping configure step, ./configure file does not exist."
+    __rvm_log "warn" "\tSkipping configure step, 'configure' script does not exist, did autoconf not run successfully?"
   fi
 
   __rvm_log "info" "\tCompiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
@@ -621,7 +624,6 @@ function __rvm_select {
 
     rbx|rubinius)
       rvm_ruby_version="head"
-      rvm_ruby_version="head"
       unset rvm_ruby_patch_level
       rvm_ruby_repo_url=$rvm_rubinius_repo_url
       rvm_ruby_configure=""
@@ -723,6 +725,9 @@ function __rvm_select {
     rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
     rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
     rvm_selected=1
+
+    export rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_version rvm_ruby_package_name rvm_url rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_path rvm_gem_home rvm_install_path rvm_source_path rvm_bin_path rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_log_path rvm_ruby_log_path rvm_source_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected
+
   else
     unset rvm_selected
   fi
@@ -953,7 +958,7 @@ function __rvm_db {
 }
 
 function __rvm_cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message IRBRC rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_set_prompt rvm_all
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message IRBRC rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_set_prompt rvm_all rvm_re_configure
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -1071,8 +1076,9 @@ function __rvm_parse-args {
           break;
         fi
       ;;
+      --re-configure)    rvm_re_configure=1                ;;
       -M|--make)         rvm_ruby_make="$1"        ; shift ;;
-      -I|--make-install) rvm_ruby_make_install="$1"   ; shift ;;
+      -I|--make-install) rvm_ruby_make_install="$1"; shift ;;
       -l|--level)        rvm_ruby_patch_level="$1" ; shift ;;
       -n|--nice)         rvm_niceness="$1"         ; shift ;;
       -f|--file)         rvm_ruby_args="$1"        ; shift ;;
