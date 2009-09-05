@@ -130,9 +130,8 @@ function __rvm_remove-from-path {
 function __rvm_gi { gem install -q --no-rdoc --no-ri $* ; }
 function __rvm_gems-install { for gem in $* ; do __rvm_gi $gem ; done }
 
-function __rvm_set-defaults {
+function __rvm_load-defaults {
 
-  # TODO: Store defaults in "defaults/" dir.
   if [ ! -s $rvm_install_path/default ] ; then
     for variable in rvm_prompt RUBY_VERSION GEM_HOME MY_RUBY_HOME PATH ; do
       eval value=\$${variable}
@@ -146,48 +145,40 @@ function __rvm_set-defaults {
     done
   fi
 
-  if [ -s $rvm_install_path/default_path ] ; then
-    rvm_default_path=`cat $rvm_install_path/default_path`
-  else
+  rvm_default_path=`__rvm_db "rvm_default_path"`
+  if [ -z "$rvm_default_path" ] ; then
     __rvm_clean-path # Clean the path the first time we compute default path.
     __rvm_remove-from-path
-    echo $PATH > $rvm_install_path/default_path
-    rvm_default_path=$PATH
+    rvm_default_path="$PATH"
+    __rvm_db "rvm_default_path" "$rvm_default_path"
   fi
 
-  rvm_default_ps1=`__rvm_cache rvm_default_ps1`
+  rvm_default_ps1=`__rvm_db "rvm_default_ps1"`
   if [ -z "$rvm_default_ps1" ] ; then
     rvm_default_ps1=$PS1
-    __rvm_cache "rvm_default_ps1" "$rvm_default_ps1"
+    __rvm_db "rvm_default_ps1" "$rvm_default_ps1"
   fi
 
-  if [ -s $rvm_install_path/default_user_gem_path ] ; then
-    rvm_default_user_gem_path=`cat $rvm_install_path/default_user_gem_path`
-  else
-    which ruby > /dev/null
+  rvm_default_system_ruby=`__rvm_db "default_system_ruby"`
+  if [ -z "default_system_ruby" ] ; then
+    rvm_default_system_ruby=`which ruby`
     if [ $? -ne 0 ] ; then
-      __rvm_log "info" "System ruby not found, assuming no system installed ruby."
+      __rvm_log "info" "System ruby not found, no db will be stored."
     else
-      ruby -r rubygems -e "puts Gem::default_path.compact.first" > $rvm_install_path/default_user_gem_path
-    fi
-  fi
+      __rvm_db "default_system_ruby" "$rvm_default_system_ruby"
 
-  if [ -s $rvm_install_path/default_system_gem_path ] ; then
-    rvm_default_system_gem_path=`cat $rvm_install_path/default_system_gem_path`
-  else
-    which ruby > /dev/null
-    if [ $? -ne 0 ] ; then
-      __rvm_log "info" "System ruby not found, assuming no system installed ruby."
-    else
-      ruby -r rubygems -e "puts Gem::default_path.compact[1] || Gem::default_path.compact.first" > $rvm_install_path/default_system_gem_path
+      # Now store default system & user gem paths
+      rvm_default_user_gem_path=`__rvm_db "default_user_gem_path"`
+      if [ -z "$rvm_default_user_gem_path" ] ; then
+        rvm_default_user_gem_path=`ruby -r rubygems -e "puts Gem::default_path.compact.first"`
+        __rvm_db "default_user_gem_path" "$rvm_default_user_gem_path"
+      fi
+      rvm_default_system_gem_path=`__rvm_db "default_system_gem_path"`
+      if [ -z "$rvm_default_system_gem_path" ] ; then
+        rvm_default_system_gem_path=`ruby -r rubygems -e "puts Gem::default_path.compact[1] || Gem::default_path.compact.first"`
+        __rvm_db "default_system_gem_path" "$rvm_default_system_gem_path"
+      fi
     fi
-  fi
-
-  if [ -s $rvm_install_path/default_system_ruby ] ; then
-    default_system_ruby=`cat $rvm_install_path/default_system_ruby`
-  else
-   default_system_ruby=`which ruby`
-   echo $default_system_ruby > $rvm_install_path/default_system_ruby
   fi
 
 }
@@ -376,12 +367,6 @@ function __rvm_install-source {
   __rvm_run "rubygems.install" $rvm_ruby_binary $rvm_source_path/$rvm_gem_package_name/setup.rb
   popd 2> /dev/null
 
-
-  for rvm_gem_name in rake ; do
-    __rvm_log "info" "Installing $rvm_gem_name"
-    __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
-  done
-
   for binary in gem irb erb ri rdoc testrb rake ; do
     if [ -x $rvm_ruby_home/bin/$binary ] ; then
       string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
@@ -391,6 +376,11 @@ function __rvm_install-source {
     else
       __rvm_log "warn" "$rvm_ruby_home/bin/$binary is missing"
     fi
+  done
+
+  for rvm_gem_name in rake ; do
+    __rvm_log "info" "Installing $rvm_gem_name"
+    __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
   done
 
   __rvm_log "info" "Installation of rubygems for $rvm_ruby_package_name is complete."
@@ -404,8 +394,12 @@ function __rvm_install-source {
   fi
 
   binary=rake
-  mv $rvm_gem_home/bin/$binary $rvm_gem_home/bin/$binary.orig
-  awk "NR==2 {print \"$string\"} {print}" $rvm_gem_home/bin/$binary.orig > $rvm_gem_home/bin/$binary
+  if [ -x $rvm_ruby_home/bin/$binary ] ; then
+    mv $rvm_ruby_home/bin/$binary $rvm_gem_home/bin/$binary.orig
+    awk "NR==2 {print \"$string\"} {print}" $rvm_gem_home/bin/$binary.orig > $rvm_gem_home/bin/$binary
+  else
+    __rvm_log "warn" "$rvm_gem_home/bin/$binary is missing."
+  fi
   unset binary
 }
 
@@ -933,25 +927,25 @@ function __rvm_gem-dup {
 
 }
 
-function __rvm_cache {
-  rvm_cache_file="$rvm_config_path/cache"
-  touch $rvm_cache_file
+function __rvm_db {
+  rvm_hash_file="$rvm_config_path/db"
+  touch $rvm_hash_file
   key="$1" ; shift
 
   if [ -z "$key" ] ; then
-    __rvm_log "fail" "__rvm_cache must be called with at least one argument: __rvm_cache key [value]"
+    __rvm_log "fail" "__rvm_db must be called with at least one argument: __rvm_db key [value]"
   else
     if [ "$key" = "unset" -o "$key" = "delete" ] ; then
-      sed -i~ "s/^$2=.*$//" $rvm_cache_file
+      sed -i~ "s/^$2=.*$//" $rvm_hash_file
     else
       value="$*"
       if [ -z "$value" ] ; then # get
-        grep "^$key=" $rvm_cache_file | awk -F'=' '{print $2}'
+        grep "^$key=" $rvm_hash_file | awk -F'=' '{print $2}'
       else # set
-        if [ -z "$(grep "^$key=" $rvm_cache_file)" ] ; then # append
-          echo "$key=$value" >> $rvm_cache_file
+        if [ -z "$(grep "^$key=" $rvm_hash_file)" ] ; then # append
+          echo "$key=$value" >> $rvm_hash_file
         else # overwrite
-          sed -i~ "s/^$key=.*$/$key=$value/" $rvm_cache_file
+          sed -i~ "s/^$key=.*$/$key=$value/" $rvm_hash_file
         fi
       fi
     fi
@@ -962,8 +956,8 @@ function __rvm_cleanup-variables {
   unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_install_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message IRBRC rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_set_prompt rvm_all
 }
 
-function __rvm_get-user-defaults {
-  # NOW load defaults settings. TODO: root user loads /etc/rvmrc
+# TODO: root user loadng of /etc/rvmrc
+function __rvm_load-rvmrc {
   if [ -s ~/.rvmrc ] ; then source ~/.rvmrc ; fi
 }
 
@@ -1113,9 +1107,9 @@ function __rvm_parse-args {
 function rvm {
 
   __rvm_cleanup-variables
-  __rvm_get-user-defaults
+  __rvm_load-rvmrc
   __rvm_initialize
-  __rvm_set-defaults
+  __rvm_load-defaults
   __rvm_parse-args $*
 
   case "$rvm_action" in
