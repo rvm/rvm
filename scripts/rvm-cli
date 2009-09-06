@@ -49,8 +49,9 @@ function __rvm_parse-args {
         fi
       ;;
 
-      do|rubydo)
+      do|rubydo|rakedo|gemdo)
         rvm_action=$rvm_token
+        if [ "$rvm_action" = "do" ] ; then rvm_action="do" ; fi
         temp=$(echo $1 | awk '{print substr($1, 0, 1)}')
         if [ "$temp" != "-" ] ; then
           if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
@@ -116,6 +117,10 @@ function __rvm_parse-args {
       -l|--level)        rvm_ruby_patch_level="$1" ; shift ;;
       -n|--nice)         rvm_niceness="$1"         ; shift ;;
       -f|--file)         rvm_ruby_args="$1"        ; shift ;;
+      -e|--execute)
+                         rvm_ruby_args="$@"
+                         rvm_parse_break=1
+      ;;
       -h|--help)         rvm_action=help           ; shift ;;
       -d|--default)      rvm_set_default=1                 ;;
       --head)            rvm_ruby_rev="head"               ;;
@@ -132,11 +137,11 @@ function __rvm_parse-args {
         rvm_ruby_interpreter="system"
       ;;
       *)
-      rvm_action="error"
-      rvm_error_message="Unrecognized command line argument(s): '$rvm_token $*'"
-      break;
+        rvm_action="error"
+        rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
+        break;
     esac
-    if [ ! -z "$rvm_ruby_args" -o ! -z "$rvm_error_message" ] ; then break; fi
+    if [ ! -z "$rvm_parse_break" -o ! -z "$rvm_error_message" ] ; then unset rvm_parse_break; break; fi
   done
 
   if [ ! -z "$rvm_error_message" ] ; then popd 2> /dev/null ; return 1 ; fi
@@ -150,7 +155,7 @@ function rvm {
   __rvm_load-rvmrc
   __rvm_initialize
   __rvm_load-defaults
-  __rvm_parse-args $*
+  __rvm_parse-args $@
 
   case "$rvm_action" in
     install)   __rvm_install-ruby $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level ;;
@@ -162,7 +167,7 @@ function rvm {
     gemdup)    __rvm_gem-dup      $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level ;;
     symlinks)  __rvm_symlinks                                                                   ;;
     version)   __rvm_version                                                                    ;;
-    rubydo)
+    rubydo|rakedo|gemdo)
       if [ ! -z "$rvm_ruby_version" ] ; then
         rvm_ruby_versions=$(echo $rvm_ruby_version | tr ',' ' ')
         for rvm_ruby_version in $rvm_ruby_versions ; do
@@ -175,9 +180,9 @@ function rvm {
           fi
           unset temp
           __rvm_select $rvm_ruby_interpreter $rvm_ruby_version
-
-          rvm_command="$rvm_ruby_binary $rvm_ruby_args"
-          echo "$(basename $rvm_ruby_binary):"
+          binary=`echo $rvm_action | sed 's/do$//'`
+          rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
+          echo "$(basename $rvm_ruby_home/bin/$binary):"
           eval $rvm_command
           unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary
         done
