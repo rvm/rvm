@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{rvm}
-  s.version = "0.0.34"
+  s.version = "0.0.35"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Wayne E. Seguin"]
-  s.date = %q{2009-09-04}
+  s.date = %q{2009-09-05}
   s.description = %q{Manages Ruby interpreter installations and switching between them.}
   s.email = %q{wayneeseguin@gmail.com}
   s.executables = ["rvm-install", "rvm-update"]
@@ -20,12 +20,17 @@ Gem::Specification.new do |s|
     "INSTALL",
      "LICENCE",
      "README",
-     "config/cache",
+     "config/db",
      "examples/rvmrc",
      "lib/rvm.rb",
+     "rvm.gemspec",
      "scripts/rvm",
+     "scripts/rvm-cli",
      "scripts/rvm-install",
-     "scripts/rvm-update"
+     "scripts/rvm-ruby-installer",
+     "scripts/rvm-selector",
+     "scripts/rvm-update",
+     "scripts/rvm-utility"
   ]
   s.homepage = %q{http://github.com/wayneeseguin/rvm}
   s.rdoc_options = ["--inline-source", "--charset=UTF-8"]
