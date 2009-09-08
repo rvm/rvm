@@ -6,8 +6,8 @@ puts <<-LOCAL_INSTALL_WARNING
   If you're using rvm from source, don't build the gem
   Instead, run one of the following from the rvm source root
 
-    \033[0;32mFor first-time install:  ./bash/rvm-install\033[0m
-      \033[0;32mFor updating install:  ./bash/rvm-update\033[0m
+    \033[0;32mFor first-time install:     ./scripts/rvm-install\033[0m
+    \033[0;32mFor updating your install:  ./scripts/rvm-install\033[0m
 
 LOCAL_INSTALL_WARNING
 
