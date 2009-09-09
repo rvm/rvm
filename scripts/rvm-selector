@@ -102,6 +102,49 @@ function __rvm_select {
       else
         rvm_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
       fi
+
+      if [ ! -z "$rvm_load" ] ; then
+        # TODO: Load a .gemset file.
+        echo "Loading $rvm_load_file file... (not :)"
+        cat $rvm_load_file | $(
+          while read line ; do # for line in `cat $rvm_load_file` ; do
+            if [ -z "`echo $line | sed 's/ //g' | grep '^#'`" ] ; then # Skip comment lines
+              gem=`echo $line | awk -F';' '{print $1}'`
+              prefix=`echo $line | awk -F';' '{print $2}'`
+              if [ -z "$vars" ] ; then
+                GEM_HOME="$rvm_gem_home" gem install --no-rdoc --no-ri -q $gem
+              else
+                eval "GEM_HOME='$rvm_gem_home' $prefix gem install --no-rdoc --no-ri -q $gem"
+              fi
+              unset gem prefix
+            fi
+          done
+        )
+      fi
+
+      if [ ! -z "$rvm_dump" ] ; then
+        if [ -z "$rvm_gem_set_name" ] ; then
+          file_name="default"
+        else
+          file_name="$rvm_gem_set_name"
+        fi
+
+        echo "# $rvm_gem_set_name.gemset generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_gem_set_name.gemset
+
+        for gem in `gem list | sed 's/[\(|\)]//g' | tr ' ' ';' | tr ',' ' '` ; do
+          name=`echo $gem | awk -F';' '{print $1}'`
+          if [ -z "$rvm_gem_latest" ] ; then
+            for version in `echo $gem | awk -F';' '{print $2}'` ; do
+              echo "$name -v$version" >> $file_name.gemset
+              unset version
+            done
+          else
+            echo "$name" >> $file_name.gemset
+          fi
+          unset name
+        done
+        unset file_name
+      fi
     fi
     mkdir -p $rvm_gem_home
 
