@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{rvm}
-  s.version = "0.0.36"
+  s.version = "0.0.37"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Wayne E. Seguin"]
-  s.date = %q{2009-09-08}
+  s.date = %q{2009-09-09}
   s.default_executable = %q{rvm-install}
   s.description = %q{Manages Ruby interpreter installations and switching between them.}
   s.email = %q{wayneeseguin@gmail.com}
@@ -24,9 +24,13 @@ Gem::Specification.new do |s|
      "config/db",
      "examples/rvmrc",
      "lib/rvm.rb",
+     "rvm.gemspec",
      "scripts/rvm",
+     "scripts/rvm-aliases",
      "scripts/rvm-cli",
+     "scripts/rvm-functions",
      "scripts/rvm-install",
+     "scripts/rvm-prompt",
      "scripts/rvm-ruby-installer",
      "scripts/rvm-selector",
      "scripts/rvm-utility"
