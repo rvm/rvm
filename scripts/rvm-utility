@@ -278,11 +278,11 @@ function __rvm_reset {
 
   PATH="$rvm_path/bin:$rvm_default_path" ; export PATH
   for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do unset $variable ; done
-  if [ -f $rvm_path/system ] ; then rm -f $rvm_path/system ; fi
-  rm -f $rvm_path/default*
-  # TODO: Remove this after a few releases:
-  rm -f $rvm_path/current*
 
+  # TODO: Remove 'current' after a few releases:
+  for file in system default current ; do
+    if [ -f $rvm_path/$file ] ; then rm -f $rvm_path/file ; fi
+  done
   __rvm_select "system"
 
   for default in default_ps1 default_path default_system_ruby default_system_gem_path default_user_gem_path ; do
@@ -366,17 +366,17 @@ function __rvm_db {
   if [ -z "$key" ] ; then
     __rvm_log "fail" "__rvm_db must be called with at least one argument: __rvm_db key [value]"
   else
-    if [ "$key" = "unset" -o "$key" = "delete" ] ; then
-      sed -i# "s/^$2=.*$//" $rvm_hash_file
+    value="$*"
+    if [ "$value" = "unset" -o "$value" = "delete" ] ; then
+      sed -i.tmp "s/^$key=.*$//" $rvm_hash_file
     else
-      value="$*"
       if [ -z "$value" ] ; then # get
         grep "^$key=" $rvm_hash_file | head -n 1 | awk -F'=' '{print $2}'
       else # set
         if [ -z "$(grep "^$key=" $rvm_hash_file)" ] ; then # append
           echo "$key=$value" >> $rvm_hash_file
         else # overwrite
-          sed -i# "s/^$key=.*$/$key=$value/" $rvm_hash_file
+          sed -i.tmp "s/^$key=.*$/$key=$value/" $rvm_hash_file
         fi
       fi
     fi
@@ -415,35 +415,50 @@ function __rvm_list {
     current=`which ruby | xargs dirname | xargs dirname | xargs basename`
     echo -e "\nruby:\n"
     for version in `/bin/ls -l $rvm_path/ | awk '/ ruby-[1-2].*/ { print $NF  }'` ; do
+      string=`$rvm_bin_path/$version -v`
       if [ "$current" = "$version" ] ; then
-        echo -e "=> $version"
+        echo -e "=> $version : $string"
         selected="1"
       else
-        echo -e "   $version"
+        echo -e "   $version : $string"
       fi
     done
     unset version
 
     echo -e "\njruby:\n"
     for version in `/bin/ls -l $rvm_path/ | awk '/jruby-.*/ { print $NF }'` ; do
+      string=`$rvm_bin_path/$version -v`
       if [ "$current" = "$version" ] ; then
-        echo -e "=> $version"
+        echo -e "=> $version : $string"
         selected="1"
       else
-        echo -e "   $version"
+        echo -e "   $version : $string"
       fi
     done
     unset version
 
     echo -e "\nree:\n"
     for version in `/bin/ls $rvm_path/ | awk '/ruby-enterprise-.*/ { print $NF }'` ; do
+      string=`$rvm_bin_path/$version -v | tr "\n" ' ' `
       if [ "$current" = "$version" ] ; then
-        echo -e "=> $version"
+        echo -e "=> $version : $string"
         selected="1"
       else
-        echo -e "   $version"
+        echo -e "   $version : $string"
       fi
     done
+
+    if [ -f $rvm_path/default -a -s $rvm_default/default ] ; then
+      echo -e "\ndefault:\n"
+      version=`grep MY_RUBY_HOME ~/.rvm/default | awk -F"'" '{print $2}' | xargs basename`
+      string=`$rvm_bin_path/$version -v`
+      if [ "$current" = "$version" ] ; then
+        echo -e "=> $version : $string"
+        selected="1"
+      else
+        echo -e "   $version : $string"
+      fi
+    fi
 
     echo -e "\nsystem:\n"
     if [ "$selected" = "1" ] ; then
