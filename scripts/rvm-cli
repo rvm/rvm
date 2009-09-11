@@ -154,6 +154,11 @@ function __rvm_parse-args {
         rvm_action="use"
         rvm_ruby_interpreter="system"
       ;;
+
+      reboot|flush|asdf|damnit|wtf|argh|work|workdamnit|BOOM|boom|wth)
+      $rvm_action="reboot"
+      ;;
+
       *)
         rvm_action="error"
         rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
@@ -185,60 +190,26 @@ function rvm {
     list)      __rvm_list         ;;
     symlinks)  __rvm_symlinks     ;;
     version)   __rvm_version      ;;
-    rubydo|rakedo|gemdo)
-      if [ ! -z "$rvm_ruby_version" ] ; then
-        rvm_ruby_versions=$(echo $rvm_ruby_version | tr ',' ' ')
-        for rvm_ruby_version in $rvm_ruby_versions ; do
-          temp=$(echo $rvm_ruby_version | awk '{print substr($1, 0, 1)}')
-          if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
-            rvm_ruby_interpreter="ruby"
-          else
-            rvm_ruby_interpreter="$rvm_ruby_version"
-            unset rvm_ruby_version
-          fi
-          unset temp
-          __rvm_select $rvm_ruby_interpreter $rvm_ruby_version
-          binary=`echo $rvm_action | sed 's/do$//'`
-          rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
-          echo "$(basename $rvm_ruby_home/bin/$binary):"
-          eval $rvm_command
-          unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary
-        done
-      else # all
-        rvm_ruby_versions=`/bin/ls $rvm_bin_path/ruby-*`
-        for rvm_ruby_binary in $rvm_ruby_versions ; do
-          if [ -x $rvm_ruby_binary ] ; then
-            rvm_command="$rvm_ruby_binary $rvm_ruby_args"
-            echo "$(basename $rvm_ruby_binary):"
-            eval $rvm_command
-          fi
-        done
-      fi
-      ;;
-    reset)     __rvm_reset                                                          ;;
+    rubydo|rakedo|gemdo) __rvm_do ;;
+    reset)     __rvm_reset        ;;
                # TODO: how can we use bin_path here for reload, default file?
-    reload)    source ~/.rvm/scripts/rvm                                            ;;
-    implode)   __rvm_implode                                                        ;;
+    reload)    __rvm_reload       ;;
+    implode)   __rvm_implode      ;;
     update)
-      if [ "$rvm_ruby_rev" = "head" ] ; then
-        if [ -d $rvm_source_path/rvm/.git ] ; then
-          cd $rvm_source_path/rvm/ && git pull origin master && ./scripts/rvm-install
-        else
-          cd $rvm_source_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/ && ./scripts/rvm-install
-        fi
-      else
-        # TODO: rvm_install_path:
-        gem install rvm --no-rdoc --no-ri -q && rvm-install && source ~/.rvm/scripts/rvm
-      fi
+               __rvm_version
+               __rvm_update
+               __rvm_reload
+               __rvm_version
     ;;
-    error)      __rvm_log "fail" "$rvm_error_message ( see: rvm usage )" ; popd 2> /dev/null ; return 1; ;;
     info|debug)
                 __rvm_version
                 __rvm_info
                 if [ "$rvm_action" = "debug" ] ; then __rvm_debug ; fi
                 return 0
     ;;
-    usage|help) __rvm_usage ;;
+    reboot)     __rvm_reboot ;;
+    usage|help) __rvm_usage  ;;
+    error)      __rvm_log "fail" "$rvm_error_message ( see: 'rvm usage' )" ; popd 2> /dev/null ; return 1; ;;
     *)
       if [ ! -z "$rvm_action" ] ; then
         __rvm_log "fail"  "unknown action '$rvm_action'"
@@ -250,3 +221,4 @@ function rvm {
 
   if [ "$rvm_debug" = "1" ] ; then set +x ; unset rvm_debug ; fi
 }
+

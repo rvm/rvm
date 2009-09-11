@@ -296,11 +296,16 @@ function __rvm_implode {
     __rvm_log "warn" "Are you SURE you wish for rvm to implode? This will remove $rvm_path ? (type 'yes' or 'no')"
     read response
     if [ "$response" = "yes" ] ; then
-      if [ -d $rvm_path ] ; then
-        __rvm_log "info" "Hai! Removing $rvm_path"
-        rm -rf $rvm_path/
+      if [ "$rvm_path" = "/" ] ; then
+        __rvm_log "error" "remove '/' ?!... NO!"
       else
-        __rvm_log "info" "It appears that $rvm_path is already non existant."
+        if [ -d $rvm_path ] ; then
+          __rvm_log "info" "Hai! Removing $rvm_path"
+          rm -rf $rvm_path/
+          __rvm_log "info" "$rvm_path has been removed."
+        else
+          __rvm_log "info" "It appears that $rvm_path is already non existant."
+        fi
       fi
       break
     elif [ "$response" = "no" ] ; then
@@ -520,5 +525,86 @@ function __rvm_initialize {
   fi
 
   mkdir -p $rvm_source_path $rvm_bin_path $rvm_archives_path
+}
+
+function __rvm_update {
+  mkdir -p $rvm_source_path
+  if [ "$rvm_ruby_rev" = "head" ] ; then
+    if [ -d $rvm_source_path/rvm/.git ] ; then
+      cd $rvm_source_path/rvm/ && git pull origin master && ./scripts/rvm-install
+    else
+      cd $rvm_source_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/ && ./scripts/rvm-install
+    fi
+  else
+    # TODO: rvm_install_path:
+    gem install rvm --no-rdoc --no-ri -q && rvm-install && source ~/.rvm/scripts/rvm
+  fi
+}
+
+function __rvm_reboot {
+  __rvm_log "warn" "Do you wish to reset rvm? ('yes', or 'no')"
+  read response
+  if [ "$response" = "yes" ] ; then
+    cd
+    __rvm_reset
+    mv ~/.rvm/archives ~/.archives
+    if [ "$rvm_path" = "/" ] ; then
+      __rvm_log "error" "remove '/' ?!... NO!"
+    else
+      if [ -d $rvm_path ] ; then
+        rm -rf $rvm_path/
+      fi
+    fi
+    gem install rvm --no-rdoc --no-ri -q
+    which rvm-install > /dev/null
+    if [ $? -gt 0 ] ; then
+      if [ -e ~/.gem/ruby/1.8/bin/rvm-install ] ; then
+        ~/.gem/ruby/1.8/bin/rvm-install
+      else
+        __rvm_log "error" "Could not find rvm-install in your path :("
+      fi
+    else
+      rvm-install
+    fi
+    source ~/.rvm/scripts/rvm
+  else
+    __rvm_log "info" "Carry on then..."
+  fi
+  unset response
+}
+
+function __rvm_reload {
+  source $rvm_path/scripts/rvm
+}
+
+function __rvm_do {
+  if [ ! -z "$rvm_ruby_version" ] ; then
+    rvm_ruby_versions=$(echo $rvm_ruby_version | tr ',' ' ')
+    for rvm_ruby_version in $rvm_ruby_versions ; do
+      temp=$(echo $rvm_ruby_version | awk '{print substr($1, 0, 1)}')
+      if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
+        rvm_ruby_interpreter="ruby"
+      else
+        rvm_ruby_interpreter="$rvm_ruby_version"
+        unset rvm_ruby_version
+      fi
+      unset temp
+      __rvm_select $rvm_ruby_interpreter $rvm_ruby_version
+      binary=`echo $rvm_action | sed 's/do$//'`
+      rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
+      echo "$(basename $rvm_ruby_home/bin/$binary):"
+      eval $rvm_command
+      unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary
+    done
+  else # all
+    rvm_ruby_versions=`/bin/ls $rvm_bin_path/ruby-*`
+    for rvm_ruby_binary in $rvm_ruby_versions ; do
+      if [ -x $rvm_ruby_binary ] ; then
+        rvm_command="$rvm_ruby_binary $rvm_ruby_args"
+        echo "$(basename $rvm_ruby_binary):"
+        eval $rvm_command
+      fi
+    done
+  fi
 }
 
