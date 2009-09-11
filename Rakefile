@@ -1,4 +1,15 @@
 task :default => [:gem]
+puts <<-LOCAL_INSTALL_WARNING
+
+  \033[0;33mINSTALLING FROM SOURCE\033[0m
+
+  If you're using rvm from source, don't build the gem
+  Instead, run one of the following from the rvm source root
+
+    \033[0;32mFor first-time install:     ./scripts/rvm-install\033[0m
+    \033[0;32mFor updating your install:  ./scripts/rvm-install\033[0m
+
+LOCAL_INSTALL_WARNING
 
 desc "Build the rvm gem and then install it (NO sudo)."
 task :gem do
@@ -26,7 +37,7 @@ begin
     gemspec.date            = Time.now.strftime("%Y-%m-%d")
     gemspec.description     = "Manages Ruby interpreter installations and switching between them."
     gemspec.platform        = Gem::Platform::RUBY
-    gemspec.files           = ["INSTALL", "README", "LICENCE", "rvm.gemspec", "bash/*", Dir::glob("lib/**/**")].flatten
+    gemspec.files           = ["INSTALL", "README", "LICENCE", "rvm.gemspec", "bash/*", "scripts/*", "examples/*", "config/*", Dir::glob("lib/**/**")].flatten
     gemspec.executables     = Dir::glob("bin/rvm-*").map{ |script| File::basename script }
     gemspec.require_path    = "lib"
     gemspec.has_rdoc        = File::exist?("doc")

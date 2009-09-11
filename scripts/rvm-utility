@@ -1,0 +1,524 @@
+#!/bin/bash
+
+function __rvm_meta {
+  rvm_meta_author="Wayne E. Seguin"
+  rvm_meta_author_email="wayneeseguin@gmail.com"
+  rvm_meta_website="http://rvm.beginrescueend.com/"
+  rvm_meta_version="`cat $rvm_path/VERSION.yml | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//'`"
+  rvm_meta_updated="2009.09.10"
+}
+
+function __rvm_version { __rvm_meta ; echo "rvm $rvm_meta_version ($rvm_meta_updated) [$rvm_meta_website]" ; }
+
+function __rvm_usage {
+
+  __rvm_meta
+
+  cat <<-Usage
+
+  rvm ${rvm_meta_version} ${rvm_meta_website} by ${rvm_meta_author} (${rvm_meta_author_email})
+
+  Usage:
+
+    rvm Action [Implementation] [Options]
+
+  Action:
+
+    * usage   - Show this usage information
+    use       - Switch to using a specific ruby version (new login shell)
+    info      - Show information for current ruby
+    list      - Show currently installed versions
+    gemdir    - Switch to gem directory for installation (new login shell)
+    srcdir    - Switch to src directory for the current ruby installation
+    gemdup    - Clone source version gems to current version
+                (highly expiramental) Example: rvm gemdup ~/.gem/ruby/1.8/
+    install   - Install a ruby version, default is from source
+    uninstall - Uninstall a ruby version
+    reset     - Remove default and current settings, exit the shell.
+                (If you experience odd behavior try this first)
+    rubydo    - Used with -f to run a ruby file against specified or all rubies
+    gemdo     - Used with -f to execute a command using selected ruby's 'gem'
+    debug     - Emit environment & configuration information for *current* ruby
+
+    reload    - Reload rvm source itself (useful after changing rvm source)
+    implode   - Removes all ruby installations it manages, everything in ~/.rvm
+    update    - Upgrades rvm to the latest version.
+
+  Implementation:
+
+    * ruby    - MRI/YARV Ruby (The Standard), defaults to 1.8.6
+    jruby     - jRuby
+    rubinius  - Rubinius
+    ree       - Ruby Enterprise Edition
+    system    - Use the system ruby (eg. pre-rvm state)
+    default   - Use rvm set default ruby and system if it hasn't been set.
+
+  Options:
+
+    -v|--version    - Ruby Package Version, defaults to 'latest'
+    -l|--level      - Patch level for the specified Ruby version
+    -p|--prefix     - Package and source directory prefix, with trailing slash!
+                      Default is a users home directory and /usr/local/ for root
+    -a|--archives   - Directory to place downladed files into (~/.rvm/archives/)
+    -n|--nice       - Niceness level (default: 0)
+    -m|--gem-set    - Named gem set for switching between different gem sets
+    --rm-gem-set    - Removes a named gemset.
+
+    -l|--level      - Specify a patch level to use
+    -t|--tag        -
+    -r|--rev        - Specify the repository revision # to use or 'head' for
+
+    -P|--prefix     - Sets the prefix path for installs to be installed to
+    -B|--bin        - Specify path for binaries to be placed
+    -S|--source     - Specify src directory to use
+    -A|--archive    - Specify archive directory to use (tabralls / zips)
+    -G|--gems       - Specify root gem path to use
+    -C|--configure  - Specify custom configure options, comma separated
+                      default: --enable-shared=true
+    --re-configure  - Force installer to re-run configure if already run
+    -M|--make       - Specify a custom make command
+    -I|--make-install - "     a custom make install command
+
+    -n|--nice       - Specify a process niceness (for slow computers)
+    -f|--file       - Specify a ruby file to run with 'rubydo' command
+    -h|--help       - Emit this output and exit
+    -d|--default    - Set the default Ruby to a specified version
+    -m|--gem-set    - Use a named gem set instead of the default set.
+    --all           - Used with 'rvm list' to list "most" installable versions.
+    --rm-gem-set    - Remove a named gem set
+    --jit           - Enable JIT for the Rubinius build
+    --force         - Force install, removes old install & source directories.
+    --set-prompt    - Set prompt to have the selected ruby prepended.
+    --debug|--trace - Toggle debug mode on for very verbose output.
+
+  Resources:
+
+    http://rvm.beginrescueend.com/
+    https://www.pivotaltracker.com/projects/26822
+
+Usage
+
+}
+
+function __rvm_info {
+cat <<Info
+
+ruby:
+  interpreter:  "`ruby -v | awk '{print $1}'`"
+  version:      "`ruby -v | awk '{print $2}'`"
+  date:         "`ruby -v | sed 's/^.*(\([0-9]\{4\}\(-[0-9][0-9]\)\{2\}\).*$/\1/'`"
+  platform:     "`ruby -v | sed 's/^.*\[//' | sed 's/\].*$//'`"
+  patchlevel:   "`ruby -v | sed 's/^.*(//' | sed 's/).*$//'`"
+  full_version: "`ruby -v`"
+
+homes:
+  gem:          "${GEM_HOME:-'not set'}"
+  ruby:         "${MY_RUBY_HOME:-'not set'}"
+
+binaries:
+  ruby:         "`which ruby`"
+  irb:          "`which irb`"
+  gem:          "`which gem`"
+  rake:         "`which rake`"
+
+environment:
+  GEM_HOME:     "$GEM_HOME"
+  MY_RUBY_HOME: "$MY_RUBY_HOME"
+  IRBRC:        "$IRBRC"
+Info
+}
+
+function __rvm_debug {
+
+  __rvm_log "info" "PATH:$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"$5}')"
+
+  for file in .bash_profile .bashrc .zshrc ; do
+    if [ -s $file ] ; then
+      __rvm_log "debug" "~/$file:\n$(grep rvm ~/$file)\n"
+    fi
+  done
+
+  if [ -s $rvm_path/default ] ; then
+    __rvm_log "debug" "$rvm_path/default:\n$($rvm_path/default)\n"
+  fi
+
+  if [ -e $rvm_path/bin/rvm ] ; then
+    __rvm_log "debug" "rvm script in bin:\n$(ls -laht $rvm_path/bin/rvm)"
+  fi
+
+}
+
+# Logging functions based on level
+function __rvm_log {
+
+  case "$1" in
+    debug) shift ; echo -e "\n\033[0;35m <d> \033[0m $*" ;;
+    info)  shift ; echo -e "\n\033[0;32m <i> \033[0m $*" ;;
+    warn)  shift ; echo -e "\n\033[0;33m <w> \033[0m $*" ;;
+    fail)  shift ; echo -e "\n\033[0;31m <e> \033[0m $*" ; popd 2> /dev/null ; return 1 ;;
+    *) echo -e "$*"
+  esac
+}
+
+function __rvm_clean-path {
+  PATH=`echo $PATH | tr -s ':' '\n' | awk '!($0 in a){a[$0];print}' | tr -s '\n' ':' | sed 's/:$//'`
+  export PATH
+}
+
+function __rvm_remove-rvm-from-path {
+  PATH=`echo $PATH | tr -s ':' '\n' | grep -v "\.rvm" | tr -s '\n' ':' | sed 's/:$//'`
+  export PATH
+}
+
+function __rvm_gi { gem install -q --no-rdoc --no-ri $* ; }
+
+function __rvm_run {
+  log_file_name="$1" ; shift
+  command="$*"
+  mkdir -p $rvm_ruby_log_path
+  if [ $rvm_debug ] ; then __rvm_log "debug" "Executing: $command" ; fi
+  touch $rvm_ruby_log_path/$log_file_name.log $rvm_ruby_log_path/$log_file_name.error.log # for zsh :(
+  eval "nice -n $rvm_niceness $command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/$log_file_name.error.log" ; popd 2> /dev/null ; return 1 ; fi
+  unset log_file command
+}
+
+function __rvm_cleanup-variables {
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_all rvm_re_configure
+}
+
+# TODO: root user loadng of /etc/rvmrc
+function __rvm_load-rvmrc {
+  if [ -s ~/.rvmrc ] ; then source ~/.rvmrc ; fi
+}
+
+function __rvm_bin_scripts {
+  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
+
+ruby_wrapper=$(cat <<-RubyWrapper
+#!/bin/bash
+puts "rvm installed ruby binaries should *not* be run as the root user (yet): http://rvm.beginrescueend.com/faq/" if (`whoami`.strip == "root")
+GEM_HOME=$rvm_gem_home ; export GEM_HOME
+MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
+PATH=$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH ; export PATH
+
+exec "$rvm_ruby_binary" "\$@"
+RubyWrapper
+)
+
+  echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_package_name
+  unset ruby_wrapper
+  chmod +x $rvm_bin_path/$rvm_ruby_package_name
+
+}
+
+function __rvm_fetch {
+
+  pushd $rvm_archives_path > /dev/null
+  eval $rvm_fetch "$1"
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
+  popd 2> /dev/null
+
+}
+
+function __rvm_load-defaults {
+
+  if [ ! -s $rvm_path/system ] ; then
+    for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME PATH ; do
+      eval value=\$${variable}
+      if [ -z "$value" ] ; then
+        echo "unset ${variable}" >> $rvm_path/system
+      else
+        eval "export $variable"
+        eval value=\$${variable}
+        echo "${variable}='$value' ; export ${variable}" >> $rvm_path/system
+      fi
+    done
+  fi
+
+  rvm_default_path=`__rvm_db "rvm_default_path"`
+  if [ -z "$rvm_default_path" ] ; then
+    __rvm_clean-path # Clean the path the first time we compute default path.
+    __rvm_remove-rvm-from-path
+    rvm_default_path="$PATH"
+    __rvm_db "rvm_default_path" "$rvm_default_path"
+  fi
+
+  rvm_default_ps1=`__rvm_db "rvm_default_ps1"`
+  if [ -z "$rvm_default_ps1" ] ; then
+    rvm_default_ps1=$PS1
+    __rvm_db "rvm_default_ps1" "$rvm_default_ps1"
+  fi
+
+  rvm_default_system_ruby=`__rvm_db "default_system_ruby"`
+  if [ -z "$rvm_default_system_ruby" ] ; then
+    rvm_default_system_ruby=`which ruby`
+    if [ $? -ne 0 ] ; then
+      __rvm_log "info" "System ruby not found, no db will be stored."
+    else
+      __rvm_db "default_system_ruby" "$rvm_default_system_ruby"
+
+      # Now store default system & user gem paths
+      rvm_default_user_gem_path=`__rvm_db "default_user_gem_path"`
+      if [ -z "$rvm_default_user_gem_path" ] ; then
+        rvm_default_user_gem_path=`ruby -r rubygems -e "puts Gem::default_path.compact.first"`
+        __rvm_db "default_user_gem_path" "$rvm_default_user_gem_path"
+      fi
+      rvm_default_system_gem_path=`__rvm_db "default_system_gem_path"`
+      if [ -z "$rvm_default_system_gem_path" ] ; then
+        rvm_default_system_gem_path=`ruby -r rubygems -e "puts Gem::default_path.compact[1] || Gem::default_path.compact.first"`
+        __rvm_db "default_system_gem_path" "$rvm_default_system_gem_path"
+      fi
+    fi
+  fi
+
+}
+
+function __rvm_reset {
+
+  PATH="$rvm_path/bin:$rvm_default_path" ; export PATH
+  for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do unset $variable ; done
+
+  # TODO: Remove 'current' after a few releases:
+  for file in system default current ; do
+    if [ -f $rvm_path/$file ] ; then rm -f $rvm_path/file ; fi
+  done
+  __rvm_select "system"
+
+  for default in default_ps1 default_path default_system_ruby default_system_gem_path default_user_gem_path ; do
+    __rvm_db "$default" "delete"
+  done ; unset default variable
+
+}
+
+function __rvm_implode {
+  while : ; do
+    __rvm_log "warn" "Are you SURE you wish for rvm to implode? This will remove $rvm_path ? (type 'yes' or 'no')"
+    read response
+    if [ "$response" = "yes" ] ; then
+      if [ -d $rvm_path ] ; then
+        __rvm_log "info" "Hai! Removing $rvm_path"
+        rm -rf $rvm_path/
+      else
+        __rvm_log "info" "It appears that $rvm_path is already non existant."
+      fi
+      break
+    elif [ "$response" = "no" ] ; then
+      __rvm_log "info" "Cancelling implosion, no harm done :)"
+      break
+    fi
+  done
+}
+
+function __rvm_gem-dir {
+
+  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
+
+  mkdir -p $rvm_gem_home
+  echo $rvm_gem_home
+}
+
+function __rvm_src-dir {
+
+  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
+
+  if [ -z "$rvm_ruby_src_path" ] ; then
+    __rvm_log "fail" "No source directory exists for the default implementation."
+  else
+    echo "$rvm_ruby_src_path"
+  fi
+
+}
+
+# clones from source implementation/version to default
+function __rvm_gem-dup {
+
+  if [ "$1" = "default" ] ; then
+    rvm_source_gem_dir="$rvm_default_user_gem_path"
+  elif [ "$1" = "system" ] ; then
+    rvm_source_gem_dir="$rvm_default_system_gem_path"
+  else
+    rvm_source_gem_dir=${1:-$rvm_default_user_gem_path} # TODO: check for and remove trailing /gems
+  fi
+
+  if [ ! -z "$rvm_source_gem_dir" ] ; then
+    for rvm_gem_name_version in `/bin/ls $rvm_source_gem_dir/gems` ; do
+      rvm_gem_name=${rvm_gem_name_version%-*}
+      rvm_gem_version=${rvm_gem_name_version##*-}
+      if [ -d $GEM_HOME/gems/$rvm_gem_name_version ] ; then
+        echo "$rvm_gem_name_version already installed."
+      else
+        __rvm_gi $rvm_source_gem_dir/cache/$rvm_gem_name-$rvm_gem_version.gem
+      fi
+    done
+    unset rvm_gem_name_version rvm_gem_name rvm_gem_version
+  else
+    __rvm_log "fail" "Unknown $rvm_ruby_interpreter version: $rvm_ruby_version"
+  fi
+
+}
+
+function __rvm_db {
+  rvm_hash_file="$rvm_config_path/db"
+  touch $rvm_hash_file
+  key="$1" ; shift
+
+  if [ -z "$key" ] ; then
+    __rvm_log "fail" "__rvm_db must be called with at least one argument: __rvm_db key [value]"
+  else
+    value="$*"
+    if [ "$value" = "unset" -o "$value" = "delete" ] ; then
+      sed -i.tmp "s/^$key=.*$//" $rvm_hash_file
+    else
+      if [ -z "$value" ] ; then # get
+        grep "^$key=" $rvm_hash_file | head -n 1 | awk -F'=' '{print $2}'
+      else # set
+        if [ -z "$(grep "^$key=" $rvm_hash_file)" ] ; then # append
+          echo "$key=$value" >> $rvm_hash_file
+        else # overwrite
+          sed -i.tmp "s/^$key=.*$/$key=$value/" $rvm_hash_file
+        fi
+      fi
+    fi
+  fi
+}
+
+# Q: TODO: Is this neccessary any longer?
+function __rvm_symlinks {
+# TODO: Account for the ruby wrapper script files
+
+  mkdir -p ${rvm_path}/bin
+  for release in `/bin/ls $rvm_path | grep 'ruby-'` ; do
+    for binary in irb gem rdoc ri erb ; do
+      if [ -x $rvm_path/$release/bin/$binary ] ; then
+        ln -fs $rvm_path/$release/bin/$binary $rvm_path/bin/$binary-${release#ruby-}
+      fi
+    done
+  done
+
+}
+
+function __rvm_list {
+
+  if [ "$rvm_all" ] ; then
+    svn list http://svn.ruby-lang.org/repos/ruby/tags/ | grep 'v1_[8|9]' | sed 's/^v1_//' | sed 's/\/$//' | awk -F'_' '{print "1."$1"."$2 " -l "$3}' | sed 's/p$//'
+
+    echo "jruby 1.2.0"
+    echo "jruby 1.3.0"
+    echo "jruby 1.3.1"
+    echo "jruby head"
+    echo "rubinius head"
+    echo "rbx head"
+    echo "rbx head --jit"
+    echo "ree 20090610"
+  else
+    current=`which ruby | xargs dirname | xargs dirname | xargs basename`
+    echo -e "\nruby:\n"
+    for version in `/bin/ls -l $rvm_path/ | awk '/ ruby-[1-2].*/ { print $NF  }'` ; do
+      string=`$rvm_bin_path/$version -v`
+      if [ "$current" = "$version" ] ; then
+        echo -e "=> $version : $string"
+        selected="1"
+      else
+        echo -e "   $version : $string"
+      fi
+    done
+    unset version
+
+    echo -e "\njruby:\n"
+    for version in `/bin/ls -l $rvm_path/ | awk '/jruby-.*/ { print $NF }'` ; do
+      string=`$rvm_bin_path/$version -v`
+      if [ "$current" = "$version" ] ; then
+        echo -e "=> $version : $string"
+        selected="1"
+      else
+        echo -e "   $version : $string"
+      fi
+    done
+    unset version
+
+    echo -e "\nree:\n"
+    for version in `/bin/ls $rvm_path/ | awk '/ruby-enterprise-.*/ { print $NF }'` ; do
+      string=`$rvm_bin_path/$version -v | tr "\n" ' ' `
+      if [ "$current" = "$version" ] ; then
+        echo -e "=> $version : $string"
+        selected="1"
+      else
+        echo -e "   $version : $string"
+      fi
+    done
+
+    if [ -f $rvm_path/default -a -s $rvm_default/default ] ; then
+      echo -e "\ndefault:\n"
+      version=`grep MY_RUBY_HOME ~/.rvm/default | awk -F"'" '{print $2}' | xargs basename`
+      string=`$rvm_bin_path/$version -v`
+      if [ "$current" = "$version" ] ; then
+        echo -e "=> $version : $string"
+        selected="1"
+      else
+        echo -e "   $version : $string"
+      fi
+    fi
+
+    echo -e "\nsystem:\n"
+    if [ "$selected" = "1" ] ; then
+      echo -e "   $($rvm_default_system_ruby -v)\n"
+    else
+      echo -e "=> $($rvm_default_system_ruby -v)\n"
+    fi
+    unset current version selected
+  fi
+
+}
+
+function __rvm_initialize {
+
+  rvm_fetch=`which curl`
+  if [ $? -ne 0 ] ; then
+    rvm_fetch=`which wget`
+    if [ $? -ne 0 ] ; then
+      __rvm_log "fail" "rvm expects either curl or wget, neither seem to be in your path :("
+    else
+      rvm_fetch="wget -q -c "
+    fi
+  else
+    rvm_fetch="$rvm_fetch -O -L -s --create-dirs -C - "
+  fi
+
+  rvm_niceness=${rvm_niceness:-0}
+
+  # TODO: Sanitize user input, ensure that there is a / a the end...
+  if [ "`whoami`" = "root" ] ; then
+    __rvm_log "fail" "root user support is not yet implemented."
+    #rvm_prefix_path=${rvm_prefix_path:-/usr/local/}
+  else
+    rvm_prefix_path=${rvm_prefix_path:-"$HOME/."}
+  fi
+  if [ "${rvm_prefix_path#${rvm_prefix_path%?}}" = '.' -o "${rvm_prefix_path#${rvm_prefix_path%?}}" = '/' ] ; then
+    rvm_path="${rvm_prefix_path}rvm"
+  else
+    rvm_path="${rvm_prefix_path}/rvm"
+  fi
+  rvm_archives_path="${rvm_archives_path:-"${rvm_path}/archives"}"
+  rvm_source_path="${rvm_source_path:-"${rvm_path}/src"}"
+  rvm_log_path=${rvm_log_path:-"${rvm_path}/log"}
+  rvm_bin_path=${rvm_bin_path:-"${rvm_path}/bin"}
+  rvm_gem_path=${rvm_gem_path:-"${rvm_path}/gems"}
+  rvm_config_path=${rvm_config_path:-"${rvm_path}/config"}
+
+  rvm_ruby_repo_url="${rvm_ruby_repo_url:-"http://svn.ruby-lang.org/repos/ruby"}"
+  # Rubinius sha1's will be available after RC1.
+  rvm_rubinius_repo_url="${rvm_rubinius_repo_url:-"git://github.com/evanphx/rubinius.git"}"
+  #rvm_macruby_repo_url="${rvm_macruby_repo_url:-"http://svn.macosforge.org/repository/ruby/MacRuby"}"
+  rvm_macruby_repo_url="${rvm_macruby_repo_url:-"git://github.com/masterkain/macruby.git"}"
+  rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
+
+  __rvm_clean-path
+  rvm_result=$(echo $PATH | grep 'rvm\/bin:')
+  if [ -z $rvm_result ] ; then
+    PATH=$rvm_bin_path:$PATH ; export PATH
+  fi
+
+  mkdir -p $rvm_source_path $rvm_bin_path $rvm_archives_path
+}
+
