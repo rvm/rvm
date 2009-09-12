@@ -520,6 +520,7 @@ function __rvm_initialize {
   #rvm_macruby_repo_url="${rvm_macruby_repo_url:-"http://svn.macosforge.org/repository/ruby/MacRuby"}"
   rvm_macruby_repo_url="${rvm_macruby_repo_url:-"git://github.com/masterkain/macruby.git"}"
   rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
+  rvm_ruby_load_path="."
 
   __rvm_clean-path
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
@@ -593,9 +594,11 @@ function __rvm_do {
         unset rvm_ruby_version
       fi
       unset temp
-      __rvm_select $rvm_ruby_interpreter $rvm_ruby_version
+      $(
+      unset rvm_selected
+      __rvm_use $rvm_ruby_interpreter $rvm_ruby_version
       binary=`echo $rvm_action | sed 's/do$//'`
-      rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
+      rvm_command="$rvm_ruby_binary -I$rvm_ruby_load_path $rvm_ruby_args"
       rvm_ruby_string="$(dirname $rvm_ruby_home/bin/$binary | xargs dirname | xargs basename)"
       echo "$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v)"
       eval $rvm_command
@@ -604,13 +607,18 @@ function __rvm_do {
       else
         errors[${#errors[*]}]=$rvm_ruby_string
       fi
+      )
       unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string
     done
   else # all
     rvm_ruby_versions=`/bin/ls $rvm_bin_path/ruby-*`
     for rvm_ruby_binary in $rvm_ruby_versions ; do
       if [ -x $rvm_ruby_binary ] ; then
-        rvm_command="$rvm_ruby_binary $rvm_ruby_args"
+        $(
+        # TODO: Figure out if this is the 'best' way to select for the all case:
+        #unset rvm_selected
+        #__rvm_use "`echo $rvm_ruby_binary | awk -F'-' '{print \$1}'`" "`echo $rvm_ruby_binary | awk -F'-' '{print \$2}'`" "`echo $rvm_ruby_binary | awk -F'-' '{print \$3}'`"
+        rvm_command="$rvm_ruby_binary -I$rvm_ruby_load_path  $rvm_ruby_args"
         rvm_ruby_string="$(dirname $rvm_ruby_home/bin/$binary | xargs dirname | xargs basename)"
         echo "$(basename $rvm_ruby_binary):"
         eval $rvm_command
@@ -619,6 +627,7 @@ function __rvm_do {
         else
           errors[${#errors[*]}]=$rvm_ruby_string
         fi
+        )
       fi
     done
   fi
