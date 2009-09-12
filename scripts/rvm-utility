@@ -186,7 +186,7 @@ function __rvm_run {
 }
 
 function __rvm_cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_all rvm_re_configure rvm_summary
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_all rvm_re_configure rvm_summary rvm_ruby_string
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -582,65 +582,83 @@ function __rvm_reload {
 }
 
 function __rvm_do {
-  successes=() ; errors=()
+  all=() ; successes=() ; errors=() ; statuses=()
+  # TODO: Extract the common functionality out of the if below
   if [ ! -z "$rvm_ruby_version" ] ; then
-    rvm_ruby_versions=$(echo $rvm_ruby_version | tr ',' ' ')
-    for rvm_ruby_version in $rvm_ruby_versions ; do
-      temp=$(echo $rvm_ruby_version | awk '{print substr($1, 0, 1)}')
+    rvm_ruby_selectors=$(echo $rvm_ruby_version | tr ',' ' ')
+    for rvm_ruby_selector in $rvm_ruby_selectors ; do
+      temp=$(echo $rvm_ruby_selector | awk '{print substr($1, 0, 1)}')
       if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
         rvm_ruby_interpreter="ruby"
+        rvm_ruby_version="$rvm_ruby_selector"
       else
-        rvm_ruby_interpreter="$rvm_ruby_version"
+        rvm_ruby_interpreter="$rvm_ruby_selector"
         unset rvm_ruby_version
       fi
       unset temp
-      $(
-      unset rvm_selected
-      __rvm_use $rvm_ruby_interpreter $rvm_ruby_version
+      __rvm_select
+      __rvm_use
       binary=`echo $rvm_action | sed 's/do$//'`
-      rvm_command="$rvm_ruby_binary -I$rvm_ruby_load_path $rvm_ruby_args"
-      rvm_ruby_string="$(dirname $rvm_ruby_home/bin/$binary | xargs dirname | xargs basename)"
+      lp="$rvm_ruby_home/bin:$rvm_ruby_load_path"
+      if [ "$binary" = "ruby" ] ; then
+        rvm_command="$rvm_ruby_home/bin/$binary -I$lp -S $rvm_ruby_args"
+      else
+        rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
+      fi
       echo "$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v)"
       eval $rvm_command
-      if [ $? -eq 0 ]; then
+      status=$?
+      if [ $status -eq 0 ]; then
         successes[${#successes[*]}]=$rvm_ruby_string
       else
         errors[${#errors[*]}]=$rvm_ruby_string
       fi
-      )
-      unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string
+      all[${#all[*]}]=$rvm_ruby_string
+      statuses[${#statuses[*]}]=$status
+      # TODO: keep track of and re-set the previous selected ruby ;)
+      unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string lp
     done
   else # all
-    rvm_ruby_versions=`/bin/ls $rvm_bin_path/ruby-*`
-    for rvm_ruby_binary in $rvm_ruby_versions ; do
+    rvm_ruby_binaries=`/bin/ls $rvm_path/*/bin/ruby`
+    for rvm_ruby_binary in $rvm_ruby_binaries ; do
       if [ -x $rvm_ruby_binary ] ; then
-        $(
-        # TODO: Figure out if this is the 'best' way to select for the all case:
-        #unset rvm_selected
-        #__rvm_use "`echo $rvm_ruby_binary | awk -F'-' '{print \$1}'`" "`echo $rvm_ruby_binary | awk -F'-' '{print \$2}'`" "`echo $rvm_ruby_binary | awk -F'-' '{print \$3}'`"
-        rvm_command="$rvm_ruby_binary -I$rvm_ruby_load_path  $rvm_ruby_args"
+        rvm_ruby_string=`dirname $rvm_ruby_binary | xargs dirname | xargs basename`
+        __rvm_select
+        __rvm_use
         rvm_ruby_string="$(dirname $rvm_ruby_home/bin/$binary | xargs dirname | xargs basename)"
+        lp="$rvm_ruby_home/bin:$rvm_ruby_load_path"
+        if [ "$binary" = "ruby" ] ; then
+          rvm_command="$rvm_ruby_binary -I$lp -S $rvm_ruby_args"
+        else
+          rvm_command="$rvm_ruby_binary $rvm_ruby_args"
+        fi
         echo "$(basename $rvm_ruby_binary):"
         eval $rvm_command
-        if [ $? -eq 0 ]; then
+        status=$?
+        if [ $status -eq 0 ]; then
           successes[${#successes[*]}]=$rvm_ruby_string
         else
           errors[${#errors[*]}]=$rvm_ruby_string
         fi
-        )
+        all[${#all[*]}]=$rvm_ruby_string
+        statuses[${#statuses[*]}]=$status
+        unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string lp
       fi
     done
   fi
 
+  export successes errors statuses
+
   if [ ! -z "$rvm_summary" ] ; then
     echo -e "\n\033[0;32msuccessful (${#successes[*]}) : [ $(echo "${successes[*]}" | sed 's/ /, /g') ]\033[0m"
-    echo -e "\n\033[0;31merrors (${#errors[*]}) : [ $(echo "${errors[*]}" | sed 's/ /, /g') ]\033[0m\n"
+    echo -e "\n\033[0;31merrors (${#errors[*]}) : [ $(echo "${errors[*]}" | sed 's/ /, /g') ]\033[0m"
+    echo -e "all (${#all[*]}) : [ $(echo "${all[*]}" | sed 's/ /, /g') ]"
+    echo -e "exit statuses: [ $(echo "${statuses[*]}" | sed 's/ /, /g') ]\n"
     # unset binary successes errors rvm_summary
-    return ${#errors[*]}
   else
     unset binary successes errors rvm_summary
-    return 0
   fi
+  return ${#errors[*]}
 }
 
 function __rvm_irbrc {
