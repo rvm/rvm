@@ -82,7 +82,7 @@ function __rvm_install-source {
 
   __rvm_log "info" "\tCompiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
   if [ -z "$rvm_ruby_make" ] ; then
-    __rvm_run "make" make
+    __rvm_run "make" make $rvm_make_flags
   else
     __rvm_run "make" $rvm_ruby_make
   fi
@@ -115,39 +115,10 @@ function __rvm_install-source {
   sed -i.orig "s/require_paths\.join/require_paths.to_a.join/" $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb
   rm -f $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb.orig
 
-  __rvm_run "rubygems.install" $rvm_ruby_binary $rvm_source_path/$rvm_gem_package_name/setup.rb
+  __rvm_run "rubygems.install" GEM_HOME=$rvm_gem_home $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb
   popd 2> /dev/null
 
-  for binary in gem irb erb ri rdoc testrb rake ; do
-    if [ -x $rvm_ruby_src_path/bin/$binary ] ; then
-      cp $rvm_ruby_src_path/bin/$binary $rvm_ruby_home/bin/$binary
-      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
-      awk "NR==2 {print \"$string\"} {print}" $rvm_ruby_home/bin/$binary > $rvm_ruby_home/bin/$binary.new
-      mv $rvm_ruby_home/bin/$binary.new $rvm_ruby_home/bin/$binary
-      chmod +x $rvm_ruby_home/bin/$binary
-    else
-      __rvm_log "warn" "$rvm_ruby_src_path/bin/$binary is missing"
-    fi
-  done
-
-  for rvm_gem_name in rake ; do
-    __rvm_log "info" "Installing $rvm_gem_name"
-    __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
-  done
-
-  __rvm_log "info" "Installation of rubygems for $rvm_ruby_package_name is complete."
-
-  binary=rake
-  if [ -x $rvm_gem_home/bin/$binary ] ; then
-    cp $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
-    string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
-    awk "NR==2 {print \"$string\"} {print}" $rvm_ruby_home/bin/$binary > $rvm_ruby_home/bin/$binary.new
-    mv $rvm_ruby_home/bin/$binary.new $rvm_ruby_home/bin/$binary
-    chmod +x $rvm_ruby_home/bin/$binary
-  else
-    __rvm_log "warn" "$rvm_gem_home/bin/$binary is missing"
-  fi
-  unset binary
+  __rvm_post_install
 }
 
 function __rvm_install-ruby {
@@ -245,6 +216,7 @@ function __rvm_install-ruby {
       PATH="$rvm_default_path" ; export PATH
       rvm_ruby_repo_url=$rvm_rubinius_repo_url
       rvm_ruby_configure=""
+      rvm_ruby_src_path=$rvm_ruby_home
       rvm_ruby_make="rake"
       rvm_ruby_make_install="rake install"
       rvm_ruby_home="$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"
@@ -295,7 +267,7 @@ function __rvm_install-ruby {
       __rvm_log "info" "\tInstalling $rvm_ruby_package_name..."
       mkdir -p $rvm_ruby_home/bin/
       __rvm_run "sync" rsync -ag $rvm_ruby_src_path/ $rvm_ruby_home/
-      __rvm_run "nailgun" cd $rvm_ruby_src_path/tool/nailgun && make
+      __rvm_run "nailgun" cd $rvm_ruby_src_path/tool/nailgun && make $rvm_make_flags
       popd 2> /dev/null
       chmod +x $rvm_ruby_home/bin/*
       for binary in jruby jgem jirb ; do
@@ -349,4 +321,42 @@ function __rvm_uninstall {
     __rvm_log "fail" "Cannot uninstall unknown package '$rvm_ruby_package_name'"
   fi
 
+}
+
+function __rvm_post_install {
+
+  for binary in gem irb erb ri rdoc testrb rake ; do
+    if [ -x $rvm_ruby_src_path/bin/$binary ] ; then
+      if [ "$rvm_ruby_src_path" != "$rvm_ruby_home" ] ; then
+        cp $rvm_ruby_src_path/bin/$binary $rvm_ruby_home/bin/$binary
+      fi
+      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
+      awk "NR==2 {print \"$string\"} {print}" $rvm_ruby_home/bin/$binary > $rvm_ruby_home/bin/$binary.new
+      mv $rvm_ruby_home/bin/$binary.new $rvm_ruby_home/bin/$binary
+      chmod +x $rvm_ruby_home/bin/$binary
+    else
+      __rvm_log "warn" "$rvm_ruby_src_path/bin/$binary is missing"
+    fi
+  done
+
+  for rvm_gem_name in rake ; do
+    __rvm_log "info" "Installing $rvm_gem_name"
+    __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
+  done
+
+  __rvm_log "info" "Installation of rubygems for $rvm_ruby_package_name is complete."
+
+  binary=rake
+  if [ -x $rvm_gem_home/bin/$binary ] ; then
+    if [ "$rvm_ruby_src_path" != "$rvm_ruby_home" ] ; then
+      cp $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
+    fi
+    string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
+    awk "NR==2 {print \"$string\"} {print}" $rvm_ruby_home/bin/$binary > $rvm_ruby_home/bin/$binary.new
+    mv $rvm_ruby_home/bin/$binary.new $rvm_ruby_home/bin/$binary
+    chmod +x $rvm_ruby_home/bin/$binary
+  else
+    __rvm_log "warn" "$rvm_gem_home/bin/$binary is missing"
+  fi
+  unset binary
 }
