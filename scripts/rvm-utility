@@ -249,38 +249,38 @@ function __rvm_load-defaults {
     done
   fi
 
-  rvm_default_path=`__rvm_db "rvm_default_path"`
-  if [ -z "$rvm_default_path" ] ; then
-    __rvm_clean-path # Clean the path the first time we compute default path.
+  rvm_system_path=`__rvm_db "system_path"`
+  if [ -z "$rvm_system_path" ] ; then
+    __rvm_clean-path # Clean the path the first time we compute system path.
     __rvm_remove-rvm-from-path
-    rvm_default_path="$PATH"
-    __rvm_db "rvm_default_path" "$rvm_default_path"
+    rvm_system_path="$PATH"
+    __rvm_db "system_path" "$rvm_system_path"
   fi
 
-  rvm_default_ps1=`__rvm_db "rvm_default_ps1"`
-  if [ -z "$rvm_default_ps1" ] ; then
-    rvm_default_ps1=$PS1
-    __rvm_db "rvm_default_ps1" "$rvm_default_ps1"
+  rvm_system_ps1=`__rvm_db "system_ps1"`
+  if [ -z "$rvm_system_ps1" ] ; then
+    rvm_system_ps1=$PS1
+    __rvm_db "system_ps1" "$rvm_system_ps1"
   fi
 
-  rvm_default_system_ruby=`__rvm_db "default_system_ruby"`
-  if [ -z "$rvm_default_system_ruby" ] ; then
-    rvm_default_system_ruby=`which ruby`
+  rvm_system_ruby=`__rvm_db "system_ruby"`
+  if [ -z "$rvm_system_ruby" ] ; then
+    rvm_system_ruby=`which ruby`
     if [ $? -ne 0 ] ; then
       __rvm_log "info" "System ruby not found, no db will be stored."
     else
-      __rvm_db "default_system_ruby" "$rvm_default_system_ruby"
+      __rvm_db "system_ruby" "$rvm_system_ruby"
 
-      # Now store default system & user gem paths
-      rvm_default_user_gem_path=`__rvm_db "default_user_gem_path"`
-      if [ -z "$rvm_default_user_gem_path" ] ; then
-        rvm_default_user_gem_path=`ruby -r rubygems -e "puts Gem::default_path.compact.first"`
-        __rvm_db "default_user_gem_path" "$rvm_default_user_gem_path"
+      # Now store system system & user gem paths
+      rvm_system_user_gem_path=`__rvm_db "system_user_gem_path"`
+      if [ -z "$rvm_system_user_gem_path" ] ; then
+        rvm_system_user_gem_path=`ruby -r rubygems -e "puts Gem::default_path.compact.first"`
+        __rvm_db "system_user_gem_path" "$rvm_system_user_gem_path"
       fi
-      rvm_default_system_gem_path=`__rvm_db "default_system_gem_path"`
-      if [ -z "$rvm_default_system_gem_path" ] ; then
-        rvm_default_system_gem_path=`ruby -r rubygems -e "puts Gem::default_path.compact[1] || Gem::default_path.compact.first"`
-        __rvm_db "default_system_gem_path" "$rvm_default_system_gem_path"
+      rvm_system_gem_path=`__rvm_db "system_gem_path"`
+      if [ -z "$rvm_system_gem_path" ] ; then
+        rvm_system_gem_path=`ruby -r rubygems -e "puts Gem::default_path.compact[1] || Gem::default_path.compact.first"`
+        __rvm_db "system_gem_path" "$rvm_system_gem_path"
       fi
     fi
   fi
@@ -289,18 +289,17 @@ function __rvm_load-defaults {
 
 function __rvm_reset {
 
-  PATH="$rvm_path/bin:$rvm_default_path" ; export PATH
+  PATH="$rvm_path/bin:$rvm_system_path" ; export PATH
   for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do unset $variable ; done
 
-  # TODO: Remove 'current' after a few releases:
-  for file in system default current ; do
+  for file in system default ; do
     if [ -f $rvm_path/$file ] ; then rm -f $rvm_path/file ; fi
   done
   __rvm_select "system"
 
-  for default in default_ps1 default_path default_system_ruby default_system_gem_path default_user_gem_path ; do
-    __rvm_db "$default" "delete"
-  done ; unset default variable
+  for system_config in system_ps1 system_path system_ruby system_gem_path system_user_gem_path ; do
+    __rvm_db "$system_config" "delete"
+  done ; unset system_config variable
 
 }
 
@@ -352,11 +351,11 @@ function __rvm_src-dir {
 function __rvm_gem-dup {
 
   if [ "$1" = "default" ] ; then
-    rvm_source_gem_dir="$rvm_default_user_gem_path"
+    rvm_source_gem_dir="$rvm_system_user_gem_path"
   elif [ "$1" = "system" ] ; then
-    rvm_source_gem_dir="$rvm_default_system_gem_path"
+    rvm_source_gem_dir="$rvm_system_gem_path"
   else
-    rvm_source_gem_dir=${1:-$rvm_default_user_gem_path} # TODO: check for and remove trailing /gems
+    rvm_source_gem_dir=${1:-$rvm_system_user_gem_path} # TODO: check for and remove trailing /gems
   fi
 
   if [ ! -z "$rvm_source_gem_dir" ] ; then
@@ -466,9 +465,9 @@ function __rvm_list {
       fi
     done
 
-    if [ -f $rvm_path/default -a -s $rvm_default/default ] ; then
+    if [ -f $rvm_path/system -a -s $rvm_path/system ] ; then
       echo -e "\ndefault:\n"
-      version=`grep MY_RUBY_HOME ~/.rvm/default | awk -F"'" '{print $2}' | xargs basename`
+      version=`grep MY_RUBY_HOME ~/.rvm/system | awk -F"'" '{print $2}' | xargs basename`
       string=`$rvm_bin_path/$version -v`
       if [ "$current" = "$version" ] ; then
         echo -e "=> $version : $string"
@@ -480,9 +479,9 @@ function __rvm_list {
 
     echo -e "\nsystem:\n"
     if [ "$selected" = "1" ] ; then
-      echo -e "   $($rvm_default_system_ruby -v)\n"
+      echo -e "   $($rvm_system_ruby -v)\n"
     else
-      echo -e "=> $($rvm_default_system_ruby -v)\n"
+      echo -e "=> $($rvm_system_ruby -v)\n"
     fi
     unset current version selected
   fi
