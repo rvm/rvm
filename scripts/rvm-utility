@@ -186,7 +186,7 @@ function __rvm_run {
 }
 
 function __rvm_cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_all rvm_re_configure rvm_summary rvm_ruby_string rvm_make_flags
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_all rvm_re_configure rvm_summary rvm_ruby_string rvm_make_flags rvm_bin_flag
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -195,8 +195,19 @@ function __rvm_load-rvmrc {
 }
 
 function __rvm_bin_scripts {
-  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
+  # NOTE: This depends on the forthcoming ruby_string select functionality.
+  rvm_ruby_binaries=`/bin/ls $rvm_path/*/bin/ruby`
+  for rvm_ruby_binary in $rvm_ruby_binaries ; do
+    if [ -x $rvm_ruby_binary ] ; then
+      rvm_ruby_string=`dirname $rvm_ruby_binary | xargs dirname | xargs basename`
+      __rvm_select
+      __rvm_bin_script
+    fi
+  done
+}
 
+function __rvm_bin_scripts {
+  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
 ruby_wrapper=$(cat <<RubyWrapper
 #!/bin/bash
 if [ "`whoami`" = "root" ] ; then
@@ -209,11 +220,9 @@ PATH=$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH ; export PATH
 exec "$rvm_ruby_binary" "\$@"
 RubyWrapper
 )
-
   echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_package_name
   unset ruby_wrapper
   chmod +x $rvm_bin_path/$rvm_ruby_package_name
-
 }
 
 function __rvm_fetch {
