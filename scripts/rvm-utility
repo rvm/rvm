@@ -543,6 +543,17 @@ function __rvm_initialize {
 }
 
 function __rvm_update {
+  if [ "$rvm_ruby_rev" = "head" -o "$rvm_update_flag" ] ; then
+    __rvm_version
+    __rvm_update_rvm
+    __rvm_version
+  fi
+  __rvm_reload
+  if [ "$rvm_bin_flag" ] ; then __rvm_bin_scripts ; fi
+  if [ "$rvm_rubygems_flag" ] ; then __rvm_rubygems_install ; fi
+}
+
+function __rvm_update_rvm {
   mkdir -p $rvm_source_path
   if [ "$rvm_ruby_rev" = "head" ] ; then
     if [ -d $rvm_source_path/rvm/.git ] ; then
@@ -699,7 +710,9 @@ Config
 }
 
 function __rvm_ruby_string {
-  if [ ! -z "$rvm_ruby_string" ] ; then
+  if [ "$rvm_ruby_interpreter" = "system" ] ; then
+    rvm_ruby_string=""
+  elif [ ! -z "$rvm_ruby_string" ] ; then
     echo $rvm_ruby_string | grep "enterprise" > /dev/null
     if [ $? -eq 0 ] ; then
       rvm_ruby_interpreter="ruby-enterprise"
@@ -724,7 +737,65 @@ function __rvm_ruby_string {
       fi
     fi
   fi
+  return 0
+}
 
-  echo "$rvm_ruby_string: [$rvm_ruby_interpreter, $rvm_ruby_version, $rvm_ruby_patch_level, $rvm_ruby_rev]"
+function __rvm_gemset_dump {
+  if [ -z "$rvm_gem_set_name" ] ; then
+    file_name="default"
+  else
+    file_name="$rvm_gem_set_name"
+  fi
+
+  echo "# $rvm_gem_set_name.gemset generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_gem_set_name.gemset
+
+  gems="`gem list | sed 's/[\(|\)]//g' | sed 's/, /,/g' | tr ' ' ';'`"
+  for gem in $gems ; do
+    name=`echo $gem | awk -F';' '{print $1}'`
+    if [ -z "$rvm_gem_latest" ] ; then
+      versions=`echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g'`
+      for version in $versions ; do
+        echo "$name -v$version" >> $file_name.gemset
+      done
+      unset version
+    else
+      echo "$name" >> $file_name.gemset
+    fi
+    unset name
+  done
+  unset file_name gems versions
+}
+
+function __rvm_gemset_load {
+  echo "Loading $rvm_load_file file..."
+  while read line < `cat "$rvm_load_file" | awk '/^[a-zA-Z]/{print}'` ; do
+    # TODO: Switch to a different field separator than ; to allow for evals
+    gem=`echo $line | awk -F';' '{print $1}'`
+    gem_prefix=`echo $line | awk -F';' '{print $2}'`
+    gem_name=`echo $gem | awk '{print $1}'`
+    gem_version=`echo $gem | sed 's/^.*-v[=]*[ ]*//' | awk '{print $1}'`
+    gem_postfix=`echo $gem | sed "s/$gem_name//" | sed "s/-v[=]*[ ]*$gem_version//"`
+    gem_file="$gem_name-$gem_version.gem"
+
+    if [ -z "$gem_version" ] ; then # no version
+      file=`/bin/ls -t $rvm_gem_home/cache/${gem_name}* | head -n 1`
+    else # version
+      file=`/bin/ls $rvm_gem_home/cache/$gem_file`
+    fi
+
+    if [ -z "$file" ] ; then # not cached
+      gem="$gem_name-$gem_version"
+    else # cached
+      gem="$file -l" # install as a named local gem
+    fi
+
+    # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
+    if [ -z "$vars" ] ; then
+      GEM_HOME="$rvm_gem_home" GEM_PATH="$rvm_gem_home" $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix
+    else
+      eval "GEM_HOME='$rvm_gem_home' GEM_PATH='$rvm_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
+    fi
+    unset gem gem_prefix gem_name gem_version gem_file gem_postfix file
+  done
 }
 
