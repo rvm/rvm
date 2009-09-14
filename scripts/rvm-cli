@@ -4,17 +4,17 @@ function __rvm_parse-args {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload|usage|help|implode|update)
+      install|uninstall|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload|usage|help|implode|update|readline|iconv)
         rvm_action=$rvm_token
       ;;
 
       use)
         rvm_action=$rvm_token
-        if [ "$1" = "default" ] ; then
-          rvm_ruby_interpreter="system" ; shift
-        elif [ -z "$1" ] ; then
-          rvm_ruby_interpreter="system"
-        fi
+      ;;
+
+      system|default)
+        rvm_action=${rvm_action:-use}
+        rvm_ruby_interpreter="$rvm_token"
       ;;
 
       ruby|jruby|ree|macruby|rbx|rubinius|default|all)
@@ -94,10 +94,14 @@ function __rvm_parse-args {
       -t|--tag)          rvm_ruby_tag="$1";
                          rvm_action="${rvm_action:-use}"
                          shift                             ;;
+      --head)
+                         rvm_ruby_rev="head"
+                         rvm_action="${rvm_action:-use}"
+      ;;
       --rev|--revision)  rvm_ruby_rev="$1";
                          rvm_action="${rvm_action:-use}"
                          shift                             ;;
-      -b|--branch)       rvm_ruby_rev="$1";
+      -b|--branch)       rvm_ruby_branch="$1";
                          rvm_action="${rvm_action:-use}"
                          shift                             ;;
 
@@ -173,7 +177,6 @@ function __rvm_parse-args {
 
       -h|--help)         rvm_action=help           ; shift ;;
       -d|--default)      rvm_set_default=1                 ;;
-      --head)            rvm_ruby_rev="head"               ;;
       --trace|--debug)   rvm_debug=1                       ;;
       --force)           rvm_force=1                       ;;
          --all)          rvm_all=1                         ;;
@@ -268,19 +271,21 @@ function rvm {
       __rvm_do
     ;;
     rubydo|rakedo|gemdo) __rvm_do ; status=$? ;;
-    reset)     __rvm_reset        ;;
-               # TODO: how can we use bin_path here for reload, default file?
-    reload)    __rvm_reload       ;;
-    implode)   __rvm_implode      ;;
-    update)    __rvm_update       ;;
+    reset)      __rvm_reset            ;;
+                # TODO: how can we use bin_path here for reload, default file?
+    reload)     __rvm_reload           ;;
+    implode)    __rvm_implode          ;;
+    update)     __rvm_update           ;;
+    readline)   __rvm_readline_install ;;
+    iconv)      __rvm_iconv_install    ;;
+    reboot)     __rvm_reboot           ;;
+    usage|help) __rvm_usage            ;;
     info|debug)
                 __rvm_version
                 __rvm_info
                 if [ "$rvm_action" = "debug" ] ; then __rvm_debug ; fi
                 return 0
     ;;
-    reboot)     __rvm_reboot ;;
-    usage|help) __rvm_usage  ;;
     error)      __rvm_log "fail" "$rvm_error_message ( see: 'rvm usage' )" ; popd 2> /dev/null ; return 1; ;;
     *)
       if [ ! -z "$rvm_action" ] ; then
