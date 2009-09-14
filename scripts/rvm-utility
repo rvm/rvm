@@ -60,7 +60,7 @@ function __rvm_usage {
     -p|--prefix     - Package and source directory prefix, with trailing slash!
                       Default is a users home directory and /usr/local/ for root
     -a|--archives   - Directory to place downladed files into (~/.rvm/archives/)
-    -n|--nice       - Niceness level (default: 0)
+    -n|--nice       - Specify a process niceness (for slow computers, default 0)
     -m|--gem-set    - Named gem set for switching between different gem sets
     --rm-gem-set    - Removes a named gemset.
 
@@ -79,7 +79,6 @@ function __rvm_usage {
     -M|--make       - Specify a custom make command
     -I|--make-install - "     a custom make install command
 
-    -n|--nice       - Specify a process niceness (for slow computers)
     -f|--file       - Specify a ruby file to run with 'rubydo' command
     -h|--help       - Emit this output and exit
     -d|--default    - Set the default Ruby to a specified version
@@ -156,6 +155,7 @@ function __rvm_log {
     debug) shift ; echo -e "\n\033[0;35m <d> \033[0m $*" ;;
     info)  shift ; echo -e "\n\033[0;32m <i> \033[0m $*" ;;
     warn)  shift ; echo -e "\n\033[0;33m <w> \033[0m $*" ;;
+    error) shift ; echo -e "\n\033[0;31m <e> \033[0m $*" ;;
     fail)  shift ; echo -e "\n\033[0;31m <e> \033[0m $*" ; popd 2> /dev/null ; return 1 ;;
     *) echo -e "$*"
   esac
@@ -180,8 +180,12 @@ function __rvm_run {
   if [ $rvm_debug ] ; then __rvm_log "debug" "Executing: $command" ; fi
   touch $rvm_ruby_log_path/$log_file_name.log $rvm_ruby_log_path/$log_file_name.error.log # for zsh :(
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee $rvm_ruby_log_path/$log_file_name.log > $rvm_ruby_log_path/$log_file_name.error.log
-  eval "nice -n $rvm_niceness $command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/$log_file_name.error.log" ; popd 2> /dev/null ; return 1 ; fi
+  if [ -z "$rvm_niceness" ] ; then
+    eval "$command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
+  else
+    eval "nice -n $rvm_niceness /bin/bash -l -c '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
+  fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name.error.log" ; popd 2> /dev/null ; return 1 ; fi
   unset log_file command
 }
 
