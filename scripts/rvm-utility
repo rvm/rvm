@@ -5,7 +5,7 @@ function __rvm_meta {
   rvm_meta_author_email="wayneeseguin@gmail.com"
   rvm_meta_website="http://rvm.beginrescueend.com/"
   rvm_meta_version="`cat $rvm_path/VERSION.yml | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//'`"
-  rvm_meta_updated="2009.09.10"
+  rvm_meta_updated="2009.09.14"
 }
 
 function __rvm_version { __rvm_meta ; echo "rvm $rvm_meta_version ($rvm_meta_updated) [$rvm_meta_website]" ; }
@@ -176,6 +176,7 @@ function __rvm_gi { gem install -q --no-rdoc --no-ri $* ; }
 function __rvm_run {
   log_file_name="$1" ; shift
   command="$*"
+  rvm_ruby_log_path=${rvm_ruby_log_path:-$rvm_path/log}
   mkdir -p $rvm_ruby_log_path
   if [ $rvm_debug ] ; then __rvm_log "debug" "Executing: $command" ; fi
   touch $rvm_ruby_log_path/$log_file_name.log $rvm_ruby_log_path/$log_file_name.error.log # for zsh :(
@@ -233,7 +234,7 @@ function __rvm_fetch {
 
   pushd $rvm_archives_path > /dev/null
   eval $rvm_fetch "$1"
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd 2> /dev/null ; return 1 ; fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd > /dev/null ; return 1 ; fi
   popd 2> /dev/null
 
 }
@@ -811,9 +812,11 @@ function __rvm_readline_install {
   version=5.2
   # TODO: Figure out how to list, grab and apply the patches
   __rvm_fetch "ftp://ftp.gnu.org/gnu/readline/$package-$version.tar.gz"
-  tar zxf $rvm_archives_path/$package-$version.tar.gz -C $rvm_path/src/ && cd $rvm_path/src/$package-$version
-  ./configure --prefix=$rvm_path/usr --disable-shared
-  make clean && make && make install
+  __rvm_run "extract" tar zxf $rvm_archives_path/$package-$version.tar.gz -C $rvm_path/src/
+  cd $rvm_path/src/$package-$version
+  __rvm_run "configure" ./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared
+  __rvm_run "$package.make" make
+  __rvm_run "$package.make.install" make install
   popd > /dev/null
 }
 
@@ -823,8 +826,12 @@ function __rvm_iconv_install {
   package=libiconv
   version=1.13.1
   __rvm_fetch "http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.tar.gz"
-  tar zxf $rvm_archives_path/$package-$version.tar.gz -C $rvm_dir/src/ && cd $rvm_path/src/$package-$version
-  ./configure --prefix=$rvm_path/usr --disable-shared && make -j2 && make install
+  __rvm_run "$package.extract" tar zxf $rvm_archives_path/$package-$version.tar.gz -C $rvm_dir/src/
+  cd $rvm_path/src/$package-$version
+  __rvm_run "$package.configure" ./configure --prefix=$rvm_path/usr --disable-shared
+  __rvm_run "$package.make" make
+  __rvm_run "$package.make.install" make install
+
   popd > /dev/null
 }
 
