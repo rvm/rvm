@@ -54,16 +54,20 @@ function __rvm_parse-args {
         rvm_action=$rvm_token
         if [ "$rvm_action" = "do" ] ; then rvm_action="do" ; fi
         temp=$(echo $1 | awk '{print substr($1, 0, 1)}')
-        if [ "$temp" != "-" ] ; then
+        if [ "$temp" = "-" ] ; then
+          unset rvm_ruby_version
+        else
           if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
             rvm_ruby_version=$(echo "$1" | tr ',' ' ') ; shift
+            unset rvm_ruby_interpreter
           else
-            rvm_ruby_version=$1 ; shift
+            if [ "$1" = "jruby" -o "$1" = "rbx" -o "$1" = "rubinius" -o "$1" = "macruby" ] ; then
+              rvm_ruby_interpreter=$1 ; shift
+            else
+              unset rvm_ruby_interpreter rvm_ruby_version
+            fi
           fi
-        else
-          unset rvm_ruby_version
         fi
-        unset rvm_ruby_interpreter
       ;;
 
       1.8|1.8.0|1.8.1|1.8.2|1.8.3|1.8.4|1.8.5|1.8.6|1.8.7|1.9|1.9.1|1.9.2)
@@ -83,14 +87,14 @@ function __rvm_parse-args {
                            rvm_action="version"
                          else
                            rvm_ruby_version="$1"
+                           shift
                          fi
-                         shift
       ;;
 
       -t|--tag)          rvm_ruby_tag="$1";
                          rvm_action="${rvm_action:-use}"
                          shift                             ;;
-      -r|--rev)          rvm_ruby_rev="$1";
+      --rev|--revision)  rvm_ruby_rev="$1";
                          rvm_action="${rvm_action:-use}"
                          shift                             ;;
       -b|--branch)       rvm_ruby_rev="$1";
@@ -99,9 +103,19 @@ function __rvm_parse-args {
 
 
       -P|--prefix)       rvm_prefix_path="$1"      ; shift ;;
-      -B|--bin)          rvm_bin_path="$1"         ; shift ;;
-      -S|--source)       rvm_source_path="$1"      ; shift ;;
-      -A|--archive)      rvm_archives_path="$1"    ; shift ;;
+
+      --rubygems)        rvm_rubygems_flag=1               ;;
+      --rvm|--gem)       rvm_update_flag=1                 ;;
+      --bin)
+        if [ "$rvm_action" = "update" ] ; then
+          rvm_bin_flag=1
+        else
+          rvm_bin_path="$1" ; shift
+        fi
+        ;;
+
+       --source)         rvm_source_path="$1"      ; shift ;;
+       --archive)        rvm_archives_path="$1"    ; shift ;;
       -G|--gems)         rvm_gem_path="$1"         ; shift ;;
       -C|--configure)
         if [ ! -z "$1" ] ; then
@@ -110,17 +124,49 @@ function __rvm_parse-args {
         else
           rvm_action="error"
           rvm_error_message="--configure *must* be followed by configure flags."
-          break;
         fi
       ;;
 
       --re-configure)    rvm_re_configure=1                ;;
-      -M|--make)         rvm_ruby_make="$1"        ; shift ;;
-      -I|--make-install) rvm_ruby_make_install="$1"; shift ;;
+      --make)            rvm_ruby_make="$1"        ; shift ;;
+      --make-install)    rvm_ruby_make_install="$1"; shift ;;
+      -j)
+        if [ ! -z "$1" ] ; then
+          rvm_make_flags="$rvm_make_flags -j$1"
+          shift
+        else
+          rvm_action="error"
+          rvm_error_message="-j *must* be followed by an integer (normally the # of CPU's in your machine)."
+        fi
+      ;;
+      --nice)            rvm_niceness="$1"         ; shift ;;
       -l|--level)        rvm_ruby_patch_level="$1" ; shift ;;
-      -n|--nice)         rvm_niceness="$1"         ; shift ;;
-      -f|--file)         rvm_ruby_args="$1"        ; shift ;;
-      -e|--execute)
+         --summary)      rvm_summary=1                     ;;
+      -r|--require)
+        if [ -z "$1" ] ; then
+          rvm_action="error"
+          rvm_error_message="-r|--require *must* be followed by a library name."
+        else
+          rvm_ruby_require="$rvm_ruby_require -r$1"
+          shift
+        fi
+      ;;
+      -I|--include)
+        if [ -z "$1" ] ; then
+          rvm_action="error"
+          rvm_error_message="-I|--include *must* be followed by a path."
+        else
+          rvm_ruby_load_path="$rvm_ruby_load_path:$1"
+          shift
+        fi
+      ;;
+      -f|--file)
+                         rvm_action="rubydo"
+                         rvm_ruby_args="$1"
+                         shift
+      ;;
+      -S|--script|-e|--execute)
+                         rvm_action="rubydo"
                          rvm_ruby_args="$@"
                          rvm_parse_break=1
       ;;
@@ -130,34 +176,64 @@ function __rvm_parse-args {
       --head)            rvm_ruby_rev="head"               ;;
       --trace|--debug)   rvm_debug=1                       ;;
       --force)           rvm_force=1                       ;;
-         --all)          rvm_all=1                 ; shift ;;
+         --all)          rvm_all=1                         ;;
       -m|--gem-set)      rvm_gem_set_name="$1"     ; shift ;;
          --rm-gem-set)   rvm_gem_set_name_rm="$1"  ; shift ;;
-         --dump)         rvm_dump=1                ; shift ;;
+         --dump)         rvm_dump=1                        ;;
          --load)
-         rvm_load=1
-         if [ ! -z "$1" ] ; then
-           rvm_load_file="$1"
-           shift
-         else
-            rvm_action="error"
-            rvm_error_message="--load must be followed by the .gemset file to load."
-            break;
-         fi
-         shift
+                         rvm_load=1
+                         if [ ! -z "$1" ] ; then
+                           rvm_load_file="$1"
+                           shift
+                         else
+                            rvm_action="error"
+                            rvm_error_message="--load must be followed by the .gemset file to load."
+                            break;
+                         fi
+                         shift
       ;;
 
-      --latest)         rvm_latest=1              ; shift ;;
       --jit)            rvm_rubinius_jit="RBX_LLVM=1"     ;;
+      --latest)         rvm_latest=1                      ;;
+      --tests|--specs)  rvm_action="tests"                ;;
 
       default|system)
         rvm_action="use"
         rvm_ruby_interpreter="system"
       ;;
+
+      reboot|flush|asdf|damnit|wtf|argh|work|workdamnit|BOOM|boom|wth)
+        $rvm_action="reboot"
+      ;;
+
       *)
-        rvm_action="error"
-        rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
-        break;
+        if [ ! -z "$rvm_token" ] ; then
+          echo "$rvm_token" | grep ',' > /dev/null
+          if [ $? -eq 0 ] ; then
+            rvm_ruby_version="$rvm_token"
+            if [ -z "$rvm_action" ] ; then
+              rvm_action="rubydo" # Not sure if we really want to do this but we'll try it out.
+            fi
+          else
+            echo $rvm_token | grep '\.rb$' > /dev/null
+            if [ $? -eq 0 ] ; then # we have a specified ruby script
+              rvm_ruby_args=$rvm_token
+              if [ -z "$rvm_action" ] ; then
+                rvm_action="rubydo" # Not sure if we really want to do this but we'll try it out.
+              fi
+            else
+              rvm_action="error"
+              rvm_error_message="Unrecognized command line argument: '$rvm_token'"
+            fi
+          fi
+        else
+          rvm_action="error"
+          rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
+        fi
+        if [ "$rvm_action" = "error" ] ; then
+          break;
+        fi
+
     esac
     if [ ! -z "$rvm_parse_break" -o ! -z "$rvm_error_message" ] ; then unset rvm_parse_break; break; fi
   done
@@ -175,70 +251,37 @@ function rvm {
   __rvm_load-defaults
   __rvm_parse-args $@
 
+  status=0
   case "$rvm_action" in
-    install)   __rvm_install-ruby ;;
-    uninstall) __rvm_uninstall    ;;
-    use)       __rvm_use          ;;
-    gemdir)    __rvm_gem-dir      ;;
-    srcdir)    __rvm_src-dir      ;;
-    gemdup)    __rvm_gem-dup      ;;
-    list)      __rvm_list         ;;
-    symlinks)  __rvm_symlinks     ;;
-    version)   __rvm_version      ;;
-    rubydo|rakedo|gemdo)
-      if [ ! -z "$rvm_ruby_version" ] ; then
-        rvm_ruby_versions=$(echo $rvm_ruby_version | tr ',' ' ')
-        for rvm_ruby_version in $rvm_ruby_versions ; do
-          temp=$(echo $rvm_ruby_version | awk '{print substr($1, 0, 1)}')
-          if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
-            rvm_ruby_interpreter="ruby"
-          else
-            rvm_ruby_interpreter="$rvm_ruby_version"
-            unset rvm_ruby_version
-          fi
-          unset temp
-          __rvm_select $rvm_ruby_interpreter $rvm_ruby_version
-          binary=`echo $rvm_action | sed 's/do$//'`
-          rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
-          echo "$(basename $rvm_ruby_home/bin/$binary):"
-          eval $rvm_command
-          unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary
-        done
-      else # all
-        rvm_ruby_versions=`/bin/ls $rvm_bin_path/ruby-*`
-        for rvm_ruby_binary in $rvm_ruby_versions ; do
-          if [ -x $rvm_ruby_binary ] ; then
-            rvm_command="$rvm_ruby_binary $rvm_ruby_args"
-            echo "$(basename $rvm_ruby_binary):"
-            eval $rvm_command
-          fi
-        done
-      fi
-      ;;
-    reset)     __rvm_reset                                                          ;;
-               # TODO: how can we use bin_path here for reload, default file?
-    reload)    source ~/.rvm/scripts/rvm                                            ;;
-    implode)   __rvm_implode                                                        ;;
-    update)
-      if [ "$rvm_ruby_rev" = "head" ] ; then
-        if [ -d $rvm_source_path/rvm/.git ] ; then
-          cd $rvm_source_path/rvm/ && git pull origin master && ./scripts/rvm-install
-        else
-          cd $rvm_source_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/ && ./scripts/rvm-install
-        fi
-      else
-        # TODO: rvm_install_path:
-        gem install rvm --no-rdoc --no-ri -q && rvm-install && source ~/.rvm/scripts/rvm
-      fi
+    install)   __rvm_install-ruby ;status=$? ;;
+    uninstall) __rvm_uninstall    ;status=$? ;;
+    use)       __rvm_use          ;status=$? ;;
+    gemdir)    __rvm_gem-dir      ;status=$? ;;
+    srcdir)    __rvm_src-dir      ;status=$? ;;
+    gemdup)    __rvm_gem-dup      ;status=$? ;;
+    list)      __rvm_list         ;status=$? ;;
+    symlinks)  __rvm_symlinks     ;status=$? ;;
+    version)   __rvm_version      ;status=$? ;;
+    tests|specs)
+      rvm_do_summary=1
+      rvm_action="rake"
+      __rvm_do
     ;;
-    error)      __rvm_log "fail" "$rvm_error_message ( see: rvm usage )" ; popd 2> /dev/null ; return 1; ;;
+    rubydo|rakedo|gemdo) __rvm_do ; status=$? ;;
+    reset)     __rvm_reset        ;;
+               # TODO: how can we use bin_path here for reload, default file?
+    reload)    __rvm_reload       ;;
+    implode)   __rvm_implode      ;;
+    update)    __rvm_update       ;;
     info|debug)
                 __rvm_version
                 __rvm_info
                 if [ "$rvm_action" = "debug" ] ; then __rvm_debug ; fi
                 return 0
     ;;
-    usage|help) __rvm_usage ;;
+    reboot)     __rvm_reboot ;;
+    usage|help) __rvm_usage  ;;
+    error)      __rvm_log "fail" "$rvm_error_message ( see: 'rvm usage' )" ; popd 2> /dev/null ; return 1; ;;
     *)
       if [ ! -z "$rvm_action" ] ; then
         __rvm_log "fail"  "unknown action '$rvm_action'"
@@ -249,4 +292,6 @@ function rvm {
   esac
 
   if [ "$rvm_debug" = "1" ] ; then set +x ; unset rvm_debug ; fi
+  return $status
 }
+
