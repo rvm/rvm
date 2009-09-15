@@ -20,11 +20,11 @@ function __rvm_install-source {
       rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
       __rvm_log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
       __rvm_fetch $rvm_url
-      if [ $status -eq 0 ] ; then status=$? ; fi
+      if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
       __rvm_log "info" "\tExtracting $rvm_ruby_package_name ..."
       mkdir -p $rvm_ruby_src_path # Is this line necessary considering -C below?    v
       __rvm_run "extract" tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
-      if [ $status -eq 0 ] ; then status=$? ; fi
+      if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
     fi
   else
     __rvm_log "info" "\tRetrieving Ruby from $rvm_url"
@@ -33,14 +33,14 @@ function __rvm_install-source {
         cd $rvm_ruby_src_path
         if [ -z "$rvm_ruby_rev" ] ; then
           git pull origin master
-          if [ $status -eq 0 ] ; then status=$? ; fi
+          if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
         else
           git checkout ${rvm_ruby_rev:-HEAD}
-          if [ $status -eq 0 ] ; then status=$? ; fi
+          if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
         fi
       else
         git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path
-        if [ $status -eq 0 ] ; then status=$? ; fi
+        if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
       fi
     else
       if [ -z "$rvm_ruby_rev" ] ; then
@@ -67,31 +67,29 @@ function __rvm_install-source {
       else
         svn checkout -q $rvm_rev --force $rvm_url $rvm_ruby_src_path
       fi
-      if [ $status -eq 0 ] ; then status=$? ; fi
+      if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
     fi
   fi
 
   cd $rvm_ruby_src_path
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd > /dev/null ; return 1 ; fi
+  if [ $? -gt 0 ] ; then status=$? ; __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd > /dev/null ; return $status ; fi
 
-    # Readline
-    if [ ! -d $rvm_path/usr/include/readline ] ; then __rvm_readline_install ; fi
+  # Readline
+  if [ ! -d $rvm_path/usr/include/readline ] ; then __rvm_readline_install ; fi
 
   if [ ! -s "$rvm_ruby_src_path/configure" -a "$rvm_ruby_interpreter" = "ruby" ] ; then
     rvm_autoconf=`which autoconf`
-    if [ $? -ne 0 ] ; then __rvm_log "fail" "rvm expects autoconf" ; fi
+    if [ $? -gt 0 ] ; then __rvm_log "fail" "rvm expects autoconf" ; status=$? ; return $status ; fi
     __rvm_run "autoconf" $rvm_autoconf
-    if [ $status -eq 0 ] ; then status=$? ; fi
+    if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
   fi
-
-  if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd > /dev/null ; return 1 ; fi
 
   if [ -s ./Makefile -a -z "$rvm_re_configure" ] ; then
     __rvm_log "warn" "\tSkipping configure step, Makefile exists so configure must have already been run."
   elif [ -s ./configure ] ; then
     __rvm_log "info" "\tConfiguring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
     __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure --with-readline-dir=$rvm_path/usr/include/readline/"
-    if [ $status -eq 0 ] ; then status=$? ; fi
+    if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
   else
     __rvm_log "error" "\tSkipping configure step, 'configure' script does not exist, did autoconf not run successfully?"
   fi
@@ -102,7 +100,7 @@ function __rvm_install-source {
   else
     __rvm_run "make" $rvm_ruby_make
   fi
-  if [ $status -eq 0 ] ; then status=$? ; fi
+  if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
 
   if [ -z "$rvm_ruby_make" ] ; then
     __rvm_log "info" "\tInstalling $rvm_ruby_package_name"
@@ -110,9 +108,9 @@ function __rvm_install-source {
   else
     __rvm_run "install" $rvm_ruby_make_install
   fi
-  if [ $status -eq 0 ] ; then status=$? ; fi
-  __rvm_run "chmod.bin" chmod +x $rvm_ruby_home/bin/*
+  if [ $? -gt 0 ] ; then status=$? ; return $status ; fi
 
+  __rvm_run "chmod.bin" chmod +x $rvm_ruby_home/bin/*
   __rvm_bin_script
   __rvm_log "info" "Installation of $rvm_ruby_package_name is complete."
 
