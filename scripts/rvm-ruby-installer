@@ -74,6 +74,9 @@ function __rvm_install-source {
   cd $rvm_ruby_src_path
   if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd > /dev/null ; return 1 ; fi
 
+    # Readline
+    if [ ! -d $rvm_path/usr/include/readline ] ; then __rvm_readline_install ; fi
+
   if [ ! -s "$rvm_ruby_src_path/configure" -a "$rvm_ruby_interpreter" = "ruby" ] ; then
     rvm_autoconf=`which autoconf`
     if [ $? -ne 0 ] ; then __rvm_log "fail" "rvm expects autoconf" ; fi
@@ -87,10 +90,10 @@ function __rvm_install-source {
     __rvm_log "warn" "\tSkipping configure step, Makefile exists so configure must have already been run."
   elif [ -s ./configure ] ; then
     __rvm_log "info" "\tConfiguring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
-    __rvm_run "configure" ./configure --prefix=$rvm_ruby_home $rvm_ruby_configure
+    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure --with-readline-dir=$rvm_path/usr/include/readline/"
     if [ $status -eq 0 ] ; then status=$? ; fi
   else
-    __rvm_log "warn" "\tSkipping configure step, 'configure' script does not exist, did autoconf not run successfully?"
+    __rvm_log "error" "\tSkipping configure step, 'configure' script does not exist, did autoconf not run successfully?"
   fi
 
   __rvm_log "info" "\tCompiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
@@ -188,23 +191,8 @@ function __rvm_install-ruby {
       chmod +x $rvm_ruby_home/bin/*
 
       __rvm_bin_script
+      __rvm_rubygems_setup
 
-      __rvm_log "info" "\tInstalling rubygems dedicated to $rvm_ruby_package_name..."
-      rvm_gem_package_name="rubygems-1.3.5"
-      rvm_gem_url="http://rubyforge.org/frs/download.php/60718/$rvm_gem_package_name.tgz"
-      if [ -d $rvm_source_path/$rvm_gem_package_name ]  ; then
-        cd $rvm_source_path/$rvm_gem_package_name
-      else
-        __rvm_fetch $rvm_gem_url
-        mkdir -p $rvm_source_path/$rvm_gem_package_name
-      __rvm_run "extract" tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
-      fi
-      # Well this is fun... fix nil error on require_paths:
-      sed -i.orig "s/require_paths\.join/require_paths.to_a.join/" $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb > $rvm_ruby_log_path/rubygems.install.log 2> $rvm_ruby_log_path/rubygems.install.error.log
-      rm -f $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb.orig
-
-      __rvm_run "rubygems.install" $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb
-      __rvm_log "info" "Installation of $rvm_ruby_package_name complete."
       popd > /dev/null
 
       for rvm_gem_name in rake ; do
@@ -288,7 +276,7 @@ function __rvm_install-ruby {
     ;;
 
     ruby)
-      if [ -z "rvm_ruby_configure" ] ; then rvm_ruby_configure="--enable-shared=true" ; fi
+      if [ -z "rvm_ruby_configure" ] ; then rvm_ruby_configure="--enable-shared=true --disable-shared=true --enable-pthread=true " ; fi
       __rvm_install-source $*
     ;;
 
@@ -371,7 +359,8 @@ function __rvm_post_install {
 }
 
 function __rvm_rubygems_setup {
-  if [ "`echo $rvm_ruby_selector | awk '{print substr($1, 0, 1)}'`" != "1.9" ] ; then
+
+  if [ "`echo $rvm_ruby_version | awk '{print substr($1, 0, 3)}'`" != "1.9" ] ; then
     __rvm_log "info" "\tInstalling rubygems dedicated to $rvm_ruby_package_name..."
     rvm_gem_package_name="rubygems-1.3.5"
     rvm_gem_url="http://rubyforge.org/frs/download.php/60718/$rvm_gem_package_name.tgz"
