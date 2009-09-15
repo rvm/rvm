@@ -116,15 +116,8 @@ function __rvm_install-source {
   GEM_HOME="$rvm_gem_home" ; export GEM_HOME
   GEM_PATH="$rvm_gem_home" ; export GEM_PATH
 
-  echo $rvm_ruby_vesion | grep '^1\.9' > /dev/null
-  if [ $? -gt 0 ] ; then
-    __rvm_rubygems_install
-    if [ $status -eq 0 ] ; then status=$? ; fi
-  else
-    mv $rvm_ruby_src_path/bin/gem $rvm_ruby_src_path/bin/gem.orig
-    cat $rvm_ruby_src_path/bin/gem.orig | sed -e "s=!# */usr/bin/env ruby=!#/usr/bin/$rvm_ruby_home/bin/ruby=" > $rvm_ruby_src_path/bin/gem
-    chmod +x $rvm_ruby_home/bin/gem
-  fi
+  __rvm_rubygems_setup
+
   popd > /dev/null
 
   __rvm_post_install
@@ -377,25 +370,35 @@ function __rvm_post_install {
   unset binary
 }
 
-function __rvm_rubygems_install {
-  __rvm_log "info" "\tInstalling rubygems dedicated to $rvm_ruby_package_name..."
-  rvm_gem_package_name="rubygems-1.3.5"
-  rvm_gem_url="http://rubyforge.org/frs/download.php/60718/$rvm_gem_package_name.tgz"
-  if [ -d $rvm_source_path/$rvm_gem_package_name ]  ; then
-    cd $rvm_source_path/$rvm_gem_package_name
+function __rvm_rubygems_setup {
+  if [ "`echo $rvm_ruby_selector | awk '{print substr($1, 0, 1)}'`" != "1.9" ] ; then
+    __rvm_log "info" "\tInstalling rubygems dedicated to $rvm_ruby_package_name..."
+    rvm_gem_package_name="rubygems-1.3.5"
+    rvm_gem_url="http://rubyforge.org/frs/download.php/60718/$rvm_gem_package_name.tgz"
+    if [ -d $rvm_source_path/$rvm_gem_package_name ]  ; then
+      cd $rvm_source_path/$rvm_gem_package_name
+    else
+      __rvm_fetch $rvm_gem_url
+      mkdir -p $rvm_source_path/$rvm_gem_package_name
+      __rvm_run "rubygems.extract" tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
+    fi
+    # Well this is fun... fix nil error on require_paths:
+    # Q: Is this necessary any longer?
+    sed -i.orig "s/require_paths\.join/require_paths.to_a.join/" $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb
+    rm -f $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb.orig
+    __rvm_run "rubygems.install" GEM_HOME=$rvm_gem_home $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb
+    status=$?
+    if [ $status -eq 0 ] ; then
+      __rvm_log "info" "Installation of rubygems $rvm_ruby_package_name completed successfully."
+    fi
+    if [ $status -eq 0 ] ; then status=$? ; fi
   else
-    __rvm_fetch $rvm_gem_url
-    mkdir -p $rvm_source_path/$rvm_gem_package_name
-    __rvm_run "rubygems.extract" tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
+    # 1.9 has it's own built gem command, let's adjust the shebang line.
+    mv $rvm_ruby_src_path/bin/gem $rvm_ruby_src_path/bin/gem.orig
+    cat $rvm_ruby_src_path/bin/gem.orig | sed -e "s=!# */usr/bin/env ruby=!#/usr/bin/$rvm_ruby_home/bin/ruby=" > $rvm_ruby_src_path/bin/gem
+    chmod +x $rvm_ruby_home/bin/gem
   fi
-  # Well this is fun... fix nil error on require_paths:
-  sed -i.orig "s/require_paths\.join/require_paths.to_a.join/" $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb
-  rm -f $rvm_source_path/$rvm_gem_package_name/lib/rubygems/gem_path_searcher.rb.orig
-  __rvm_run "rubygems.install" GEM_HOME=$rvm_gem_home $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb
-  status=$?
-  if [ $status -eq 0 ] ; then
-    __rvm_log "info" "Installation of rubygems $rvm_ruby_package_name completed successfully."
-  fi
+
   return $status
 }
 
