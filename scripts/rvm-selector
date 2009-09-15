@@ -148,21 +148,29 @@ function __rvm_use {
       source $rvm_path/default
     else
       __rvm_log "error" "no default rvm specified, defaulting to pre-rvm sytem."
-      unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
+      unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
       PATH="$rvm_system_path" ; export PATH
       if [ -s $rvm_path/system ] ; then source $rvm_path/system ; fi
     fi
 
   elif [ "$rvm_ruby_interpreter" = "system" ] ; then
 
-    unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
+    unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
     PATH="$rvm_system_path" ; export PATH
-    if [ -s $rvm_path/system ] ; then source $rvm_path/system ; fi
+    if [ -s $rvm_path/system ] ; then
+      grep "^MY_RUBY_HOME='$rvm_path" "$rvm_path/system"
+      if [ $? -eq 0 ] ; then
+        rm -f $rvm_path/system # 'system' should *not* point to an rvm ruby.
+      else
+        source $rvm_path/system
+      fi
+    fi
 
   else
     GEM_HOME=$rvm_gem_home ; export GEM_HOME
     GEM_PATH=$rvm_gem_home ; export GEM_PATH
     MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
+    RUBY_VERSION=$rvm_ruby_package_name ; export RUBY_VERSION
     IRBRC="$rvm_ruby_irbrc" ; export IRBRC
     if [ -z "$IRBRC" ] ; then unset IRBRC ; fi
 
@@ -198,6 +206,19 @@ function __rvm_use {
           echo "unset ${variable}" >> $rvm_path/default
         fi
       done
+
+      if [ -s $rvm_path/bin/$rvm_ruby_package_name ] ; then
+        ln -fs $rvm_path/bin/$rvm_ruby_package_name $rvm_path/bin/ruby
+        ln -fs $rvm_path/bin/$rvm_ruby_package_name $rvm_path/bin/default-ruby # So that people know what it's for :)
+        ln -fs $rvm_path/bin/gem-$rvm_ruby_package_name $rvm_path/bin/gem
+        ln -fs $rvm_path/bin/irb-$rvm_ruby_package_name $rvm_path/bin/irb
+      else
+        rm -f $rvm_path/bin/ruby
+        rm -f $rvm_path/bin/default-ruby
+        rm -f $rvm_path/bin/gem
+        rm -f $rvm_path/bin/irb
+      fi
+
       unset rvm_set_default
     fi
   fi
