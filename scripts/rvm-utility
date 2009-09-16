@@ -78,7 +78,7 @@ function __rvm_run {
   command="$*"
   rvm_ruby_log_path=${rvm_ruby_log_path:-$rvm_path/log}
   mkdir -p $rvm_ruby_log_path
-  if [ $rvm_debug ] ; then __rvm_log "debug" "Executing: $command" ; fi
+  if [ ! -z "$rvm_debug_flag" ] ; then __rvm_log "debug" "Executing: $command" ; fi
   touch $rvm_ruby_log_path/$log_file_name.log $rvm_ruby_log_path/$log_file_name.error.log # for zsh :(
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee $rvm_ruby_log_path/$log_file_name.log > $rvm_ruby_log_path/$log_file_name.error.log
   if [ -z "$rvm_niceness" -o "$rvm_niceness" = "0" ] ; then
@@ -91,7 +91,7 @@ function __rvm_run {
 }
 
 function __rvm_cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_debug rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_delete_flag rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_bin_path rvm_force rvm_all rvm_re_configure rvm_summary rvm_ruby_string rvm_make_flags rvm_bin_flag
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_ruby_string rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_rvm_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -326,7 +326,7 @@ function __rvm_symlinks {
 
 function __rvm_list {
 
-  if [ "$rvm_all" ] ; then
+  if [ "$rvm_all_flag" ] ; then
     svn list http://svn.ruby-lang.org/repos/ruby/tags/ | grep 'v1_[8|9]' | sed 's/^v1_//' | sed 's/\/$//' | awk -F'_' '{print "1."$1"."$2 " -l "$3}' | sed 's/p$//'
 
     echo "jruby 1.2.0"
@@ -451,13 +451,14 @@ function __rvm_initialize {
 }
 
 function __rvm_update {
-  if [ "$rvm_ruby_rev" = "head" -o "$rvm_update_flag" ] ; then
+  if [ "$rvm_ruby_rev" = "head" -o ! -z "$rvm_rvm_flag" -o ! -z "$rvm_update_flag" ] ; then
     __rvm_version
     __rvm_update_rvm
     __rvm_version
   fi
   __rvm_reload
   __rvm_select
+  # if [ "$rvm_gem_flag" ]      ; then __rvm_gem_scripts    ; fi
   if [ "$rvm_bin_flag" ]      ; then __rvm_bin_scripts    ; fi
   if [ "$rvm_rubygems_flag" ] ; then __rvm_rubygems_setup ; fi
 }
@@ -513,7 +514,7 @@ function __rvm_reload {
 }
 
 function __rvm_do {
-  all=() ; successes=() ; errors=() ; resultes=()
+  all=() ; successes=() ; errors=() ; results=()
   # TODO: Extract the common functionality out of the if below
   if [ ! -z "$rvm_ruby_version" ] ; then
     rvm_ruby_selectors=$(echo $rvm_ruby_version | tr ',' ' ')
@@ -546,7 +547,7 @@ function __rvm_do {
         errors[${#errors[*]}]=$rvm_ruby_string
       fi
       all[${#all[*]}]=$rvm_ruby_string
-      resultes[${#resultes[*]}]=$result
+      results[${#results[*]}]=$result
       # TODO: keep track of and re-set the previous selected ruby ;)
       unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string lp
     done
@@ -573,22 +574,20 @@ function __rvm_do {
           errors[${#errors[*]}]=$rvm_ruby_string
         fi
         all[${#all[*]}]=$rvm_ruby_string
-        resultes[${#resultes[*]}]=$result
+        results[${#results[*]}]=$result
         unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string lp
       fi
     done
   fi
 
-  export successes errors resultes
-
-  if [ ! -z "$rvm_summary" ] ; then
+  if [ ! -z "$rvm_summary_flag" ] ; then
+    export successes errors results
     echo -e "\n\033[0;32msuccessful (${#successes[*]}) : [ $(echo "${successes[*]}" | sed 's/ /, /g') ]\033[0m"
     echo -e "\n\033[0;31merrors (${#errors[*]}) : [ $(echo "${errors[*]}" | sed 's/ /, /g') ]\033[0m"
     echo -e "all (${#all[*]}) : [ $(echo "${all[*]}" | sed 's/ /, /g') ]"
-    echo -e "exit resultes: [ $(echo "${resultes[*]}" | sed 's/ /, /g') ]\n"
-    # unset binary successes errors rvm_summary
+    echo -e "exit results: [ $(echo "${results[*]}" | sed 's/ /, /g') ]\n"
   else
-    unset binary successes errors rvm_summary
+    unset binary successes errors rvm_summary_flag
   fi
   return ${#errors[*]}
 }
