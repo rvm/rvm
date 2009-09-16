@@ -91,7 +91,7 @@ function __rvm_run {
 }
 
 function __rvm_cleanup-variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_make_install rvm_config_path rvm_ruby_string rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_configure rvm_ruby_make_install rvm_config_path rvm_ruby_string rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -677,6 +677,7 @@ function __rvm_gemset_dump {
 
 function __rvm_gemset_load {
   echo "Loading $rvm_load_file file..."
+  rvm_ruby_gem_list=`/bin/ls $rvm_gem_home/specifications/ | sed 's/\.gemspec$//'`
   while read line
   do # Keep this on 2nd line :( bash fail.
     # TODO: Switch to a different field separator than ; to allow for evals
@@ -699,9 +700,10 @@ function __rvm_gemset_load {
         gem="$gem_name -v $gem_version"
       fi
     else # cached
-      if [ "$rvm_gem_home" = "`dirname $cache_file | xargs dirname`" ] ; then
+      gem_file_name=`basename $cache_file`
+      gem_string=`echo "$gem_file_name" | sed 's/\.gem$//'`
+      if [ ! -z "`echo "$rvm_ruby_gem_list" | awk "/$gem_string/{print}"`" ] ; then
         if [ ! -z "$rvm_force_flag" ] ; then
-          gem_file_name=`basename $cache_file`
           cp $cache_file $rvm_path/tmp/$gem_file_name
           gem="$rvm_path/tmp/$gem_file_name -l" # install as a named local gem
         else
@@ -721,7 +723,7 @@ function __rvm_gemset_load {
         eval "GEM_HOME='$rvm_gem_home' GEM_PATH='$rvm_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
       fi
     fi
-    unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file
+    unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
   done < <(awk '/^[a-zA-Z]/{print}' "$rvm_load_file")
 }
 
