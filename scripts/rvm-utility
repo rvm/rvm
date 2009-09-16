@@ -447,7 +447,7 @@ function __rvm_initialize {
     PATH=$rvm_bin_path:$PATH ; export PATH
   fi
 
-  mkdir -p $rvm_source_path $rvm_bin_path $rvm_archives_path
+  mkdir -p $rvm_source_path $rvm_bin_path $rvm_archives_path $rvm_path/tmp
 }
 
 function __rvm_update {
@@ -699,14 +699,27 @@ function __rvm_gemset_load {
         gem="$gem_name -v $gem_version"
       fi
     else # cached
-      gem="$cache_file -l" # install as a named local gem
+      if [ "$rvm_gem_home" = "`dirname $cache_file | xargs dirname`" ] ; then
+        if [ ! -z "$rvm_force_flag" ] ; then
+          gem_file_name=`basename $cache_file`
+          cp $cache_file $rvm_path/tmp/$gem_file_name
+          gem="$rvm_path/tmp/$gem_file_name -l" # install as a named local gem
+        else
+          unset gem
+          __rvm_log "info" "$gem_name $gem_version is already installed, skipping. (use --force to force these to install regardless)"
+        fi
+      else
+        gem="$cache_file -l"
+      fi
     fi
 
-    # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
-    if [ -z "$vars" ] ; then
-      GEM_HOME="$rvm_gem_home" GEM_PATH="$rvm_gem_home" $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix
-    else
-      eval "GEM_HOME='$rvm_gem_home' GEM_PATH='$rvm_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
+    if [ ! -z "$gem" ] ; then
+      # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
+      if [ -z "$vars" ] ; then
+        GEM_HOME="$rvm_gem_home" GEM_PATH="$rvm_gem_home" $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix
+      else
+        eval "GEM_HOME='$rvm_gem_home' GEM_PATH='$rvm_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
+      fi
     fi
     unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file
   done < <(awk '/^[a-zA-Z]/{print}' "$rvm_load_file")
