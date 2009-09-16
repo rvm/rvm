@@ -20,7 +20,7 @@ function __rvm_usage {
 
   Usage:
 
-    rvm Action [Implementation] [Options]
+    rvm Action [Implementation] [Options] [Flags]
 
   Action:
 
@@ -43,6 +43,8 @@ function __rvm_usage {
     reload    - Reload rvm source itself (useful after changing rvm source)
     implode   - Removes all ruby installations it manages, everything in ~/.rvm
     update    - Upgrades rvm to the latest version.
+    tests     - run 'rake test' across selected ruby versions
+    specs     - run 'rake spec' across selected ruby versions
 
   Implementation:
 
@@ -55,39 +57,43 @@ function __rvm_usage {
 
   Options:
 
-    -v|--version    - Ruby Package Version, defaults to 'latest'
-    -l|--level      - Patch level for the specified Ruby version
-    -p|--prefix     - Package and source directory prefix, with trailing slash!
-                      Default is a users home directory and /usr/local/ for root
-    -a|--archives   - Directory to place downladed files into (~/.rvm/archives/)
-    -n|--nice       - Specify a process niceness (for slow computers, default 0)
-    -l|--level      - Specify a patch level to use
-    -t|--tag        -
-    -r|--rev        - Specify the repository revision # to use or 'head' for
+    -v|--version    - Emit rvm version loaded for current shell
+    -h|--help       - Emit this output and exit
+    -l|--level      - patch level to use with rvm use / install
+       --tag        - subersion tag to use
+       --rev        - repository revision # to use or 'head' for
 
-    -P|--prefix     - Sets the prefix path for installs to be installed to
-       --bin        - Specify path for binaries to be placed
-       --source     - Specify src directory to use
-       --archive    - Specify archive directory to use (tabralls / zips)
-    -G|--gems       - Specify root gem path to use
-    -C|--configure  - Specify custom configure options, comma separated
+       --prefix     - path for all rvm files (~/.rvm/), with trailing slash!
+       --bin        - path for binaries to be placed (~/.rvm/bin/)
+       --source     - src directory to use (~/.rvm/src/)
+       --archives   - directory for downladed files (~/.rvm/archives/)
+    -S|--script     - Specify a script file to attempt to load and run (rubydo)
+    -G|--gems       - root gem path to use
+    -C|--configure  - custom configure options, comma separated
                       default: --enable-shared=true
     --reconfigure   - Force installer to re-run configure if already run
-    -M|--make       - Specify a custom make command
-    -I|--make-install - "     a custom make install command
-
-    -f|--file       - Specify a ruby file to run with 'rubydo' command
-    -h|--help       - Emit this output and exit
-    -d|--default    - Set the default Ruby to a specified version
-    -m|--gem-set    - Use a named gem set, instead of the default set.
+    --make          - custom make command
+    --make-install  - custom make install command
+    --nice          - process niceness (for slow computers, default 0)
+    -m|--gem-set    - use a named gem set, instead of the default set.
     --rm-gem-set    - Remove a named gem set
 
-    -S|--script     - Specify a script file to attempt to load and run (rubydo)
-    --all           - Used with 'rvm list' to list "most" installable versions.
-    --jit           - Enable JIT for the Rubinius build
-    --force         - Force install, removes old install & source directories.
-    --set-prompt    - Set prompt to have the selected ruby prepended.
-    --debug|--trace - Toggle debug mode on for very verbose output.
+  Flags
+
+    --self        - with update, updates rvm itself
+    --rubygems    - with update, updates rubygems for selected ruby
+    --default     - with ruby select, sets a default ruby for new shells.
+    --debug       - Toggle debug mode on for very verbose output.
+    --force       - Force install, removes old install & source before install.
+    --all         - Used with 'rvm list' to display "most" available versions.
+    --dump        - Used with gemset to dump the current ruby's gemset.
+    --load        - Used with gemset to load a specified gemset file
+    --summary     - Used with rubydo to print out a summary of the commands run.
+    --jit         - Used with rubinius install to build with JIT
+    --latest      - with gemset --dump skips version strings for latest gem.
+    --reconfigure -
+    --spec        -
+    --test        -
 
   Resources:
 
@@ -207,8 +213,6 @@ function __rvm_parse-args {
         shift
       ;;
 
-
-
       --bin)
         if [ "$rvm_action" = "update" ] ; then
           rvm_bin_flag=1
@@ -217,16 +221,6 @@ function __rvm_parse-args {
         fi
         ;;
 
-      -C|--configure)
-        if [ ! -z "$1" ] ; then
-          rvm_ruby_configure="$(echo $1 | tr ',' ' ')"
-          shift
-        else
-          rvm_action="error"
-          rvm_error_message="--configure *must* be followed by configure flags."
-        fi
-      ;;
-
       -j)
         if [ ! -z "$1" ] ; then
           rvm_make_flags="$rvm_make_flags -j$1"
@@ -234,6 +228,17 @@ function __rvm_parse-args {
         else
           rvm_action="error"
           rvm_error_message="-j *must* be followed by an integer (normally the # of CPU's in your machine)."
+        fi
+      ;;
+
+
+      -C|--configure)
+        if [ ! -z "$1" ] ; then
+          rvm_ruby_configure="$(echo $1 | tr ',' ' ')"
+          shift
+        else
+          rvm_action="error"
+          rvm_error_message="--configure *must* be followed by configure flags."
         fi
       ;;
 
@@ -286,11 +291,10 @@ function __rvm_parse-args {
         rvm_ruby_interpreter="system"
       ;;
 
-
-      -P|--prefix)       rvm_prefix_path="$1"      ; shift ;;
+      --prefix)          rvm_prefix_path="$1"      ; shift ;;
       -G|--gems)         rvm_gem_path="$1"         ; shift ;;
       --source)          rvm_source_path="$1"      ; shift ;;
-      --archive)         rvm_archives_path="$1"    ; shift ;;
+      --archives)        rvm_archives_path="$1"    ; shift ;;
       --make)            rvm_ruby_make="$1"        ; shift ;;
       --make-install)    rvm_ruby_make_install="$1"; shift ;;
       --nice)            rvm_niceness="$1"         ; shift ;;
@@ -300,7 +304,7 @@ function __rvm_parse-args {
          --rm-gem-set)   rvm_gem_set_name_rm="$1"  ; shift ;;
       tests|specs)       rvm_action="tests"                ;;
 
-      --rvm|--gem|--rubygems|--reconfigure|--default|--debug|--force|--all|--dump|--summary|--jit|--latest|--spec|--test)
+      --self|--gem|--rubygems|--reconfigure|--default|--debug|--force|--all|--dump|--summary|--jit|--latest|--spec|--test)
         eval "rvm_${rvm_token}_flag=1"
       ;;
 
@@ -355,36 +359,39 @@ function rvm {
 
   result=0
   case "$rvm_action" in
-    install)   __rvm_install-ruby ;result=$? ;;
-    uninstall) __rvm_uninstall    ;result=$? ;;
-    use)       __rvm_use          ;result=$? ;;
-    gemdir)    __rvm_gem-dir      ;result=$? ;;
-    srcdir)    __rvm_src-dir      ;result=$? ;;
-    gemdup)    __rvm_gem-dup      ;result=$? ;;
-    list)      __rvm_list         ;result=$? ;;
-    symlinks)  __rvm_symlinks     ;result=$? ;;
-    version)   __rvm_version      ;result=$? ;;
+    install)    __rvm_install-ruby     ; result=$? ;;
+    uninstall)  __rvm_uninstall        ; result=$? ;;
+    use)        __rvm_use              ; result=$? ;;
+    gemdir)     __rvm_gem-dir          ; result=$? ;;
+    srcdir)     __rvm_src-dir          ; result=$? ;;
+    gemdup)     __rvm_gem-dup          ; result=$? ;;
+    list)       __rvm_list             ; result=$? ;;
+    symlinks)   __rvm_symlinks         ; result=$? ;;
+    version)    __rvm_version          ; result=$? ;;
+    reset)      __rvm_reset            ; result=$? ;;
+                # TODO: how can we use bin_path here for reload, default file?
+    reload)     __rvm_reload           ; result=$? ;;
+    implode)    __rvm_implode          ; result=$? ;;
+    update)     __rvm_update           ; result=$? ;;
+    readline)   __rvm_readline_install ; result=$? ;;
+    iconv)      __rvm_iconv_install    ; result=$? ;;
+    reboot)     __rvm_reboot           ; result=$? ;;
+    usage|help) __rvm_usage            ; result=$? ;;
+    rubydo|rakedo|gemdo) __rvm_do      ; result=$? ;;
+
     tests|specs)
       rvm_summary_flag=1
       rvm_action="rake"
       __rvm_do
     ;;
-    rubydo|rakedo|gemdo) __rvm_do ; result=$? ;;
-    reset)      __rvm_reset            ;;
-                # TODO: how can we use bin_path here for reload, default file?
-    reload)     __rvm_reload           ;;
-    implode)    __rvm_implode          ;;
-    update)     __rvm_update           ;;
-    readline)   __rvm_readline_install ;;
-    iconv)      __rvm_iconv_install    ;;
-    reboot)     __rvm_reboot           ;;
-    usage|help) __rvm_usage            ;;
+
     info|debug)
-                __rvm_version
-                __rvm_info
-                if [ "$rvm_action" = "debug" ] ; then __rvm_debug ; fi
-                return 0
+      __rvm_version
+      __rvm_info
+      if [ "$rvm_action" = "debug" ] ; then __rvm_debug ; fi
+      result=0
     ;;
+
     error)      __rvm_log "fail" "$rvm_error_message ( see: 'rvm usage' )" ; popd 2> /dev/null ; return 1; ;;
     *)
       if [ ! -z "$rvm_action" ] ; then
@@ -392,7 +399,7 @@ function rvm {
       else
         __rvm_usage
       fi
-      return 1
+      result=1
   esac
 
   if [ "$rvm_debug_flag" = "1" ] ; then set +x ; unset rvm_debug_flag ; fi
