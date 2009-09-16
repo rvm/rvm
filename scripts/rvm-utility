@@ -513,6 +513,31 @@ function __rvm_reload {
   source $rvm_path/scripts/rvm
 }
 
+function __rvm_ruby_do {
+  __rvm_select
+  __rvm_use
+  #__rvm_
+  binary=`echo $rvm_action | sed 's/do$//'`
+  lp="$rvm_ruby_home/bin:$rvm_ruby_load_path"
+  if [ "$binary" = "ruby" ] ; then
+    rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_require -I$lp -S $rvm_ruby_args"
+  else
+    rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
+  fi
+  echo "$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v)"
+  eval $rvm_command
+  result=$?
+  if [ $result -eq 0 ]; then
+    successes[${#successes[*]}]=$rvm_ruby_string
+  else
+    errors[${#errors[*]}]=$rvm_ruby_string
+  fi
+  all[${#all[*]}]=$rvm_ruby_string
+  results[${#results[*]}]=$result
+  # TODO: keep track of and re-set the previous selected ruby ;)
+  unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string lp
+}
+
 function __rvm_do {
   all=() ; successes=() ; errors=() ; results=()
   # TODO: Extract the common functionality out of the if below
@@ -528,54 +553,14 @@ function __rvm_do {
         unset rvm_ruby_version
       fi
       unset temp
-      __rvm_select
-      __rvm_use
-      #__rvm_
-      binary=`echo $rvm_action | sed 's/do$//'`
-      lp="$rvm_ruby_home/bin:$rvm_ruby_load_path"
-      if [ "$binary" = "ruby" ] ; then
-        rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_require -I$lp -S $rvm_ruby_args"
-      else
-        rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
-      fi
-      echo "$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v)"
-      eval $rvm_command
-      result=$?
-      if [ $result -eq 0 ]; then
-        successes[${#successes[*]}]=$rvm_ruby_string
-      else
-        errors[${#errors[*]}]=$rvm_ruby_string
-      fi
-      all[${#all[*]}]=$rvm_ruby_string
-      results[${#results[*]}]=$result
-      # TODO: keep track of and re-set the previous selected ruby ;)
-      unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string lp
+      __rvm_ruby_do
     done
   else # all
-    rvm_ruby_binaries=`/bin/ls $rvm_path/*/bin/ruby`
+    rvm_ruby_binaries=`/bin/ls $rvm_path/*/bin/ruby 2> /dev/null`
     for rvm_ruby_binary in $rvm_ruby_binaries ; do
       if [ -x $rvm_ruby_binary ] ; then
         rvm_ruby_string=`dirname $rvm_ruby_binary | xargs dirname | xargs basename`
-        __rvm_select
-        __rvm_use
-        rvm_ruby_string="$(dirname $rvm_ruby_home/bin/$binary | xargs dirname | xargs basename)"
-        lp="$rvm_ruby_home/bin:$rvm_ruby_load_path"
-        if [ "$binary" = "ruby" ] ; then
-          rvm_command="$rvm_ruby_binary $rvm_ruby_require -I$lp -S $rvm_ruby_args"
-        else
-          rvm_command="$rvm_ruby_binary $rvm_ruby_args"
-        fi
-        echo "$(basename $rvm_ruby_binary):"
-        eval $rvm_command
-        result=$?
-        if [ $result -eq 0 ]; then
-          successes[${#successes[*]}]=$rvm_ruby_string
-        else
-          errors[${#errors[*]}]=$rvm_ruby_string
-        fi
-        all[${#all[*]}]=$rvm_ruby_string
-        results[${#results[*]}]=$result
-        unset rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_ruby_package_name rvm_ruby_home rvm_ruby_irbrc rvm_ruby_binary rvm_ruby_string lp
+        __rvm_ruby_do
       fi
     done
   fi
