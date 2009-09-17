@@ -178,30 +178,34 @@ function __rvm_install-ruby {
       else
         __rvm_log "info" "\tDownloading $rvm_ruby_package_name, this may take a while depending on your connection..."
         __rvm_fetch $rvm_url
-        if [ $? -gt 0 ] ; then __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd > /dev/null ; return 1 ; fi
+        if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
         __rvm_log "info" "\tExtracting $rvm_ruby_package_name..."
         mkdir -p $rvm_ruby_src_path
         __rvm_run "extract" tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
+        if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
       fi
 
       __rvm_log "info" "\tInstalling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
       mkdir -p $rvm_ruby_log_path
 
       cd $rvm_ruby_src_path
+      mkdir -p $rvm_ruby_home/lib/ruby/gems/1.8/gems
       if [ ! -z "$rvm_ruby_configure" ] ; then rvm_ruby_configure="-c $rvm_ruby_configure"; fi
       __rvm_run "install" ./installer -a $rvm_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc $rvm_ruby_configure
+      if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
       chmod +x $rvm_ruby_home/bin/*
 
       __rvm_rubygems_setup
-      __rvm_bin_script
-
-      popd > /dev/null
 
       for rvm_gem_name in rake ; do
         __rvm_log "info" "Installing $rvm_gem_name"
         __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
       done
-      ;;
+
+      __rvm_bin_script
+
+      popd > /dev/null
+    ;;
 
     rbx|rubinius)
       # TODO: check if system is 1.8.X otherwise use rvm's 1.8.X and check for parsetree, install if missing
