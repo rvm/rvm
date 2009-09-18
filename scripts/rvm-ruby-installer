@@ -210,7 +210,6 @@ function __rvm_install-ruby {
     ;;
 
     rbx|rubinius)
-      # TODO: check if system is 1.8.X otherwise use rvm's 1.8.X and check for parsetree, install if missing
       unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
       PATH="$rvm_system_path" ; export PATH
       rvm_ruby_repo_url=$rvm_rubinius_repo_url
@@ -227,11 +226,18 @@ function __rvm_install-ruby {
         git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_home
       fi
       cd $rvm_ruby_home
+
+      # prereqs, 1.8.6 w/ParseTree & rake. Yes this could all be one line... not pushing our luck.
+      bash -l -c 'rvm 1.8.6 --debug --install' # This should install if missing.
+      bash -l -c 'rvm 1.8.6 -m rbx ; $rvm_ruby_home/bin/gem install --no-rdoc --no-ri rake ParseTree' # This should install if missing.
+      rake186rbx=`rvm 1.8.6 -m rbx ; which rake`
       if [ ! -z "$rvm_jit_flag" ]; then
-        __rvm_run "build" RBX_LLVM=1 rake build
+        __rvm_run "build" RBX_LLVM=1 $rake186rbx build
       else
-        __rvm_run "build" rake build
+        __rvm_run "build" $rake186rbx build
       fi
+      unset rake186rbx
+
       for binary in ruby irb ; do
         ln -fs $rvm_ruby_home/bin/rbx $rvm_ruby_home/bin/$binary
       done
@@ -250,7 +256,7 @@ exec $rvm_ruby_home/bin/rbx -S $binary_name "\$@"
 RubyWrapper
 )
         for file_name in $rvm_bin_path/gem-$rvm_ruby_package_name $rvm_ruby_home/bin/gem ; do
-          echo "$ruby_wrapper" > $file
+          echo "$ruby_wrapper" > $file_name
           if [ -f $file_name ] ; then chmod +x $file_name ; fi
         done
         unset ruby_wrapper binary_name file_name
