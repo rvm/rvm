@@ -530,8 +530,8 @@ function __rvm_ruby_do {
     else
       eval "errors=(${errors[*]} $rvm_ruby_string)"
     fi
-    eval "all=(${all[*]} $rvm_ruby_string)"
-    eval "results=(${results[*]} $result)"
+    eval "rubies=(${rubies[*]} $rvm_ruby_string)"
+    eval "statuses=(${statuses[*]} $result)"
     # TODO: keep track of and re-set the previous selected ruby ;)
   else
     __rvm_log "warn" "'$rvm_ruby_home/bin/$binary' either does not exist or is not executable? :("
@@ -540,7 +540,7 @@ function __rvm_ruby_do {
 }
 
 function __rvm_do {
-  all=() ; successes=() ; errors=() ; results=()
+  rubies=() ; successes=() ; errors=() ; statuses=()
   # TODO: Extract the common functionality out of the if below
   if [ ! -z "$rvm_ruby_version" ] ; then
     for rvm_ruby_selector in `echo $rvm_ruby_version | tr ',' ' '` ; do
@@ -566,17 +566,58 @@ function __rvm_do {
   fi
 
   if [ ! -z "$rvm_summary_flag" ] ; then
-    export successes errors results
+    export successes errors statuses
     echo -e "\nSummary:"
     echo -e "\033[0;32msuccessful (${#successes[*]}) : [ $(echo "${successes[*]}" | sed 's/ /, /g') ]\033[0m"
     echo -e "\033[0;31merrors (${#errors[*]}) : [ $(echo "${errors[*]}" | sed 's/ /, /g') ]\033[0m"
-    echo -e "all (${#all[*]}) : [ $(echo "${all[*]}" | sed 's/ /, /g') ]"
-    echo -e "exit results: [ $(echo "${results[*]}" | sed 's/ /, /g') ]\n"
+    echo -e "rubies (${#rubies[*]}) : [ $(echo "${rubies[*]}" | sed 's/ /, /g') ]"
+    echo -e "statuses: [ $(echo "${statuses[*]}" | sed 's/ /, /g') ]\n"
+  elif [ ! -z "$rvm_yaml_flag" ] ; then
+    export successes errors statuses
+    echo -e "\n---"
+    echo -e "  totals:"
+    echo -e "    rubies: ${#rubies[*]}"
+    echo -e "    successes: ${#successes[*]}"
+    echo -e "    errors: ${#errors[*]}"
+    echo -e "  successes:"
+    for var in ${successes[*]} ; do
+      echo -e "    - $var"
+    done
+    echo -e "  errors:"
+    for var in ${errors[*]} ; do
+      echo -e "    - $var"
+    done
+    echo -e "  rubies:"
+    for var in ${rubies[*]} ; do
+      echo -e "    - $var"
+    done
+    echo -e "  statuses:"
+    for var in ${statuses[*]} ; do
+      echo -e "    - $var"
+    done
   else
-    unset bin_line  rvm_summary_flag
-    # successes errors
+    unset bin_line rvm_summary_flag
   fi
   return ${#errors[*]}
+}
+
+function __rvm_benchmark {
+rvm_code="$(cat <<RubyCode
+#!/usr/bin/env ruby
+require "benchmark"
+Benchmark.bmbm do|benchmark|
+  benchmark.report("benchmarking '$rvm_ruby_file'") do
+
+RubyCode
+)"
+echo "$rvm_code" > /tmp/$$.rb
+cat $rvm_ruby_file >> /tmp/$$.rb
+echo -e "\n  end\nend\n" >> /tmp/$$.rb
+unset rvm_code
+rvm_ruby_args="/tmp/$$.rb"
+rvm_action="rubydo"
+if [ ! -z "$rvm_debug_flag" ] ; then echo -e "/tmp/$$.rb:\n$(cat /tmp/$$.rb)" ; fi
+__rvm_do
 }
 
 function __rvm_ruby_string {

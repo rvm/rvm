@@ -36,8 +36,8 @@ function __rvm_usage {
     uninstall - Uninstall a ruby version
     reset     - Remove default and current settings, exit the shell.
                 (If you experience odd behavior try this first)
-    rubydo    - Used with -f to run a ruby file against specified or all rubies
-    gemdo     - Used with -f to execute a command using selected ruby's 'gem'
+    rubydo    - Used with -S to run a ruby file against specified or all rubies
+    gemdo     - Used with -S to execute a command using selected ruby's 'gem'
     debug     - Emit environment & configuration information for *current* ruby
 
     reload    - Reload rvm source itself (useful after changing rvm source)
@@ -106,11 +106,7 @@ function __rvm_parse-args {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|remove|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload|usage|help|implode|update|readline|iconv)
-        rvm_action=$rvm_token
-      ;;
-
-      use)
+      install|uninstall|remove|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload|usage|help|implode|update|readline|iconv|benchmark|bench|use)
         rvm_action=$rvm_token
       ;;
 
@@ -262,7 +258,7 @@ function __rvm_parse-args {
 
       -f|--file)
         rvm_action="rubydo"
-        rvm_ruby_args="$1"
+        rvm_ruby_file="$1"
         shift
       ;;
 
@@ -313,7 +309,7 @@ function __rvm_parse-args {
          --rm-gem-set)   rvm_gem_set_name_rm="$1"  ; shift ;;
       tests|specs)       rvm_action="tests"                ;;
 
-      --self|--gem|--rubygems|--reconfigure|--default|--debug|debug|--force|--all|--dump|--summary|--jit|--latest)
+      --self|--gem|--rubygems|--reconfigure|--default|--debug|debug|--force|--all|--dump|--summary|--jit|--latest|--yaml|--json)
         eval "rvm_$(echo $rvm_token | sed 's/-//g')_flag=1"
       ;;
 
@@ -330,9 +326,10 @@ function __rvm_parse-args {
               rvm_action="rubydo" # Not sure if we really want to do this but we'll try it out.
             fi
           else
-            echo $rvm_token | grep '\.rb$' > /dev/null
-            if [ $? -eq 0 ] ; then # we have a specified ruby script
+
+            if [ ! -z "`echo $rvm_token | awk '/\.rb$/{print}' 2> /dev/null`" ] ; then # we have a specified ruby script
               rvm_ruby_args=$rvm_token
+              rvm_ruby_file=$rvm_token
               if [ -z "$rvm_action" ] ; then
                 rvm_action="rubydo" # Not sure if we really want to do this but we'll try it out.
               fi
@@ -386,6 +383,7 @@ function rvm {
     iconv)      __rvm_iconv_install    ; result=$? ;;
     reboot)     __rvm_reboot           ; result=$? ;;
     usage|help) __rvm_usage            ; result=$? ;;
+    bench|benchmark)  __rvm_benchmark  ; result=$? ;;
     rubydo|rakedo|gemdo) __rvm_do      ; result=$? ;;
 
     tests|specs)
