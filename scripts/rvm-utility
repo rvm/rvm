@@ -56,7 +56,7 @@ function __rvm_log {
     info)  shift ; echo -e "\033[0;32m <i> \033[0m $*" ;;
     warn)  shift ; echo -e "\033[0;33m <w> \033[0m $*" ;;
     error) shift ; echo -e "\033[0;31m <e> \033[0m $*" ;;
-    fail)  shift ; echo -e "\033[0;31m <e> \033[0m $*" ; popd 2> /dev/null ; return 1 ;;
+    fail)  shift ; echo -e "\033[0;31m <e> \033[0m $*" ; popd > /dev/null 2>&1 ; return 1 ;;
     *) echo -e "$*"
   esac
 }
@@ -86,7 +86,7 @@ function __rvm_run {
   else
     eval "nice -n $rvm_niceness /bin/bash -l -c '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
   fi
-  if [ $? -gt 0 ] ; then __rvm_log "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name.error.log" ; popd 2> /dev/null ; return 1 ; fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name.error.log" ; popd > /dev/null 2>&1 ; return 1 ; fi
   unset log_file command
 }
 
@@ -101,7 +101,7 @@ function __rvm_load-rvmrc {
 
 function __rvm_bin_scripts {
   # NOTE: This depends on the forthcoming ruby_string select functionality.
-  rvm_ruby_binaries=`/bin/ls $rvm_path/*/bin/ruby`
+  rvm_ruby_binaries=`/bin/ls $rvm_path/*/bin/ruby 2> /dev/null`
   for rvm_ruby_binary in $rvm_ruby_binaries ; do
     if [ -x $rvm_ruby_binary ] ; then
       rvm_ruby_string=`dirname $rvm_ruby_binary | xargs dirname | xargs basename`
@@ -141,7 +141,7 @@ function __rvm_fetch {
       __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
     fi
   fi
-  popd 2> /dev/null
+  popd > /dev/null 2>&1
   return $result
 }
 
@@ -274,7 +274,7 @@ function __rvm_gem-dup {
   fi
 
   if [ ! -z "$rvm_source_gem_dir" ] ; then
-    for rvm_gem_name_version in `/bin/ls $rvm_source_gem_dir/gems` ; do
+    for rvm_gem_name_version in `/bin/ls $rvm_source_gem_dir/gems 2> /dev/null` ; do
       rvm_gem_name=${rvm_gem_name_version%-*}
       rvm_gem_version=${rvm_gem_name_version##*-}
       if [ -d $GEM_HOME/gems/$rvm_gem_name_version ] ; then
@@ -319,7 +319,7 @@ function __rvm_symlinks {
 # TODO: Account for the ruby wrapper script files
 
   mkdir -p ${rvm_path}/bin
-  for release in `/bin/ls $rvm_path | grep 'ruby-'` ; do
+  for release in `/bin/ls $rvm_path 2> /dev/null | grep 'ruby-'` ; do
     for binary in irb gem rdoc ri erb ; do
       if [ -x $rvm_path/$release/bin/$binary ] ; then
         ln -fs $rvm_path/$release/bin/$binary $rvm_path/bin/$binary-${release#ruby-}
@@ -345,7 +345,7 @@ function __rvm_list {
   else
     current=`which ruby | xargs dirname | xargs dirname | xargs basename`
     echo -e "\nruby:\n"
-    for version in `/bin/ls -l $rvm_path/ | awk '/ ruby-[1-2].*/ { print $NF  }'` ; do
+    for version in `/bin/ls -l $rvm_path/ 2> /dev/null | awk '/ ruby-[1-2].*/ { print $NF  }'` ; do
       string=`$rvm_bin_path/$version -v`
       if [ "$current" = "$version" ] ; then
         echo -e "=> $version : $string"
@@ -357,7 +357,7 @@ function __rvm_list {
     unset version
 
     echo -e "\njruby:\n"
-    for version in `/bin/ls -l $rvm_path/ | awk '/jruby-.*/ { print $NF }'` ; do
+    for version in `/bin/ls -l $rvm_path/ 2> /dev/null | awk '/jruby-.*/ { print $NF }'` ; do
       string=`$rvm_bin_path/$version -v`
       if [ "$current" = "$version" ] ; then
         echo -e "=> $version : $string"
@@ -369,7 +369,7 @@ function __rvm_list {
     unset version
 
     echo -e "\nree:\n"
-    for version in `/bin/ls $rvm_path/ | awk '/ruby-enterprise-.*/ { print $NF }'` ; do
+    for version in `/bin/ls $rvm_path/ 2> /dev/null | awk '/ruby-enterprise-.*/ { print $NF }'` ; do
       string=`$rvm_bin_path/$version -v | tr "\n" ' ' `
       if [ "$current" = "$version" ] ; then
         echo -e "=> $version : $string"
@@ -701,7 +701,7 @@ function __rvm_gemset_dump {
 
 function __rvm_gemset_load {
   echo "Loading $rvm_load_file file..."
-  rvm_ruby_gem_list=`/bin/ls $rvm_gem_home/specifications/ | sed 's/\.gemspec$//' 2> /dev/null`
+  rvm_ruby_gem_list=`/bin/ls $rvm_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null`
   while read line
   do # Keep this on 2nd line :( bash fail.
     # TODO: Switch to a different field separator than ; to allow for evals
@@ -717,7 +717,7 @@ function __rvm_gemset_load {
       gem_file_name="$gem_name-$gem_version.gem"
     fi
 
-    cache_file=`/bin/ls -t $rvm_gem_path/*/*/cache/${gem_file_name}* | head -n1 2> /dev/null`
+    cache_file=`/bin/ls -t $rvm_gem_path/*/*/cache/${gem_file_name}* 2> /dev/null | head -n1`
     if [ -z "$cache_file" ] ; then
       if [ -z "$gem_version" ] ; then
         gem="$gem_name"
@@ -801,7 +801,7 @@ function __rvm_readline_install {
   fi
   __rvm_run "$package.make" make
   __rvm_run "$package.make.install" make install
-  popd > /dev/null
+  popd > /dev/null 2>&1
 }
 
 function __rvm_iconv_install {
@@ -814,7 +814,6 @@ function __rvm_iconv_install {
   __rvm_run "$package.configure" ./configure --prefix=$rvm_path/usr --disable-shared
   __rvm_run "$package.make" make
   __rvm_run "$package.make.install" make install
-
-  popd > /dev/null
+  popd > /dev/null 2>&1
 }
 

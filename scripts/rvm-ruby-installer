@@ -72,7 +72,7 @@ function __rvm_install-source {
   fi
 
   cd $rvm_ruby_src_path
-  if [ $? -gt 0 ] ; then result=$? ; __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd > /dev/null ; return $result ; fi
+  if [ $? -gt 0 ] ; then result=$? ; __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; popd > /dev/null 2>&1 ; return $result ; fi
 
   if [ ! -s "$rvm_ruby_src_path/configure" -a "$rvm_ruby_interpreter" = "ruby" ] ; then
     rvm_autoconf=`which autoconf`
@@ -123,7 +123,7 @@ function __rvm_install-source {
   __rvm_bin_script
   __rvm_run "chmod.bin" chmod +x $rvm_ruby_home/bin/*
 
-  popd > /dev/null
+  popd > /dev/null 2>&1
 
   __rvm_post_install
 }
@@ -206,7 +206,7 @@ function __rvm_install-ruby {
 
       __rvm_bin_scripts
 
-      popd > /dev/null
+      popd > /dev/null 2>&1
     ;;
 
     rbx|rubinius)
@@ -293,7 +293,7 @@ RubyWrapper
       mkdir -p $rvm_ruby_home/bin/
       __rvm_run "sync" rsync -ag $rvm_ruby_src_path/ $rvm_ruby_home/
       __rvm_run "nailgun" cd $rvm_ruby_src_path/tool/nailgun && make $rvm_make_flags
-      popd > /dev/null
+      popd > /dev/null 2>&1
       chmod +x $rvm_ruby_home/bin/*
       for binary in jruby jgem jirb ; do
         ln -fs $rvm_ruby_home/bin/$binary $rvm_ruby_home/bin/${binary#j}
@@ -377,9 +377,11 @@ function __rvm_uninstall {
 function __rvm_post_install {
 
   for binary in gem irb erb ri rdoc testrb rake ; do
-    if [ -f $rvm_ruby_src_path/bin/$binary ] ; then
-      if [ "$rvm_ruby_src_path" != "$rvm_ruby_home" ] ; then
-        cp $rvm_ruby_src_path/bin/$binary $rvm_ruby_home/bin/$binary
+    if [ -f $rvm_ruby_home/bin/$binary -o -f $rvm_ruby_src_path/bin/$binary ] ; then
+      if [ "$rvm_ruby_src_path" != "$rvm_ruby_home" -a $rvm_ruby_src_path/bin/$binary] ; then
+        cp -f $rvm_ruby_src_path/bin/$binary $rvm_ruby_home/bin/$binary
+      elif [ -f "$rvm_gem_home/bin/$binary" ] ; then
+        cp -f $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
       fi
       string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
       awk "NR==2 {print \"$string\"} {print}" $rvm_ruby_home/bin/$binary > $rvm_ruby_home/bin/$binary.new
