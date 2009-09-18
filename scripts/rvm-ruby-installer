@@ -204,7 +204,7 @@ function __rvm_install-ruby {
         __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
       done
 
-      __rvm_bin_script
+      __rvm_bin_scripts
 
       popd > /dev/null
     ;;
@@ -236,7 +236,25 @@ function __rvm_install-ruby {
         ln -fs $rvm_ruby_home/bin/rbx $rvm_ruby_home/bin/$binary
       done
       $rvm_ruby_home/bin/rbx -S gem install rake --no-rdoc --no-ri
-      __rvm_bin_script
+
+      ruby_wrapper=$(cat <<RubyWrapper
+#!/bin/bash
+
+GEM_HOME="$rvm_gem_home" ; export GEM_HOME
+GEM_PATH="$rvm_gem_home" ; export GEM_PATH
+MY_RUBY_HOME="$rvm_ruby_home" ; export MY_RUBY_HOME
+PATH="$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH" ; export PATH
+
+exec $rvm_ruby_home/bin/rbx -S gem "\$@"
+RubyWrapper
+)
+      echo "$ruby_wrapper" > $rvm_bin_path/gem-$rvm_ruby_package_name
+      echo "$ruby_wrapper" > $rvm_ruby_home/bin/gem
+      unset ruby_wrapper
+      chmod +x $rvm_bin_path/$rvm_ruby_package_name
+      chmod +x $rvm_ruby_home/bin/gem
+
+      __rvm_bin_scripts
     ;;
 
     jruby)
@@ -280,7 +298,7 @@ function __rvm_install-ruby {
         ln -fs $rvm_ruby_home/bin/$binary $rvm_ruby_home/bin/${binary#j}
       done
 
-      __rvm_bin_script
+      __rvm_bin_scripts
 
       ln -fs $rvm_ruby_home/bin/ruby $rvm_path/bin/$rvm_ruby_package_name
       for rvm_gem_name in rake jruby-openssl ; do
