@@ -56,7 +56,7 @@ function __rvm_log {
     info)  shift ; echo -e "\033[0;32m <i> \033[0m $*" ;;
     warn)  shift ; echo -e "\033[0;33m <w> \033[0m $*" ;;
     error) shift ; echo -e "\033[0;31m <e> \033[0m $*" ;;
-    fail)  shift ; echo -e "\033[0;31m <e> \033[0m $*" ; popd > /dev/null 2>&1 ; return 1 ;;
+    fail)  shift ; echo -e "\033[0;31m <e> \033[0m $*" ; __rvm_pushpop ; return 1 ;;
     *) echo -e "$*"
   esac
 }
@@ -86,7 +86,7 @@ function __rvm_run {
   else
     eval "nice -n $rvm_niceness /bin/bash -l -c '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
   fi
-  if [ $? -gt 0 ] ; then __rvm_log "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name.error.log" ; popd > /dev/null 2>&1 ; return 1 ; fi
+  if [ $? -gt 0 ] ; then __rvm_log "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name.error.log" ; __rvm_pushpop ; return 1 ; fi
   unset log_file command
 }
 
@@ -131,7 +131,7 @@ RubyWrapper
 
 function __rvm_fetch {
 
-  pushd $rvm_archives_path > /dev/null
+  __rvm_pushpop $rvm_archives_path
   eval $rvm_fetch "$1"
   result=$?
   if [ $result -gt 0 ] ; then
@@ -141,7 +141,7 @@ function __rvm_fetch {
       __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
     fi
   fi
-  popd > /dev/null 2>&1
+  __rvm_pushpop
   return $result
 }
 
@@ -786,12 +786,19 @@ Config
 
 }
 
+function __rvm_pushpop {
+  if [ -z "$1" ] ; then
+    popd > /dev/null 2>&1
+  else
+    pushd $1 > /dev/null 2>&1
+  fi
+}
 
 #
 # ruby supporting libraries:
 #
 function __rvm_readline_install {
-  pushd $rvm_path/src > /dev/null
+  __rvm_pushpop $rvm_path/src
   package=readline
   version=5.2
   # TODO: Figure out how to list, grab and apply the patches
@@ -809,11 +816,11 @@ function __rvm_readline_install {
   fi
   __rvm_run "$package.make" make
   __rvm_run "$package.make.install" make install
-  popd > /dev/null 2>&1
+  __rvm_pushpop
 }
 
 function __rvm_iconv_install {
-  pushd $rvm_path/src > /dev/null
+  __rvm_pushpop $rvm_path/src
   package=libiconv
   version=1.13.1
   __rvm_fetch "http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.tar.gz"
@@ -822,6 +829,5 @@ function __rvm_iconv_install {
   __rvm_run "$package.configure" ./configure --prefix=$rvm_path/usr --disable-shared
   __rvm_run "$package.make" make
   __rvm_run "$package.make.install" make install
-  popd > /dev/null 2>&1
+  __rvm_pushpop
 }
-
