@@ -130,7 +130,7 @@ function __rvm_install {
 # TODO: Extract the outer looping mechanism with ruby_do's
   rubies=() ; successes=() ; errors=() ; statuses=()
   # TODO: Extract the common functionality out of the if below
-  if [ ! -z "$rvm_ruby_version" ] ; then
+  if [ ! -z "$(echo "$rvm_ruby_version" | awk '/,/')" ] ; then
     rvm_ruby_versions=`echo $rvm_ruby_version | tr ',' ' '`
     for rvm_ruby_string in $rvm_ruby_versions ; do
       unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected
@@ -145,6 +145,9 @@ function __rvm_install {
       __rvm_select
       __rvm_install_ruby
     done
+  else
+    __rvm_select
+    __rvm_install_ruby
   fi
 }
 
@@ -183,7 +186,7 @@ function __rvm_install_ruby {
         fi
         #__rvm_fetch $rvm_url
         #__rvm_run /usr/sbin/installer -pkg $rvm_ruby_package_name.pkg -target "$rvm_path/$rvm_ruby_package_name/"
-        __rvm_install-source
+        __rvm_install_source
         unset DESTDIR
       else
         __rvm_log "fail" "MacRuby can only be installed on a Darwin OS."
@@ -225,7 +228,6 @@ function __rvm_install_ruby {
       done
 
       __rvm_bin_scripts
-
       __rvm_pushpop
     ;;
 
@@ -290,7 +292,7 @@ RubyWrapper
       rvm_url="http://dist.codehaus.org/$rvm_ruby_interpreter/$rvm_ruby_version/$rvm_package_file.zip"
       rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
 
-      __rvm_log "info" "Installing jRuby to: $rvm_ruby_home"
+      __rvm_log "info" "Installing JRuby to: $rvm_ruby_home"
       mkdir -p $rvm_ruby_log_path
       __rvm_pushpop $rvm_source_path
 
@@ -303,8 +305,12 @@ RubyWrapper
         if [ -d $rvm_ruby_src_path ]  ; then
           cd $rvm_ruby_src_path
         else
-          __rvm_log "info" "\tDownloading $rvm_package_file, this may take a while depending on your connection..."
-          __rvm_fetch $rvm_url
+          if [ -z "$rvm_force_flag" -a -f $rvm_package_file -a -s $rvm_package_file ] ; then
+            __rvm_log "info" "\tIt appears that $rvm_package_file has already been downloaded, skipping. Use --force to force re-download."
+          else
+            __rvm_log "info" "\tDownloading $rvm_package_file, this may take a while depending on your connection..."
+            __rvm_fetch $rvm_url
+          fi
           __rvm_log "info" "\tExtracting $rvm_package_file..."
           rvm_unzip=`which unzip`
           if [ $? -ne 0 ] ; then
@@ -329,7 +335,7 @@ RubyWrapper
       __rvm_bin_scripts
 
       ln -fs $rvm_ruby_home/bin/ruby $rvm_path/bin/$rvm_ruby_package_name
-      for rvm_gem_name in rake jruby-openssl ; do
+      for rvm_gem_name in jruby-openssl ; do
         __rvm_log "info" "Installing $rvm_gem_name"
         __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
       done
@@ -339,7 +345,7 @@ RubyWrapper
         # Merge configure options with user specified options
         rvm_ruby_configure="--enable-shared=true --enable-pthread $rvm_ruby_configure "
         if [ "`uname`" = "Darwin" ] ; then ARCHFLAGS="-arch x86_64 -arch i386" ; export ARCHFLAGS ; fi
-      __rvm_install-source $*
+      __rvm_install_source $*
     ;;
 
     default)
