@@ -551,7 +551,7 @@ function __rvm_ruby_do {
   else
     __rvm_log "warn" "'$rvm_ruby_home/bin/$binary' either does not exist or is not executable? :("
   fi
-    unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected
+  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected
 }
 
 function __rvm_do {
@@ -560,15 +560,14 @@ function __rvm_do {
   # TODO: Extract the common functionality out of the if below
   if [ ! -z "$rvm_ruby_version" ] ; then
     for rvm_ruby_selector in `echo $rvm_ruby_version | tr ',' ' '` ; do
-      temp=$(echo $rvm_ruby_selector | awk '{print substr($1, 0, 1)}')
-      if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
+      if [ ! -z "$(echo $rvm_ruby_selector | awk '/^[0-9]/')" ] ; then
         rvm_ruby_interpreter="ruby"
         rvm_ruby_version="$rvm_ruby_selector"
       else
         rvm_ruby_interpreter="$rvm_ruby_selector"
         unset rvm_ruby_version
       fi
-      unset temp
+      unset rvm_ruby_string
       __rvm_ruby_do
     done
   else # all
@@ -580,7 +579,11 @@ function __rvm_do {
       fi
     done < <(/bin/ls $rvm_path/*/bin/ruby 2> /dev/null)
   fi
+  __rvm_summary
+  return ${#errors[*]}
+}
 
+function __rvm_summary {
   if [ ! -z "$rvm_summary_flag" ] ; then
     export successes errors statuses
     echo -e "\nSummary:"
@@ -592,33 +595,22 @@ function __rvm_do {
 
   if [ ! -z "$rvm_yaml_flag" ] ; then
     export successes errors statuses
-    echo -e "\nYAML:"
-    echo -e "  totals:"
-    echo -e "    rubies: ${#rubies[*]}"
-    echo -e "    successes: ${#successes[*]}"
-    echo -e "    errors: ${#errors[*]}"
-    echo -e "  successes:"
+    yaml="\nYAML:\n  totals:\n    rubies: ${#rubies[*]}\n    successes: ${#successes[*]}\n    errors: ${#errors[*]}\n  successes:"
     for var in ${successes[*]} ; do
-      echo -e "    - $var"
+      yaml="$yaml\n    - $var"
     done
-    echo -e "  errors:"
+    yaml="$yaml\n  errors:"
     for var in ${errors[*]} ; do
-      echo -e "    - $var"
+      yaml="$yaml\n    - $var"
     done
-    #
-    # TODO: Merge statuses & rubies:
-    #   rubies:
-    #     "jruby...": 0
-    #     "1.9.1...": 1
-    #
-    echo -e "  rubies:"
-    for var in ${rubies[*]} ; do
-      echo -e "    - $var"
-    done
-    echo -e "  statuses:"
-    for var in ${statuses[*]} ; do
-      echo -e "    - $var"
-    done
+    yaml="$yaml\n  rubies:"
+    total=${#rubies[*]}
+    if [ ! -z "$ZSH_VERSION" ] ; then array_start=1 ; else array_start=0 ; fi
+    for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
+      echo "${rubies[$index]}: ${statuses[$index]}"
+      yaml="$yaml\n    \"${rubies[$index]}\": ${statuses[$index]}"
+    done ; unset index array_start
+    echo -e "$yaml"
   fi
 
   if [ ! -z "$rvm_json_flag" ] ; then
@@ -697,29 +689,21 @@ function __rvm_ruby_string {
 }
 
 function __rvm_gemset_dump {
-  if [ -z "$rvm_gem_set_name" ] ; then
-    file_name="default"
-  else
-    file_name="$rvm_gem_set_name"
-  fi
+  file_name=${rvm_gem_set_name:-'default'}
 
   echo "# $rvm_gem_set_name.gemset generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_gem_set_name.gemset
 
-  gems="`gem list | sed 's/[\(|\)]//g' | sed 's/, /,/g' | tr ' ' ';'`"
-  for gem in $gems ; do
+  for gem in `gem list | sed 's/[\(|\)]//g' | sed 's/, /,/g' | tr ' ' ';'` ; do
     name=`echo $gem | awk -F';' '{print $1}'`
     if [ -z "$rvm_latest_flag" ] ; then
       versions=`echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g'`
       for version in $versions ; do
         echo "$name -v$version" >> $file_name.gemset
-      done
-      unset version
+      done ; unset version versions
     else
       echo "$name" >> $file_name.gemset
-    fi
-    unset name
-  done
-  unset file_name gems versions
+    fi ; unset name
+  done ; unset file_name
 }
 
 function __rvm_gemset_load {
