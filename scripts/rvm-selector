@@ -3,16 +3,25 @@
 # __rvm_select implementation version patch_level
 function __rvm_select {
 
-  if [ ! -z "$rvm_ruby_string" ] ; then __rvm_ruby_string ; fi
-
-  rvm_ruby_interpreter="${1:-$rvm_ruby_interpreter}"
-  rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}" # Default is standard ruby
-
-  temp=$(echo $rvm_ruby_interpreter | awk '{print substr($1, 0, 1)}')
-  if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
-    rvm_ruby_version=$rvm_ruby_interpreter
-    rvm_ruby_interpreter="ruby"
-  fi ; unset temp
+  if [ ! -z "$rvm_ruby_string" ] ; then
+    __rvm_ruby_string
+  elif [ ! -z "$rvm_ruby_selector" ] ; then
+      if [ ! -z "$(echo $rvm_ruby_selector | awk '/^[0-9]/')" ] ; then
+        rvm_ruby_interpreter="ruby"
+        rvm_ruby_version=$rvm_ruby_selector
+      else
+        rvm_ruby_interpreter="$rvm_ruby_selector"
+        unset rvm_ruby_version
+      fi
+  elif [ ! -z "$rvm_ruby_interpreter" ] ; then
+    if [ ! -z "$(echo $rvm_ruby_interpreter | awk '/^[0-9]/')" ] ; then
+      rvm_ruby_version=$rvm_ruby_interpreter
+      rvm_ruby_interpreter="ruby"
+    else
+      rvm_ruby_interpreter="${1:-$rvm_ruby_interpreter}"
+      rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}" # Default is standard ruby
+    fi
+  fi
 
   if [ "$rvm_ruby_version" = "1.8" ] ; then rvm_ruby_version="1.8.6" ; fi
   if [ "$rvm_ruby_version" = "1.9" ] ; then rvm_ruby_version="1.9.1" ; fi
@@ -117,7 +126,7 @@ function __rvm_select {
       rvm_ruby_home="${rvm_ruby_home:-"$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"}"
     else
       if [ "$rvm_ruby_interpreter" != "ruby-enterprise" ] ; then
-        if [ ! -z "`echo $rvm_ruby_patch_level | awk '/[0-9]+/{print}'`" ] ; then
+        if [ ! -z "`echo $rvm_ruby_patch_level | awk '/^[0-9]/'`" ] ; then
           rvm_ruby_patch_level="p$rvm_ruby_patch_level"
         fi
         rvm_ruby_patch_level="`echo $rvm_ruby_patch_level | sed 's/^pp/p/'`" # sanity check, thanks sfpyra
@@ -133,9 +142,6 @@ function __rvm_select {
     rvm_selected=1
 
     export rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_url rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_path rvm_gem_home rvm_path rvm_source_path rvm_bin_path rvm_ruby_binary rvm_ruby_home rvm_log_path rvm_ruby_log_path rvm_source_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected rvm_ruby_string
-
-    if [ ! -z "$rvm_load_flag" ] ; then __rvm_gemset_load ; fi
-    if [ ! -z "$rvm_dump_flag" ] ; then __rvm_gemset_dump ; fi
 
   else
     rvm_gem_home=$GEM_HOME
@@ -183,8 +189,8 @@ function __rvm_use {
 
     if [ ! -d $MY_RUBY_HOME ] ; then
       __rvm_log "warn" "$rvm_ruby_interpreter $rvm_ruby_version is not installed."
-      if [ ! -z "$rvm_install_on_use" ] ; then
-        __rvm_install-ruby $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
+      if [ ! -z "$rvm_install_on_use_flag" ] ; then
+        __rvm_install_ruby $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
       fi
     fi
 
@@ -218,5 +224,8 @@ function __rvm_use {
       unset rvm_default_flag
     fi
   fi
+
+  if [ ! -z "$rvm_load_flag" ] ; then __rvm_gemset_load ; fi
+  if [ ! -z "$rvm_dump_flag" ] ; then __rvm_gemset_dump ; fi
 }
 

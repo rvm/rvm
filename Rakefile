@@ -4,10 +4,9 @@ puts <<-LOCAL_INSTALL_WARNING
   \033[0;33mINSTALLING FROM SOURCE\033[0m
 
   If you're using rvm from source, don't build the gem
-  Instead, run one of the following from the rvm source root
+  Instead, run the following from the rvm source root
 
-    \033[0;32mFor first-time install:     ./scripts/rvm-install\033[0m
-    \033[0;32mFor updating your install:  ./scripts/rvm-install\033[0m
+    \033[0;32mFor installing/updating:  ./scripts/rvm-install\033[0m
 
 LOCAL_INSTALL_WARNING
 
@@ -19,7 +18,7 @@ end
 namespace :gem do
   desc "Build the rvm gem."
   task :build do
-    puts `gem build gemspec.rb`
+    puts `gem build rvm.gemspec`
   end
 
   desc "Install the rvm gem (NO sudo)."

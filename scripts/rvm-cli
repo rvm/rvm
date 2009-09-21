@@ -106,7 +106,7 @@ function __rvm_parse-args {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload|usage|help|implode|update|readline|iconv|benchmark|bench|use|sync)
+      install|uninstall|path|info|setup|version|srcdir|list|symlinks|reset|debug|reload|usage|help|implode|update|readline|iconv|benchmark|bench|use|gemsync)
         rvm_action=$rvm_token
       ;;
 
@@ -151,7 +151,7 @@ function __rvm_parse-args {
 
       do|rubydo|rakedo|gemdo)
         rvm_action=$rvm_token
-        if [ "$rvm_action" = "do" ] ; then rvm_action="do" ; fi
+        if [ "$rvm_action" = "do" ] ; then rvm_action="rubydo" ; fi
         temp=$(echo $1 | awk '{print substr($1, 0, 1)}')
         if [ "$temp" = "-" ] ; then
           unset rvm_ruby_version
@@ -302,7 +302,7 @@ function __rvm_parse-args {
         rvm_ruby_interpreter="system"
       ;;
 
-      --install)         rvm_install_on_use=1              ;;
+      --install)         rvm_install_on_use_flag=1         ;;
       --prefix)          rvm_prefix_path="$1"      ; shift ;;
       -G|--gems)         rvm_gem_path="$1"         ; shift ;;
       --source)          rvm_source_path="$1"      ; shift ;;
@@ -357,21 +357,21 @@ function __rvm_parse-args {
     if [ ! -z "$rvm_parse_break" -o ! -z "$rvm_error_message" ] ; then unset rvm_parse_break; break; fi
   done
 
-  if [ ! -z "$rvm_error_message" ] ; then popd 2> /dev/null ; return 1 ; fi
+  if [ ! -z "$rvm_error_message" ] ; then __rvm_pushpop ; return 1 ; fi
 }
 
 function rvm {
 
-  __rvm_cleanup-variables
+  __rvm_cleanup_variables
   __rvm_load-rvmrc
   __rvm_initialize
-  __rvm_load-defaults
+  __rvm_load_defaults
   __rvm_parse-args $@
 
   if [ -z "$rvm_debug_flag" ] ; then set +x ; else set -x ; fi
   result=0
   case "$rvm_action" in
-    install)    __rvm_install-ruby     ; result=$? ;;
+    install)    __rvm_install          ; result=$? ;;
     uninstall)  __rvm_uninstall        ; result=$? ;;
     remove)     __rvm_remove           ; result=$? ;;
     use)        __rvm_use              ; result=$? ;;
@@ -393,24 +393,10 @@ function rvm {
     bench|benchmark)  __rvm_benchmark  ; result=$? ;;
     rubydo|rakedo|gemdo) __rvm_do      ; result=$? ;;
 
-    sync)
+    gemsync)
       result=0
       rvm_source_gem_path=`__rvm_select ; echo $rvm_gem_home`
-      if [ ! -z "$rvm_source_gem_path" ] ; then
-        for rvm_gem_name_version in `/bin/ls $rvm_source_gem_path/gems 2> /dev/null` ; do
-          rvm_gem_name=${rvm_gem_name_version%-*}
-          rvm_gem_version=${rvm_gem_name_version##*-}
-          if [ -d $GEM_HOME/gems/$rvm_gem_name_version ] ; then
-            echo "$rvm_gem_name_version already installed."
-          else
-            __rvm_gi $rvm_source_gem_path/cache/$rvm_gem_name-$rvm_gem_version.gem
-          fi
-        done
-        unset rvm_gem_name_version rvm_gem_name rvm_gem_version
-      else
-        __rvm_log "fail" "Unknown ruby selected :("
-        result=1
-      fi
+      __rvm_gem_sync
     ;;
 
     tests|specs)
@@ -426,7 +412,7 @@ function rvm {
       result=0
     ;;
 
-    error)      __rvm_log "fail" "$rvm_error_message ( see: 'rvm usage' )" ; popd 2> /dev/null ; return 1; ;;
+    error)      __rvm_log "fail" "$rvm_error_message ( see: 'rvm usage' )" ; __rvm_pushpop ; return 1; ;;
     *)
       if [ ! -z "$rvm_action" ] ; then
         __rvm_log "fail"  "unknown action '$rvm_action'"
