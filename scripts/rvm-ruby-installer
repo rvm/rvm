@@ -441,11 +441,7 @@ function __rvm_post_install {
     if [ "$rvm_gem_home" != "$rvm_ruby_home" ] ; then
       cp $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
     fi
-    # TODO: Account for rubygem installed rake vs system rake
-    string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
-    awk "NR==2 {print \"$string\"} {print}" $rvm_ruby_home/bin/$binary > $rvm_ruby_home/bin/$binary.new
-    mv $rvm_ruby_home/bin/$binary.new $rvm_ruby_home/bin/$binary
-    chmod +x $rvm_ruby_home/bin/$binary
+    __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
   else
     __rvm_log "warn" "$rvm_gem_home/bin/$binary is missing"
   fi
@@ -469,15 +465,29 @@ function __rvm_rubygems_setup {
     if [ $result -eq 0 ] ; then
       __rvm_log "info" "Installation of rubygems $rvm_ruby_package_name completed successfully."
     fi
+
+    __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
   else
-    # 1.9 has it's own built gem command, let's adjust the shebang line.
-    mv $rvm_ruby_src_path/bin/gem $rvm_ruby_src_path/bin/gem.orig
-    cat $rvm_ruby_src_path/bin/gem.orig | sed -e "s=#!/usr/bin/env ruby=#!$rvm_ruby_home/bin/ruby=" > $rvm_ruby_src_path/bin/gem
-    chmod +x $rvm_ruby_src_path/bin/gem
+    # 1.9 has it's own built-in gem command
+    __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/gem"
     cp $rvm_ruby_src_path/bin/gem $rvm_ruby_home/bin/gem
     __rvm_run "rubygems.update" $rvm_ruby_home/bin/gem update --system
   fi
-
   return $result
+}
+
+function __rvm_inject_ruby_shebang {
+  if [ -f $1 ] ; then
+    cat $1 | sed -e "s=#!/usr/bin/env ruby=#!$rvm_ruby_home/bin/ruby=" > $1.new
+    mv $1.new $1 ; chmod +x $1
+  fi
+}
+
+function __rvm_inject_gem_env {
+  if [ -f $1 ] ; then
+    string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
+    awk "NR==2 {print \"$string\"} {print}" $1 > $1.new
+    mv $1.new $1 ; chmod +x $1
+  fi
 }
 
