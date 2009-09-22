@@ -260,8 +260,7 @@ function __rvm_install_ruby {
         __rvm_run "build" RBX_LLVM=1 $rake186rbx build
       else
         __rvm_run "build" $rake186rbx build
-      fi
-      unset rake186rbx
+      fi ; unset rake186rbx
 
       for binary in ruby irb ; do
         ln -fs $rvm_ruby_home/bin/rbx $rvm_ruby_home/bin/$binary
@@ -302,6 +301,7 @@ RubyWrapper
       if [ ! -z "$rvm_ruby_rev" ] ; then
         if [ ! -d $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
           git clone --depth 1 $rvm_jruby_repo_url $rvm_ruby_src_path
+          # TODO: Test if 'ant' is installed, if not throw error.
           cd $rvm_ruby_src_path && ant
         fi
       else
@@ -328,21 +328,33 @@ RubyWrapper
       __rvm_log "info" "Installing $rvm_ruby_package_name..."
       mkdir -p $rvm_ruby_home/bin/
       __rvm_run "sync" rsync -ag $rvm_ruby_src_path/ $rvm_ruby_home/
-      __rvm_run "nailgun" cd $rvm_ruby_src_path/tool/nailgun && make $rvm_make_flags
+      __rvm_run "nailgun" "cd $rvm_ruby_src_path/tool/nailgun && make $rvm_make_flags"
       __rvm_pushpop
       chmod +x $rvm_ruby_home/bin/*
-      for binary in jruby jgem jirb ; do
+
+      for binary in `/bin/ls $rvm_ruby_home/bin/*` ; do
+        __rvm_inject_ruby_shebang $binary
+        __rvm_inject_gem_env $binary
+      done ; unset binary
+
+      for binary in jirb jrake jruby jgem ; do
         ln -fs $rvm_ruby_home/bin/$binary $rvm_ruby_home/bin/${binary#j}
-      done
+      done ; unset binary
 
       __rvm_irbrc
-      __rvm_bin_scripts
+      __rvm_post_install
+      __rvm_bin_script
 
       ln -fs $rvm_ruby_home/bin/ruby $rvm_path/bin/$rvm_ruby_package_name
+
       for rvm_gem_name in jruby-openssl ; do
         __rvm_log "info" "Installing $rvm_gem_name"
         __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
-      done
+      done ; unset rvm_gem_name
+
+      #__rvm_inject_ruby_shebang $rvm_gem_home/bin/rake
+      #__rvm_inject_gem_env $rvm_gem_home/bin/rake
+      #cp $rvm_gem_home/bin/rake $rvm_ruby_home/bin/rake
     ;;
 
     ruby)
@@ -414,23 +426,18 @@ function __rvm_post_install {
       elif [ -f "$rvm_gem_home/bin/$binary" ] ; then
         cp -f $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
       fi
-      if [ -f $rvm_ruby_home/bin/$binary ] ; then
-        string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
-        awk "NR==2 {print \"$string\"} {print}" $rvm_ruby_home/bin/$binary > $rvm_ruby_home/bin/$binary.new
-        mv $rvm_ruby_home/bin/$binary.new $rvm_ruby_home/bin/$binary
-      else
-        __rvm_log "info" "Skipping $rvm_ruby_src_path/bin/$binary, it is an executable not a script."
-      fi
+      __rvm_inject_gem_env $rvm_ruby_home/bin/$binary
+      __rvm_inject_ruby_shebang $rvm_ruby_home/bin/$binary
       chmod +x $rvm_ruby_home/bin/$binary
     fi
-  done
+  done ; unset binary
 
   __rvm_log "info" "Installing gems for $rvm_ruby_package_name."
 
   for rvm_gem_name in rake ; do
     __rvm_log "info" "Installing $rvm_gem_name"
     __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
-  done
+  done ; unset rvm_gem_name
 
   __rvm_log "info" "Installation of gems for $rvm_ruby_package_name is complete."
 
@@ -473,17 +480,33 @@ function __rvm_rubygems_setup {
 }
 
 function __rvm_inject_ruby_shebang {
-  if [ -f $1 ] ; then
-    sed -i.orig -e "s=#!/usr/bin/env [j]*ruby=#!$rvm_ruby_home/bin/ruby=" $1
-    rm $1.orig ; chmod +x $1
-  fi
+  __rvm_actual_file $1
+  if [ -f $actual_file ] ; then
+    sed -i.orig -e "s=#\!/usr/bin/env [j]*ruby=#\!$rvm_ruby_home/bin/ruby=" $actual_file
+    rm -f $actual_file.orig ; chmod +x $actual_file
+  fi ; unset actual_file
 }
 
 function __rvm_inject_gem_env {
-  if [ -f $1 ] ; then
-    string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
-    awk "NR==2 {print \"$string\"} {print}" $1 > $1.new
-    mv $1.new $1 ; chmod +x $1
+  __rvm_actual_file $1
+  if [ -f $actual_file ] ; then
+    set -x
+    if [ ! -z "`head -n 1 $actual_file | awk '/[j]*ruby/'`" ] ; then
+      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
+    elif [ ! -z "`head -n 1 $actual_file | awk '/bash/'`" ] ; then
+      string="GEM_HOME=\${GEM_HOME:-'$rvm_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_gem_home'}\nPATH=$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH"
+    fi
+    set +x
+    awk "NR==2 {print \"$string\"} {print}" $actual_file > $actual_file.new
+    mv $actual_file.new $actual_file ; chmod +x $actual_file
+  fi ; unset string actual_file
+}
+
+function __rvm_actual_file {
+  if [ -L $1 ] ; then         # If the file is a symlink,
+    actual_file=`readlink $1` # read the link target so we can preserve it.
+  else
+    actual_file="$1"
   fi
 }
 
