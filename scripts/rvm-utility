@@ -162,14 +162,6 @@ function __rvm_load_defaults {
     done
   fi
 
-  rvm_system_path=`__rvm_db "system_path"`
-  if [ -z "$rvm_system_path" ] ; then
-    __rvm_clean-path # Clean the path the first time we compute system path.
-    __rvm_remove-rvm-from-path
-    rvm_system_path="$PATH"
-    __rvm_db "system_path" "$rvm_system_path"
-  fi
-
   rvm_system_ps1=`__rvm_db "system_ps1"`
   if [ -z "$rvm_system_ps1" ] ; then
     rvm_system_ps1=$PS1
@@ -202,7 +194,9 @@ function __rvm_load_defaults {
 
 function __rvm_reset {
 
-  PATH="$rvm_path/bin:$rvm_system_path" ; export PATH
+  PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
+  PATH=$rvm_bin_path:$PATH ; export PATH
+
   for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do unset $variable ; done
 
   for file in system default ; do
@@ -210,7 +204,7 @@ function __rvm_reset {
   done
   __rvm_select "system"
 
-  for system_config in system_ps1 system_path system_ruby system_gem_path system_user_gem_path ; do
+  for system_config in system_ps1 system_ruby system_gem_path system_user_gem_path ; do
     __rvm_db "$system_config" "delete"
   done ; unset system_config variable
 
