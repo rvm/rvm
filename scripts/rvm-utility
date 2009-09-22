@@ -162,14 +162,6 @@ function __rvm_load_defaults {
     done
   fi
 
-  rvm_system_path=`__rvm_db "system_path"`
-  if [ -z "$rvm_system_path" ] ; then
-    __rvm_clean-path # Clean the path the first time we compute system path.
-    __rvm_remove-rvm-from-path
-    rvm_system_path="$PATH"
-    __rvm_db "system_path" "$rvm_system_path"
-  fi
-
   rvm_system_ps1=`__rvm_db "system_ps1"`
   if [ -z "$rvm_system_ps1" ] ; then
     rvm_system_ps1=$PS1
@@ -202,7 +194,9 @@ function __rvm_load_defaults {
 
 function __rvm_reset {
 
-  PATH="$rvm_path/bin:$rvm_system_path" ; export PATH
+  PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
+  PATH=$rvm_bin_path:$PATH ; export PATH
+
   for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do unset $variable ; done
 
   for file in system default ; do
@@ -210,7 +204,7 @@ function __rvm_reset {
   done
   __rvm_select "system"
 
-  for system_config in system_ps1 system_path system_ruby system_gem_path system_user_gem_path ; do
+  for system_config in system_ps1 system_ruby system_gem_path system_user_gem_path ; do
     __rvm_db "$system_config" "delete"
   done ; unset system_config variable
 
@@ -546,7 +540,7 @@ function __rvm_do {
   if [ ! -z "$rvm_ruby_string" ] ; then
     unset rvm_ruby_interpreter rvm_ruby_version
     __rvm_ruby_do
-  elif [ ! -z "$rvm_ruby_version"  ] ;then
+  elif [ ! -z "$rvm_ruby_version" ] ;then
     for rvm_ruby_selector in `echo $rvm_ruby_version | tr ',' ' '` ; do
       unset rvm_ruby_string
       __rvm_ruby_do
@@ -580,7 +574,7 @@ function __rvm_summary {
 
 function __rvm_yaml {
   export successes errors statuses
-  yaml="\nYAML:\n  totals:\n    rubies: ${#rubies[*]}\n    successes: ${#successes[*]}\n    errors: ${#errors[*]}\n  successes:"
+  yaml="\ntotals:\n    rubies: ${#rubies[*]}\n    successes: ${#successes[*]}\n    errors: ${#errors[*]}\n  successes:"
   for var in ${successes[*]} ; do
     yaml="$yaml\n    - $var"
   done
@@ -596,13 +590,14 @@ function __rvm_yaml {
     yaml="$yaml\n    \"${rubies[$index]}\": ${statuses[$index]}"
   done ; unset index array_start
 
-  echo -e "$yaml" # TODO: File option
+  mkdir -p log
+  echo -e "$yaml" | tee -a log/summary.yaml
 
   return ${#errors[*]}
 }
 
 function __rvm_json {
-  json="JSON:\n{"
+  json="{"
   json="$json\n  \"totals\": { \"rubies\": ${#rubies[*]}, \"successes\": ${#successes[*]}, \"errors\": ${#errors[*]}},"
   json="$json\n  \"successful\": [ "$(echo ${successes[*]} | sed 's/ /", "/g')" ],"
   json="$json\n  \"errors\": [ "$(echo ${errors[*]} | sed 's/ /", "/g')" ],"
@@ -617,7 +612,8 @@ function __rvm_json {
   done ; unset index array_start
   json="$json\n  }\n}"
 
-  echo -e "$json" # TODO: File option
+  mkdir -p log
+  echo -e "$json" | tee -a log/summary.json
 
   return ${#errors[*]}
 }
