@@ -1,7 +1,6 @@
 #!/bin/bash
 
 function __rvm_install_source {
-
   if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
 
   result=0
@@ -132,17 +131,10 @@ function __rvm_install {
   # TODO: Extract the common functionality out of the if below
   if [ ! -z "$(echo "$rvm_ruby_version" | awk '/,/')" ] ; then
     for rvm_ruby_selector in `echo $rvm_ruby_version | tr ',' ' '` ; do
-      unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected
-      if [ ! -z "$(echo $rvm_ruby_selector | awk '/^[0-9]/')" ] ; then
-        rvm_ruby_interpreter="ruby"
-        rvm_ruby_version="$rvm_ruby_selector"
-      else
-        rvm_ruby_interpreter="$rvm_ruby_selector"
-        unset rvm_ruby_version
-      fi
+      unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected rvm_ruby_string
       __rvm_select
       __rvm_install_ruby
-      unset rvm_ruby_selector rvm_ruby_string
+      unset rvm_ruby_selector
     done
   else
     __rvm_select
@@ -300,8 +292,7 @@ RubyWrapper
       if [ ! -z "$rvm_ruby_rev" ] ; then
         if [ ! -d $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
           git clone --depth 1 $rvm_jruby_repo_url $rvm_ruby_src_path
-          # TODO: Test if 'ant' is installed, if not throw error.
-          cd $rvm_ruby_src_path && ant
+          cd $rvm_ruby_src_path && ant # TODO: Test if 'ant' is installed, if not throw error.
         fi
       else
         if [ -d $rvm_ruby_src_path ]  ; then
@@ -331,7 +322,7 @@ RubyWrapper
       __rvm_pushpop
       chmod +x $rvm_ruby_home/bin/*
 
-
+      set -x
       for binary in jirb jruby jgem ; do
         ln -fs $rvm_ruby_home/bin/$binary $rvm_ruby_home/bin/${binary#j}
       done ; unset binary
@@ -341,11 +332,10 @@ RubyWrapper
         __rvm_inject_gem_env $rvm_ruby_home/bin/$binary
         chmod +x $rvm_ruby_home/bin/$binary
       done ; unset binary
+      set +x
 
       __rvm_irbrc
       __rvm_bin_script
-
-      ln -fs $rvm_ruby_home/bin/ruby $rvm_path/bin/$rvm_ruby_package_name # Is this necessary?
 
       __rvm_use
       for rvm_gem_name in jruby-openssl ; do
@@ -493,9 +483,12 @@ function __rvm_inject_gem_env {
     elif [ ! -z "`head -n 1 $actual_file | awk '/bash/'`" ] ; then
       string="GEM_HOME=\${GEM_HOME:-'$rvm_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_gem_home'}\nPATH=$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH"
     fi
-    awk "NR==2 {print \"$string\"} {print}" $actual_file > $actual_file.new
-    mv $actual_file.new $actual_file ; chmod +x $actual_file
-  fi ; unset string actual_file
+    if [ ! -z "$string" ] ; then
+      awk "NR==2 {print \"$string\"} {print}" $actual_file > $actual_file.new
+      mv $actual_file.new $actual_file ; chmod +x $actual_file
+      unset string
+    fi
+  fi ; unset actual_file
 }
 
 function __rvm_actual_file {
