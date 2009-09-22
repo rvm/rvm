@@ -315,32 +315,32 @@ RubyWrapper
         fi
       fi
 
+      for binary in jirb jruby jgem ; do
+        cp -f $rvm_ruby_src_path/bin/$binary $rvm_ruby_src_path/bin/${binary#j}
+      done ; unset binary
+
       __rvm_log "info" "Installing $rvm_ruby_package_name..."
       mkdir -p $rvm_ruby_home/bin/
-      __rvm_run "sync" rsync -ag $rvm_ruby_src_path/ $rvm_ruby_home/
       __rvm_run "nailgun" "cd $rvm_ruby_src_path/tool/nailgun && make $rvm_make_flags"
       __rvm_pushpop
       chmod +x $rvm_ruby_home/bin/*
 
-      set -x
-      for binary in jirb jruby jgem ; do
-        ln -fs $rvm_ruby_home/bin/$binary $rvm_ruby_home/bin/${binary#j}
-      done ; unset binary
+      if [ -z "$rvm_ruby_home" -o "$rvm_ruby_home" = "/" ] ; then echo "WTH?!?! rvm_ruby_home == / ??? not removing." ; return 1000000 ; fi
+      rm -rf $rvm_ruby_home
+      __rvm_run "sync" "/bin/cp -Rf $rvm_ruby_src_path $rvm_ruby_home"
 
       for binary in rake rdoc ri spec autospec ; do
         __rvm_inject_ruby_shebang $rvm_ruby_home/bin/$binary
         __rvm_inject_gem_env $rvm_ruby_home/bin/$binary
         chmod +x $rvm_ruby_home/bin/$binary
       done ; unset binary
-      set +x
-
+      __rvm_rubygems_setup
       __rvm_irbrc
       __rvm_bin_script
 
-      __rvm_use
       for rvm_gem_name in jruby-openssl ; do
         __rvm_log "info" "Installing $rvm_gem_name"
-        __rvm_run "gems" gem install $rvm_gem_name --no-rdoc --no-ri -q
+        __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
       done ; unset rvm_gem_name
 
     ;;
@@ -456,7 +456,6 @@ function __rvm_rubygems_setup {
     if [ $result -eq 0 ] ; then
       __rvm_log "info" "Installation of rubygems $rvm_ruby_package_name completed successfully."
     fi
-
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
   else
     # 1.9 has it's own built-in gem command
