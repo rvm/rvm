@@ -14,8 +14,7 @@ function __rvm_usage {
 
   __rvm_meta
 
-  cat <<-Usage
-
+  echo -e "
   rvm ${rvm_meta_version} ${rvm_meta_website} by ${rvm_meta_author} (${rvm_meta_author_email})
 
   Usage:
@@ -24,36 +23,39 @@ function __rvm_usage {
 
   Action:
 
-    * usage   - Show this usage information
-    use       - Switch to using a specific ruby version (new login shell)
-    info      - Show information for current ruby
-    list      - Show currently installed versions
-    gemdir    - Switch to gem directory for installation (new login shell)
-    srcdir    - Switch to src directory for the current ruby installation
-    gemdup    - Clone source version gems to current version
-                (highly expiramental) Example: rvm gemdup ~/.gem/ruby/1.8/
-    install   - Install a ruby version, default is from source
-    uninstall - Uninstall a ruby version
-    reset     - Remove default and current settings, exit the shell.
+    * usage   - show this usage information
+    use       - setup current shell to use a specific ruby version
+    info      - show information for current ruby
+    list      - show currently installed versions
+    reload    - reload rvm source itself (useful after changing rvm source)
+    implode   - removes all ruby installations it manages, everything in ~/.rvm
+    update    - upgrades rvm to the latest version.
+    reset     - remove default and current settings, exit the shell.
                 (If you experience odd behavior try this first)
-    rubydo    - Used with -S to run a ruby file against specified or all rubies
-    gemdo     - Used with -S to execute a command using selected ruby's 'gem'
-    debug     - Emit environment & configuration information for *current* ruby
+    debug     - emit environment & configuration information for *current* ruby
 
-    reload    - Reload rvm source itself (useful after changing rvm source)
-    implode   - Removes all ruby installations it manages, everything in ~/.rvm
-    update    - Upgrades rvm to the latest version.
-    tests     - run 'rake test' across selected ruby versions
-    specs     - run 'rake spec' across selected ruby versions
+    install   - install one or many ruby versions
+    uninstall - uninstall one or many ruby versions, leaves their sources
+    remove    - uninstall one or many ruby versions and remove their sources
+
+    ruby      - runs a named ruby file against specified and/or all rubies
+    gem       - runs a gem command using selected ruby's 'gem'
+    rake      - runs a rake task against specified and/or all rubies
+    tests     - runs 'rake test' across selected ruby versions
+    specs     - runs 'rake spec' across selected ruby versions
+
+    gemsync   - sync gems from a specified version to current version
+    gemdir    - switch to gem directory for installation (new login shell)
+    srcdir    - switch to src directory for the current ruby installation
 
   Implementation:
 
     * ruby    - MRI/YARV Ruby (The Standard), defaults to 1.8.6
     jruby     - jRuby
-    rubinius  - Rubinius
-    ree       - Ruby Enterprise Edition
-    system    - Use the system ruby (eg. pre-rvm state)
-    default   - Use rvm set default ruby and system if it hasn't been set.
+    rbx       - rubinius
+    ree       - ruby Enterprise Edition
+    system    - use the system ruby (eg. pre-rvm state)
+    default   - use rvm set default ruby and system if it hasn't been set.
 
   Options:
 
@@ -85,7 +87,7 @@ function __rvm_usage {
     --default     - with ruby select, sets a default ruby for new shells.
     --debug       - Toggle debug mode on for very verbose output.
     --force       - Force install, removes old install & source before install.
-    --all         - Used with 'rvm list' to display "most" available versions.
+    --all         - Used with 'rvm list' to display 'most' available versions.
     --dump        - Used with gemset to dump the current ruby's gemset.
     --load        - Used with gemset to load a specified gemset file
     --summary     - Used with rubydo to print out a summary of the commands run.
@@ -98,15 +100,14 @@ function __rvm_usage {
     http://rvm.beginrescueend.com/
     https://www.pivotaltracker.com/projects/26822
 
-Usage
-
+" | ${PAGER:-/usr/bin/less}
 }
 
 function __rvm_parse-args {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|usage|help|implode|update|readline|iconv|benchmark|bench|use|gemsync)
+      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|update|readline|iconv|use|gemsync)
         rvm_action=$rvm_token
       ;;
 
@@ -149,25 +150,41 @@ function __rvm_parse-args {
         fi
       ;;
 
-      do|rubydo|rakedo|gemdo)
-        rvm_action=$rvm_token
-        if [ "$rvm_action" = "do" ] ; then rvm_action="rubydo" ; fi
-        temp=$(echo $1 | awk '{print substr($1, 0, 1)}')
-        if [ "$temp" = "-" ] ; then
-          unset rvm_ruby_version
+      do|ruby|rake|gem|rubydo|rakedo|gemdo)
+        if [ "$rvm_action" = "do" ] ; then rvm_action="ruby" ; fi
+        rvm_action=$(echo $rvm_token | sed 's/do//g')
+
+        if [ "$rvm_action" = "rake" -o "$rvm_action" = "gem" ] ; then
+          rvm_action="ruby"
+          rvm_ruby_args="$rvm_token $@"
+          rvm_parse_break=1
         else
-          if [ ! -z "$(echo $temp | grep '[0-9]')" ] ; then
-            rvm_ruby_version=$(echo "$1" | tr ',' ' ') ; shift
-            unset rvm_ruby_interpreter
+          if [ ! -z "$(echo $1 | awk '/^-/')" ] ; then
+            unset rvm_ruby_version
           else
-            if [ "$1" = "jruby" -o "$1" = "rbx" -o "$1" = "rubinius" -o "$1" = "macruby" ] ; then
-              rvm_ruby_interpreter=$1 ; shift
+            if [ ! -z "$(echo $1 | awk '/^[0-9]/')" ] ; then
+              rvm_ruby_version=$(echo "$1" | tr ',' ' ') ; shift
+              unset rvm_ruby_interpreter
             else
-              unset rvm_ruby_interpreter rvm_ruby_version
+              if [ "$1" = "jruby" -o "$1" = "rbx" -o "$1" = "rubinius" -o "$1" = "macruby" -o "$1" = "ree" -o "$1" = "ruby-enterprise" ] ; then
+                rvm_ruby_interpreter=$1 ; shift
+              else
+                unset rvm_ruby_interpreter rvm_ruby_version
+              fi
             fi
           fi
         fi
       ;;
+
+      benchmark|bench)
+        rvm_action="benchmark"
+      ;;
+
+      specs|tests)
+        rvm_action="do"
+        rvm_ruby_args="rake $rvm_token"
+      ;;
+
 
       1.8|1.8.0|1.8.1|1.8.2|1.8.3|1.8.4|1.8.5|1.8.6|1.8.7|1.9|1.9.1|1.9.2)
         rvm_ruby_interpreter="ruby"
@@ -263,24 +280,13 @@ function __rvm_parse-args {
       ;;
 
       -f|--file)
-        rvm_action="rubydo"
+        rvm_action="ruby"
         rvm_ruby_file="$1"
         shift
       ;;
 
-      specs|tests)
-        rvm_action="rubydo"
-        rvm_ruby_args="rake $rvm_token"
-      ;;
-
-      rake|gem)
-        rvm_action="rubydo"
-        rvm_ruby_args="$rvm_token $@"
-        rvm_parse_break=1
-      ;;
-
       -S|--script|-e|--execute)
-        rvm_action="rubydo"
+        rvm_action="ruby"
         rvm_ruby_args="$@"
         rvm_parse_break=1
       ;;
@@ -302,19 +308,19 @@ function __rvm_parse-args {
         rvm_ruby_interpreter="system"
       ;;
 
-      --install)         rvm_install_on_use_flag=1         ;;
-      --prefix)          rvm_prefix_path="$1"      ; shift ;;
-      -G|--gems)         rvm_gem_path="$1"         ; shift ;;
-      --source)          rvm_source_path="$1"      ; shift ;;
-      --archives)        rvm_archives_path="$1"    ; shift ;;
-      --make)            rvm_ruby_make="$1"        ; shift ;;
-      --make-install)    rvm_ruby_make_install="$1"; shift ;;
-      --nice)            rvm_niceness="$1"         ; shift ;;
-      -l|--level)        rvm_ruby_patch_level="$1" ; shift ;;
-      -h|--help)         rvm_action=help           ; shift ;;
-      -m|--gem-set)      rvm_gem_set_name="$1"     ; shift ;;
-         --rm-gem-set)   rvm_gem_set_name_rm="$1"  ; shift ;;
-      tests|specs)       rvm_action="tests"                ;;
+      --install)            rvm_install_on_use_flag=1         ;;
+      --prefix)             rvm_prefix_path="$1"      ; shift ;;
+      -G|--gems)            rvm_gem_path="$1"         ; shift ;;
+      --source)             rvm_source_path="$1"      ; shift ;;
+      --archives)           rvm_archives_path="$1"    ; shift ;;
+      --make)               rvm_ruby_make="$1"        ; shift ;;
+      --make-install)       rvm_ruby_make_install="$1"; shift ;;
+      --nice)               rvm_niceness="$1"         ; shift ;;
+      -l|--level)           rvm_ruby_patch_level="$1" ; shift ;;
+      -h|--help|usage|help) rvm_action=help         ; shift ;;
+      -m|--gem-set)         rvm_gem_set_name="$1"     ; shift ;;
+         --rm-gem-set)      rvm_gem_set_name_rm="$1"  ; shift ;;
+      tests|specs)          rvm_action="tests"                ;;
 
       --self|--gem|--rubygems|--reconfigure|--default|--debug|debug|--force|--all|--dump|--summary|--jit|--latest|--yaml|yaml|--json|json)
         eval "rvm_$(echo $rvm_token | sed 's/-//g')_flag=1"
@@ -329,7 +335,7 @@ function __rvm_parse-args {
           if [ ! -z "`echo $rvm_token | awk '/,/'`" ] ; then
             rvm_ruby_version="$rvm_token"
             if [ -z "$rvm_action" ] ; then
-              rvm_action="rubydo" # Not sure if we really want to do this but we'll try it out.
+              rvm_action="ruby" # Not sure if we really want to do this but we'll try it out.
             fi
           else
 
@@ -337,7 +343,7 @@ function __rvm_parse-args {
               rvm_ruby_args=$rvm_token
               rvm_ruby_file=$rvm_token
               if [ -z "$rvm_action" ] ; then
-                rvm_action="rubydo" # Not sure if we really want to do this but we'll try it out.
+                rvm_action="ruby" # Not sure if we really want to do this but we'll try it out.
               fi
             else
               rvm_action="error"
@@ -370,13 +376,10 @@ function rvm {
   if [ -z "$rvm_debug_flag" ] ; then set +x ; else set -x ; fi
   result=0
   case "$rvm_action" in
-    install)    __rvm_install          ; result=$? ;;
-    uninstall)  __rvm_uninstall        ; result=$? ;;
-    remove)     __rvm_remove           ; result=$? ;;
     use)        __rvm_use              ; result=$? ;;
     gemdir)     __rvm_gem-dir          ; result=$? ;;
-    srcdir)     __rvm_src-dir          ; result=$? ;;
     gemdup)     __rvm_gem-dup          ; result=$? ;;
+    srcdir)     __rvm_src-dir          ; result=$? ;;
     list)       __rvm_list             ; result=$? ;;
     version)    __rvm_version          ; result=$? ;;
     reset)      __rvm_reset            ; result=$? ;;
@@ -388,8 +391,13 @@ function rvm {
     iconv)      __rvm_iconv_install    ; result=$? ;;
     reboot)     __rvm_reboot           ; result=$? ;;
     usage|help) __rvm_usage            ; result=$? ;;
-    bench|benchmark)  __rvm_benchmark  ; result=$? ;;
-    rubydo|rakedo|gemdo) __rvm_do      ; result=$? ;;
+    benchmark)  __rvm_benchmark        ; result=$? ;;
+    ruby)       __rvm_do               ; result=$? ;;
+
+    install|uninstall|remove)
+      __rvm_manage_rubies
+      result=$?
+    ;;
 
     gemsync)
       result=0
