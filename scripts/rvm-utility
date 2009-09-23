@@ -137,21 +137,41 @@ RubyWrapper
 function __rvm_fetch {
 
   __rvm_pushpop $rvm_archives_path
-  eval $rvm_fetch "$1"
-  result=$?
-  if [ $result -gt 0 ] ; then
-    if [ $result -eq 78 ] ; then
-      __rvm_log "error" "The requested url does not exist: '$1'"
-    elif [ $result -eq 33 ] ; then
-      archive=`basename "$1"`
-      __rvm_log "debug" "Server does not support 'range' command, removing '$archive'"
-      rm -f $archive ; unset archive
-      __rvm_fetch "$1"
+  archive=`basename "$1"`
+  __rvm_log "debug" "Fetching $archive"
+  # Check first if we have the correct archive
+  if [ -e $archive ] && [ -e $archive.md5 ] ; then
+    __rvm_log "debug" "Found archive and its md5, testing correctness"
+    if [ `md5sum --status -c $archive.md5` -gt 0 ] ; then
+      __rvm_log "debug" "Archive is bad, downloading"
+      download=1
     else
-      __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      __rvm_log "debug" "Archive is good, not downloading"
+      download=0
+      result=0
     fi
+  else
+    __rvm_log "debug" "No archive or no MD5, downloading"
+    download=1
   fi
-  __rvm_pushpop
+  if [ $download -gt 0 ] ; then
+    eval $rvm_fetch "$1"
+    result=$?
+    if [ $result -gt 0 ] ; then
+      if [ $result -eq 78 ] ; then
+        __rvm_log "error" "The requested url does not exist: '$1'"
+      elif [ $result -eq 33 ] ; then
+        __rvm_log "debug" "Server does not support 'range' command, removing '$archive'"
+        rm -f $archive
+        __rvm_fetch "$1"
+      else
+        __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      fi
+    fi
+    __rvm_pushpop
+  fi
+  unset archive
+  unset download
   return $result
 }
 
