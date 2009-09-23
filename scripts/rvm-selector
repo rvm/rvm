@@ -159,6 +159,7 @@ function __rvm_use {
     if [ -s $rvm_path/default ] ; then
       source $rvm_path/default
     else
+      rvm_ruby_interpreter="system"
       __rvm_log "error" "no default rvm specified, defaulting to pre-rvm sytem."
       unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
       if [ -s $rvm_path/system ] ; then source $rvm_path/system ; fi
@@ -201,7 +202,13 @@ function __rvm_use {
     PATH=$rvm_bin_path:$PATH ; export PATH
     PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_path/bin:$PATH ; export PATH
 
-    if [ ! -z "$rvm_default_flag" ] ; then
+  fi
+
+  if [ ! -z "$rvm_default_flag" -a "$rvm_ruby_interpreter" != "default" ] ; then
+    if [ "$rvm_ruby_interpreter" = "system" ] ; then
+      rm -f $rvm_path/default
+      rm -f $rvm_path/bin/default*
+    else
       RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
       export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
 
@@ -210,12 +217,12 @@ function __rvm_use {
       for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC ; do
         eval "export $variable"
         eval value=\$${variable}
-        if [ ! -z "$variable" ] ; then
+        if [ ! -z "$value" ] ; then
           echo "${variable}='$value' ; export ${variable}" >> $rvm_path/default
         else
           echo "unset ${variable}" >> $rvm_path/default
         fi
-      done
+      done ; unset variable value
 
       if [ -s $rvm_path/bin/$rvm_ruby_package_name ] ; then
         ln -fs $rvm_path/bin/$rvm_ruby_package_name $rvm_path/bin/default-ruby # So that people know what it's for :)
@@ -224,8 +231,8 @@ function __rvm_use {
       else
         rm -f $rvm_path/bin/default*
       fi
-      unset rvm_default_flag
     fi
+    unset rvm_default_flag
   fi
 
   if [ ! -z "$rvm_load_flag" ] ; then __rvm_gemset_load ; fi
