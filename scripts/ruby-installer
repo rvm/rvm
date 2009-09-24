@@ -127,8 +127,9 @@ function __rvm_install_source {
 
 function __rvm_install_ruby {
 
-  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
-  if [ ! -z "$RUBYOPT" ]    ; then ruby_options=$RUBYOPT ; unset RUBYOPT ; fi
+  if [ -z "$rvm_selected" ]   ; then __rvm_select $* ; fi
+  if [ ! -z "$RUBYOPT" ]      ; then ruby_options=$RUBYOPT ; unset RUBYOPT ; fi
+  if [ "`uname`" = "Darwin" ] ; then ARCHFLAGS="-arch x86_64 -arch i386" ; export ARCHFLAGS ; fi
 
   case "$rvm_ruby_interpreter" in
 
@@ -169,42 +170,46 @@ function __rvm_install_ruby {
     ;;
 
     ruby-enterprise|ree)
-      rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_ruby_package_name.tar.gz"
-      __rvm_log "info" "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
-      __rvm_pushpop $rvm_source_path
-      if [ -d $rvm_ruby_src_path ]  ; then
+      if [ "$rvm_ruby_version" = "1.8.6" -a -z "$rvm_head_flag" ] ; then
+        rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_ruby_package_name.tar.gz"
+        __rvm_log "info" "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
+        __rvm_pushpop $rvm_source_path
+        if [ -d $rvm_ruby_src_path ]  ; then
+          cd $rvm_ruby_src_path
+        else
+          __rvm_log "info" "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
+          __rvm_fetch $rvm_url
+          if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+          __rvm_log "info" "Extracting $rvm_ruby_package_name..."
+          mkdir -p $rvm_ruby_src_path
+          __rvm_run "extract" tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
+          if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+        fi
+
+        __rvm_log "info" "Installing $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
+        mkdir -p $rvm_ruby_log_path
+
         cd $rvm_ruby_src_path
+        mkdir -p $rvm_ruby_home/lib/ruby/gems/1.8/gems
+        if [ ! -z "$rvm_ruby_configure" ] ; then rvm_ruby_configure="-c $rvm_ruby_configure"; fi
+        __rvm_run "install" ./installer -a $rvm_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc $rvm_ruby_configure
+        if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+        chmod +x $rvm_ruby_home/bin/*
+
+        __rvm_rubygems_setup
+
+        for rvm_gem_name in rake ; do
+          __rvm_log "info" "Installing $rvm_gem_name"
+          __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
+        done
+        __rvm_irbrc
+        __rvm_bin_scripts
+        __rvm_post_install
+        __rvm_pushpop
       else
-        __rvm_log "info" "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
-        __rvm_fetch $rvm_url
-        if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
-        __rvm_log "info" "Extracting $rvm_ruby_package_name..."
-        mkdir -p $rvm_ruby_src_path
-        __rvm_run "extract" tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
-        if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+          rvm_ruby_configure="--enable-shared --enable-pthread $rvm_ruby_configure "
+        __rvm_install_source $*
       fi
-
-      __rvm_log "info" "Installing $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
-      mkdir -p $rvm_ruby_log_path
-
-      cd $rvm_ruby_src_path
-      mkdir -p $rvm_ruby_home/lib/ruby/gems/1.8/gems
-      if [ ! -z "$rvm_ruby_configure" ] ; then rvm_ruby_configure="-c $rvm_ruby_configure"; fi
-      __rvm_run "install" ./installer -a $rvm_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc $rvm_ruby_configure
-      if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
-      chmod +x $rvm_ruby_home/bin/*
-
-      __rvm_rubygems_setup
-
-      for rvm_gem_name in rake ; do
-        __rvm_log "info" "Installing $rvm_gem_name"
-        __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
-      done
-
-      __rvm_irbrc
-      __rvm_bin_scripts
-      __rvm_post_install
-      __rvm_pushpop
     ;;
 
     rbx|rubinius)

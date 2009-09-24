@@ -32,7 +32,7 @@ Gem::Specification.new do |s|
      "scripts/rvm-cli",
      "scripts/rvm-completion",
      "scripts/rvm-functions",
-     "scripts/rvm-install",
+     "scripts/install",
      "scripts/rvm-prompt",
      "scripts/rvm-ruby-installer",
      "scripts/rvm-selector",
