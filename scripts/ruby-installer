@@ -2,8 +2,6 @@
 
 function __rvm_install_source {
   if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
-
-  result=0
   __rvm_log "info" "Installing Ruby from source to: $rvm_ruby_home"
   mkdir -p $rvm_ruby_log_path
 
@@ -14,6 +12,7 @@ function __rvm_install_source {
     rm -rf $rvm_ruby_src_path
   fi
 
+  result=0
   if [ -z "$rvm_ruby_tag" -a -z "$rvm_ruby_rev" ] ; then
     if [ ! -d $rvm_ruby_src_path ]  ; then
       rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
@@ -27,7 +26,7 @@ function __rvm_install_source {
     fi
   else
     __rvm_log "info" "Retrieving Ruby from $rvm_url"
-    if [ ! -z "`echo $rvm_url | grep '^git'`" ] ; then
+    if [ ! -z "`echo $rvm_url | awk '/^git/'`" ] ; then
       if [ -d "$rvm_ruby_src_path/.git" ] ; then
         cd $rvm_ruby_src_path
         if [ -z "$rvm_ruby_rev" ] ; then
@@ -73,10 +72,10 @@ function __rvm_install_source {
   cd $rvm_ruby_src_path
   if [ $? -gt 0 ] ; then result=$? ; __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; __rvm_pushpop ; return $result ; fi
 
-  if [ ! -s "$rvm_ruby_src_path/configure" -a "$rvm_ruby_interpreter" = "ruby" ] ; then
+  if [ ! -s "$rvm_ruby_src_path/configure" ] ; then
     rvm_autoconf=`which autoconf`
     if [ $? -gt 0 ] ; then __rvm_log "fail" "rvm expects autoconf" ; result=$? ; return $result ; fi
-    __rvm_run "autoconf" $rvm_autoconf
+    __rvm_run "autoconf" "$rvm_autoconf"
     if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
   fi
 
@@ -99,17 +98,17 @@ function __rvm_install_source {
 
   __rvm_log "info" "Compiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
   if [ -z "$rvm_ruby_make" ] ; then
-    __rvm_run "make" make $rvm_make_flags
+    __rvm_run "make" "/usr/bin/make $rvm_make_flags"
   else
-    __rvm_run "make" $rvm_ruby_make $rvm_make_flags
+    __rvm_run "make" "$rvm_ruby_make $rvm_make_flags"
   fi
   if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
 
   if [ -z "$rvm_ruby_make" ] ; then
     __rvm_log "info" "Installing $rvm_ruby_package_name"
-    __rvm_run "install" make install
+    __rvm_run "install" "/usr/bin/make install"
   else
-    __rvm_run "install" $rvm_ruby_make_install
+    __rvm_run "install" "$rvm_ruby_make_install"
   fi
   if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
 
@@ -207,8 +206,15 @@ function __rvm_install_ruby {
         __rvm_post_install
         __rvm_pushpop
       else
-          rvm_ruby_configure="--enable-shared --enable-pthread $rvm_ruby_configure "
-        __rvm_install_source $*
+        rvm_url=`__rvm_db "ree_${rvm_ruby_version}_repo_url"`
+        if [ -z "$rvm_url" ] ; then
+          __rvm_log "fail" "rvm does not know the rvm repo url for 'ree_${rvm_ruby_version}'"
+          result=1
+        else
+          rvm_ruby_repo_url=$rvm_url
+          #rvm_ruby_configure="--enable-shared --enable-pthread $rvm_ruby_configure "
+          __rvm_install_source $*
+        fi
       fi
     ;;
 
