@@ -2,23 +2,21 @@
 
 # __rvm_select implementation version patch_level
 function __rvm_select {
-
   if [ ! -z "$rvm_ruby_string" ] ; then
     __rvm_ruby_string
   elif [ ! -z "$rvm_ruby_selector" ] ; then
-      if [ ! -z "$(echo $rvm_ruby_selector | awk '/^[0-9]/')" ] ; then
-        rvm_ruby_interpreter="ruby"
-        rvm_ruby_version=$rvm_ruby_selector
-      else
-        rvm_ruby_interpreter="$rvm_ruby_selector"
-        unset rvm_ruby_version
-      fi
+    if [ ! -z "$(echo $rvm_ruby_selector | awk '/^[0-9]/')" ] ; then
+      rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}"
+      rvm_ruby_version=$rvm_ruby_selector
+    else
+      rvm_ruby_interpreter="$rvm_ruby_selector"
+      unset rvm_ruby_version
+    fi
   elif [ ! -z "$rvm_ruby_interpreter" ] ; then
     if [ ! -z "$(echo $rvm_ruby_interpreter | awk '/^[0-9]/')" ] ; then
       rvm_ruby_version=$rvm_ruby_interpreter
       rvm_ruby_interpreter="ruby"
     else
-      rvm_ruby_interpreter="${1:-$rvm_ruby_interpreter}"
       rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}" # Default is standard ruby
     fi
   fi
@@ -27,7 +25,6 @@ function __rvm_select {
   if [ "$rvm_ruby_version" = "1.9" ] ; then rvm_ruby_version="1.9.1" ; fi
 
   case "$rvm_ruby_interpreter" in
-
     macruby)
       if [ "`uname`" = "Darwin" ] ; then
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-`__rvm_db "macruby_repo_url"`}"
@@ -47,6 +44,7 @@ function __rvm_select {
       unset rvm_ruby_patch_level
       rvm_ruby_interpreter="rubinius"
       rvm_ruby_repo_url=`__rvm_db "rubinius_repo_url"`
+      rvm_url=$rvm_ruby_repo_url
       rvm_ruby_configure=""
       rvm_ruby_make="build"
       rvm_ruby_make_install=""
@@ -56,7 +54,7 @@ function __rvm_select {
     jruby)
       rvm_ruby_version="${rvm_ruby_version:-`__rvm_db "jruby_version"`}"
       unset rvm_ruby_patch_level
-      if [ "$rvm_ruby_version" != "1.2.0" -a "$rvm_ruby_version" != "1.3.1" ] ; then
+      if [ ! -z "$(echo $rvm_ruby_version | awk '/^1\.2\.0/')" -o ! -z "$(rvm_ruby_version | awk '/^1\.3\.[0-3]/')" ] ; then
         __rvm_log "fail" "Unknown jRuby version: $rvm_ruby_version"
       fi
       alias jruby_ng="jruby --ng"
@@ -64,11 +62,11 @@ function __rvm_select {
     ;;
 
     ruby-enterprise|ree)
+      rvm_ruby_interpreter="ree"
       rvm_ruby_interpreter=`__rvm_db "ree_interpreter"`
       rvm_ruby_version=${rvm_ruby_version:-`__rvm_db "ree_version"`}
       rvm_ruby_patch_level="${3:-`__rvm_db "ree_patch_level"`}"
-
-      if [ "$rvm_ruby_version" != "1.8.6" ] ; then
+      if [ -z "$(echo $rvm_ruby_version | awk '/^1\.8/')" ] ; then
         __rvm_log "fail" "Unknown Ruby Enterprise Edition version: $rvm_ruby_version"
       fi
     ;;
@@ -146,11 +144,9 @@ function __rvm_select {
   else
     rvm_gem_home=$GEM_HOME
   fi
-
 }
 
 function __rvm_use {
-
   if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
   if [ -z "$rvm_ruby_interpreter" ] ; then rvm_ruby_interpreter="default" ; fi
 
@@ -162,6 +158,7 @@ function __rvm_use {
     if [ -s $rvm_path/default ] ; then
       source $rvm_path/default
     else
+      rvm_ruby_interpreter="system"
       __rvm_log "error" "no default rvm specified, defaulting to pre-rvm sytem."
       unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
       if [ -s $rvm_path/system ] ; then source $rvm_path/system ; fi
@@ -204,7 +201,13 @@ function __rvm_use {
     PATH=$rvm_bin_path:$PATH ; export PATH
     PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_path/bin:$PATH ; export PATH
 
-    if [ ! -z "$rvm_default_flag" ] ; then
+  fi
+
+  if [ ! -z "$rvm_default_flag" -a "$rvm_ruby_interpreter" != "default" ] ; then
+    if [ "$rvm_ruby_interpreter" = "system" ] ; then
+      rm -f $rvm_path/default
+      rm -f $rvm_path/bin/default*
+    else
       RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's/^\(.*\) (.*$/\1/')"
       export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
 
@@ -213,12 +216,12 @@ function __rvm_use {
       for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC ; do
         eval "export $variable"
         eval value=\$${variable}
-        if [ ! -z "$variable" ] ; then
+        if [ ! -z "$value" ] ; then
           echo "${variable}='$value' ; export ${variable}" >> $rvm_path/default
         else
           echo "unset ${variable}" >> $rvm_path/default
         fi
-      done
+      done ; unset variable value
 
       if [ -s $rvm_path/bin/$rvm_ruby_package_name ] ; then
         ln -fs $rvm_path/bin/$rvm_ruby_package_name $rvm_path/bin/default-ruby # So that people know what it's for :)
@@ -227,11 +230,38 @@ function __rvm_use {
       else
         rm -f $rvm_path/bin/default*
       fi
-      unset rvm_default_flag
     fi
+    unset rvm_default_flag
   fi
 
   if [ ! -z "$rvm_load_flag" ] ; then __rvm_gemset_load ; fi
   if [ ! -z "$rvm_dump_flag" ] ; then __rvm_gemset_dump ; fi
 }
 
+function __rvm_ruby_string {
+  if [ "$rvm_ruby_interpreter" = "system" ] ; then
+    rvm_ruby_string="system"
+  elif [ ! -z "$rvm_ruby_string" ] ; then
+    rvm_ruby_string=`echo "$rvm_ruby_string" | sed 's/ruby-enterprise/ree/g'` # dash-antics :)
+    rvm_ruby_interpreter=`echo $rvm_ruby_string |  tr '-' ' ' | awk '{print $1}'`
+    rvm_ruby_version=`echo $rvm_ruby_string | awk -F'-' '{print $2}'`
+    revision=`echo $rvm_ruby_string | awk -F'-' '{print $3}'`
+
+    if [ "$revision" = "head" -o "$revision" = "preview" ] ; then
+      rvm_ruby_revision="$revision"
+    else
+      echo $revision | grep '^p[0-9]\+' > /dev/null
+      if [ $? -eq 0 ] ; then
+        rvm_ruby_patch_level=`echo $revision | awk -F'p' '{print $2}'`
+      else
+        echo $revision | grep '^[0-9]\+' > /dev/null
+        if [ $? -eq 0 ] ; then
+          rvm_ruby_rev="$revision"
+        else
+          unset rvm_ruby_patch_level rvm_ruby_rev
+        fi
+      fi
+    fi
+  fi
+  return 0
+}

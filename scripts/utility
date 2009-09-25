@@ -54,11 +54,11 @@ function __rvm_debug {
 # Logging functions based on level
 function __rvm_log {
   case "$1" in
-    debug) shift ; echo -e "\033[0;35m<debug> \033[0m $* \033[0;35m</debug> \033[0m " ;;
-    info)  shift ; echo -e "\033[0;32m<info> \033[0m $* \033[0;32m</info> \033[0m " ;;
-    warn)  shift ; echo -e "\033[0;33m<warning> \033[0m $* \033[0;33m</warning> \033[0m " ;;
-    error) shift ; echo -e "\033[0;31m<error> \033[0m $* \033[0;31m</error> \033[0m " ;;
-    fail)  shift ; echo -e "\033[0;31m<fail> \033[0m $* \033[0;31m</fail> \033[0m " ; __rvm_pushpop ; return 1 ;;
+    debug) shift ; echo -e "\033[0;35m<debug>\033[0m $* \033[0;35m</debug> \033[0m " ;;
+    info)  shift ; echo -e "\033[0;32m<info>\033[0m $* \033[0;32m</info> \033[0m " ;;
+    warn)  shift ; echo -e "\033[0;33m<warning>\033[0m $* \033[0;33m</warning> \033[0m " ;;
+    error) shift ; echo -e "\033[0;31m<error>\033[0m $* \033[0;31m</error> \033[0m " ;;
+    fail)  shift ; echo -e "\033[0;31m<fail>\033[0m $* \033[0;31m</fail> \033[0m " ; __rvm_pushpop ; return 1 ;;
     *) echo -e "$*"
   esac
 }
@@ -93,7 +93,11 @@ function __rvm_run {
 }
 
 function __rvm_cleanup_variables {
-  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_configure rvm_ruby_make_install rvm_config_path rvm_ruby_string rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag
+  unset rvm_selected rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_ruby_tag rvm_ruby_rev rvm_url rvm_ruby_make rvm_ruby_configure rvm_ruby_make_install rvm_config_path rvm_ruby_string rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_ruby_string rvm_ruby_selector rvm_shebang_flag rvm_env_flag rvm_head_flag rvm_tail_flag
+}
+
+function __rvm_unset_ruby_variables {
+  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected rvm_ruby_selector rvm_ruby_string
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -102,9 +106,7 @@ function __rvm_load-rvmrc {
 }
 
 function __rvm_bin_scripts {
-  # NOTE: This depends on the forthcoming ruby_string select functionality.
-  rvm_ruby_binaries=`/bin/ls $rvm_path/*/bin/ruby 2> /dev/null`
-  for rvm_ruby_binary in $rvm_ruby_binaries ; do
+  for rvm_ruby_binary in `/bin/ls $rvm_path/*/bin/ruby 2> /dev/null` ; do
     if [ -x $rvm_ruby_binary ] ; then
       rvm_ruby_string=`dirname $rvm_ruby_binary | xargs dirname | xargs basename`
       __rvm_select
@@ -126,34 +128,53 @@ PATH=$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH ; export PATH
 exec "$rvm_ruby_binary" "\$@"
 RubyWrapper
 )
-  echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_package_name
+  rm -f $rvm_path/bin/$rvm_ruby_package_name
+  echo "$ruby_wrapper" > $rvm_path/bin/$rvm_ruby_package_name
   unset ruby_wrapper
-  chmod +x $rvm_bin_path/$rvm_ruby_package_name
+  chmod +x $rvm_path/bin/$rvm_ruby_package_name
 }
 
 function __rvm_fetch {
-
   __rvm_pushpop $rvm_archives_path
-  eval $rvm_fetch "$1"
-  result=$?
-  if [ $result -gt 0 ] ; then
-    if [ $result -eq 78 ] ; then
-      __rvm_log "error" "The requested url does not exist: '$1'"
-    elif [ $result -eq 33 ] ; then
-      archive=`basename "$1"`
-      __rvm_log "debug" "Server does not support 'range' command, removing '$archive'"
-      rm -f $archive ; unset archive
-      __rvm_fetch "$1"
+  archive=`basename "$1"`
+  __rvm_log "debug" "Fetching $archive"
+  # Check first if we have the correct archive
+  if [ -e $archive ] && [ -e $archive.md5 ] ; then
+    __rvm_log "debug" "Found archive and its md5, testing correctness"
+    if [ `md5sum --status -c $archive.md5` -gt 0 ] ; then
+      __rvm_log "debug" "Archive is bad, downloading"
+      download=1
     else
-      __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      __rvm_log "debug" "Archive is good, not downloading"
+      download=0
+      result=0
     fi
+  else
+    __rvm_log "debug" "No archive or no MD5, downloading"
+    download=1
   fi
-  __rvm_pushpop
+  if [ $download -gt 0 ] ; then
+    eval $rvm_fetch "$1"
+    result=$?
+    if [ $result -gt 0 ] ; then
+      if [ $result -eq 78 ] ; then
+        __rvm_log "error" "The requested url does not exist: '$1'"
+      elif [ $result -eq 33 ] ; then
+        __rvm_log "debug" "Server does not support 'range' command, removing '$archive'"
+        rm -f $archive
+        __rvm_fetch "$1"
+      else
+        __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      fi
+    fi
+    __rvm_pushpop
+  fi
+  unset archive
+  unset download
   return $result
 }
 
 function __rvm_load_defaults {
-
   if [ ! -s $rvm_path/system ] ; then
     for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME ; do
       eval value=\$${variable}
@@ -194,11 +215,9 @@ function __rvm_load_defaults {
       fi
     fi
   fi
-
 }
 
 function __rvm_reset {
-
   PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
   PATH=$rvm_bin_path:$PATH ; export PATH
 
@@ -214,7 +233,6 @@ function __rvm_reset {
   done ; unset system_config variable
 
   rm -f $rvm_path/bin/ruby $rvm_path/bin/gem $rvm_path/bin/rake $rvm_path/bin/irb $rvm_path/bin/default*
-
 }
 
 function __rvm_implode {
@@ -321,7 +339,6 @@ function __rvm_db {
 }
 
 function __rvm_list {
-
   if [ "$rvm_all_flag" ] ; then
     svn list http://svn.ruby-lang.org/repos/ruby/tags/ | grep 'v1_[8|9]' | sed 's/^v1_//' | sed 's/\/$//' | awk -F'_' '{print "1."$1"."$2 " -l "$3}' | sed 's/p$//'
 
@@ -334,7 +351,8 @@ function __rvm_list {
     echo "rbx head --jit"
     echo "ree 20090610"
   else
-    current=`which ruby | xargs dirname | xargs dirname | xargs basename`
+    current=`which ruby | xargs dirname | xargs dirname | xargs basename 2> /dev/null`
+
     echo -e "\nruby:\n"
     for version in `/bin/ls -l $rvm_path/ 2> /dev/null | awk '/ ruby-[1-2].*/ { print $NF  }'` ; do
       string=`$rvm_bin_path/$version -v`
@@ -344,8 +362,7 @@ function __rvm_list {
       else
         echo -e "   $version : $string"
       fi
-    done
-    unset version
+    done ; unset version
 
     echo -e "\njruby:\n"
     for version in `/bin/ls -l $rvm_path/ 2> /dev/null | awk '/jruby-.*/ { print $NF }'` ; do
@@ -356,8 +373,7 @@ function __rvm_list {
       else
         echo -e "   $version : $string"
       fi
-    done
-    unset version
+    done ; unset version
 
     echo -e "\nree:\n"
     for version in `/bin/ls $rvm_path/ 2> /dev/null | awk '/ruby-enterprise-.*/ { print $NF }'` ; do
@@ -368,7 +384,7 @@ function __rvm_list {
       else
         echo -e "   $version : $string"
       fi
-    done
+    done ; unset version
 
     if [ -f $rvm_path/default -a -s $rvm_path/default ] ; then
       version=`grep '^MY_RUBY_HOME' ~/.rvm/default | awk -F"'" '{print $2}' | xargs basename`
@@ -381,25 +397,22 @@ function __rvm_list {
         else
           echo -e "   $version : $string"
         fi
-      fi
+      fi ; unset version
     fi
 
     echo -e "\nsystem:\n"
     system_version=`rvm system ; ruby -v 2> /dev/null`
     if [ ! -z "$system_version" ] ; then
-      if [ "$selected" = "1" ] ; then
-        echo -e "   $system_version\n"
-      else
+      if [ "$(`which ruby` -v)" = "$system_version" ] ; then
         echo -e "=> $system_version\n"
+      else
+        echo -e "   $system_version\n"
       fi
-    fi
-    unset current version selected
+    fi ; unset current version selected
   fi
-
 }
 
 function __rvm_initialize {
-
   rvm_fetch=`which curl`
   if [ $? -ne 0 ] ; then
     rvm_fetch=`which wget`
@@ -454,7 +467,6 @@ function __rvm_update {
     __rvm_version
   fi
   __rvm_reload
-  __rvm_select
   # if [ "$rvm_gem_flag" ]      ; then __rvm_gem_scripts    ; fi
   if [ "$rvm_bin_flag" ]      ; then __rvm_bin_scripts    ; fi
   if [ "$rvm_rubygems_flag" ] ; then __rvm_rubygems_setup ; fi
@@ -464,9 +476,9 @@ function __rvm_update_rvm {
   mkdir -p $rvm_source_path
   if [ "$rvm_ruby_rev" = "head" ] ; then
     if [ -d $rvm_source_path/rvm/.git ] ; then
-      cd $rvm_source_path/rvm/ && git pull origin master && ./scripts/rvm-install
+      cd $rvm_source_path/rvm/ && git pull origin master && ./scripts/install
     else
-      cd $rvm_source_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/ && ./scripts/rvm-install
+      cd $rvm_source_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/ && ./install
     fi
   else
     # TODO: rvm_install_path:
@@ -489,7 +501,7 @@ function __rvm_reboot {
       fi
     fi
     gem install rvm --no-rdoc --no-ri -q
-    which rvm-install > /dev/null
+    which rvm-install 2> /dev/null
     if [ $? -gt 0 ] ; then
       if [ -e ~/.gem/ruby/1.8/bin/rvm-install ] ; then
         ~/.gem/ruby/1.8/bin/rvm-install
@@ -522,7 +534,7 @@ function __rvm_ruby_do {
       rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
     fi
     echo -e "\n$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v)"
-    eval $rvm_command
+    eval "$rvm_command"
     result=$?
     if [ $result -eq 0 ]; then
       eval "successes=(${successes[*]} $rvm_ruby_string)"
@@ -539,7 +551,8 @@ function __rvm_ruby_do {
 }
 
 function __rvm_do {
-# TODO: Extract the outer looping mechanism with rvm_install's
+  __rvm_state
+
   rubies=() ; successes=() ; errors=() ; statuses=()
   # TODO: Extract the common functionality out of the if below
   if [ ! -z "$rvm_ruby_string" ] ; then
@@ -550,6 +563,9 @@ function __rvm_do {
       unset rvm_ruby_string
       __rvm_ruby_do
     done
+  elif [ ! -z "$rvm_ruby_interpreter" ] ; then
+      unset rvm_ruby_string rvm_ruby_version
+      __rvm_ruby_do
   else # all
     while read bin_line
     do # Keep this on second line damnit!
@@ -563,6 +579,8 @@ function __rvm_do {
   if [ ! -z "$rvm_summary_flag" ] ; then __rvm_summary ; fi
   if [ ! -z "$rvm_yaml_flag" ]    ; then __rvm_yaml    ; fi
   if [ ! -z "$rvm_json_flag" ]    ; then __rvm_json    ; fi
+
+  __rvm_state
 
   return ${#errors[*]}
 }
@@ -637,39 +655,9 @@ RubyCode
   echo -e "\n  end\nend\n" >> /tmp/$$.rb
   unset rvm_code
   rvm_ruby_args="/tmp/$$.rb"
-  rvm_action="rubydo"
+  rvm_action="ruby"
   if [ ! -z "$rvm_debug_flag" ] ; then echo -e "/tmp/$$.rb:\n$(cat /tmp/$$.rb)" ; fi
   __rvm_do
-}
-
-function __rvm_ruby_string {
-  if [ "$rvm_ruby_interpreter" = "system" ] ; then
-    rvm_ruby_string="system"
-  elif [ ! -z "$rvm_ruby_string" ] ; then
-    rvm_ruby_string=`echo "$rvm_ruby_string" | sed 's/ruby-enterprise/ree/g'` # dash-antics :)
-    rvm_ruby_interpreter=`echo $rvm_ruby_string |  tr '-' ' ' | awk '{print $1}'`
-    rvm_ruby_version=`echo $rvm_ruby_string | awk -F'-' '{print $2}'`
-    revision=`echo $rvm_ruby_string | awk -F'-' '{print $3}'`
-
-    if [ "$revision" = "head" -o "$revision" = "preview" ] ; then
-      rvm_ruby_revision="$revision"
-    else
-      echo $revision | grep '^p[0-9]\+' > /dev/null
-      if [ $? -eq 0 ] ; then
-        rvm_ruby_patch_level=`echo $revision | awk -F'p' '{print $2}'`
-      else
-        echo $revision | grep '^[0-9]\+' > /dev/null
-        if [ $? -eq 0 ] ; then
-          rvm_ruby_rev="$revision"
-        else
-          unset rvm_ruby_patch_level rvm_ruby_rev
-        fi
-      fi
-    fi
-
-    if [ "rvm_ruby_interpreter" = "ree" ] ; then rvm_ruby_interpreter="ruby-enterprise" ; fi
-  fi
-  return 0
 }
 
 function __rvm_gemset_dump {
@@ -813,3 +801,32 @@ function __rvm_iconv_install {
   __rvm_run "$package.make.install" make install
   __rvm_pushpop
 }
+
+function __rvm_state {
+  if [ -z "$rvm_state" ] ; then
+    if [ -z "$(which ruby | awk /`basename $rvm_path`/)" ] ; then
+      rvm_state=system
+    else
+      rvm_state="$(dirname `which ruby` | xargs dirname | xargs basename)"
+    fi
+  else
+    rvm_ruby_string="$rvm_state"
+    __rvm_select
+    __rvm_use
+    unset rvm_state
+  fi
+}
+
+function __rvm_inspect {
+  for binary in $rvm_ruby_args ; do
+    actual_file=`which $binary`
+    __rvm_log "info" "$actual_file:"
+    if [ ! -z "$rvm_shebang_flag" ] ; then cat $actual_file | head -n 1    ; fi
+    if [ ! -z "$rvm_env_flag" ]     ; then cat $actual_file | awk '/ENV/'  ; fi
+    if [ ! -z "$rvm_path_flag" ]    ; then cat $actual_file | awk '/PATH/' ; fi
+    if [ ! -z "$rvm_head_flag" ]    ; then cat $actual_file | head -n 5    ; fi
+    if [ ! -z "$rvm_tail_flag" ]    ; then cat $actual_file | tail -n 5    ; fi
+    if [ ! -z "$rvm_all_flag" ]     ; then cat $actual_file                ; fi
+  done
+}
+

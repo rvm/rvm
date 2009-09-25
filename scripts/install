@@ -1,0 +1,173 @@
+#!/bin/bash
+
+user=`whoami`
+if [ "$user" = "root" ] ; then
+  echo -e "\033[0;31m <e> \033[0mroot user support is not yet implemented.\033[0m"
+  exit 1
+fi
+
+item="\033[0;32m* \033[0m"
+question="\n\033[0;32m<?>\033[0m"
+cwd=$(pwd)
+source_dir="${source_dir:-`dirname $0 | xargs dirname`}"
+if [ ! -d "$source_dir" ] ; then unset source_dir ; fi
+source_dir="${source_dir:-$cwd}"
+rvm_dir=~/.rvm
+
+# State what is required to use rvm
+echo -e "\n\033[0;32mrvm\033[0m\n\n    shell scripts that allows a user to manage multiple ruby versions in their own account."
+echo -e "\n    Installing rvm to ~/.rvm/ ..."
+for dir_name in src scripts bin log archives config gems examples ; do
+  mkdir -p $rvm_dir/$dir_name
+done
+
+for dir_name in config scripts examples lib ; do
+  mkdir -p $rvm_dir/$dir_name
+  /bin/cp -Rf $source_dir/$dir_name $rvm_dir
+done ; unset dir_name
+
+for file_name in rvm-prompt gemsync ; do
+  mv $rvm_dir/scripts/$file_name $rvm_dir/bin/
+  chmod +x $rvm_dir/bin/$file_name
+done ; unset file_name
+
+results=$(grep 'scripts/rvm' ~/.bash_profile ~/.bashrc ~/.zshrc > /dev/null)
+if [ $? -gt 0 ] ; then
+  if [ ! -z "`echo $PS1`" ] ; then
+    while : ; do
+      echo -n -e "$question Do you want this (s)cript to set this up for you, or do it (m)anually yourself ('s' or 'm')? "
+      read response
+      if [ "${response:0:1}" = "s" ] ; then
+        echo 'w00t!'
+        break
+      elif [ "${response:0:1}" = "m" ] ; then
+        echo -e "    Please make sure that this line is in place."
+        break
+      fi
+    done
+
+    if [ "${response:0:1}" = "s" ] ; then
+
+      while : ; do
+        echo -n -e "$question Do you use b(a)sh or (z)sh or b(o)th for your shell (the default on most *nix systems is bash, press control + C to cancel the installation)\n(a/z/o)? "
+        read response
+        if [ "${response:0:1}" = "a" ] ; then
+          user_shell="bash"
+          break
+        elif [ "${response:0:1}" = "z" ] ; then
+          user_shell="zsh"
+          break
+        elif [ "${response:0:1}" = "o" ] ; then
+          user_shell="both"
+          break
+        fi
+      done
+    fi
+  else
+    user_shell="both"
+  fi
+
+  if [ "$user_shell" = "bash" -o "$user_shell" = "both" ] ; then
+    touch ~/.bash_profile
+    if [ -z "`grep '\.rvm/scripts/rvm' ~/.bash_profile`" ] ; then
+      echo "Adding 'if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi' to your ~/.bash_profile."
+      echo -e "\n" >> ~/.bash_profile
+      echo "if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi" >> ~/.bash_profile
+    fi
+    touch ~/.bashrc
+    if [ -z "`grep '\.rvm/scripts/rvm' ~/.bashrc`" ] ; then
+      echo "Adding 'if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi' to your ~/.bashrc."
+      echo -e "\n" >> ~/.bashrc
+      echo "if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi" >> ~/.bashrc
+    fi
+
+  fi
+
+  if [ "$user_shell" = "zsh" -o "$user_shell" = "both" ] ; then
+    touch ~/.zshrc
+    if [ -z "`grep '\.rvm/scripts/rvm' ~/.zshrc`" ] ; then
+      echo "Adding 'if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi' to your ~/.zshrc."
+      echo -e "\n" >> ~/.zshrc
+      echo "if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi" >> ~/.zshrc
+    fi
+  fi
+fi
+
+echo -e "\n    Ensuring that rvm script location in $file is scripts/rvm not bin/rvm for: ~/.bash_profile, ~/.bashrc, ~/.zshrc..."
+for file in ~/.bash_profile ~/.bashrc ~/.zshrc ; do
+  if [ -s $file ] ; then
+    if [ -L $file ] ; then         # If the file is a symlink,
+      actual_file=`readlink $file` # read the link target so we can preserve it.
+    else
+      actual_file="$file"
+    fi
+
+    grep 'rvm\/bin\/rvm' $actual_file > /dev/null
+    if [ $? -eq 0 ] ; then
+      sed -i.orig 's/rvm\/bin\/rvm/rvm\/scripts\/rvm/g' $actual_file
+      rm -f $actual_file.orig
+    fi
+
+    if [ -f ~/.profile ] ; then
+      grep '.profile' $actual_file > /dev/null
+      if [ $? -gt 0 ] ; then
+        profile=~/.profile
+        echo -e "\n" >> $actual_file
+        echo "source $profile" >> $actual_file
+      fi
+    fi
+  fi
+done
+
+if [ -f ~/.rvm/bin/rvm ] ; then
+  echo -e "\n    Removing old rvm file from ~/.rvm/bin/rvm..."
+  rm -f ~/.rvm/bin/rvm
+fi
+
+system=`uname`
+echo -e "\n    \033[0;33mNOTES: \033[0m"
+if [ "$system" = "Linux" ] ; then
+  rvm_apt_get_binary=`which apt-get 2> /dev/null`
+  rvm_emerge_binary=`which emerge 2> /dev/null`
+  rvm_pacman_binary=`which pacman 2> /dev/null`
+  rvm_yum_binary=`which yum 2> /dev/null`
+
+  if [ ! -z "$rvm_apt_get_binary" ] ; then
+    echo -e "      $item For jRuby (if you wish to use it) you will need:"
+    echo -e "         $ sudo apt-get install sun-java6-bin sun-java6-jre sun-java6-jdk"
+    echo -e "      $item For ree (if you wish to use it) you will need:"
+    echo -e "         $ sudo apt-get install libreadline5-dev libssl-dev bison"
+
+  elif [ ! -z "$rvm_emerge_binary" ] ; then
+    echo -e "      $item For jRuby (if you wish to use it) you will need:"
+    echo -e "         $ sudo emerge dev-java/sun-jdk dev-java/sun-jre-bin"
+
+  elif [ ! -z "$rvm_pacman_binary" ] ; then
+    echo -e "      $item For jRuby (if you wish to use it) you will need:"
+    echo -e "         $ sudo pacman -Sy jdk jre"
+
+  elif [ ! -z "$rvm_yum_binary" ] ; then
+    echo -e "      $item For ree (if you wish to use it) you will need:"
+    echo -e "         $ yum install -y rpm-build gcc gcc-c++ redhat-rpm-config ; then download and rpmbuild and install the sdk, Have fun..."
+
+  else
+    echo -e "      $item For jRuby (if you wish to use it) you will need:"
+    echo -e "         The SUN java runtime environment and development kit."
+  fi
+elif [ "$system" = "Darwin" ] ; then
+  echo -e "        $item Be sure that you have XCode Tools installed in order to use rvm."
+  echo -e "        $item If you intend on installing MacRuby you must install LLVM first."
+fi
+
+echo -e "      $item In order to use rvm the following line must occur in your shell's loading files, after all path/variable settings.:"
+echo -e "      $item if [ -s ~/.rvm/scripts/rvm ] ; then source ~/.rvm/scripts/rvm ; fi"
+echo -e "      $item CLOSE THIS SHELL AND OPEN A NEW ONE in order to use rvm."
+
+echo -e "\n    \033[0;33mRTFM: \033[0m http://rvm.beginrescueend.com/ \n"
+echo -e '\033[0;32mw⦿‿⦿t!\033[0m'
+echo -e "\n    ~ Wayne\n"
+
+source $rvm_dir/scripts/rvm
+rvm -v
+echo
+

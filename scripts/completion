@@ -1,0 +1,198 @@
+#!/bin/bash
+
+complete -o default -o nospace -F _rvm rvm
+
+_rvm ()
+{
+	local i c=1 command __git_dir
+
+	while [ $c -lt $COMP_CWORD ]; do
+		i="${COMP_WORDS[c]}"
+		case "$i" in
+		--git-dir=*) __git_dir="${i#--git-dir=}" ;;
+		--bare)      __git_dir="." ;;
+		--version|-p|--paginate) ;;
+		--help) command="help"; break ;;
+		*) command="$i"; break ;;
+		esac
+		c=$((++c))
+	done
+
+	if [ -z "$command" ]; then
+		case "${COMP_WORDS[COMP_CWORD]}" in
+		--*)   __gitcomp "
+			--paginate
+			--no-pager
+			--git-dir=
+			--bare
+			--version
+			--exec-path
+			--html-path
+			--work-tree=
+			--help
+			"
+			;;
+		*)     __gitcomp "$(__git_porcelain_commands) $(__git_aliases)" ;;
+		esac
+		return
+	fi
+
+	local expansion=$(__git_aliased_command "$command")
+	[ "$expansion" ] && command="$expansion"
+
+	case "$command" in
+      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|usage|help|implode|update|readline|iconv|benchmark|bench|use|gemsync)
+      ;;
+
+      rm|remove)
+      ;;
+
+      system|default)
+      ;;
+
+      ruby|jruby|ree|macruby|rbx|rubinius|default|all)
+      ;;
+
+      gemdir)
+      ;;
+
+      gemdup)
+        "system"
+        "user"
+        "default"
+      ;;
+
+
+      1.8|1.8.0|1.8.1|1.8.2|1.8.3|1.8.4|1.8.5|1.8.6|1.8.7|1.9|1.9.1|1.9.2)
+      ;;
+
+      1.2.0|1.3.1)
+      ;;
+
+      do|rubydo|rakedo|gemdo)
+      ;;
+      specs|tests)
+      ;;
+      rake|gem)
+      ;;
+      -S|--script|-e|--execute)
+      ;;
+      default|system)
+      ;;
+
+      --install)         rvm_install_on_use_flag=1         ;;
+      --prefix)          rvm_prefix_path="$1"      ; shift ;;
+      -G|--gems)         rvm_gem_path="$1"         ; shift ;;
+      --source)          rvm_source_path="$1"      ; shift ;;
+      --archives)        rvm_archives_path="$1"    ; shift ;;
+      --make)            rvm_ruby_make="$1"        ; shift ;;
+      --make-install)    rvm_ruby_make_install="$1"; shift ;;
+      --nice)            rvm_niceness="$1"         ; shift ;;
+      -l|--level)        rvm_ruby_patch_level="$1" ; shift ;;
+      -h|--help)         rvm_action=help           ; shift ;;
+      -m|--gem-set)      rvm_gem_set_name="$1"     ; shift ;;
+         --rm-gem-set)   rvm_gem_set_name_rm="$1"  ; shift ;;
+      tests|specs)       rvm_action="tests"                ;;
+
+      --self|--gem|--rubygems|--reconfigure|--default|--debug|debug|--force|--all|--dump|--summary|--jit|--latest|--yaml|yaml|--json|json)
+        eval "rvm_$(echo $rvm_token | sed 's/-//g')_flag=1"
+      ;;
+
+	stash)       _git_stash ;;
+	stage)       _git_add ;;
+	submodule)   _git_submodule ;;
+	svn)         _git_svn ;;
+	tag)         _git_tag ;;
+	whatchanged) _git_log ;;
+	*)           COMPREPLY=() ;;
+	esac
+}
+
+# __gitcomp accepts 1, 2, 3, or 4 arguments
+# generates completion reply with compgen
+function __rvm_completion_reply
+{
+	local cur="${COMP_WORDS[COMP_CWORD]}"
+	if [ $# -gt 2 ]; then
+		cur="$3"
+	fi
+	case "$cur" in
+	--*=)
+		COMPREPLY=()
+		;;
+	*)
+		local IFS=$'\n'
+		COMPREPLY=($(compgen -P "${2-}" \
+			-W "$(__gitcomp_1 "${1-}" "${4-}")" \
+			-- "$cur"))
+		;;
+	esac
+}
+
+function _rvm {
+
+  __rvm_cleanup_variables
+  __rvm_load-rvmrc
+  __rvm_initialize
+  __rvm_load_defaults
+  __rvm_parse-args $@
+
+  result=0
+  case "$rvm_action" in
+    install)    __rvm_install          ; result=$? ;;
+    uninstall)  __rvm_uninstall        ; result=$? ;;
+    remove)     __rvm_remove           ; result=$? ;;
+    use)        __rvm_use              ; result=$? ;;
+    gemdir)     __rvm_gem-dir          ; result=$? ;;
+    srcdir)     __rvm_src-dir          ; result=$? ;;
+    gemdup)     __rvm_gem-dup          ; result=$? ;;
+    list)       __rvm_list             ; result=$? ;;
+    version)    __rvm_version          ; result=$? ;;
+    reset)      __rvm_reset            ; result=$? ;;
+                # TODO: how can we use bin_path here for reload, default file?
+    reload)     __rvm_reload           ; result=$? ;;
+    implode)    __rvm_implode          ; result=$? ;;
+    update)     __rvm_update           ; result=$? ;;
+    readline)   __rvm_readline_install ; result=$? ;;
+    iconv)      __rvm_iconv_install    ; result=$? ;;
+    reboot)     __rvm_reboot           ; result=$? ;;
+    usage|help) __rvm_usage            ; result=$? ;;
+    bench|benchmark)  __rvm_benchmark  ; result=$? ;;
+    rubydo|rakedo|gemdo) __rvm_do      ; result=$? ;;
+
+    gemsync)
+      result=0
+      rvm_source_gem_path=`__rvm_select ; echo $rvm_gem_home`
+      __rvm_gem_sync
+    ;;
+
+    tests|specs)
+      rvm_summary_flag=1
+      rvm_action="rake"
+      __rvm_do
+    ;;
+
+    info|debug)
+      __rvm_version
+      __rvm_info
+      if [ "$rvm_action" = "debug" ] ; then __rvm_debug ; fi
+      result=0
+    ;;
+
+    error)
+      __rvm_log "fail" "$rvm_error_message ( see: 'rvm usage' )"
+      __rvm_pushpop
+      result=1;
+    ;;
+    *)
+      if [ ! -z "$rvm_action" ] ; then
+        __rvm_log "fail"  "unknown action '$rvm_action'"
+      else
+        __rvm_usage
+      fi
+      result=1
+  esac
+  return $result
+}
+
+
