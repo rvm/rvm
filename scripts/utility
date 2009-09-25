@@ -661,7 +661,8 @@ RubyCode
 }
 
 function __rvm_gemset_dump {
-  file_name=${rvm_gem_set_name:-'default'}
+  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
+  rvm_file_name=${rvm_file_name:-'default'}
 
   echo "# $rvm_gem_set_name.gemset generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_gem_set_name.gemset
 
@@ -670,16 +671,17 @@ function __rvm_gemset_dump {
     if [ -z "$rvm_latest_flag" ] ; then
       versions=`echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g'`
       for version in $versions ; do
-        echo "$name -v$version" >> $file_name.gemset
+        echo "$name -v$version" >> $rvm_file_name
       done ; unset version versions
     else
-      echo "$name" >> $file_name.gemset
+      echo "$name" >> $rvm_file_name
     fi ; unset name
   done ; unset file_name
 }
 
 function __rvm_gemset_load {
-  echo "Loading $rvm_load_file file..."
+  if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
+  echo "Loading $rvm_file file..."
   rvm_ruby_gem_list=`/bin/ls $rvm_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null`
   while read line
   do # Keep this on 2nd line :( bash fail.
@@ -728,7 +730,7 @@ function __rvm_gemset_load {
       fi
     fi
     unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
-  done < <(awk '/^[a-zA-Z]/{print}' "$rvm_load_file")
+  done < <(awk '/^[a-zA-Z]/{print}' "$rvm_file_name")
 }
 
 function __rvm_irbrc {
@@ -780,12 +782,12 @@ function __rvm_readline_install {
     CFLAGS="-isysroot /Developer/SDKs/$sdk -arch i386 -arch x86_64"
     LDFLAGS="-Wl,-syslibroot,/Developer/SDKs/$sdk -arch i386 -arch x86_64"
     export CFLAGS LDFLAGS
-    __rvm_run "$package.configure" ./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared
+    __rvm_run "$package.configure" "./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared"
   else
-    __rvm_run "$package.configure" ./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared
+    __rvm_run "$package.configure" "./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared"
   fi
-  __rvm_run "$package.make" make
-  __rvm_run "$package.make.install" make install
+  __rvm_run "$package.make" "/usr/bin/make $rvm_make_flags"
+  __rvm_run "$package.make.install" "/usr/bin/make install"
   __rvm_pushpop
 }
 
@@ -794,11 +796,11 @@ function __rvm_iconv_install {
   package=libiconv
   version=1.13.1
   __rvm_fetch "http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.tar.gz"
-  __rvm_run "$package.extract" tar zxf $rvm_archives_path/$package-$version.tar.gz -C $rvm_source_path
+  __rvm_run "$package.extract" "tar zxf $rvm_archives_path/$package-$version.tar.gz -C $rvm_source_path"
   cd $rvm_source_path/$package-$version
-  __rvm_run "$package.configure" ./configure --prefix=$rvm_path/usr --disable-shared
-  __rvm_run "$package.make" make
-  __rvm_run "$package.make.install" make install
+  __rvm_run "$package.configure" "./configure --prefix=$rvm_path/usr --disable-shared"
+  __rvm_run "$package.make" "/usr/bin/make $rvm_make_flags"
+  __rvm_run "$package.make.install" "/usr/bin/make install"
   __rvm_pushpop
 }
 

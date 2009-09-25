@@ -107,7 +107,7 @@ function __rvm_parse-args {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|update|readline|iconv|use|gemsync)
+      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|update|readline|iconv|use|gemsync|gemset)
         rvm_action=$rvm_token
       ;;
 
@@ -138,6 +138,22 @@ function __rvm_parse-args {
         if [ "$1" = "user" ]   ; then rvm_ruby_interpreter="user"   ; shift ; fi
 
         rvm_ruby_interpreter="${rvm_ruby_interpreter:-current}"
+      ;;
+
+      --load|load|dump)
+        eval "rvm_${rvm_token}_flag=1"
+        if [ ! -z "$1" ] ; then
+          if [ ! -z "$(echo $1 | awk '/\.gemset$/')" ] ; then
+            rvm_gem_set_name=$(echo $1 | sed 's/\.gemset//')
+          else
+            rvm_gem_set_name=$1
+          fi
+          shift
+        else
+          rvm_gem_set_name="default"
+        fi
+        rvm_file_name="$rvm_gem_set_name.gemset"
+        rvm_action=$rvm_token
       ;;
 
       gemdup)
@@ -297,18 +313,6 @@ function __rvm_parse-args {
         rvm_parse_break=1
       ;;
 
-      --load)
-        rvm_load_flag=1
-        if [ ! -z "$1" ] ; then
-          rvm_load_file="$1"
-          shift
-        else
-           rvm_action="error"
-           rvm_error_message="--load must be followed by the .gemset file to load."
-           break;
-        fi
-      ;;
-
       default|system)
         rvm_action="use"
         rvm_ruby_interpreter="system"
@@ -404,6 +408,10 @@ function rvm {
     install|uninstall|remove)
       __rvm_manage_rubies
       result=$?
+    ;;
+
+    load|dump)
+      __rvm_gemset_${rvm_action}
     ;;
 
     gemsync)
