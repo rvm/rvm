@@ -76,7 +76,7 @@ function __rvm_install_source {
     rvm_autoconf=`which autoconf`
     if [ $? -gt 0 ] ; then __rvm_log "fail" "rvm expects autoconf" ; result=$? ; return $result ; fi
     __rvm_run "autoconf" "$rvm_autoconf"
-    if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+    # if [ $? -gt 0 ] ; then result=$? ; return $result ; fi # Don't barf on autoconf fail...
   fi
 
   if [ -s ./Makefile -a -z "$rvm_reconfigure_flag" ] ; then
@@ -84,32 +84,28 @@ function __rvm_install_source {
   elif [ -s ./configure ] ; then
     __rvm_log "info" "Configuring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
     if [ -d $rvm_path/usr/include/readline/ ] ; then
-      configure_parameters="$configure_parameters --with-readline-dir=$rvm_path/usr/include/readline/"
+      configure_parameters="$configure_parameters --with-readline-dir=$rvm_path/usr/include/readline/ --with-search-path=$rvm_path/usr"
     fi
     if [ -d $rvm_path/usr/include/iconv/ ] ; then
-      configure_parameters="$configure_parameters --with-iconv-dir=$rvm_path/usr/include/iconv/"
+      configure_parameters="$configure_parameters --with-iconv-dir=$rvm_path/usr/include/iconv/ --with-search-path=$rvm_path/usr"
     fi
-    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure $configure_parameters"
-    unset configure_parameters
+    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure $configure_parameters --with-search-path=/usr --with-search-path=/usr/local"
     if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+    unset configure_parameters
+  elif [ ! -z "rvm_ruby_configure" ] ; then
+    $rvm_ruby_configure
   else
     __rvm_log "error" "Skipping configure step, 'configure' script does not exist, did autoconf not run successfully?"
   fi
 
   __rvm_log "info" "Compiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
-  if [ -z "$rvm_ruby_make" ] ; then
-    __rvm_run "make" "/usr/bin/make $rvm_make_flags"
-  else
-    __rvm_run "make" "$rvm_ruby_make $rvm_make_flags"
-  fi
+  rvm_ruby_make=${rvm_ruby_make:-"/usr/bin/make"}
+  __rvm_run "make" "$rvm_ruby_make $rvm_make_flags"
   if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
 
-  if [ -z "$rvm_ruby_make" ] ; then
-    __rvm_log "info" "Installing $rvm_ruby_package_name"
-    __rvm_run "install" "/usr/bin/make install"
-  else
-    __rvm_run "install" "$rvm_ruby_make_install"
-  fi
+  __rvm_log "info" "Installing $rvm_ruby_package_name"
+  rvm_ruby_make_install=${rvm_ruby_make_install:-"/usr/bin/make install"}
+  __rvm_run "install" "$rvm_ruby_make_install"
   if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
 
   __rvm_log "info" "Installation of $rvm_ruby_package_name is complete."
@@ -131,16 +127,21 @@ function __rvm_install_ruby {
   if [ "`uname`" = "Darwin" ] ; then ARCHFLAGS="-arch x86_64 -arch i386" ; export ARCHFLAGS ; fi
 
   case "$rvm_ruby_interpreter" in
-
     macruby)
       if [ "`uname`" = "Darwin" ] ; then
+        rvm_ruby_interpreter="system"
+        __rvm_select
+        __rvm_use
+        rvm_ruby_interpreter="macruby"
+        __rvm_gi "rake" # Make sure that rake is present
         #rvm_macruby_repo_url="${rvm_macruby_repo_url:-"http://svn.macosforge.org/repository/ruby/MacRuby"}"
         rvm_macruby_repo_url="${rvm_macruby_repo_url:-"git://github.com/masterkain/macruby.git"}"
         rvm_ruby_repo_url=$rvm_macruby_repo_url
         #rvm_macruby_nightly_url=`__rvm_db "macruby_nightly_url"`
-        rvm_ruby_configure=""
-        rvm_ruby_make="rake macruby:build framework_instdir=$rvm_path/macruby-head framework_name=/macruby-head --trace"
-        rvm_ruby_make_install="rake framework:install framework_instdir=$rvm_path/macruby-head framework_name=/macruby-head --trace"
+        rvm_ruby_configure=" "
+        rvm_make_flags=" "
+        rvm_ruby_make="cd $rvm_ruby_src_path; /usr/bin/rake macruby:build framework_instdir=$rvm_path/macruby-head framework_name=/macruby-head --trace"
+        rvm_ruby_make_install="cd $rvm_ruby_src_path; /usr/bin/rake framework:install"
         rvm_ruby_rev="${rvm_ruby_rev:-head}" # Hard coding this for now
         rvm_url=$rvm_ruby_repo_url
 
@@ -224,7 +225,7 @@ function __rvm_install_ruby {
       PATH=$rvm_bin_path:$PATH ; export PATH
 
       rvm_ruby_repo_url=$rvm_rubinius_repo_url
-      rvm_ruby_configure=""
+      rvm_ruby_configure=" "
       rvm_ruby_src_path=$rvm_ruby_home
       rvm_ruby_make="rake"
       rvm_ruby_make_install="rake install"
@@ -345,17 +346,16 @@ RubyWrapper
     ;;
 
     ruby)
-        # Merge configure options with user specified options
-        if [ "`uname`" = "Darwin" ] ; then
-          ARCHFLAGS="-arch x86_64 -arch i386" ; export ARCHFLAGS
-          if [ "$(echo $rvm_ruby_version | awk '/1\.8/'" ] ; then
-            rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared --disable-pthread"} "
-          else
-            rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared"} "
-          fi
+      if [ "`uname`" = "Darwin" ] ; then
+        ARCHFLAGS="-arch x86_64 -arch i386" ; export ARCHFLAGS
+        if [ "$(echo $rvm_ruby_version | awk '/1\.8/')" ] ; then
+          rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared --disable-pthread"} "
         else
-          rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared --enable-pthread"} "
+          rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared"} "
         fi
+      else
+        rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared --enable-pthread"} "
+      fi
       __rvm_install_source $*
     ;;
 
@@ -397,7 +397,7 @@ function __rvm_manage_rubies {
         fi
       done < <(/bin/ls $rvm_path/*/bin/ruby 2> /dev/null)
     else
-      __rvm_log "warn" "Really? Install all? See 'rvm list --all' and limit the selection to something more sane please :)"
+      __rvm_log "warn" 'Really? Install all? See "rvm list --all" and limit the selection to something more sane please :)'
     fi
   fi
   __rvm_state
