@@ -531,8 +531,15 @@ function __rvm_ruby_do {
     else
       rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
     fi
-    echo -e "\n$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v)"
-    eval "$rvm_command"
+
+    if [ ! -z "$rvm_json_flag" -o ! -z "$rvm_yaml_flag" -o ! -z "$rvm_summary_flag" ] ; then
+      mkdir -p ./log/$rvm_ruby_string/
+      touch ./log/$rvm_ruby_string/$rvm_action.log ./log/$rvm_ruby_string/$rvm_action.error.log
+      eval "$rvm_command" >> ./log/$rvm_ruby_string/$rvm_action.log 2>> ./log/$rvm_ruby_string/$rvm_action.error.log
+    else
+      echo -e "\n$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v)"
+      eval "$rvm_command"
+    fi
     result=$?
     if [ $result -eq 0 ]; then
       eval "successes=(${successes[*]} $rvm_ruby_string)"
@@ -594,20 +601,20 @@ function __rvm_summary {
 
 function __rvm_yaml {
   export successes errors statuses
-  yaml="\ntotals:\n    rubies: ${#rubies[*]}\n    successes: ${#successes[*]}\n    errors: ${#errors[*]}\n  successes:"
+  yaml="totals:\n  rubies: ${#rubies[*]}\n  successes: ${#successes[*]}\n  errors: ${#errors[*]}\nsuccesses:"
   for var in ${successes[*]} ; do
-    yaml="$yaml\n    - $var"
+    yaml="$yaml\n  - $var"
   done
-  yaml="$yaml\n  errors:"
+  yaml="$yaml\nerrors:"
   for var in ${errors[*]} ; do
-    yaml="$yaml\n    - $var"
+    yaml="$yaml\n  - $var"
   done
-  yaml="$yaml\n  rubies:"
+  yaml="$yaml\nrubies:"
   total=${#rubies[*]}
   if [ ! -z "$ZSH_VERSION" ] ; then array_start=1 ; else array_start=0 ; fi
   for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
-    echo "${rubies[$index]}: ${statuses[$index]}"
-    yaml="$yaml\n    \"${rubies[$index]}\": ${statuses[$index]}"
+    __rvm_log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    yaml="$yaml\n  \"${rubies[$index]}\": ${statuses[$index]}"
   done ; unset index array_start
 
   mkdir -p log
@@ -626,7 +633,7 @@ function __rvm_json {
   total=${#rubies[*]}
   if [ ! -z "$ZSH_VERSION" ] ; then array_start=1 ; else array_start=0 ; fi
   for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
-    echo "${rubies[$index]}: ${statuses[$index]}"
+    __rvm_log "debug" "${rubies[$index]}: ${statuses[$index]}"
     json="$json\n    {\"${rubies[$index]}\": ${statuses[$index]}}"
     if (( $index + 1 < $total + $array_start )) ; then json="$json,  " ; fi
   done ; unset index array_start
