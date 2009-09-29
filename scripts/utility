@@ -591,11 +591,17 @@ function __rvm_do {
 
 function __rvm_summary {
   export successes errors statuses
-  echo -e "\nSummary:"
-  echo -e "\033[0;32msuccessful (${#successes[*]}) : [ $(echo "${successes[*]}" | sed 's/ /, /g') ]\033[0m"
-  echo -e "\033[0;31merrors (${#errors[*]}) : [ $(echo "${errors[*]}" | sed 's/ /, /g') ]\033[0m"
-  echo -e "rubies (${#rubies[*]}) : [ $(echo "${rubies[*]}" | sed 's/ /, /g') ]"
-  echo -e "statuses: [ $(echo "${statuses[*]}" | sed 's/ /, /g') ]\n"
+  summary="\nSummary:\n"
+  summary="$summary \033[0;32m${#successes[*]} successful: $(echo "${successes[*]}" | sed 's/ /, /g')\033[0m\n"
+  summary="$summary \033[0;31m${#errors[*]} errors: $(echo "${errors[*]}" | sed 's/ /, /g')\033[0m\n"
+  total=${#rubies[*]}
+  if [ ! -z "$ZSH_VERSION" ] ; then array_start=1 ; else array_start=0 ; fi
+  for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
+    __rvm_log "debug" "${rubies[$index]} returned ${statuses[$index]}"
+    summary="$summary ${rubies[$index]} returned ${statuses[$index]}"
+    if (( $index + 1 < $total + $array_start )) ; then summary="$summary\n" ; fi
+  done ; unset index array_start
+  echo -e "$summary" | tee -a log/summary.log
   return ${#errors[*]}
 }
 
@@ -616,7 +622,6 @@ function __rvm_yaml {
     __rvm_log "debug" "${rubies[$index]}: ${statuses[$index]}"
     yaml="$yaml\n  \"${rubies[$index]}\": ${statuses[$index]}"
   done ; unset index array_start
-
   mkdir -p log
   echo -e "$yaml" | tee -a log/summary.yaml
 
