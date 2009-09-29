@@ -80,10 +80,11 @@ function __rvm_remove-rvm-from-path {
 function __rvm_gi { gem install -q --no-rdoc --no-ri $* ; }
 
 function __rvm_run {
-  log_file_name="$1" ; shift
-  command="$*"
+  log_file_name="$1" ; command="$2" ; message="$3"
   rvm_ruby_log_path=${rvm_ruby_log_path:-$rvm_path/log}
-  mkdir -p $rvm_ruby_log_path
+  mkdir -p `dirname $rvm_ruby_log_path/$log_file_name.log`
+
+  if [ ! -z "$message" ] ; then __rvm_log "info" "$message" ; fi
   __rvm_log "debug" "Executing: $command"
   touch $rvm_ruby_log_path/$log_file_name.log $rvm_ruby_log_path/$log_file_name.error.log # for zsh :(
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee $rvm_ruby_log_path/$log_file_name.log > $rvm_ruby_log_path/$log_file_name.error.log
@@ -540,7 +541,6 @@ function __rvm_ruby_do {
     fi
     eval "rubies=(${rubies[*]} $rvm_ruby_string)"
     eval "statuses=(${statuses[*]} $result)"
-    # TODO: keep track of and re-set the previous selected ruby ;)
   else
     __rvm_log "warn" "'$rvm_ruby_home/bin/$binary' either does not exist or is not executable? :("
   fi
@@ -799,33 +799,33 @@ function __rvm_inspect {
 #
 function __rvm_readline_install {
   __rvm_pushpop $rvm_source_path
-  package="readline" ; version="5.2"
+  package="readline" ; version="5.2" ; archive_format="tar.gz"
   # TODO: Figure out how to list, grab and apply the patches
-  __rvm_fetch "ftp://ftp.gnu.org/gnu/readline/$package-$version.tar.gz"
-  __rvm_run "$package.extract" tar zxf $rvm_archives_path/$package-$version.tar.gz -C $rvm_source_path
+  __rvm_run "$package/fetch" "__rvm_fetch ftp://ftp.gnu.org/gnu/readline/$package-$version.$archive_format" "Retrieving $package-$version.$archive_format"
+  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_source_path" "Extracting $package-$version.$archive_format"
   cd $rvm_source_path/$package-$version
   if [ "`uname`" = "Darwin" ] ; then
     sdk=`ls -t /Developer/SDKs/ | head -n 1`
     CFLAGS="-isysroot /Developer/SDKs/$sdk -arch i386 -arch x86_64"
     LDFLAGS="-Wl,-syslibroot,/Developer/SDKs/$sdk -arch i386 -arch x86_64"
     export CFLAGS LDFLAGS
-    __rvm_run "$package.configure" "./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared"
+    __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared" "Configuring $package"
   else
-    __rvm_run "$package.configure" "./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared"
+    __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared" "Configuring $package"
   fi
-  __rvm_run "$package.make" "/usr/bin/make $rvm_make_flags"
-  __rvm_run "$package.make.install" "/usr/bin/make install"
+  __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
+  __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
   __rvm_pushpop
 }
 
 function __rvm_iconv_install {
   __rvm_pushpop $rvm_source_path
-  package="libiconv" ; version=1.13.1
-  __rvm_fetch "http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.tar.gz"
-  __rvm_run "$package.extract" "tar zxf $rvm_archives_path/$package-$version.tar.gz -C $rvm_source_path"
+  package="libiconv" ; version=1.13.1 ; archive_format="tar.gz"
+  __rvm_run "$package/fetch" "__rvm_fetch http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.$archive_format" "Retrieving $package-$version.$archive_format"
+  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_source_path" "Extracting $package-$version.$archive_format"
   cd $rvm_source_path/$package-$version
-  __rvm_run "$package.configure" "./configure --prefix=$rvm_path/usr --disable-shared"
-  __rvm_run "$package.make" "/usr/bin/make $rvm_make_flags"
-  __rvm_run "$package.make.install" "/usr/bin/make install"
+  __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --disable-static --enable-shared" "Configuring $package."
+  __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
+  __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
   __rvm_pushpop
 }
