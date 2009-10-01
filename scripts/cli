@@ -5,7 +5,7 @@ function __rvm_meta {
   rvm_meta_author_email="wayneeseguin@gmail.com"
   rvm_meta_website="http://rvm.beginrescueend.com/"
   rvm_meta_version="`cat $rvm_path/lib/VERSION.yml | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//'`"
-  rvm_meta_updated="2009.09.24"
+  rvm_meta_updated="2009.09.29"
 }
 
 function __rvm_version { __rvm_meta ; echo "rvm $rvm_meta_version ($rvm_meta_updated) [$rvm_meta_website]" ; }
@@ -107,7 +107,7 @@ function __rvm_parse-args {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|update|readline|iconv|use|gemsync)
+      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|update|readline|iconv|use|gemsync|gemset)
         rvm_action=$rvm_token
       ;;
 
@@ -138,6 +138,22 @@ function __rvm_parse-args {
         if [ "$1" = "user" ]   ; then rvm_ruby_interpreter="user"   ; shift ; fi
 
         rvm_ruby_interpreter="${rvm_ruby_interpreter:-current}"
+      ;;
+
+      --load|load|dump)
+        eval "rvm_${rvm_token}_flag=1"
+        if [ ! -z "$1" ] ; then
+          if [ ! -z "$(echo $1 | awk '/\.gemset$/')" ] ; then
+            rvm_gem_set_name=$(echo $1 | sed 's/\.gemset//')
+          else
+            rvm_gem_set_name=$1
+          fi
+          shift
+        else
+          rvm_gem_set_name="default"
+        fi
+        rvm_file_name="$rvm_gem_set_name.gemset"
+        rvm_action=$rvm_token
       ;;
 
       gemdup)
@@ -297,18 +313,6 @@ function __rvm_parse-args {
         rvm_parse_break=1
       ;;
 
-      --load)
-        rvm_load_flag=1
-        if [ ! -z "$1" ] ; then
-          rvm_load_file="$1"
-          shift
-        else
-           rvm_action="error"
-           rvm_error_message="--load must be followed by the .gemset file to load."
-           break;
-        fi
-      ;;
-
       default|system)
         rvm_action="use"
         rvm_ruby_interpreter="system"
@@ -383,9 +387,9 @@ function rvm {
   result=0
   case "$rvm_action" in
     use)        __rvm_use              ; result=$? ;;
-    gemdir)     __rvm_gem-dir          ; result=$? ;;
-    gemdup)     __rvm_gem-dup          ; result=$? ;;
-    srcdir)     __rvm_src-dir          ; result=$? ;;
+    gemdir)     __rvm_gemdir           ; result=$? ;;
+    gemdup)     __rvm_gemdup           ; result=$? ;;
+    srcdir)     __rvm_source_dir       ; result=$? ;;
     list)       __rvm_list             ; result=$? ;;
     version)    __rvm_version          ; result=$? ;;
     reset)      __rvm_reset            ; result=$? ;;
@@ -406,6 +410,10 @@ function rvm {
       result=$?
     ;;
 
+    load|dump)
+      __rvm_gemset_${rvm_action}
+    ;;
+
     gemsync)
       rvm_source_gem_path=`__rvm_select ; echo $rvm_gem_home`
       __rvm_gem_sync
@@ -420,7 +428,7 @@ function rvm {
     info|debug)
       __rvm_version
       __rvm_info
-      if [ "$rvm_action" = "debug" ] ; then __rvm_debug ; fi
+      if [ "$rvm_action" = "debug" ] ; then rvm_debug_flag=1 ; __rvm_debug ; fi
     ;;
 
     error)
@@ -428,6 +436,7 @@ function rvm {
       __rvm_pushpop
       result=1;
     ;;
+
     *)
       if [ ! -z "$rvm_action" ] ; then
         __rvm_log "fail"  "unknown action '$rvm_action'"
@@ -436,7 +445,9 @@ function rvm {
       fi
       result=1
   esac
+
   if [ "$rvm_trace_flag" = "1" ] ; then set +x ; unset rvm_trace_flag ; fi
+
   return $result
 }
 

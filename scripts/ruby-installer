@@ -14,16 +14,15 @@ function __rvm_install_source {
 
   result=0
   if [ -z "$rvm_ruby_tag" -a -z "$rvm_ruby_rev" ] ; then
-    if [ ! -d $rvm_ruby_src_path ]  ; then
+    if [ ! -f $rvm_archives_path/$rvm_ruby_package_name.tar.gz ]  ; then
       rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
       __rvm_log "info" "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
       __rvm_fetch $rvm_url
       if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
-      __rvm_log "info" "Extracting $rvm_ruby_package_name ..."
-      mkdir -p $rvm_ruby_src_path # Is this line necessary considering -C below?    v
-      __rvm_run "extract" tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
-      if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
     fi
+    mkdir -p $rvm_ruby_src_path # Is this line necessary considering -C below?    v
+    __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path" "Extracting $rvm_ruby_package_name ..."
+    if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
   else
     __rvm_log "info" "Retrieving Ruby from $rvm_url"
     if [ ! -z "`echo $rvm_url | awk '/^git/'`" ] ; then
@@ -43,7 +42,7 @@ function __rvm_install_source {
     else
       if [ -z "$rvm_ruby_rev" ] ; then
         # TODO: Check if tag v is valid
-        rvm_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
+        rvm_url="$rvm_ruby_repo_url/tags/$rvm_ruby_tag"
         rvm_rev=""
       else
         if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
@@ -75,41 +74,34 @@ function __rvm_install_source {
   if [ ! -s "$rvm_ruby_src_path/configure" ] ; then
     rvm_autoconf=`which autoconf`
     if [ $? -gt 0 ] ; then __rvm_log "fail" "rvm expects autoconf" ; result=$? ; return $result ; fi
-    __rvm_run "autoconf" "$rvm_autoconf"
-    if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+    __rvm_run "autoconf" "$rvm_autoconf" "Running autoconf"
+    # if [ $? -gt 0 ] ; then result=$? ; return $result ; fi # Don't barf on autoconf fail...
   fi
 
   if [ -s ./Makefile -a -z "$rvm_reconfigure_flag" ] ; then
-    __rvm_log "warn" "Skipping configure step, Makefile exists so configure must have already been run."
+    __rvm_log "debug" "Skipping configure step, Makefile exists so configure must have already been run."
   elif [ -s ./configure ] ; then
-    __rvm_log "info" "Configuring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
     if [ -d $rvm_path/usr/include/readline/ ] ; then
       configure_parameters="$configure_parameters --with-readline-dir=$rvm_path/usr/include/readline/"
     fi
     if [ -d $rvm_path/usr/include/iconv/ ] ; then
       configure_parameters="$configure_parameters --with-iconv-dir=$rvm_path/usr/include/iconv/"
     fi
-    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure $configure_parameters"
-    unset configure_parameters
+    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure $configure_parameters" "Configuring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
     if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+    unset configure_parameters
+  elif [ ! -z "rvm_ruby_configure" ] ; then
+    $rvm_ruby_configure
   else
     __rvm_log "error" "Skipping configure step, 'configure' script does not exist, did autoconf not run successfully?"
   fi
 
-  __rvm_log "info" "Compiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
-  if [ -z "$rvm_ruby_make" ] ; then
-    __rvm_run "make" "/usr/bin/make $rvm_make_flags"
-  else
-    __rvm_run "make" "$rvm_ruby_make $rvm_make_flags"
-  fi
+  rvm_ruby_make=${rvm_ruby_make:-"/usr/bin/make"}
+  __rvm_run "make" "$rvm_ruby_make $rvm_make_flags" "Compiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
   if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
 
-  if [ -z "$rvm_ruby_make" ] ; then
-    __rvm_log "info" "Installing $rvm_ruby_package_name"
-    __rvm_run "install" "/usr/bin/make install"
-  else
-    __rvm_run "install" "$rvm_ruby_make_install"
-  fi
+  rvm_ruby_make_install=${rvm_ruby_make_install:-"/usr/bin/make install"}
+  __rvm_run "install" "$rvm_ruby_make_install" "Installing $rvm_ruby_package_name"
   if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
 
   __rvm_log "info" "Installation of $rvm_ruby_package_name is complete."
@@ -119,7 +111,7 @@ function __rvm_install_source {
 
   __rvm_rubygems_setup
   __rvm_bin_script
-  __rvm_run "chmod.bin" chmod +x $rvm_ruby_home/bin/*
+  __rvm_run "chmod.bin" "chmod +x $rvm_ruby_home/bin/*"
   __rvm_post_install
   __rvm_pushpop
 }
@@ -131,37 +123,13 @@ function __rvm_install_ruby {
   if [ "`uname`" = "Darwin" ] ; then ARCHFLAGS="-arch x86_64 -arch i386" ; export ARCHFLAGS ; fi
 
   case "$rvm_ruby_interpreter" in
-
     macruby)
       if [ "`uname`" = "Darwin" ] ; then
-        #rvm_macruby_repo_url="${rvm_macruby_repo_url:-"http://svn.macosforge.org/repository/ruby/MacRuby"}"
-        rvm_macruby_repo_url="${rvm_macruby_repo_url:-"git://github.com/masterkain/macruby.git"}"
-        rvm_ruby_repo_url=$rvm_macruby_repo_url
-        #rvm_macruby_nightly_url=`__rvm_db "macruby_nightly_url"`
-        rvm_ruby_configure=""
-        rvm_ruby_make="rake macruby:build framework_instdir=$rvm_path/macruby-head framework_name=/macruby-head --trace"
-        rvm_ruby_make_install="rake framework:install framework_instdir=$rvm_path/macruby-head framework_name=/macruby-head --trace"
-        rvm_ruby_rev="${rvm_ruby_rev:-head}" # Hard coding this for now
-        rvm_url=$rvm_ruby_repo_url
-
-        DESTDIR="$rvm_ruby_home" ; export DESTDIR
-        if [ -z "$rvm_ruby_rev" ] ; then
-          # TODO: Check if tag v is valid
-          #rvm_ruby_repo_url=$rvm_ruby_repo_url/tags/$rvm_ruby_tag
-          rvm_ruby_rev="head" # For now, until nightly release are available.
-        else
-          if [ "$rvm_ruby_rev" = "head" -o "$rvm_ruby_rev" = "trunk" ] ; then
-            #rvm_ruby_repo_url=$rvm_ruby_repo_url/trunk
-            rvm_ruby_rev="head"
-          else
-            #rvm_ruby_repo_url=$rvm_ruby_repo_url/trunk
-            rvm_ruby_rev="-r $rvm_ruby_rev"
-          fi
-        fi
-        #__rvm_fetch $rvm_url
-        #__rvm_run /usr/sbin/installer -pkg $rvm_ruby_package_name.pkg -target "$rvm_path/$rvm_ruby_package_name/"
-        __rvm_install_source
-        unset DESTDIR
+        rvm_url=`__rvm_db "macruby_nightly_url"`
+        __rvm_log "info" "Retrieving latest macruby" # $rvm_archives_path/macruby_nightly.pkg
+        __rvm_fetch $rvm_url
+        mv $rvm_archives_path/latest $rvm_archives_path/macruby_nightly.pkg
+        __rvm_run "macruby/extract" "xar -x -f $rvm_archives_path/macruby_nightly.pkg -C $rvm_ruby_home" "Extracting macruby nightly package."
       else
         __rvm_log "fail" "MacRuby can only be installed on a Darwin OS."
       fi
@@ -169,37 +137,35 @@ function __rvm_install_ruby {
     ;;
 
     ruby-enterprise|ree)
-      if [ "$rvm_ruby_version" = "1.8.6" -a -z "$rvm_head_flag" ] ; then
-        rvm_url="http://rubyforge.org/frs/download.php/58677/$rvm_ruby_package_name.tar.gz"
+      if [ ! -z "$(echo $rvm_ruby_version | awk '/^1\.8/')" -a -z "$rvm_head_flag" ] ; then
+        # ruby-enterprise-1.8.7-20090928.tar.gz
+        rvm_url="`__rvm_db "ree_${rvm_ruby_version}_url"`/$rvm_ruby_package_name.tar.gz"
         __rvm_log "info" "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
         __rvm_pushpop $rvm_source_path
         if [ -d $rvm_ruby_src_path ]  ; then
           cd $rvm_ruby_src_path
         else
-          __rvm_log "info" "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
+          __rvm_log "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
           __rvm_fetch $rvm_url
           if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
-          __rvm_log "info" "Extracting $rvm_ruby_package_name..."
           mkdir -p $rvm_ruby_src_path
-          __rvm_run "extract" tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path
+          __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path" "Extracting $rvm_ruby_package_name..."
           if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
         fi
 
-        __rvm_log "info" "Installing $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
         mkdir -p $rvm_ruby_log_path
 
         cd $rvm_ruby_src_path
         mkdir -p $rvm_ruby_home/lib/ruby/gems/1.8/gems
         if [ ! -z "$rvm_ruby_configure" ] ; then rvm_ruby_configure="-c $rvm_ruby_configure"; fi
-        __rvm_run "install" ./installer -a $rvm_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc $rvm_ruby_configure
+        __rvm_run "install" "./installer -a $rvm_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc $rvm_ruby_configure" "Installing $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
         if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
         chmod +x $rvm_ruby_home/bin/*
 
         __rvm_rubygems_setup
 
         for rvm_gem_name in rake ; do
-          __rvm_log "info" "Installing $rvm_gem_name"
-          __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
+          __rvm_run "gems" "$rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q" "Installing $rvm_gem_name"
         done
         __rvm_irbrc
         __rvm_bin_scripts
@@ -224,35 +190,59 @@ function __rvm_install_ruby {
       PATH=$rvm_bin_path:$PATH ; export PATH
 
       rvm_ruby_repo_url=$rvm_rubinius_repo_url
-      rvm_ruby_configure=""
+      rvm_ruby_configure=" "
       rvm_ruby_src_path=$rvm_ruby_home
       rvm_ruby_make="rake"
       rvm_ruby_make_install="rake install"
       rvm_ruby_home="$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"
       #rvm_ruby_rev="head"
-      # TODO: Check if already git repo, then git pull origin master && build
+
+      # For Installer, can do this once it's ready:
+      RBX_PREFIX=$rvm_ruby_home ; export RBX_PREFIX
+      # Also see 'rakelib/configuration.rake'
 
       if [ ! -d $rvm_ruby_home -o ! -d $rvm_ruby_home/.git ] ; then
         rm -rf $rvm_ruby_home
-        git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_home
+        __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_home" "Cloning $rvm_ruby_repo_url"
+        cd $rvm_ruby_home
+      else
+        cd $rvm_ruby_home
+        __rvm_run "rbx.repo" "git pull origin master" "Pulling from origin master"
       fi
-      cd $rvm_ruby_home
 
       # prereqs, 1.8.6 w/ParseTree & rake. Yes this could all be one line... not pushing our luck.
-      echo `rvm install 1.8.6` # This should install if missing.
+      echo `export rvm_install_on_use_flag=1 ; rvm 1.8.6` # This should install if missing.
       echo `rvm 1.8.6 -m rbx ; gem install --no-rdoc --no-ri rake ParseTree` # This should install if missing.
+      rvm_ruby_interpreter="rbx"
+      __rvm_select
       if [ ! -z "$rvm_jit_flag" ]; then
-        __rvm_run "build" "\`rvm 1.8.6 -m rbx ; RBX_LLVM=1 rake build\`"
+        __rvm_run "build" "\`rvm 1.8.6 -m rbx ; RBX_LLVM=1 rake build\`" "Building rbx with RBX_LLVM=1"
       else
-        __rvm_run "build" "\`rvm 1.8.6 -m rbx ; rake build\`"
+        __rvm_run "build" "\`rvm 1.8.6 -m rbx ; rake build\`" "Building rbx"
       fi
 
-      for binary in ruby irb ; do
-        ln -fs $rvm_ruby_home/bin/rbx $rvm_ruby_home/bin/$binary
-      done
-      $rvm_ruby_home/bin/rbx -S gem install rake --no-rdoc --no-ri
+      binaries="ruby irb" # Trick to work in more shells :)
+      for binary_name in $(echo $binaries) ; do
+        ln -fs $rvm_ruby_home/bin/rbx $rvm_ruby_home/bin/$binary_name
+      done ; unset binary_name binaries
 
-      for binary_name in gem rake ; do
+      __rvm_run "rake.install" "$rvm_ruby_home/bin/rbx gem install rake --no-rdoc --no-ri" "Installing Rake"
+      binary=rake
+      if [ -f $rvm_gem_home/bin/$binary ] ; then
+        if [ "$rvm_gem_home" != "$rvm_ruby_home" ] ; then
+          cp $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
+        fi
+        chmod +x $rvm_ruby_home/bin/$binary
+        __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
+        __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
+      fi ; unset binary
+
+      binaries="erb ri rdoc"
+      __rvm_post_install
+
+      binaries="gem" # Trick to work in more shells :)
+      for binary_name in $(echo $binaries); do
+        if [ $binary_name != "gem" ] ; then prefix="-S" ; fi
         ruby_wrapper=$(cat <<RubyWrapper
 #!/bin/bash
 
@@ -261,15 +251,16 @@ GEM_PATH="$rvm_gem_home" ; export GEM_PATH
 MY_RUBY_HOME="$rvm_ruby_home" ; export MY_RUBY_HOME
 PATH="$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH" ; export PATH
 
-exec $rvm_ruby_home/bin/rbx -S $binary_name "\$@"
+exec $rvm_ruby_home/bin/rbx $prefix $binary_name "\$@"
 RubyWrapper
 )
-        rm -f $rvm_path/bin/$binary-$rvm_ruby_package_name
-        for file_name in $rvm_path/bin/$binary-$rvm_ruby_package_name $rvm_ruby_home/bin/$binary ; do
+        files="$rvm_ruby_home/bin/$binary_name $rvm_path/bin/$binary_name-$rvm_ruby_package_name"
+        for file_name in $(echo $files)  ; do
+          rm -f $file_name
           echo "$ruby_wrapper" > $file_name
           if [ -f $file_name ] ; then chmod +x $file_name ; fi
-        done
-        unset ruby_wrapper binary_name file_name
+        done ; unset file_name
+        unset ruby_wrapper binary_name files prefix
       done
       __rvm_irbrc
       __rvm_bin_scripts
@@ -280,7 +271,6 @@ RubyWrapper
       rvm_url="http://dist.codehaus.org/$rvm_ruby_interpreter/$rvm_ruby_version/$rvm_package_file.zip"
       rvm_jruby_repo_url="${rvm_jruby_repo_url:-"git://kenai.com/jruby~main"}"
 
-      __rvm_log "info" "Installing JRuby to: $rvm_ruby_home"
       mkdir -p $rvm_ruby_log_path
       __rvm_pushpop $rvm_source_path
 
@@ -299,25 +289,23 @@ RubyWrapper
             __rvm_log "info" "Downloading $rvm_package_file, this may take a while depending on your connection..."
             __rvm_fetch $rvm_url
           fi
-          __rvm_log "info" "Extracting $rvm_package_file..."
           rvm_unzip=`which unzip`
           if [ $? -ne 0 ] ; then
             __rvm_log "error" "'unzip' was not found in your PATH. jRuby official release comes as a .zip file, hence 'unzip' is required to extract it. Please install 'unzip' and try again."
           else
-            __rvm_run "extract" unzip -q $rvm_archives_path/$rvm_package_file.zip -d $rvm_source_path
+            __rvm_run "extract" "unzip -q $rvm_archives_path/$rvm_package_file.zip -d $rvm_source_path" "Extracting $rvm_package_file..."
           fi
           cd $rvm_ruby_src_path
         fi
       fi
 
-      __rvm_log "info" "Installing $rvm_ruby_package_name..."
       mkdir -p $rvm_ruby_home/bin/
-      __rvm_run "nailgun" "cd $rvm_ruby_src_path/tool/nailgun && /usr/bin/make $rvm_make_flags"
+      __rvm_run "nailgun" "cd $rvm_ruby_src_path/tool/nailgun && /usr/bin/make $rvm_make_flags" "Installing $rvm_ruby_package_name..."
       __rvm_pushpop
 
       if [ -z "$rvm_ruby_home" -o "$rvm_ruby_home" = "/" ] ; then echo "WTH?!?! rvm_ruby_home == / ??? not removing." ; return 1000000 ; fi
       rm -rf $rvm_ruby_home
-      __rvm_run "sync" "/bin/cp -Rf $rvm_ruby_src_path $rvm_ruby_home"
+      __rvm_run "install" "/bin/cp -Rf $rvm_ruby_src_path $rvm_ruby_home" "Installing JRuby to $rvm_ruby_home"
 
       __rvm_pushpop $rvm_ruby_home/bin/
       for binary in jirb jruby jgem ; do
@@ -332,30 +320,35 @@ RubyWrapper
         chmod +x $rvm_ruby_home/bin/$binary
       done ; unset binary
 
-      __rvm_inject_gem_env $rvm_ruby_home/bin/gem # Ensure the env is set properly for gem.
-
+      __rvm_rubygems_setup
       __rvm_irbrc
       __rvm_bin_script
       __rvm_use
 
       for rvm_gem_name in jruby-openssl ; do
-        __rvm_log "info" "Installing $rvm_gem_name"
-        __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
+        __rvm_run "gems" "$rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q" "Installing $rvm_gem_name"
       done ; unset rvm_gem_name
     ;;
 
     ruby)
-        # Merge configure options with user specified options
-        rvm_ruby_configure="--enable-shared --enable-pthread $rvm_ruby_configure "
-        if [ "`uname`" = "Darwin" ] ; then ARCHFLAGS="-arch x86_64 -arch i386" ; export ARCHFLAGS ; fi
+      if [ "`uname`" = "Darwin" ] ; then
+        ARCHFLAGS="-arch x86_64 -arch i386" ; export ARCHFLAGS
+        if [ "$(echo $rvm_ruby_version | awk '/1\.8/')" ] ; then
+          rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared --disable-pthread"} "
+        else
+          rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared"} "
+        fi
+      else
+        rvm_ruby_configure="${rvm_ruby_configure:-"--enable-shared --enable-pthread"} "
+      fi
       __rvm_install_source $*
     ;;
 
     default)
-      __rvm_log "fail" "please specify a ruby implementation to install."
+      __rvm_log "fail" "must specify a ruby interpreter to install."
     ;;
 
-    *) __rvm_log "fail" "Ruby implementation '$rvm_ruby_interpreter' is not known."
+    *) __rvm_log "fail" "Ruby interpreter '$rvm_ruby_interpreter' is not known."
 
   esac
 
@@ -389,7 +382,7 @@ function __rvm_manage_rubies {
         fi
       done < <(/bin/ls $rvm_path/*/bin/ruby 2> /dev/null)
     else
-      __rvm_log "warn" "Really? Install all? See 'rvm list --all' and limit the selection to something more sane please :)"
+      __rvm_log "warn" 'Really? Install all? See "rvm list --all" and limit the selection to something more sane please :)'
     fi
   fi
   __rvm_state
@@ -442,7 +435,8 @@ function __rvm_remove_ruby {
 }
 
 function __rvm_post_install {
-  for binary in gem irb erb ri rdoc testrb rake ; do
+  binaries="${binaries:-"gem irb erb ri rdoc testrb rake"}"
+  for binary in $(echo $binaries) ; do
     if [ -e $rvm_ruby_home/bin/$binary -o -e $rvm_ruby_src_path/bin/$binary ] ; then
       if [ "$rvm_ruby_src_path" != "$rvm_ruby_home" -a -f $rvm_ruby_src_path/bin/$binary ] ; then
         cp -f $rvm_ruby_src_path/bin/$binary $rvm_ruby_home/bin/$binary
@@ -453,13 +447,12 @@ function __rvm_post_install {
       __rvm_inject_ruby_shebang $rvm_ruby_home/bin/$binary
       chmod +x $rvm_ruby_home/bin/$binary
     fi
-  done ; unset binary
+  done ; unset binary binaries
 
   __rvm_log "info" "Installing gems for $rvm_ruby_package_name."
 
   for rvm_gem_name in rake ; do
-    __rvm_log "info" "Installing $rvm_gem_name"
-    __rvm_run "gems" $rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q
+    __rvm_run "gems.install" "$rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q" "Installing $rvm_gem_name"
   done ; unset rvm_gem_name
 
   __rvm_log "info" "Installation of gems for $rvm_ruby_package_name is complete."
@@ -478,13 +471,15 @@ function __rvm_rubygems_setup {
   if [ ! -z "`echo $rvm_ruby_version | awk '/^1\.9/'`" ] ; then
     # 1.9 has it's own built-in gem command
     __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/gem"
+    __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
     cp $rvm_ruby_src_path/bin/gem $rvm_ruby_home/bin/gem
-    __rvm_run "rubygems.update" $rvm_ruby_home/bin/gem update --system
-  elif [ ! -z "`echo $rvm_ruby_interpreter | awk '/^jruby/'`" ] ; then
-    # jruby has it's own built-in gem command
-    __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/gem"
-    cp $rvm_ruby_src_path/bin/gem $rvm_ruby_home/bin/gem
-    __rvm_run "rubygems.update" $rvm_ruby_home/bin/gem update --system
+    __rvm_run "rubygems.update" "$rvm_ruby_home/bin/gem update --system" "Updating rubygems for $rvm_ruby_string"
+    __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
+    __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
+
+  elif [ ! -z "`echo $rvm_ruby_interpreter | awk '/^rbx|jruby/'`" ] ; then
+    __rvm_log "debug" "Skipping rubygems update for $rvm_ruby_version"
+
   else
     __rvm_log "info" "Installing rubygems dedicated to $rvm_ruby_package_name..."
     rvm_gem_package_name="rubygems-1.3.5"
@@ -492,14 +487,17 @@ function __rvm_rubygems_setup {
     if [ -d $rvm_source_path/$rvm_gem_package_name ]  ; then
       cd $rvm_source_path/$rvm_gem_package_name
     else
+      __rvm_log "info" "Retrieving $rvm_gem_package_name"
       __rvm_fetch $rvm_gem_url
       mkdir -p $rvm_source_path/$rvm_gem_package_name
-      __rvm_run "rubygems.extract" tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path
+      __rvm_run "rubygems.extract" "tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path" "Extracting $rvm_gem_package_name"
     fi
-    __rvm_run "rubygems.install" GEM_PATH=$rvm_gem_path GEM_HOME=$rvm_gem_home $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb
+    __rvm_run "rubygems.install" "GEM_PATH=$rvm_gem_path GEM_HOME=$rvm_gem_home $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
     result=$?
     if [ $result -eq 0 ] ; then
       __rvm_log "info" "Installation of rubygems $rvm_ruby_package_name completed successfully."
+    else
+      __rvm_log "warning" "Installation of rubygems $rvm_ruby_package_name did not complete successfully."
     fi
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
   fi

@@ -54,7 +54,7 @@ function __rvm_select {
     jruby)
       rvm_ruby_version="${rvm_ruby_version:-`__rvm_db "jruby_version"`}"
       unset rvm_ruby_patch_level
-      if [ ! -z "$(echo $rvm_ruby_version | awk '/^1\.2\.0/')" -o ! -z "$(rvm_ruby_version | awk '/^1\.3\.[0-3]/')" ] ; then
+      if [ -z "$(echo $rvm_ruby_version | awk '/^1\.2\.0/')" -a -z "$(echo $rvm_ruby_version | awk '/^1\.3\.[0-3]/')" ] ; then
         __rvm_log "fail" "Unknown jRuby version: $rvm_ruby_version"
       fi
       alias jruby_ng="jruby --ng"
@@ -65,7 +65,8 @@ function __rvm_select {
       rvm_ruby_interpreter="ree"
       rvm_ruby_interpreter=`__rvm_db "ree_interpreter"`
       rvm_ruby_version=${rvm_ruby_version:-`__rvm_db "ree_version"`}
-      rvm_ruby_patch_level="${3:-`__rvm_db "ree_patch_level"`}"
+      rvm_ruby_patch_level="${3:-`__rvm_db "ree_${rvm_ruby_version}_patch_level"`}"
+      rvm_ruby_package_name="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
       if [ -z "$(echo $rvm_ruby_version | awk '/^1\.8/')" ] ; then
         __rvm_log "fail" "Unknown Ruby Enterprise Edition version: $rvm_ruby_version"
       fi
@@ -90,8 +91,14 @@ function __rvm_select {
     default|system|current|user)
       #no-op?
     ;;
+
     *)
-      __rvm_log "fail" "Ruby implementation '$rvm_ruby_interpreter' is not known."
+      if [ ! -z "$MY_RUBY_HOME" ] ; then
+        rvm_ruby_string=$(basename $MY_RUBY_HOME)
+        __rvm_select
+      else
+        __rvm_log "fail" "Ruby implementation '$rvm_ruby_interpreter' is not known."
+      fi
   esac
 
   if [ ! -z "$rvm_ruby_rev" ] ; then
@@ -159,7 +166,7 @@ function __rvm_use {
       source $rvm_path/default
     else
       rvm_ruby_interpreter="system"
-      __rvm_log "error" "no default rvm specified, defaulting to pre-rvm sytem."
+      __rvm_log "warn" "no default rvm specified, defaulting to pre-rvm sytem."
       unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
       if [ -s $rvm_path/system ] ; then source $rvm_path/system ; fi
     fi
