@@ -527,7 +527,10 @@ function __rvm_ruby_do {
   if [ -x $rvm_ruby_home/bin/$binary ] ; then
     load_path="$rvm_ruby_home/bin:$rvm_ruby_load_path"
     if [ "$binary" = "ruby" ] ; then
-      rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_require -I$load_path -S $rvm_ruby_args"
+      if [ -z "$(echo $rvm_ruby_args | awk '/\.rb$/')" ] ; then
+        rvm_ruby_args="-S $rvm_ruby_args"
+      fi
+      rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_require -I$load_path $rvm_ruby_args"
     else
       rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
     fi
@@ -537,7 +540,7 @@ function __rvm_ruby_do {
       touch ./log/$rvm_ruby_string/$rvm_action.log ./log/$rvm_ruby_string/$rvm_action.error.log
       eval "$rvm_command" >> ./log/$rvm_ruby_string/$rvm_action.log 2>> ./log/$rvm_ruby_string/$rvm_action.error.log
     else
-      echo -e "\n$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v)"
+      echo -e "\n\n\033[0;32m$rvm_ruby_string: $($rvm_ruby_home/bin/$binary -v | tr "\n" ' ')\033[0m\n"
       eval "$rvm_command"
     fi
     result=$?
@@ -652,16 +655,14 @@ function __rvm_json {
 
 function __rvm_benchmark {
   rvm_code="$(cat <<RubyCode
-#!/usr/bin/env ruby
-require "benchmark"
-Benchmark.bmbm do|benchmark|
-  benchmark.report("benchmarking '$rvm_ruby_file'") do
-
+require "benchmark" \n
+Benchmark.bmbm do |benchmark| \n
+  benchmark.report("$rvm_ruby_file") do \n
 RubyCode
 )"
-  echo "$rvm_code" > $rvm_temp_path/$$.rb
+  echo -e "$rvm_code" > $rvm_temp_path/$$.rb
   cat $rvm_ruby_file >> $rvm_temp_path/$$.rb
-  echo -e "\n  end\nend\n" >> $rvm_temp_path/$$.rb
+  echo -e "\n end \nend\n" >> $rvm_temp_path/$$.rb
   unset rvm_code
   rvm_ruby_args="$rvm_temp_path/$$.rb"
   rvm_action="ruby"
@@ -813,7 +814,8 @@ function __rvm_readline_install {
   __rvm_pushpop $rvm_source_path
   package="readline" ; version="5.2" ; archive_format="tar.gz"
   # TODO: Figure out how to list, grab and apply the patches
-  __rvm_run "$package/fetch" "__rvm_fetch ftp://ftp.gnu.org/gnu/readline/$package-$version.$archive_format" "Retrieving $package-$version.$archive_format"
+  __rvm_log "info" "Retrieving $package-$version.$archive_format"
+  __rvm_fetch ftp://ftp.gnu.org/gnu/readline/$package-$version.$archive_format"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_source_path" "Extracting $package-$version.$archive_format"
   cd $rvm_source_path/$package-$version
   if [ "`uname`" = "Darwin" ] ; then
@@ -833,7 +835,8 @@ function __rvm_readline_install {
 function __rvm_iconv_install {
   __rvm_pushpop $rvm_source_path
   package="libiconv" ; version=1.13.1 ; archive_format="tar.gz"
-  __rvm_run "$package/fetch" "__rvm_fetch http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.$archive_format" "Retrieving $package-$version.$archive_format"
+  __rvm_log "info" "Retrieving $package-$version.$archive_format"
+  __rvm_fetch http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.$archive_format"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_source_path" "Extracting $package-$version.$archive_format"
   cd $rvm_source_path/$package-$version
   __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --disable-static --enable-shared" "Configuring $package."
