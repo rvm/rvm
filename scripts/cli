@@ -107,7 +107,7 @@ function __rvm_parse-args {
   while [ $# -gt 0 ] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|update|readline|iconv|gemsync|gemset)
+      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|update|readline|iconv|gemsync)
         rvm_action=$rvm_token
       ;;
 
@@ -136,16 +136,32 @@ function __rvm_parse-args {
         rvm_action="${rvm_action:-use}"
       ;;
 
+      gemset)
+          set +x
+        rvm_action=$rvm_token
+        if [ "$1" = "delete" ] ; then
+          rvm_delete_flag=1
+          shift
+          if [ -z "$1" -a -z "$rvm_gem_set_name" ] ; then
+            rvm_action="error"
+            rvm_error_message="A gem set name must be specified with 'gemset delete'"
+          else
+            rvm_gem_set_name="$1"
+            shift
+          fi
+        fi
+        set -x
+      ;;
+
       gemdir)
         rvm_action=$rvm_token
-
         if [ "$1" = "system" ] ; then rvm_ruby_interpreter="system" ; shift ; fi
         if [ "$1" = "user" ]   ; then rvm_ruby_interpreter="user"   ; shift ; fi
-
         rvm_ruby_interpreter="${rvm_ruby_interpreter:-current}"
       ;;
 
       --load|load|dump)
+        rvm_action=gemset
         eval "rvm_${rvm_token}_flag=1"
         if [ ! -z "$1" ] ; then
           rvm_gem_set_name=$(echo $1 | sed 's/\.gemset//' | xargs basename)
@@ -154,7 +170,6 @@ function __rvm_parse-args {
         else
           rvm_file_name="$rvm_gem_set_name.gemset"
         fi
-        rvm_action=$rvm_token
       ;;
 
       gemdup)
@@ -343,7 +358,7 @@ function __rvm_parse-args {
          --rm-gem-set)      rvm_gem_set_name_rm="$1"  ; shift ;;
       tests|specs)          rvm_action="tests"                ;;
 
-      --self|--gem|--rubygems|--reconfigure|--default|--debug|--force|--all|--dump|--summary|--jit|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--trace)
+      --self|--gem|--rubygems|--reconfigure|--default|--debug|--force|--all|--dump|--summary|--jit|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--trace|--delete)
         eval "rvm_$(echo $rvm_token | sed 's/-//g')_flag=1"
       ;;
 
@@ -421,8 +436,17 @@ function rvm {
       result=$?
     ;;
 
-    load|dump)
-      __rvm_gemset_${rvm_action}
+    gemset)
+      if [ ! -z "$rvm_load_flag" ] ; then
+        __rvm_gemset_load
+      elif [ ! -z "$rvm_dump_flag" ] ; then
+        __rvm_gemset_load
+      elif [ ! -z "$rvm_delete_flag" ] ; then
+        __rvm_gemset_delete
+      else
+        rvm_action="error"
+        rvm_error_message="At least one of load, dump, or delete must be specified with 'gemset'."
+      fi
     ;;
 
     gemsync)
