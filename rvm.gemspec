@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{rvm}
-  s.version = "0.0.54"
+  s.version = "0.0.55"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Wayne E. Seguin"]
-  s.date = %q{2009-10-03}
+  s.date = %q{2009-10-05}
   s.default_executable = %q{rvm-install}
   s.description = %q{Manages Ruby interpreter installations and switching between them.}
   s.email = %q{wayneeseguin@gmail.com}
@@ -25,6 +25,10 @@ Gem::Specification.new do |s|
      "install",
      "lib/VERSION.yml",
      "lib/rvm.rb",
+     "lib/rvm/open4.rb",
+     "lib/rvm/rvm.rb",
+     "lib/rvm/shell.rb",
+     "lib/rvm/version.rb",
      "rvm.gemspec",
      "scripts/aliases",
      "scripts/cli",
@@ -43,9 +47,16 @@ Gem::Specification.new do |s|
   s.homepage = %q{http://github.com/wayneeseguin/rvm}
   s.rdoc_options = ["--inline-source", "--charset=UTF-8"]
   s.require_paths = ["lib"]
-  s.rubyforge_project = %q{dynamicreports}
+  s.rubyforge_project = %q{rvm}
   s.rubygems_version = %q{1.3.5}
   s.summary = %q{Ruby Version Manager (rvm)}
+  s.test_files = [
+    "test/rvm/cli_test.rb",
+     "test/rvm/ruby-installer_test.rb",
+     "test/rvm/selector_test.rb",
+     "test/rvm/utility_test.rb",
+     "test/test_helper.rb"
+  ]
 
   if s.respond_to? :specification_version then
     current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION
