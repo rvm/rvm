@@ -1,4 +1,11 @@
-task :default => [:gem]
+task :default => ["gem:refresh"]
+namespace :gem do
+  task :refresh do
+    exec "gem uninstall rvm ; rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
+  end
+
+  desc "Build the rvm gem."
+  task :build do
 puts <<-LOCAL_INSTALL_WARNING
 
   \033[0;33mINSTALLING FROM SOURCE\033[0m
@@ -9,15 +16,6 @@ puts <<-LOCAL_INSTALL_WARNING
     \033[0;32mFor installing/updating:  ./install\033[0m
 
 LOCAL_INSTALL_WARNING
-
-desc "Build the rvm gem and then install it (NO sudo)."
-task :gem do
-  exec "gem uninstall rvm ; rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
-end
-
-namespace :gem do
-  desc "Build the rvm gem."
-  task :build do
     puts `gem build rvm.gemspec`
   end
 
@@ -45,9 +43,22 @@ begin
     gemspec.email           = "wayneeseguin@gmail.com"
     gemspec.homepage        = "http://github.com/wayneeseguin/rvm"
     gemspec.extensions      << "extconf.rb" if File::exists?("extconf.rb")
-    gemspec.rubyforge_project = "dynamicreports"
+    gemspec.rubyforge_project = "rvm"
   end
 rescue LoadError
   puts "Jeweler not available. Install it with: sudo gem install technicalpickles-jeweler -s http://gems.github.com"
+end
+
+require "rake/testtask"
+task :default => [:test_units]
+
+desc "Run test suite."
+Rake::TestTask.new("test") do |test|
+  puts %x{./install}
+  test.pattern = "test/*_test.rb"
+  test.verbose = true
+  test.warning = true
+  test.libs << "test"
+  test.test_files = FileList["test/test*.rb","test/**/*.rb"]
 end
 
