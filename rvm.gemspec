@@ -25,9 +25,6 @@ Gem::Specification.new do |s|
      "install",
      "lib/VERSION.yml",
      "lib/rvm.rb",
-     "lib/rvm/open4.rb",
-     "lib/rvm/rvm.rb",
-     "lib/rvm/shell.rb",
      "lib/rvm/version.rb",
      "rvm.gemspec",
      "scripts/aliases",
@@ -51,11 +48,6 @@ Gem::Specification.new do |s|
   s.rubygems_version = %q{1.3.5}
   s.summary = %q{Ruby Version Manager (rvm)}
   s.test_files = [
-    "test/rvm/cli_test.rb",
-     "test/rvm/ruby-installer_test.rb",
-     "test/rvm/selector_test.rb",
-     "test/rvm/utility_test.rb",
-     "test/test_helper.rb"
   ]
 
   if s.respond_to? :specification_version then
