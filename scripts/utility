@@ -105,7 +105,7 @@ function __rvm_cleanup_variables {
 }
 
 function __rvm_unset_ruby_variables {
-  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected rvm_ruby_selector rvm_ruby_string
+  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected rvm_ruby_selector rvm_ruby_string
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -128,10 +128,10 @@ function __rvm_bin_script {
 ruby_wrapper=$(cat <<RubyWrapper
 #!/bin/bash
 
-GEM_HOME=$rvm_gem_home ; export GEM_HOME
-GEM_PATH=$rvm_gem_home ; export GEM_PATH
+GEM_HOME=$rvm_ruby_gem_home ; export GEM_HOME
+GEM_PATH=$rvm_ruby_gem_home ; export GEM_PATH
 MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
-PATH=$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH ; export PATH
+PATH=$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH ; export PATH
 
 exec "$rvm_ruby_binary" "\$@"
 RubyWrapper
@@ -276,8 +276,8 @@ function __rvm_implode {
 
 function __rvm_gemdir {
   if [ -z "$rvm_selected" ] ; then __rvm_select $* ; fi
-  mkdir -p $rvm_gem_home
-  echo $rvm_gem_home
+  mkdir -p $rvm_ruby_gem_home
+  echo $rvm_ruby_gem_home
 }
 
 function __rvm_source_dir {
@@ -303,7 +303,7 @@ function __rvm_gemdup {
     rvm_source_gem_path="$rvm_system_gem_path"
   else
     # TODO: use selector for this?
-    rvm_source_gem_path=${rvm_gem_home/$rvm_ruby_interpreter/$rvm_ruby_version}
+    rvm_source_gem_path=${rvm_ruby_gem_home/$rvm_ruby_interpreter/$rvm_ruby_version}
   fi
   __rvm_gem_sync
 }
@@ -382,7 +382,7 @@ function __rvm_list {
     done ; unset version
 
     echo -e "\nree:\n"
-    for version in `/bin/ls $rvm_path/ 2> /dev/null | awk '/ruby-enterprise-.*/ { print $NF }'` ; do
+    for version in `/bin/ls $rvm_path/ 2> /dev/null | awk '/ree-.*/ { print $NF }'` ; do
       string=`$rvm_path/$version/bin/ruby -v | tr "\n" ' ' `
       if [ "$current_ruby" = "$version" ] ; then
         echo -e "=> $version : $string"
@@ -458,7 +458,7 @@ function __rvm_initialize {
   rvm_ruby_load_path="."
   rvm_ruby_require=""
 
-  if [ "`uname`" = "Darwin" ] ; then rvm_archflags="$(rvm_archflags:-'-arch i386 -arch x86_64')" ; fi
+  if [ "`uname`" = "Darwin" ] ; then rvm_archflags="${rvm_archflags:-'-arch i386 -arch x86_64'}" ; fi
 
   __rvm_clean-path
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
@@ -565,7 +565,7 @@ function __rvm_ruby_do {
   else
     __rvm_log "warn" "'$rvm_ruby_home/bin/$binary' either does not exist or is not executable? :("
   fi
-  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected
+  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_rev rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_package_name rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected
 }
 
 function __rvm_do {
@@ -727,7 +727,7 @@ function __rvm_gemset_load {
   rvm_file_name=${rvm_file_name:-$rvm_gem_set_name}
 
   echo "Loading $rvm_file_name file..."
-  rvm_ruby_gem_list=`/bin/ls $rvm_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null`
+  rvm_ruby_gem_list=`/bin/ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null`
   while read line
   do # Keep this on 2nd line :( bash fail.
     # TODO: Switch to a different field separator than ; to allow for evals
@@ -769,9 +769,9 @@ function __rvm_gemset_load {
     if [ ! -z "$gem" ] ; then
       # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
       if [ -z "$vars" ] ; then
-        GEM_HOME="$rvm_gem_home" GEM_PATH="$rvm_gem_home" $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix
+        GEM_HOME="$rvm_ruby_gem_home" GEM_PATH="$rvm_ruby_gem_home" $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix
       else
-        eval "GEM_HOME='$rvm_gem_home' GEM_PATH='$rvm_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
+        eval "GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
       fi
     fi
     unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string

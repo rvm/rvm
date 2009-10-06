@@ -106,8 +106,8 @@ function __rvm_install_source {
 
   __rvm_log "info" "Installation of $rvm_ruby_package_name is complete."
 
-  GEM_HOME="$rvm_gem_home" ; export GEM_HOME
-  GEM_PATH="$rvm_gem_home" ; export GEM_PATH
+  GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
+  GEM_PATH="$rvm_ruby_gem_home" ; export GEM_PATH
 
   __rvm_rubygems_setup
   __rvm_bin_script
@@ -136,20 +136,19 @@ function __rvm_install_ruby {
       __rvm_irbrc
     ;;
 
-    ruby-enterprise|ree)
+    ree)
       if [ ! -z "$(echo $rvm_ruby_version | awk '/^1\.8/')" -a -z "$rvm_head_flag" ] ; then
-        # ruby-enterprise-1.8.7-20090928.tar.gz
-        rvm_url="`__rvm_db "ree_${rvm_ruby_version}_url"`/$rvm_ruby_package_name.tar.gz"
+        rvm_url="`__rvm_db "ree_${rvm_ruby_version}_url"`/$rvm_ruby_package_file.tar.gz"
         __rvm_log "info" "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
         __rvm_pushpop $rvm_source_path
         if [ -d $rvm_ruby_src_path ]  ; then
           cd $rvm_ruby_src_path
         else
-          __rvm_log "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
+          __rvm_log "Downloading $rvm_ruby_package_file, this may take a while depending on your connection..."
           __rvm_fetch $rvm_url
           if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
           mkdir -p $rvm_ruby_src_path
-          __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path" "Extracting $rvm_ruby_package_name..."
+          __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_file.tar.gz -C $rvm_source_path" "Extracting $rvm_ruby_package_file..."
           if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
         fi
 
@@ -158,7 +157,7 @@ function __rvm_install_ruby {
         cd $rvm_ruby_src_path
         mkdir -p $rvm_ruby_home/lib/ruby/gems/1.8/gems
         if [ ! -z "$rvm_ruby_configure" ] ; then rvm_ruby_configure="-c $rvm_ruby_configure"; fi
-        __rvm_run "install" "./installer -a $rvm_path/ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc $rvm_ruby_configure" "Installing $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
+        __rvm_run "install" "./installer -a $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc $rvm_ruby_configure" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..."
         if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
         chmod +x $rvm_ruby_home/bin/*
 
@@ -167,6 +166,9 @@ function __rvm_install_ruby {
         for rvm_gem_name in rake ; do
           __rvm_run "gems" "$rvm_ruby_home/bin/gem install $rvm_gem_name --no-rdoc --no-ri -q" "Installing $rvm_gem_name"
         done
+        __rvm_inject_ruby_shebang "$rvm_ruby_gem_home/bin/rake"
+        __rvm_inject_gem_env "$rvm_ruby_gem_home/bin/rake"
+
         __rvm_irbrc
         __rvm_bin_scripts
         __rvm_post_install
@@ -201,9 +203,9 @@ function __rvm_install_ruby {
       RBX_PREFIX=$rvm_ruby_home ; export RBX_PREFIX
       # Also see 'rakelib/configuration.rake'
 
-      if [ ! -d $rvm_ruby_home -o ! -d $rvm_ruby_home/.git ] ; then
-        rm -rf $rvm_ruby_home
-        __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_home" "Cloning $rvm_ruby_repo_url"
+      if [ ! -d $rvm_ruby_src_path -o ! -d $rvm_ruby_src_path/.git ] ; then
+        rm -rf $rvm_ruby_src_path
+        __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path" "Cloning $rvm_ruby_repo_url"
         cd $rvm_ruby_home
       else
         cd $rvm_ruby_home
@@ -215,11 +217,14 @@ function __rvm_install_ruby {
       echo `rvm 1.8.6 -m rbx ; gem install --no-rdoc --no-ri rake ParseTree` # This should install if missing.
       rvm_ruby_interpreter="rbx"
       __rvm_select
+
       if [ ! -z "$rvm_jit_flag" ]; then
-        __rvm_run "build" "\`rvm 1.8.6 -m rbx ; RBX_LLVM=1 rake build\`" "Building rbx with RBX_LLVM=1"
+        __rvm_run "configure" "./configure --prefix=$rvm_ruby_home --enable-llvm" "Configuring rbx with LLVM enabled"
       else
-        __rvm_run "build" "\`rvm 1.8.6 -m rbx ; rake build\`" "Building rbx"
+        __rvm_run "configure" "./configure --prefix=$rvm_ruby_home" "Configuring rbx"
       fi
+
+      __rvm_run "build" "\`rvm 1.8.6 -m rbx ; rake build\`" "Building rbx"
 
       binaries="ruby irb" # Trick to work in more shells :)
       for binary_name in $(echo $binaries) ; do
@@ -228,9 +233,9 @@ function __rvm_install_ruby {
 
       __rvm_run "rake.install" "$rvm_ruby_home/bin/rbx gem install rake --no-rdoc --no-ri" "Installing Rake"
       binary=rake
-      if [ -f $rvm_gem_home/bin/$binary ] ; then
-        if [ "$rvm_gem_home" != "$rvm_ruby_home" ] ; then
-          cp $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
+      if [ -f $rvm_ruby_gem_home/bin/$binary ] ; then
+        if [ "$rvm_ruby_gem_home" != "$rvm_ruby_home" ] ; then
+          cp $rvm_ruby_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
         fi
         chmod +x $rvm_ruby_home/bin/$binary
         __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
@@ -246,10 +251,10 @@ function __rvm_install_ruby {
         ruby_wrapper=$(cat <<RubyWrapper
 #!/bin/bash
 
-GEM_HOME="$rvm_gem_home" ; export GEM_HOME
-GEM_PATH="$rvm_gem_home" ; export GEM_PATH
+GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
+GEM_PATH="$rvm_ruby_gem_home" ; export GEM_PATH
 MY_RUBY_HOME="$rvm_ruby_home" ; export MY_RUBY_HOME
-PATH="$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH" ; export PATH
+PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH" ; export PATH
 
 exec $rvm_ruby_home/bin/rbx $prefix $binary_name "\$@"
 RubyWrapper
@@ -433,8 +438,8 @@ function __rvm_post_install {
     if [ -e $rvm_ruby_home/bin/$binary -o -e $rvm_ruby_src_path/bin/$binary ] ; then
       if [ "$rvm_ruby_src_path" != "$rvm_ruby_home" -a -f $rvm_ruby_src_path/bin/$binary ] ; then
         cp -f $rvm_ruby_src_path/bin/$binary $rvm_ruby_home/bin/$binary
-      elif [ -f "$rvm_gem_home/bin/$binary" ] ; then
-        cp -f $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
+      elif [ -f "$rvm_ruby_gem_home/bin/$binary" ] ; then
+        cp -f $rvm_ruby_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
       fi
       __rvm_inject_gem_env $rvm_ruby_home/bin/$binary
       __rvm_inject_ruby_shebang $rvm_ruby_home/bin/$binary
@@ -451,9 +456,9 @@ function __rvm_post_install {
   __rvm_log "info" "Installation of gems for $rvm_ruby_package_name is complete."
 
   binary=rake
-  if [ -x $rvm_gem_home/bin/$binary ] ; then
-    if [ "$rvm_gem_home" != "$rvm_ruby_home" ] ; then
-      cp $rvm_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
+  if [ -x $rvm_ruby_gem_home/bin/$binary ] ; then
+    if [ "$rvm_ruby_gem_home" != "$rvm_ruby_home" ] ; then
+      cp $rvm_ruby_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
     fi
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
     __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
@@ -485,7 +490,7 @@ function __rvm_rubygems_setup {
       mkdir -p $rvm_source_path/$rvm_gem_package_name
       __rvm_run "rubygems.extract" "tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path" "Extracting $rvm_gem_package_name"
     fi
-    __rvm_run "rubygems.install" "GEM_PATH=$rvm_gem_path GEM_HOME=$rvm_gem_home $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
+    __rvm_run "rubygems.install" "GEM_PATH=$rvm_gem_path GEM_HOME=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
     result=$?
     if [ $result -eq 0 ] ; then
       __rvm_log "info" "Installation of rubygems $rvm_ruby_package_name completed successfully."
@@ -509,9 +514,9 @@ function __rvm_inject_gem_env {
   __rvm_actual_file $1
   if [ -f $actual_file ] ; then
     if [ ! -z "`head -n 1 $actual_file | awk '/[j]*ruby/'`" ] ; then
-      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_gem_home/bin:' + ENV['PATH']"
+      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_ruby_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_ruby_gem_home'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:' + ENV['PATH']"
     elif [ ! -z "`head -n 1 $actual_file | awk '/bash/'`" ] ; then
-      string="GEM_HOME=\${GEM_HOME:-'$rvm_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_gem_home'}\nPATH=$rvm_ruby_home/bin:$rvm_gem_home/bin:\$PATH"
+      string="GEM_HOME=\${GEM_HOME:-'$rvm_ruby_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_ruby_gem_home'}\nPATH=$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH"
     fi
     if [ ! -z "$string" ] ; then
       awk "NR==2 {print \"$string\"} {print}" $actual_file > $actual_file.new
