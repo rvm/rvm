@@ -75,13 +75,22 @@ function __rvm_log {
   esac
 }
 
+if [ ! -z "$ZSH_VERSION" ] ; then __shell_array_start=1 ; else __shell_array_start=0 ; fi
+__rvm_push() {
+  array=$1 ; shift ; item=$2
+  # TODO: allow loop over more arguments.
+  eval "index=\$((\${#${array}[*]} + $__shell_array_start))"
+  eval "${array}[${index}]=${item}"
+  unset array item
+}
+
 function __rvm_clean-path {
-  PATH=`echo $PATH | tr -s ':' '\n' | awk '!($0 in a){a[$0];print}' | tr -s '\n' ':' | sed 's/:$//'`
+  PATH=$(echo $PATH | tr -s ':' '\n' | awk '!($0 in a){a[$0];print}' | tr -s '\n' ':' | sed 's/:$//')
   export PATH
 }
 
 function __rvm_remove-rvm-from-path {
-  PATH=`echo $PATH | tr -s ':' '\n' | grep -v "\.rvm" | tr -s '\n' ':' | sed 's/:$//'`
+  PATH=$(echo $PATH | tr -s ':' '\n' | grep -v "\.rvm" | tr -s '\n' ':' | sed 's/:$//')
   export PATH
 }
 
@@ -90,7 +99,7 @@ function __rvm_gi { gem install -q --no-rdoc --no-ri $* ; }
 function __rvm_run {
   log_file_name="$1" ; command="$2" ; message="$3"
   rvm_ruby_log_path=${rvm_ruby_log_path:-$rvm_path/log}
-  mkdir -p `dirname $rvm_ruby_log_path/$log_file_name.log`
+  mkdir -p $(dirname $rvm_ruby_log_path/$log_file_name.log)
 
   if [ ! -z "$message" ] ; then __rvm_log "info" "$message" ; fi
   __rvm_log "debug" "Executing: $command"
@@ -106,11 +115,12 @@ function __rvm_run {
 }
 
 function __rvm_cleanup_variables {
-  unset rvm_selected_flag rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_ruby_tag rvm_ruby_revision rvm_url rvm_ruby_make rvm_ruby_configure rvm_ruby_make_install rvm_config_path rvm_ruby_string rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_ruby_string rvm_ruby_selector rvm_shebang_flag rvm_env_flag rvm_head_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag
+  __rvm_unset_ruby_variables
+  unset rvm_selected_flag rvm_action rvm_irbrc_file rvm_source_path rvm_path rvm_prefix_path rvm_gem_path rvm_command rvm_error_message rvm_gem_set_name rvm_url rvm_config_path rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_head_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_log_path
 }
 
 function __rvm_unset_ruby_variables {
-  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected_flag rvm_ruby_selector rvm_ruby_string
+  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected_flag rvm_ruby_selector rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -119,9 +129,9 @@ function __rvm_load-rvmrc {
 }
 
 function __rvm_bin_scripts {
-  for rvm_ruby_binary in `/bin/ls $rvm_path/*/bin/ruby 2> /dev/null` ; do
+  for rvm_ruby_binary in $(/bin/ls $rvm_path/*/bin/ruby 2> /dev/null) ; do
     if [ -x $rvm_ruby_binary ] ; then
-      rvm_ruby_string=`dirname $rvm_ruby_binary | xargs dirname | xargs basename`
+      rvm_ruby_string=$(dirname $rvm_ruby_binary | xargs dirname | xargs basename)
       __rvm_select
       __rvm_bin_script
     fi
@@ -149,12 +159,12 @@ RubyWrapper
 
 function __rvm_fetch {
   __rvm_pushpop $rvm_archives_path
-  archive=`basename "$1"`
+  archive=$(basename "$1")
   __rvm_log "debug" "Fetching $archive"
   # Check first if we have the correct archive
   if [ -e $archive ] && [ -e $archive.md5 ] ; then
     __rvm_log "debug" "Found archive and its md5, testing correctness"
-    if [ `md5sum --status -c $archive.md5` -gt 0 ] ; then
+    if [ $(md5sum --status -c $archive.md5) -gt 0 ] ; then
       __rvm_log "debug" "Archive is bad, downloading"
       download=1
     else
@@ -207,21 +217,21 @@ function __rvm_load_defaults {
     done
   fi
 
-  rvm_system_ruby=`__rvm_db "system_ruby"`
+  rvm_system_ruby=$(__rvm_db "system_ruby")
   if [ ! -z "$rvm_system_ruby" ] ; then
-    rvm_system_ruby=`which ruby`
+    rvm_system_ruby=$(which ruby)
     if [ $? -ne 0 ] ; then
       __rvm_log "info" "System ruby not found, no db will be stored."
     else
       __rvm_db "system_ruby" "$rvm_system_ruby"
 
       # Now store system system & user gem paths
-      rvm_system_user_gem_path=`__rvm_db "system_user_gem_path"`
+      rvm_system_user_gem_path=$(__rvm_db "system_user_gem_path")
       if [ -z "$rvm_system_user_gem_path" ] ; then
         rvm_system_user_gem_path=$( rvm system ; gem env gemdir user; )
         __rvm_db "system_user_gem_path" "$rvm_system_user_gem_path"
       fi
-      rvm_system_gem_path=`__rvm_db "system_gem_path"`
+      rvm_system_gem_path=$(__rvm_db "system_gem_path")
       if [ -z "$rvm_system_gem_path" ] ; then
         rvm_system_gem_path=$( rvm system ; gem env gemdir; )
         __rvm_db "system_gem_path" "$rvm_system_gem_path"
@@ -428,9 +438,9 @@ function __rvm_initialize {
   # TODO: Sanitize user input, ensure that there is a / a the end...
   if [ "$(whoami)" = "root" ] ; then
     __rvm_log "fail" "root user support is not yet implemented."
-    #rvm_prefix_path=${rvm_prefix_path:-/usr/local/}
+    rvm_prefix_path="${rvm_prefix_path:-/usr/local/}"
   else
-    rvm_prefix_path=${rvm_prefix_path:-"$HOME/."}
+    rvm_prefix_path="${rvm_prefix_path:-"$HOME/."}"
   fi
   if [ "${rvm_prefix_path#${rvm_prefix_path%?}}" = '.' -o "${rvm_prefix_path#${rvm_prefix_path%?}}" = '/' ] ; then
     rvm_path="${rvm_prefix_path}rvm"
@@ -439,11 +449,11 @@ function __rvm_initialize {
   fi
   rvm_archives_path="${rvm_archives_path:-"$rvm_path/archives"}"
   rvm_source_path="${rvm_source_path:-"$rvm_path/src"}"
-  rvm_log_path=${rvm_log_path:-"$rvm_path/log"}
-  rvm_bin_path=${rvm_bin_path:-"$rvm_path/bin"}
-  rvm_gem_path=${rvm_gem_path:-"$rvm_path/gems"}
-  rvm_config_path=${rvm_config_path:-"$rvm_path/config"}
-  rvm_temp_path=${rvm_temp_path:-"$rvm_path/tmp"}
+  rvm_log_path="${rvm_log_path:-"$rvm_path/log"}"
+  rvm_bin_path="${rvm_bin_path:-"$rvm_path/bin"}"
+  rvm_gem_path="${rvm_gem_path:-"$rvm_path/gems"}"
+  rvm_config_path="${rvm_config_path:-"$rvm_path/config"}"
+  rvm_temp_path="${rvm_temp_path:-"$rvm_path/tmp"}"
 
   rvm_ruby_repo_url="${rvm_ruby_repo_url:-"http://svn.ruby-lang.org/repos/ruby"}"
   # Rubinius sha1's will be available after RC1.
@@ -452,7 +462,7 @@ function __rvm_initialize {
   rvm_ruby_load_path="."
   rvm_ruby_require=""
 
-  if [ "`uname`" = "Darwin" ] ; then rvm_archflags="${rvm_archflags:-'-arch i386 -arch x86_64'}" ; fi
+  if [ "$(uname)" = "Darwin" ] ; then rvm_archflags="${rvm_archflags:-'-arch i386 -arch x86_64'}" ; fi
 
   __rvm_clean-path
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
@@ -517,8 +527,7 @@ function __rvm_reboot {
     source ~/.rvm/scripts/rvm
   else
     __rvm_log "info" "Carry on then..."
-  fi
-  unset response
+  fi ; unset response
 }
 
 function __rvm_reload {
