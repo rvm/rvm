@@ -11,43 +11,48 @@ testset_dir="$(gem env gemdir)-testset"
 
 setup_testset() {
   rvm 1.9.1 -m testset
-  echo "Installing Rake"
-  gem install rake --no-rdoc --no-ri
 }
 
 clear_testset() {
   if [ ! -z "$testset_dir" -a "$testset_dir" != '/' ] ; then rm -rf  $testset_dir ; fi
+  rm -f testset.gems
 }
 
+setup_testset
 btu_test "rvm gemset testset"
-assert string_eq "testset" $(gem env gemdir | xargs basename | sed "s/^$rvm_ruby_version-//")
+assert string_eq "testset" $(gem env gemdir | xargs basename | awk -F '-' '{$1=NULL;print}')
 clear_testset
 
-btu_test 'gemset=\`rvm gemset name\`'
+btu_test 'gemset=`rvm gemset name`'
 assert string_eq "testset" $gemset
 clear_testset
 
 btu_test 'gemset_dir=\`rvm gemset dir\`'
-assert match "-test$" $gemset_dir
+assert match "1.9.1-testset$" $(gem env gemdir)
 clear_testset
 
 btu_test "rvm gemset dump"
-assert match "-test$" $gemset_dir
-clear_testset
+gem build rvm.gemspec
+__rvm_gi ./rvm*.gem
+gems=`cat testset.gems`
+echo $gems
+assert file_exists 'testset.gems'
+assert file_contains "^rvm" "testset.gems"
+#clear_testset
 
-btu_test "rvm gemset dump my_testset"
-clear_testset
-
-btu_test "rvm gemset dump my_testset.gemset"
-clear_testset
-
-btu_test "rvm gemset load"
-# Should load testset.gemspec
-clear_testset
-
-btu_test "rvm gemset load my_testset.gemspec"
-clear_testset
-
-btu_test "rvm gemset delete test-gemset"
-clear_testset
-
+#btu_test "rvm gemset dump my_testset"
+#clear_testset
+#
+#btu_test "rvm gemset dump my_testset.gems"
+#clear_testset
+#
+#btu_test "rvm gemset load"
+## Should load testset.gemspec
+#clear_testset
+#
+#btu_test "rvm gemset load my_testset.gemspec"
+#clear_testset
+#
+#btu_test "rvm gemset delete test-gemset"
+#clear_testset
+#

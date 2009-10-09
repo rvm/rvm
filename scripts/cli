@@ -140,18 +140,14 @@ function __rvm_parse-args {
         fi
       ;;
 
-      gemset)
-        rvm_action=$rvm_token
-        if [ "$1" = "delete" ] ; then
-          rvm_delete_flag=1
-          shift
-          if [ -z "$1" -a -z "$rvm_gem_set_name" ] ; then
-            rvm_action="error"
-            rvm_error_message="A gem set name must be specified with 'gemset delete'"
-          else
-            rvm_gem_set_name="$1"
-            shift
-          fi
+      gems|gemset)
+        rvm_action="gemset"
+        if [ "$1" = "name" -o "$1" = "dir" -o "$1" = "list" -o "$1" = "empty" -o "$1" = "delete" ] ; then
+          eval "rvm_${1}_flag=1" ; shift
+        elif [ "$1" = "dump" -o "$1" = "load" ] ; then
+          eval "rvm_${1}_flag=1" ; shift
+        else
+          rvm_use_flag=1 # Default is to use the (named) gemset.
         fi
       ;;
 
@@ -166,11 +162,11 @@ function __rvm_parse-args {
         rvm_action=gemset
         eval "rvm_${rvm_token}_flag=1"
         if [ ! -z "$1" ] ; then
-          rvm_gem_set_name=$(echo $1 | sed 's/\.gemset//' | xargs basename)
-          rvm_file_name="$(echo $1 | sed 's/\.gemset//').gemset"
+          rvm_gem_set_name=$(echo $1 | sed 's/\.gems//' | xargs basename)
+          rvm_file_name="$(echo $1 | sed 's/\.gems//').gems"
           shift
         else
-          rvm_file_name="$rvm_gem_set_name.gemset"
+          rvm_file_name="$rvm_gem_set_name.gems"
         fi
       ;;
 
@@ -374,7 +370,9 @@ function __rvm_parse-args {
 
       *)
         if [ ! -z "$rvm_token" ] ; then
-          if [ ! -z "$(echo $rvm_token | awk '/,/')" ] ; then
+          if [ "$rvm_action" = "gemset" ] ; then
+            rvm_gem_set_name="$rvm_token"
+          elif [ ! -z "$(echo $rvm_token | awk '/,/')" ] ; then
             rvm_ruby_version="$rvm_token"
             if [ -z "$rvm_action" ] ; then
               rvm_action="do" # Not sure if we really want to do this but we'll try it out.
@@ -441,15 +439,22 @@ function rvm {
     ;;
 
     gemset)
-      if [ ! -z "$rvm_load_flag" ] ; then
+      if [ ! -z "$rvm_use_flag" ] ; then
+        __rvm_gemset_use
+      elif [ ! -z "$rvm_load_flag" ] ; then
         __rvm_gemset_load
       elif [ ! -z "$rvm_dump_flag" ] ; then
-        __rvm_gemset_load
+        __rvm_gemset_dump
       elif [ ! -z "$rvm_delete_flag" ] ; then
         __rvm_gemset_delete
-      else
-        rvm_action="error"
-        rvm_error_message="At least one of load, dump, or delete must be specified with 'gemset'."
+      elif [ ! -z "$rvm_name_flag" ] ; then
+        __rvm_gemset_name
+      elif [ ! -z "$rvm_dir_flag" ] ; then
+        __rvm_gemset_dir
+      elif [ ! -z "$rvm_list_flag" ] ; then
+        __rvm_gemset_list
+      elif [ ! -z "$rvm_empty_flag" ] ; then
+        __rvm_gemset_empty
       fi
     ;;
 

@@ -106,7 +106,7 @@ function __rvm_run {
 }
 
 function __rvm_cleanup_variables {
-  unset rvm_selected_flag rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_ruby_tag rvm_ruby_revision rvm_url rvm_ruby_make rvm_ruby_configure rvm_ruby_make_install rvm_config_path rvm_ruby_string rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_ruby_string rvm_ruby_selector rvm_shebang_flag rvm_env_flag rvm_head_flag rvm_tail_flag
+  unset rvm_selected_flag rvm_action rvm_ruby_interpreter rvm_ruby_patch_level rvm_ruby_version rvm_irbrc_file rvm_ruby_irbrc rvm_source_path rvm_path rvm_prefix_path rvm_ruby_package_name rvm_gem_path rvm_command rvm_error_message rvm_ruby_home rvm_ruby_binary rvm_gem_set_name rvm_ruby_tag rvm_ruby_revision rvm_url rvm_ruby_make rvm_ruby_configure rvm_ruby_make_install rvm_config_path rvm_ruby_string rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_ruby_string rvm_ruby_selector rvm_shebang_flag rvm_env_flag rvm_head_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag
 }
 
 function __rvm_unset_ruby_variables {
@@ -207,12 +207,6 @@ function __rvm_load_defaults {
     done
   fi
 
-  rvm_system_ps1=`__rvm_db "system_ps1"`
-  if [ -z "$rvm_system_ps1" ] ; then
-    rvm_system_ps1=$PS1
-    __rvm_db "system_ps1" "$rvm_system_ps1"
-  fi
-
   rvm_system_ruby=`__rvm_db "system_ruby"`
   if [ ! -z "$rvm_system_ruby" ] ; then
     rvm_system_ruby=`which ruby`
@@ -248,7 +242,7 @@ function __rvm_reset {
   rvm_ruby_interpreter="system"
   __rvm_select
 
-  for system_config in system_ps1 system_ruby system_gem_path system_user_gem_path ; do
+  for system_config in system_ruby system_gem_path system_user_gem_path ; do
     __rvm_db "$system_config" "delete"
   done ; unset system_config variable
 
@@ -708,16 +702,16 @@ __rvm_gemset_delete () {
   fi
 }
 
-function __rvm_gemset_dump {
-  rvm_gem_set_name=${rvm_gem_set_name:-"default"}
-  rvm_file_name=${rvm_file_name:-$rvm_gem_set_name}
+__rvm_gemset_dump() {
+  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
+  rvm_file_name="${rvm_gem_set_name:-default}.gems"
 
-  echo "# $rvm_gem_set_name.gemset generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_gem_set_name.gemset
+  echo "# $rvm_file_name generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_file_name
 
   for gem in $(gem list | sed 's/[\(|\)]//g' | sed 's/, /,/g' | tr ' ' ';') ; do
-    name=`echo $gem | awk -F';' '{print $1}'`
+    name=$(echo $gem | awk -F';' '{print $1}')
     if [ -z "$rvm_latest_flag" ] ; then
-      versions=`echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g'`
+      versions=$(echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g')
       for version in $versions ; do
         echo "$name -v$version" >> $rvm_file_name
       done ; unset version versions
@@ -727,7 +721,9 @@ function __rvm_gemset_dump {
   done ; unset file_name
 }
 
-function __rvm_gemset_load {
+__rvm_gemset_load() {
+  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
+  #rvm_file_name="${rvm_gem_set_name:-default}.gems"
   rvm_gem_set_name=${rvm_gem_set_name:-"default"}
   rvm_file_name=${rvm_file_name:-$rvm_gem_set_name}
 
@@ -781,6 +777,38 @@ function __rvm_gemset_load {
     fi
     unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
   done < <(awk '/^[a-zA-Z]/{print}' "$rvm_file_name")
+}
+
+__rvm_gemset_use() {
+  if [ -z "$rvm_gem_set_name" ] ; then
+    rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version"
+  else
+    if [ ! -z "$rvm_gem_set_name_rm" -a -d $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name ] ; then
+      rm -rf $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name/
+      if [ "$rvm_gem_set_name_rm" = "$rvm_gem_set_name" ] ; then unset rvm_gem_set_name ; fi
+    else
+      rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
+    fi
+  fi
+  mkdir -p $rvm_ruby_gem_home
+}
+
+__rvm_gemset_name() {
+  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
+  echo $rvm_gem_set_name
+}
+
+__rvm_gemset_dir() {
+  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
+  echo $rvm_ruby_home
+}
+
+__rvm_gemset_list(){
+  :
+}
+
+__rvm_gemset_empty(){
+  :
 }
 
 function __rvm_irbrc {
