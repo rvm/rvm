@@ -98,15 +98,15 @@ function __rvm_gi { gem install -q --no-rdoc --no-ri $* ; }
 
 function __rvm_run {
   log_file_name="$1" ; command="$2" ; message="$3"
-  rvm_ruby_log_path=${rvm_ruby_log_path:-$rvm_path/log}
-  mkdir -p $(dirname $rvm_ruby_log_path/$log_file_name.log)
+  rvm_ruby_log_path="${rvm_ruby_log_path:-$rvm_path/log}"
+  mkdir -p $(dirname "$rvm_ruby_log_path/$log_file_name.log")
 
   if [ ! -z "$message" ] ; then __rvm_log "info" "$message" ; fi
   __rvm_log "debug" "Executing: $command"
-  touch $rvm_ruby_log_path/$log_file_name.log $rvm_ruby_log_path/$log_file_name.error.log # for zsh :(
-  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee $rvm_ruby_log_path/$log_file_name.log > $rvm_ruby_log_path/$log_file_name.error.log
+  touch "$rvm_ruby_log_path/$log_file_name.log" "$rvm_ruby_log_path/$log_file_name.error.log" # for zsh :(
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee "$rvm_ruby_log_path/$log_file_name.log" > "$rvm_ruby_log_path/$log_file_name.error.log"
   if [ -z "$rvm_niceness" -o "$rvm_niceness" = "0" ] ; then
-    eval "$command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
+    eval "$command" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
   else
     eval "nice -n $rvm_niceness \`$command\`" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
   fi
@@ -116,7 +116,7 @@ function __rvm_run {
 
 function __rvm_cleanup_variables {
   __rvm_unset_ruby_variables
-  unset rvm_selected_flag rvm_action rvm_irbrc_file rvm_source_path rvm_path rvm_prefix_path rvm_gem_path rvm_command rvm_error_message rvm_gem_set_name rvm_url rvm_config_path rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_head_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_log_path
+  unset rvm_selected_flag rvm_action rvm_irbrc_file rvm_src_path rvm_path rvm_prefix_path rvm_gem_path rvm_command rvm_error_message rvm_gem_set_name rvm_url rvm_config_path rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_head_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_log_path
 }
 
 function __rvm_unset_ruby_variables {
@@ -181,19 +181,29 @@ function __rvm_fetch {
     eval $rvm_fetch "$1"
     result=$?
     if [ $result -gt 0 ] ; then
+      unset retry
       if [ $result -eq 78 ] ; then
         __rvm_log "error" "The requested url does not exist: '$1'"
+      elif [ $result -eq 18 ] ; then
+        __rvm_log "error" "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
+        rm -f "$archive"
+        retry=1
       elif [ $result -eq 33 ] ; then
         __rvm_log "debug" "Server does not support 'range' command, removing '$archive'"
-        rm -f $archive
+        rm -f "$archive"
+        retry=1
+      else
+        __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      fi
+
+      if [ $retry -eq 1 ] ; then
         eval $rvm_fetch "$1"
         result=$?
         if [ $result -gt 0 ] ; then
           __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
         fi
-      else
-        __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
       fi
+
     fi
     __rvm_pushpop
   fi
@@ -448,7 +458,7 @@ function __rvm_initialize {
     rvm_path="${rvm_prefix_path}/rvm"
   fi
   rvm_archives_path="${rvm_archives_path:-"$rvm_path/archives"}"
-  rvm_source_path="${rvm_source_path:-"$rvm_path/src"}"
+  rvm_src_path="${rvm_src_path:-"$rvm_path/src"}"
   rvm_log_path="${rvm_log_path:-"$rvm_path/log"}"
   rvm_bin_path="${rvm_bin_path:-"$rvm_path/bin"}"
   rvm_gem_path="${rvm_gem_path:-"$rvm_path/gems"}"
@@ -470,7 +480,7 @@ function __rvm_initialize {
     PATH=$rvm_bin_path:$PATH ; export PATH
   fi
 
-  mkdir -p $rvm_source_path $rvm_bin_path $rvm_archives_path $rvm_gem_path $rvm_temp_path
+  mkdir -p $rvm_src_path $rvm_bin_path $rvm_archives_path $rvm_gem_path $rvm_temp_path
 }
 
 function __rvm_update {
@@ -486,12 +496,12 @@ function __rvm_update {
 }
 
 function __rvm_update_rvm {
-  mkdir -p $rvm_source_path
+  mkdir -p $rvm_src_path
   if [ "$rvm_ruby_revision" = "head" ] ; then
-    if [ -d $rvm_source_path/rvm/.git ] ; then
-      cd $rvm_source_path/rvm/ && git pull origin master && ./scripts/install
+    if [ -d $rvm_src_path/rvm/.git ] ; then
+      cd $rvm_src_path/rvm/ && git pull origin master && ./scripts/install
     else
-      cd $rvm_source_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/ && ./install
+      cd $rvm_src_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/ && ./install
     fi
   else
     # TODO: rvm_install_path:
@@ -624,13 +634,9 @@ function __rvm_summary {
 function __rvm_yaml {
   export successes errors statuses
   yaml="totals:\n  rubies: ${#rubies[*]}\n  successes: ${#successes[*]}\n  errors: ${#errors[*]}\nsuccesses:"
-  for var in ${successes[*]} ; do
-    yaml="$yaml\n  - $var"
-  done
+  for var in ${successes[*]} ; do yaml="$yaml\n  - $var" ; done
   yaml="$yaml\nerrors:"
-  for var in ${errors[*]} ; do
-    yaml="$yaml\n  - $var"
-  done
+  for var in ${errors[*]} ; do yaml="$yaml\n  - $var" ; done
   yaml="$yaml\nrubies:"
   total=${#rubies[*]}
   if [ ! -z "$ZSH_VERSION" ] ; then array_start=1 ; else array_start=0 ; fi
@@ -667,16 +673,11 @@ function __rvm_json {
 }
 
 function __rvm_benchmark {
-  rvm_code="$(cat <<RubyCode
-require "benchmark" \n
-Benchmark.bmbm do |benchmark| \n
-  benchmark.report("$rvm_ruby_file") do \n
-RubyCode
-)"
-  echo -e "$rvm_code" > $rvm_temp_path/$$.rb
-  cat $rvm_ruby_file >> $rvm_temp_path/$$.rb
-  echo -e "\n end \nend\n" >> $rvm_temp_path/$$.rb
-  unset rvm_code
+  code="require \"benchmark\" \n Benchmark.bmbm do |benchmark| \n benchmark.report(\"${rvm_ruby_file}\") do \n"
+  echo -e "$code" > "$rvm_temp_path/$$.rb"
+  unset code
+  cat $rvm_ruby_file >> "$rvm_temp_path/$$.rb"
+  echo -e "\n end \nend\n" >> "$rvm_temp_path/$$.rb"
   rvm_ruby_args="$rvm_temp_path/$$.rb"
   rvm_action="ruby"
   if [ ! -z "$rvm_debug_flag" ] ; then echo -e "$rvm_temp_path/$$.rb:\n$(cat $rvm_temp_path/$$.rb)" ; fi
@@ -686,9 +687,9 @@ RubyCode
 __rvm_gemset_delete () {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
 
-  if [ ! -z $rvm_gem_set_name ] ; then
+  if [ ! -z "$rvm_gem_set_name" ] ; then
     gemdir="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
-    if [ -d $gemdir ] ; then
+    if [ -d "$gemdir" ] ; then
       __rvm_log "warn" "Are you SURE you wish to remove the installed gemset '$rvm_gem_set_name ' ($gemdir)?"
       echo -n "(anything other than 'yes' will cancel) > "
       read response
@@ -698,9 +699,8 @@ __rvm_gemset_delete () {
         __rvm_log "info" "Not doing anything, phew... close call that one eh?"
       fi
     else
-      __rvm_log "info" "$gemdir does not exist, dirtywork alredy done."
-    fi
-    unset gemdir
+      __rvm_log "info" "$gemdir already does not exist."
+    fi ; unset gemdir
   else
     __rvm_log "error" "A gemset name must be specified in order to delete a gemset."
   fi
@@ -713,9 +713,9 @@ __rvm_gemset_dump() {
   echo "# $rvm_file_name generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_file_name
 
   for gem in $(gem list | sed 's/[\(|\)]//g' | sed 's/, /,/g' | tr ' ' ';') ; do
-    name=$(echo $gem | awk -F';' '{print $1}')
+    name="$(echo $gem | awk -F';' '{print $1}')"
     if [ -z "$rvm_latest_flag" ] ; then
-      versions=$(echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g')
+      versions="$(echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g')"
       for version in $versions ; do
         echo "$name -v$version" >> $rvm_file_name
       done ; unset version versions
@@ -728,19 +728,19 @@ __rvm_gemset_dump() {
 __rvm_gemset_load() {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
   #rvm_file_name="${rvm_gem_set_name:-default}.gems"
-  rvm_gem_set_name=${rvm_gem_set_name:-"default"}
-  rvm_file_name=${rvm_file_name:-$rvm_gem_set_name}
+  rvm_gem_set_name="${rvm_gem_set_name:-"default"}"
+  rvm_file_name="${rvm_file_name:-$rvm_gem_set_name}"
 
   echo "Loading $rvm_file_name file..."
-  rvm_ruby_gem_list=`/bin/ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null`
+  rvm_ruby_gem_list=$(/bin/ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null)
   while read line
   do # Keep this on 2nd line :( bash fail.
     # TODO: Switch to a different field separator than ; to allow for evals
-    gem=`echo $line | awk -F';' '{print $1}'`
-    gem_prefix=`echo $line | awk -F';' '{print $2}'`
-    gem_name=`echo $gem | awk '{print $1}'`
-    gem_version=`echo $gem | sed 's/^.*-v[=]*[ ]*//' | awk '{print $1}'`
-    gem_postfix=`echo $gem | sed "s/$gem_name//" | sed "s/-v[=]*[ ]*$gem_version//"`
+    gem="$(echo $line | awk -F';' '{print $1}')"
+    gem_prefix="$(echo $line | awk -F';' '{print $2}')"
+    gem_name="$(echo $gem | awk '{print $1}')"
+    gem_version="$(echo $gem | sed 's/^.*-v[=]*[ ]*//' | awk '{print $1}')"
+    gem_postfix="$(echo $gem | sed "s/$gem_name//" | sed "s/-v[=]*[ ]*$gem_version//")"
 
     if [ -z "$gem_version" ] ; then # no version
       gem_file_name="${gem_name}*.gem"
@@ -748,7 +748,7 @@ __rvm_gemset_load() {
       gem_file_name="$gem_name-$gem_version.gem"
     fi
 
-    cache_file=`/bin/ls -t $rvm_gem_path/*/*/cache/${gem_file_name}* 2> /dev/null | head -n1`
+    cache_file=$(/bin/ls -t $rvm_gem_path/*/*/cache/${gem_file_name}* 2> /dev/null | head -n1)
     if [ -z "$cache_file" ] ; then
       if [ -z "$gem_version" ] ; then
         gem="$gem_name"
@@ -756,9 +756,9 @@ __rvm_gemset_load() {
         gem="$gem_name -v $gem_version"
       fi
     else # cached
-      gem_file_name=`basename $cache_file`
-      gem_string=`echo "$gem_file_name" | sed 's/\.gem$//'`
-      if [ ! -z "`echo "$rvm_ruby_gem_list" | awk "/$gem_string/{print}"`" ] ; then
+      gem_file_name="$(basename $cache_file)"
+      gem_string="$(echo "$gem_file_name" | sed 's/\.gem$//')"
+      if [ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/$gem_string/{print}")" ] ; then
         if [ ! -z "$rvm_force_flag" ] ; then
           cp $cache_file $rvm_temp_path/$gem_file_name
           gem="$rvm_temp_path/$gem_file_name" # install as a named local gem
@@ -794,25 +794,28 @@ __rvm_gemset_use() {
       rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
     fi
   fi
-  mkdir -p $rvm_ruby_gem_home
+  mkdir -p "$rvm_ruby_gem_home"
 }
 
 __rvm_gemset_name() {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
-  echo $rvm_gem_set_name
+  echo "$rvm_gem_set_name"
 }
 
 __rvm_gemset_dir() {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
-  echo $rvm_ruby_home
+  echo "$rvm_ruby_home"
 }
 
 __rvm_gemset_list(){
-  :
+  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
 }
 
-__rvm_gemset_empty(){
-  :
+__rvm_gemset_clear(){
+  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
+  if [ -d "$rvm_ruby_gem_home" -a "$rvm_ruby_gem_home" != '/' ] ; then
+    rm -rf "$rvm_ruby_gem_home"
+  fi
 }
 
 function __rvm_irbrc {
@@ -868,7 +871,7 @@ function __rvm_state {
 
 function __rvm_inspect {
   for binary in $rvm_ruby_args ; do
-    actual_file=`which $binary`
+    actual_file=$(which $binary)
     __rvm_log "info" "$actual_file:"
     if [ ! -z "$rvm_shebang_flag" ] ; then cat $actual_file | head -n 1    ; fi
     if [ ! -z "$rvm_env_flag" ]     ; then cat $actual_file | awk '/ENV/'  ; fi
@@ -883,15 +886,15 @@ function __rvm_inspect {
 # ruby supporting libraries:
 #
 function __rvm_readline_install {
-  __rvm_pushpop $rvm_source_path
+  __rvm_pushpop $rvm_src_path
   package="readline" ; version="5.2" ; archive_format="tar.gz"
   # TODO: Figure out how to list, grab and apply the patches
   __rvm_log "info" "Retrieving $package-$version.$archive_format"
-  __rvm_fetch ftp://ftp.gnu.org/gnu/readline/$package-$version.$archive_format"
-  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_source_path" "Extracting $package-$version.$archive_format"
-  cd $rvm_source_path/$package-$version
-  if [ "`uname`" = "Darwin" ] ; then
-    sdk=`ls -t /Developer/SDKs/ | head -n 1`
+  __rvm_fetch "ftp://ftp.gnu.org/gnu/readline/$package-$version.$archive_format"
+  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
+  cd "$rvm_src_path/$package-$version"
+  if [ "$(uname)" = "Darwin" ] ; then
+    sdk=$(ls -t /Developer/SDKs/ | head -n 1)
     CFLAGS="-isysroot /Developer/SDKs/$sdk -arch i386 -arch x86_64"
     LDFLAGS="-Wl,-syslibroot,/Developer/SDKs/$sdk -arch i386 -arch x86_64"
     export CFLAGS LDFLAGS
@@ -905,12 +908,12 @@ function __rvm_readline_install {
 }
 
 function __rvm_iconv_install {
-  __rvm_pushpop $rvm_source_path
+  __rvm_pushpop $rvm_src_path
   package="libiconv" ; version=1.13.1 ; archive_format="tar.gz"
   __rvm_log "info" "Retrieving $package-$version.$archive_format"
-  __rvm_fetch http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.$archive_format"
-  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_source_path" "Extracting $package-$version.$archive_format"
-  cd $rvm_source_path/$package-$version
+  __rvm_fetch "http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.$archive_format"
+  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
+  cd "$rvm_src_path/$package-$version"
   __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --disable-static --enable-shared" "Configuring $package."
   __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
   __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
@@ -925,7 +928,7 @@ elif [ -d spec/ ] ; then
 fi
 #
 #  timestamp() {
-#    if [ "`uname`" = "Darwin" ] ; then
+#    if [ "$(uname)" = "Darwin" ] ; then
 #      $(stat -c "%Y" $1)
 #    else
 #      echo $(stat -f "%m" $1)

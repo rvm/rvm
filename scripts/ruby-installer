@@ -3,13 +3,12 @@
 function __rvm_install_source {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
   __rvm_log "info" "Installing Ruby from source to: $rvm_ruby_home"
-  mkdir -p $rvm_ruby_log_path
+  mkdir -p "$rvm_ruby_log_path"
 
-  __rvm_pushpop $rvm_source_path
+  __rvm_pushpop "$rvm_src_path"
 
   if [ ! -z "$rvm_force_flag" ] ; then
-    rm -rf $rvm_ruby_home
-    rm -rf $rvm_ruby_src_path
+    rm -rf "$rvm_ruby_home" "$rvm_ruby_src_path"
   fi
 
   result=0
@@ -17,11 +16,11 @@ function __rvm_install_source {
     if [ ! -f $rvm_archives_path/$rvm_ruby_package_name.tar.gz ]  ; then
       rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
       __rvm_log "info" "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
-      __rvm_fetch $rvm_url
+      __rvm_fetch "$rvm_url"
       if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
     fi
-    mkdir -p $rvm_ruby_src_path # Is this line necessary considering -C below?    v
-    __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_source_path" "Extracting $rvm_ruby_package_name ..."
+    #mkdir -p "$rvm_ruby_src_path" # Is this line necessary considering -C below?    v
+    __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_src_path" "Extracting $rvm_ruby_package_name ..."
     if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
   else
     __rvm_log "info" "Retrieving Ruby from $rvm_url"
@@ -138,24 +137,24 @@ function __rvm_install_ruby {
 
     ree)
       if [ ! -z "$(echo $rvm_ruby_version | awk '/^1\.8/')" -a -z "$rvm_head_flag" ] ; then
-        rvm_url="`__rvm_db "ree_${rvm_ruby_version}_url"`/$rvm_ruby_package_file.tar.gz"
+        rvm_url="$(__rvm_db "ree_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
         __rvm_log "info" "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
-        __rvm_pushpop $rvm_source_path
-        if [ -d $rvm_ruby_src_path ]  ; then
-          cd $rvm_ruby_src_path
+        __rvm_pushpop "$rvm_src_path"
+        if [ -z "$rvm_force_flag" -a -d "$rvm_ruby_src_path" -a ! -z $($rvm_ruby_src_path/*) ]  ; then
+          __rvm_log "It appears that the archive has already been extracted. Skipping extract (use --force to force re-download and extract)."
         else
           __rvm_log "Downloading $rvm_ruby_package_file, this may take a while depending on your connection..."
-          __rvm_fetch $rvm_url
+          __rvm_fetch "$rvm_url"
           if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
-          mkdir -p $rvm_ruby_src_path
-          __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_file.tar.gz -C $rvm_source_path" "Extracting $rvm_ruby_package_file..."
+          rm -rf "$rvm_ruby_src_path"
+          __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_file.tar.gz -C $rvm_src_path" "Extracting $rvm_ruby_package_file..."
           if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
+          mv "$rvm_src_path/$rvm_ruby_package_file" "$rvm_ruby_src_path"
         fi
+        cd "$rvm_ruby_src_path"
 
-        mkdir -p $rvm_ruby_log_path
-
-        cd $rvm_ruby_src_path
-        mkdir -p $rvm_ruby_home/lib/ruby/gems/1.8/gems
+        mkdir -p "$rvm_ruby_log_path"
+        mkdir -p "${rvm_ruby_home}/lib/ruby/gems/1.8/gems"
         if [ ! -z "$rvm_ruby_configure" ] ; then rvm_ruby_configure="-c $rvm_ruby_configure"; fi
         __rvm_run "install" "./installer -a $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level --dont-install-useful-gems --no-tcmalloc $rvm_ruby_configure" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..."
         if [ $? -gt 0 ] ; then result=$? ; return $result ; fi
@@ -273,7 +272,7 @@ RubyWrapper
 
     jruby)
       mkdir -p $rvm_ruby_log_path
-      __rvm_pushpop $rvm_source_path
+      __rvm_pushpop $rvm_src_path
 
       if [ ! -z "$rvm_ruby_revision" ] ; then
         if [ ! -d $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version -o ! -d $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git ] ; then
@@ -290,9 +289,9 @@ RubyWrapper
             __rvm_log "info" "Downloading $rvm_package_file, this may take a while depending on your connection..."
             __rvm_fetch $rvm_url
           fi
-          __rvm_run "extract" "tar zxf $rvm_archives_path/$rvm_package_file.tar.gz -C $rvm_source_path" "Extracting $rvm_package_file..."
+          __rvm_run "extract" "tar zxf $rvm_archives_path/$rvm_package_file.tar.gz -C $rvm_src_path" "Extracting $rvm_package_file..."
           if [ "$rvm_package_file" != "$rvm_ruby_string" ] ; then
-            mv $rvm_source_path/$rvm_package_file $rvm_source_path/$rvm_ruby_string
+            mv $rvm_src_path/$rvm_package_file $rvm_src_path/$rvm_ruby_string
           fi
           cd $rvm_ruby_src_path
         fi
@@ -415,7 +414,7 @@ function __rvm_remove_ruby {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
 
   if [ ! -z "$rvm_ruby_package_name" ] ; then
-    for dir in $rvm_source_path $rvm_path ; do
+    for dir in $rvm_src_path $rvm_path ; do
       if [ -d $dir/$rvm_ruby_package_name ] ; then
         __rvm_log "info" "Removing $dir/$rvm_ruby_package_name..."
         rm -rf $dir/$rvm_ruby_package_name
@@ -482,15 +481,15 @@ function __rvm_rubygems_setup {
     __rvm_log "info" "Installing rubygems dedicated to $rvm_ruby_package_name..."
     rvm_gem_package_name="rubygems-1.3.5"
     rvm_gem_url="http://rubyforge.org/frs/download.php/60718/$rvm_gem_package_name.tgz"
-    if [ -d $rvm_source_path/$rvm_gem_package_name ]  ; then
-      cd $rvm_source_path/$rvm_gem_package_name
+    if [ -d $rvm_src_path/$rvm_gem_package_name ]  ; then
+      cd $rvm_src_path/$rvm_gem_package_name
     else
       __rvm_log "info" "Retrieving $rvm_gem_package_name"
       __rvm_fetch $rvm_gem_url
-      mkdir -p $rvm_source_path/$rvm_gem_package_name
-      __rvm_run "rubygems.extract" "tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_source_path" "Extracting $rvm_gem_package_name"
+      mkdir -p $rvm_src_path/$rvm_gem_package_name
+      __rvm_run "rubygems.extract" "tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_src_path" "Extracting $rvm_gem_package_name"
     fi
-    __rvm_run "rubygems.install" "GEM_PATH=$rvm_gem_path GEM_HOME=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_source_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
+    __rvm_run "rubygems.install" "GEM_PATH=$rvm_gem_path GEM_HOME=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_src_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
     result=$?
     if [ $result -eq 0 ] ; then
       __rvm_log "info" "Installation of rubygems $rvm_ruby_package_name completed successfully."
