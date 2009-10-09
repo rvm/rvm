@@ -309,13 +309,13 @@ function __rvm_gemdup {
 
 function __rvm_gem_sync {
   if [ ! -z "$rvm_source_gem_path" ] ; then
-    for rvm_gem_name_version in `/bin/ls $rvm_source_gem_path/gems 2> /dev/null` ; do
-      rvm_gem_name=${rvm_gem_name_version%-*}
-      rvm_gem_version=${rvm_gem_name_version##*-}
+    for rvm_gem_name_version in $rvm_source_gem_path/gems/* ; do
+      rvm_gem_name="${rvm_gem_name_version%-*}"
+      rvm_gem_version="${rvm_gem_name_version##*-}"
       if [ -d $GEM_HOME/gems/$rvm_gem_name_version ] ; then
         echo "$rvm_gem_name_version already installed."
       else
-        __rvm_gi $rvm_source_gem_path/cache/$rvm_gem_name-$rvm_gem_version.gem
+        __rvm_gi "$rvm_source_gem_path/cache/$rvm_gem_name-$rvm_gem_version.gem"
       fi
     done
     unset rvm_gem_name_version rvm_gem_name rvm_gem_version
@@ -357,10 +357,10 @@ function __rvm_list {
     echo -e "rbx head (rubinius head, the default)\nrbx head --jit"
     echo -e "ree 1.8.6 --head\nree (1.8.7, the default)"
   else
-    current_ruby=`which ruby | xargs dirname | xargs dirname | xargs basename 2> /dev/null`
+    current_ruby=$(which ruby | xargs dirname | xargs dirname | xargs basename 2> /dev/null)
     echo -e "\nruby:\n"
-    for version in `/bin/ls -l $rvm_path/ 2> /dev/null | awk '/ ruby-[1-2].*/ { print $NF  }'` ; do
-      string=`$rvm_path/$version/bin/ruby -v`
+    for version in $(/bin/ls -l $rvm_path/ 2> /dev/null | awk '/ ruby-[1-2].*/ { print $NF  }') ; do
+      string=$($rvm_path/$version/bin/ruby -v)
       if [ "$current_ruby" = "$version" ] ; then
         echo -e "=> $version : $string"
         selected="1"
@@ -370,8 +370,8 @@ function __rvm_list {
     done ; unset version
 
     echo -e "\njruby:\n"
-    for version in `/bin/ls -l $rvm_path/ 2> /dev/null | awk '/jruby-.*/ { print $NF }'` ; do
-      string=`$rvm_path/$version/bin/ruby -v`
+    for version in $(/bin/ls -l $rvm_path/ 2> /dev/null | awk '/jruby-.*/ { print $NF }') ; do
+      string=$($rvm_path/$version/bin/ruby -v)
       if [ "$current_ruby" = "$version" ] ; then
         echo -e "=> $version : $string"
         selected="1"
@@ -381,8 +381,8 @@ function __rvm_list {
     done ; unset version
 
     echo -e "\nree:\n"
-    for version in `/bin/ls $rvm_path/ 2> /dev/null | awk '/ree-.*/ { print $NF }'` ; do
-      string=`$rvm_path/$version/bin/ruby -v | tr "\n" ' ' `
+    for version in $(/bin/ls $rvm_path/ 2> /dev/null | awk '/ree-.*/ { print $NF }') ; do
+      string="$($rvm_path/$version/bin/ruby -v | tr "\n" ' ' )"
       if [ "$current_ruby" = "$version" ] ; then
         echo -e "=> $version : $string"
         selected="1"
@@ -392,10 +392,10 @@ function __rvm_list {
     done ; unset version
 
     if [ -f $rvm_path/default -a -s $rvm_path/default ] ; then
-      version=`grep '^MY_RUBY_HOME' ~/.rvm/default | awk -F"'" '{print $2}' | xargs basename`
+      version=$(grep '^MY_RUBY_HOME' ~/.rvm/default | awk -F"'" '{print $2}' | xargs basename)
       if [ ! -z "$version" ] ; then
         echo -e "\ndefault:\n"
-        string=`$rvm_path/$version/bin/ruby -v`
+        string=$($rvm_path/$version/bin/ruby -v)
         if [ "$current_ruby" = "$version" ] ; then
           echo -e "=> $version : $string"
           selected="1"
@@ -406,9 +406,9 @@ function __rvm_list {
     fi
 
     echo -e "\nsystem:\n"
-    system_version=`rvm system ; ruby -v 2> /dev/null`
+    system_version=$(rvm system ; ruby -v 2> /dev/null)
     if [ ! -z "$system_version" ] ; then
-      if [ "$(`which ruby` -v)" = "$system_version" ] ; then
+      if [ "$($(which ruby) -v)" = "$system_version" ] ; then
         echo -e "=> $system_version\n"
       else
         echo -e "   $system_version\n"
@@ -418,20 +418,15 @@ function __rvm_list {
 }
 
 function __rvm_initialize {
-  rvm_fetch=`which curl`
+  rvm_fetch=$(which curl)
   if [ $? -ne 0 ] ; then
-    rvm_fetch=`which wget`
-    if [ $? -ne 0 ] ; then
-      __rvm_log "fail" "rvm expects either curl or wget, neither seem to be in your path :("
-    else
-      rvm_fetch="wget -c " # -q for quiet
-    fi
+    __rvm_log "fail" "rvm requires curl, which does not seem to exist in your path :("
   else
     rvm_fetch="$rvm_fetch -O -L --create-dirs -C - " # -s for silent
   fi
 
   # TODO: Sanitize user input, ensure that there is a / a the end...
-  if [ "`whoami`" = "root" ] ; then
+  if [ "$(whoami)" = "root" ] ; then
     __rvm_log "fail" "root user support is not yet implemented."
     #rvm_prefix_path=${rvm_prefix_path:-/usr/local/}
   else
