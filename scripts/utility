@@ -120,7 +120,7 @@ function __rvm_cleanup_variables {
 }
 
 function __rvm_unset_ruby_variables {
-  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected_flag rvm_ruby_selector rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home
+  unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_selected_flag rvm_ruby_selector rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home
 }
 
 # TODO: root user loadng of /etc/rvmrc
@@ -162,9 +162,9 @@ function __rvm_fetch {
   archive=$(basename "$1")
   __rvm_log "debug" "Fetching $archive"
   # Check first if we have the correct archive
-  if [ -e $archive ] && [ -e $archive.md5 ] ; then
+  if [ -e "$archive" ] && [ -e "$archive.md5" ] ; then
     __rvm_log "debug" "Found archive and its md5, testing correctness"
-    if [ $(md5sum --status -c $archive.md5) -gt 0 ] ; then
+    if [ $(md5sum --status -c "$archive.md5") -gt 0 ] ; then
       __rvm_log "debug" "Archive is bad, downloading"
       download=1
     else
@@ -682,144 +682,6 @@ function __rvm_benchmark {
   rvm_action="ruby"
   if [ ! -z "$rvm_debug_flag" ] ; then echo -e "$rvm_temp_path/$$.rb:\n$(cat $rvm_temp_path/$$.rb)" ; fi
   __rvm_do
-}
-
-__rvm_gemset_delete () {
-  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
-
-  if [ ! -z "$rvm_gem_set_name" ] ; then
-    gemdir="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
-    if [ -d "$gemdir" ] ; then
-      __rvm_log "warn" "Are you SURE you wish to remove the installed gemset '$rvm_gem_set_name ' ($gemdir)?"
-      echo -n "(anything other than 'yes' will cancel) > "
-      read response
-      if [ "$response" = "yes" ] ; then
-        rm -rf  $gemdir
-      else
-        __rvm_log "info" "Not doing anything, phew... close call that one eh?"
-      fi
-    else
-      __rvm_log "info" "$gemdir already does not exist."
-    fi ; unset gemdir
-  else
-    __rvm_log "error" "A gemset name must be specified in order to delete a gemset."
-  fi
-}
-
-__rvm_gemset_dump() {
-  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
-  rvm_file_name="${rvm_gem_set_name:-default}.gems"
-
-  echo "# $rvm_file_name generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_file_name
-
-  for gem in $(gem list | sed 's/[\(|\)]//g' | sed 's/, /,/g' | tr ' ' ';') ; do
-    name="$(echo $gem | awk -F';' '{print $1}')"
-    if [ -z "$rvm_latest_flag" ] ; then
-      versions="$(echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g')"
-      for version in $versions ; do
-        echo "$name -v$version" >> $rvm_file_name
-      done ; unset version versions
-    else
-      echo "$name" >> $rvm_file_name
-    fi ; unset name
-  done ; unset file_name
-}
-
-__rvm_gemset_load() {
-  if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
-  #rvm_file_name="${rvm_gem_set_name:-default}.gems"
-  rvm_gem_set_name="${rvm_gem_set_name:-"default"}"
-  rvm_file_name="${rvm_file_name:-$rvm_gem_set_name}"
-
-  echo "Loading $rvm_file_name file..."
-  rvm_ruby_gem_list=$(/bin/ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null)
-  while read line
-  do # Keep this on 2nd line :( bash fail.
-    # TODO: Switch to a different field separator than ; to allow for evals
-    gem="$(echo $line | awk -F';' '{print $1}')"
-    gem_prefix="$(echo $line | awk -F';' '{print $2}')"
-    gem_name="$(echo $gem | awk '{print $1}')"
-    gem_version="$(echo $gem | sed 's/^.*-v[=]*[ ]*//' | awk '{print $1}')"
-    gem_postfix="$(echo $gem | sed "s/$gem_name//" | sed "s/-v[=]*[ ]*$gem_version//")"
-
-    if [ -z "$gem_version" ] ; then # no version
-      gem_file_name="${gem_name}*.gem"
-    else # version
-      gem_file_name="$gem_name-$gem_version.gem"
-    fi
-
-    cache_file=$(/bin/ls -t $rvm_gem_path/*/*/cache/${gem_file_name}* 2> /dev/null | head -n1)
-    if [ -z "$cache_file" ] ; then
-      if [ -z "$gem_version" ] ; then
-        gem="$gem_name"
-      else
-        gem="$gem_name -v $gem_version"
-      fi
-    else # cached
-      gem_file_name="$(basename $cache_file)"
-      gem_string="$(echo "$gem_file_name" | sed 's/\.gem$//')"
-      if [ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/$gem_string/{print}")" ] ; then
-        if [ ! -z "$rvm_force_flag" ] ; then
-          cp $cache_file $rvm_temp_path/$gem_file_name
-          gem="$rvm_temp_path/$gem_file_name" # install as a named local gem
-        else
-          unset gem
-          __rvm_log "info" "$gem_name $gem_version is already installed, skipping. (use --force to force these to install regardless)"
-        fi
-      else
-        gem="$cache_file"
-      fi
-    fi
-
-    if [ ! -z "$gem" ] ; then
-      # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
-      if [ -z "$vars" ] ; then
-        GEM_HOME="$rvm_ruby_gem_home" GEM_PATH="$rvm_ruby_gem_home" $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix
-      else
-        eval "GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
-      fi
-    fi
-    unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
-  done < <(awk '/^[a-zA-Z]/{print}' "$rvm_file_name")
-}
-
-__rvm_gemset_select() {
-  if [ -z "$rvm_gem_set_name" ] ; then
-    rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version"
-  else
-    if [ ! -z "$rvm_gem_set_name_rm" -a -d $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name ] ; then
-      rm -rf $rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name/
-      if [ "$rvm_gem_set_name_rm" = "$rvm_gem_set_name" ] ; then unset rvm_gem_set_name ; fi
-    else
-      rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
-    fi
-  fi
-}
-
-__rvm_gemset_use() {
-  __rvm_gemset_select
-  mkdir -p "$rvm_ruby_gem_home"
-}
-
-__rvm_gemset_name() {
-  __rvm_gemset_select
-  echo "$rvm_gem_set_name"
-}
-
-__rvm_gemset_dir() {
-  __rvm_gemset_select
-  echo "$rvm_ruby_home"
-}
-
-__rvm_gemset_list() {
-  __rvm_gemset_select
-}
-
-__rvm_gemset_clear() {
-  __rvm_gemset_use
-  if [ -d "$rvm_ruby_gem_home" -a "$rvm_ruby_gem_home" != '/' ] ; then
-    rm -rf "$rvm_ruby_gem_home"
-  fi
 }
 
 function __rvm_irbrc {
