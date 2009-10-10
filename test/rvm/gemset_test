@@ -8,56 +8,62 @@ initialize_rvm
 
 original_dir=$(pwd)
 
+gem build rvm.gemspec > /dev/null
+filename=$(ls rvm*.gem | head -n 1)
+
 setup_testset() {
   rvm 1.9.1
 }
 
-clear_gems() {
-  gems=${1:-testset}
-  testset_dir="$(gem env gemdir)-$gems"
-  if [ ! -z "$testset_dir" -a "$testset_dir" != '/' ] ; then rm -rf  $testset_dir ; fi
-  rm -f testset.gems
+remove_gemset_files() { rm *.gems ; }
+
+remove_gemsets() { rm -rf ~/.rvm/gems/ruby/1.9.1-test* ; }
+
+test_reset() {
+  unset GEM_HOME ; __rvm_cleanup_variables
 }
 
 setup_testset
 btu_test "rvm gems testset ; gemdir=\$(gem env gemdir)"
 assert match "ruby\/1.9.1-testset$" "$gemdir"
-clear_gems
+test_reset
 
 btu_test 'rvm gems testset ; gems=\$(rvm gems name)'
 assert string_eq "testset" "$gems"
-clear_gems
+test_reset
 
 btu_test 'rvm gems testset; gems_dir=\$(rvm gems dir)'
 assert match "1.9.1-testset$" "$gems_dir"
-clear_gems
+test_reset
 
-gem build rvm.gemspec > /dev/null
-gem install --no-rdoc --no-ri ./rvm*.gem > /dev/null
-btu_test "rvm gems testset ; rvm gems dump"
-assert file_exists 'testset.gems'
+btu_test "rvm gems testset ; gem install --no-rdoc --no-ri $filename > /dev/null ; rvm gems dump"
+assert file_exists "testset.gems"
 assert file_contains "^rvm" "testset.gems"
-clear_gems
+test_reset ; remove_gemsets ; remove_gemset_files
 
-gem build rvm.gemspec > /dev/null
-gem install --no-rdoc --no-ri ./rvm*.gem > /dev/null
-btu_test "rvm gems testset ; rvm gems dump my_testset"
-assert file_exists 'my_testset.gems'
+btu_test "rvm gems testset ; gem install --no-rdoc --no-ri $filename > /dev/null ; rvm gems dump my_testset"
+assert file_exists "my_testset.gems"
 assert file_contains "^rvm" "my_testset.gems"
-clear_gems
+test_reset ; remove_gemsets ; remove_gemset_files
 
-btu_test "rvm gems dump my_testset.gems"
-clear_gems
+btu_test "rvm gems testset ; gem install --no-rdoc --no-ri $filename > /dev/null ; rvm gems dump my_testset2.gems"
+assert file_exists "my_testset2.gems"
+assert file_contains "^rvm" "my_testset2.gems"
+test_reset ; remove_gemsets ; remove_gemset_files
 
-btu_test "rvm gems load"
-# Should load testset.gemspec
-clear_gems
+rvm gems testset ; gem_dir="$(gem env gemdir)" ; mkdir -p $gem_dir
+btu_test "rvm gems testset ; gem install --no-rdoc --no-ri $filename > /dev/null ; rvm --force gems delete testset"
+assert no_directory $gem_dir
+test_reset ; remove_gemsets
 
-btu_test "rvm gems load my_testset.gemspec"
-clear_gems
+btu_test "rvm gems testset4 ; echo '$filename' > testset4.gems ; rvm gems load"
+assert match "rvm " $(gem list)
+test_reset ; remove_gemsets
 
-btu_test "rvm gems delete test-gems"
-clear_gems
+btu_test "rvm gems testset5 ; echo '$filename' > my_testset5.gems ; rvm gems load my_testset5.gems"
+assert no_directory $rvm_gem_path/ruby/1.9.1-my_testset5
+assert match "rvm " $(gem list)
+test_reset ; remove_gemsets ; remove_gemset_files
 
-if [ `basename $0` != "test_suite" ] ; then btu_summary ; fi
+if [ -z "$rvm_teset_suite_flag" ] ; then btu_summary ; fi
 
