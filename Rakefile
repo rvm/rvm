@@ -16,7 +16,7 @@ puts <<-LOCAL_INSTALL_WARNING
     \033[0;32mFor installing/updating:  ./install\033[0m
 
 LOCAL_INSTALL_WARNING
-    puts `gem build rvm.gemspec`
+    puts "$(gem build rvm.gemspec)"
   end
 
   desc "Install the rvm gem (NO sudo)."
