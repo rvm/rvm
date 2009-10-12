@@ -1,4 +1,8 @@
-task :default => ["gem:refresh"]
+task :default => ["test"]
+task :test do
+  exec "bash -l -c \"./test/suite\""
+end
+
 namespace :gem do
   task :refresh do
     exec "gem uninstall rvm ; rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
@@ -8,12 +12,12 @@ namespace :gem do
   task :build do
 puts <<-LOCAL_INSTALL_WARNING
 
-  \033[0;33mINSTALLING FROM SOURCE\033[0m
+  $(tput setaf 3)INSTALLING FROM SOURCE$(tput sgr0)
 
   If you're using rvm from source, don't build the gem
   Instead, run the following from the rvm source root
 
-    \033[0;32mFor installing/updating:  ./install\033[0m
+    $(tput setaf 2)For installing/updating:  ./install$(tput sgr0)
 
 LOCAL_INSTALL_WARNING
     puts "$(gem build rvm.gemspec)"
@@ -47,18 +51,5 @@ begin
   end
 rescue LoadError
   puts "Jeweler not available. Install it with: sudo gem install technicalpickles-jeweler -s http://gems.github.com"
-end
-
-require "rake/testtask"
-task :default => [:test_units]
-
-desc "Run test suite."
-Rake::TestTask.new("test") do |test|
-  puts %x{./install}
-  test.pattern = "test/*_test.rb"
-  test.verbose = true
-  test.warning = true
-  test.libs << "test"
-  test.test_files = FileList["test/test*.rb","test/**/*.rb"]
 end
 
