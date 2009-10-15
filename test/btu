@@ -10,11 +10,26 @@
 
 if [ ! -z "$ZSH_VERSION" ] ; then __array_start=1 ; else __array_start=0 ; fi
 
-push() {
+btu_push() {
   array=$1 ; shift ; item=$2
   # TODO: allow loop over more arguments.
   eval "index=\$((\${#${array}[*]} + $__array_start))"
   eval "${array}[${index}]=${item}"
+}
+
+# Mock a command making it safe, the command will simply echo's back what it is called with.
+# btu_mock ssh echo
+btu_mock() {
+  # TODO: Implement this.
+  command="$1" ; action="$2" ; echo_value="$3" ; return_value="$4"
+  if [[ ! -z "$command" ]] ; then
+    mkdir -p /tmp/btu/$$
+    echo '!#/bin/bash' > /tmp/btu/$$/$command
+    echo -e "echo called: \$(basename \$0) \"\$@\"\nexit 0" > /tmp/btu/$$/$command
+    chmod +x /tmp/btu/$$/$command
+    PATH=/tmp/btu/$$:$PATH ; export PATH
+  fi
+  return 0
 }
 
 btu_init() {
@@ -29,20 +44,20 @@ btu_summary() {
 btu_test() {
   __btu_test_command="$1"
   __btu_log "test" "$*"
-  push __btu_tests $__btu_test_command
+  btu_push __btu_tests $__btu_test_command
   eval $__btu_test_command
 }
 
 assert() {
   key=$1 ; first=$2 ; second=$3
   assertion="__btu_assert_${key} \"$first\" \"$second\""
-  push __btu_assertions $assertion
+  btu_push __btu_assertions $assertion
   eval "$assertion"
   result=$?
   if [ $result -eq 0 ]; then
-    push __btu_passed $assertion
+    btu_push __btu_passed $assertion
   else
-    push __btu_failed $assertion
+    btu_push __btu_failed $assertion
   fi ; unset assertion
 }
 
@@ -142,7 +157,7 @@ __btu_db() {
 
 # Assert that string 1 is found in string 2
 __btu_assert_match() {
-  regex=$(echo "$1" | sed 's/\//\\\//g')
+  regex=$1 #(echo "$1" | sed 's/\//\\\//g')
   if [ ! -z $(echo "$2" | awk "/$regex/") ] ; then
     __btu_log "pass" "/$regex/ $(__color "green")matches$(__color) '$2'"
   else
@@ -375,7 +390,7 @@ __btu_assert_string_not_null() {
 
 __btu_assert_string_eq() {
   if [[ $1 = $2 ]] ; then
-    __btu_log "pass"  "'$1' $(__color "red") equals $(__color) '$2'."
+    __btu_log "pass"  "'$1' $(__color "green") equals $(__color) '$2'."
   else
     __btu_log "fail" "'$1' $(__color "red")is not equal to$(__color) '$2'."
   fi ; return $?

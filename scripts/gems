@@ -1,4 +1,5 @@
 #!/bin/bash
+
 __rvm_gems() {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
 
@@ -23,15 +24,17 @@ __rvm_gems() {
 
 __rvm_gems_select() {
   if [ -z "$rvm_gem_set_name" ] ; then
-    if [ ! -z "$rvm_ruby_gem_home" -a ! -z "$rvm_ruby_version" ] ; then
-      rvm_gem_set_name=$(echo $rvm_ruby_gem_home | xargs basename | sed "s/${rvm_ruby_version}[-]*//")
+
+    if [ ! -z "$GEM_HOME" ] ; then
+      rvm_gem_set_name=$(echo $GEM_HOME | xargs basename | awk -F'#' '{print $2}')
     fi
 
-    if [ -z "$rvm_gem_set_name" ] ; then unset rvm_gem_set_name ; fi
+    if [ ! -z "$rvm_ruby_gem_home" ] ; then
+      rvm_gem_set_name=$(echo $rvm_ruby_gem_home | xargs basename | awk -F'#' '{print $2}')
+    fi
 
-    if [ ! -z "$rvm_gem_set_name" -a ! -z "$(echo $rvm_gem_set_name | awk '/^\d\.\d/')" ] ; then
-    #if [[ $rvm_gem_set_name =~ ^\d\.\d ]] ; then
-      rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
+    if [[ $rvm_gem_set_name =~ ^\d\.\d ]] ; then
+      rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version#$rvm_gem_set_name"
     else
       if [ ! -z "$rvm_ruby_interpreter" -a ! -z "$rvm_ruby_version" -a "$rvm_ruby_interpreter" != "system" ] ; then
         rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version"
@@ -43,13 +46,16 @@ __rvm_gems_select() {
         __rvm_log "error" "Cannot select gem home, something definitely wrong :/"
       fi
     fi
+    if [ -z "$rvm_gem_set_name" ] ; then unset rvm_gem_set_name ; fi
   else
-    rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
+    rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version#$rvm_gem_set_name"
   fi
 }
 
 __rvm_gems_use() {
+  set -x
   __rvm_gems_select ; mkdir -p "$rvm_ruby_gem_home" ; GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
+  set +x
 }
 
 __rvm_gems_name() {
@@ -74,8 +80,8 @@ __rvm_gems_clear() {
 __rvm_gems_dump() {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
   __rvm_gems_select
-  rvm_gem_set_name="${rvm_gem_set_name:-"default"}"
-  rvm_file_name="${rvm_file_name:-"$rvm_gem_set_name.gems"}"
+  (( rvm_gem_set_name )) || rvm_gem_set_name="default"
+  (( rvm_file_name )) || rvm_file_name="$rvm_gem_set_name.gems"
 
   echo "# $rvm_file_name generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_file_name
 
@@ -95,8 +101,8 @@ __rvm_gems_dump() {
 __rvm_gems_load() {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
   __rvm_gems_select
-  rvm_gem_set_name="${rvm_gem_set_name:-"default"}"
-  rvm_file_name="${rvm_file_name:-"$rvm_gem_set_name.gems"}"
+  (( rvm_gem_set_name )) || rvm_gem_set_name="default"
+  (( rvm_file_name )) || rvm_file_name="$rvm_gem_set_name.gems"
 
   echo "Loading $rvm_file_name file..."
   rvm_ruby_gem_list=$(/bin/ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null)
@@ -157,7 +163,7 @@ __rvm_gems_delete () {
   if [ -z "$rvm_selected_flag" ] ; then __rvm_select $* ; fi
   __rvm_gems_select
   if [ ! -z "$rvm_gem_set_name" ] ; then
-    gemdir="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version-$rvm_gem_set_name"
+    gemdir="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version#$rvm_gem_set_name"
     if [ -d "$gemdir" -a ! -z "$rvm_force_flag" ] ; then
         rm -rf  "$gemdir"
     elif [ -d "$gemdir" ] ; then
