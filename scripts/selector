@@ -3,13 +3,16 @@
 # __rvm_select implementation version patch_level
 function __rvm_select {
   if [ ! -z "$rvm_ruby_string" ] ; then
-    __rvm_ruby_string
-  elif [ ! -z "$rvm_ruby_selector" ] ; then
-    if [ ! -z "$(echo $rvm_ruby_selector | awk '/^[0-9]/')" ] ; then
+    if [ ! -z "$(echo "$rvm_ruby_string" | awk '/^.+%.+$/')" ] ; then
+      rvm_gem_set_name="$(echo "$rvm_ruby_string" | awk -F'%' '{print $2}')"
+      rvm_ruby_string="$(echo "$rvm_ruby_string" | awk -F'%' '{print $1}')"
+    fi
+
+    if [ ! -z "$(echo "$rvm_ruby_string" | awk '/^[0-9]/')" ] ; then
       rvm_ruby_interpreter="${rvm_ruby_interpreter:-ruby}"
-      rvm_ruby_version=$rvm_ruby_selector
+      rvm_ruby_version=$rvm_ruby_string
     else
-      rvm_ruby_interpreter="$rvm_ruby_selector"
+      rvm_ruby_interpreter="$rvm_ruby_string"
       unset rvm_ruby_version
     fi
   elif [ ! -z "$rvm_ruby_interpreter" ] ; then
@@ -21,6 +24,7 @@ function __rvm_select {
     fi
   fi
 
+  if [ ! -z "$rvm_ruby_string" ] ; then __rvm_ruby_string ; fi
   if [ "1.8" = "$rvm_ruby_version" ] ; then rvm_ruby_version="1.8.6" ; fi
   if [ "1.9" = "$rvm_ruby_version" ] ; then rvm_ruby_version="1.9.1" ; fi
 
@@ -243,7 +247,12 @@ function __rvm_ruby_string {
   if [ "system" = "$rvm_ruby_interpreter" ] ; then
     rvm_ruby_string="system"
   elif [ ! -z "$rvm_ruby_string" ] ; then
-    ruby_string=$(echo "$rvm_ruby_string" | sed 's/ruby-enterprise/ree/g') # dash-antics :
+    ruby_string=$(echo "$rvm_ruby_string" | sed 's/ruby-enterprise/ree/g') # dash-antics
+    if [ ! -z "$(echo "$rvm_ruby_string" | awk -F'%' '{print $2}')" ] ; then
+      rvm_gem_set_name=$(echo "$rvm_ruby_string" | awk -F'%' '{print $2}')
+    fi
+    set +x
+    ruby_string=$(echo "$rvm_ruby_string" | awk -F'%' '{print $1}')
     __rvm_unset_ruby_variables
 
     rvm_ruby_interpreter=$(echo $ruby_string |  awk -F'-' '{print $1}')
