@@ -15,7 +15,7 @@ setup_testset() { rvm 1.9.1 ; }
 remove_gemset_files() { rm *.gems ; }
 
 remove_gemsets() {
-  if [ -d "~/.rvm/gems/ruby/1.9.1%${1}" ] ; then rm -rf ~/.rvm/gems/ruby/1.9.1%${1} ; fi
+  if [ -d ~/.rvm/gems/ruby/1.9.1%${1} ] ; then rm -rf ~/.rvm/gems/ruby/1.9.1%${1} ; fi
   unset GEM_HOME GEM_PATH
 }
 
@@ -39,11 +39,18 @@ assert file_exists "testset.gems"
 assert file_contains "^rvm" "testset.gems"
 test_reset ; remove_gemsets "testset" ; remove_gemset_files
 
-btu_test "rvm gems testset ; gem install --no-rdoc --no-ri $filename > /dev/null ; rvm gems dump my_testset"
+btu_test "rvm gems testset ; gem install --no-rdoc --no-ri $filename > /dev/null ; rvm gems dump my_testset.gems"
 assert no_directory "$rvm_gem_path/ruby/1.9.1%my_testset"
 assert file_exists "my_testset.gems"
 assert file_contains "^rvm" "my_testset.gems"
-test_reset ; remove_gemsets "testset" ; remove_gemset_files
+test_reset ; remove_gemsets "testset" ; remove_gemsets "my_testset" ; remove_gemset_files
+
+btu_test "rvm gems testset ; gem install --no-rdoc --no-ri $filename > /dev/null ; rvm gems dump my_testset.gems"
+assert no_directory "$rvm_gem_path/ruby/1.9.1%my_testset"
+assert file_exists "my_testset.gems"
+assert file_does_not_exist "testset.gems"
+assert file_does_not_contain "^rvm" "my_testset.gems"
+test_reset ; remove_gemsets "testset" ; remove_gemsets "my_testset" ; remove_gemset_files
 
 btu_test "rvm gems testset ; gem install --no-rdoc --no-ri $filename > /dev/null ; rvm gems dump my_testset2.gems"
 assert file_exists "my_testset2.gems"
@@ -63,6 +70,11 @@ btu_test "rvm gems testset5 ; echo '$filename' > my_testset5.gems ; rvm gems loa
 assert no_directory "$rvm_gem_path/ruby/1.9.1%my_testset5"
 assert match "rvm" "$(rvm gems testset5 ; gem list | tr "\n" ",")"
 test_reset ; remove_gemsets "testset5" ; remove_gemset_files
+
+btu_test "rvm gems testset6 ; rvm gems testset7"
+assert match "testset6" "$(rvm gems list | tr "\n" ", ")"
+assert match "testset7" "$(rvm gems list | tr "\n" ", ")"
+test_reset ; remove_gemsets "testset6" ; remove_gemsets "testset7" ; remove_gemset_files
 
 if [ -z "$rvm_teset_suite_flag" ] ; then btu_summary ; fi
 
