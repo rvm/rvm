@@ -145,38 +145,47 @@ __rvm_gems_load() {
         gem_file_name="$gem_name-$gem_version.gem"
       fi
 
-      cache_file=$(/bin/ls -t "$rvm_gem_path/*/*/cache/${gem_file_name}*" 2> /dev/null | head -n1)
-      if [ -z "$cache_file" ] ; then
-        if [ -f "$gem_file_name" ] ; then
-          gem="$gem_file_name"
-        elif [ -z "$gem_version" ] ; then
-          gem="$gem_name"
-        else
-          gem="$gem_name -v $gem_version"
-        fi
-      else # cached
-        gem_file_name="$(basename $cache_file)"
-        gem_string="$(echo "$gem_file_name" | sed 's/\.gem$//')"
-        if [ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/$gem_string/{print}")" ] ; then
-        #if [[ $rvm_ruby_gem_list =~ $gem_string ]] ; then
-          if [ ! -z "$rvm_force_flag" ] ; then
-            cp $cache_file $rvm_temp_path/$gem_file_name
-            gem="$rvm_temp_path/$gem_file_name" # install as a named local gem
+      if [ -f "$rvm_ruby_gem_home/specifications/${gem_file_name/\.gem/.gemspec}" ] ; then
+        unset gem
+        __rvm_log "info" "$(__color "green")$gem_name $gem_version is already installed, skipping.$(__color "none") (--force to re-install)"
+      else
+        cache_file=$(/bin/ls -t "$rvm_gem_path/*/*/cache/${gem_file_name}*" 2> /dev/null | head -n1)
+        if [ -z "$cache_file" ] ; then
+          if [ -f "$gem_file_name" ] ; then
+            gem="$gem_file_name"
+          elif [ -z "$gem_version" ] ; then
+            gem="$gem_name"
           else
-            unset gem
-            __rvm_log "info" "$gem_name $gem_version is already installed, skipping. (use --force to force these to install regardless)"
+            gem="$gem_name -v $gem_version"
           fi
-        else
-          gem="$cache_file"
+        else # cached
+          gem_file_name="$(basename $cache_file)"
+          gem_string="$(echo "$gem_file_name" | sed 's/\.gem$//')"
+          if [ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/$gem_string/{print}")" ] ; then
+            #if [[ $rvm_ruby_gem_list =~ $gem_string ]] ; then
+            if [ ! -z "$rvm_force_flag" ] ; then
+              cp $cache_file $rvm_temp_path/$gem_file_name
+              gem="$rvm_temp_path/$gem_file_name" # install as a named local gem
+            fi
+          else
+            gem="$cache_file"
+          fi
         fi
       fi
 
       if [ ! -z "$gem" ] ; then
         # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
         if [ -z "$vars" ] ; then
-          GEM_HOME="$rvm_ruby_gem_home" GEM_PATH="$rvm_ruby_gem_home" $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix
+          command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
         else
-          eval "GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
+          command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
+        fi
+        eval $command > /dev/null 2>&1
+        result=$?
+        if [[ $result -eq 0 ]] ; then
+        __rvm_log "info" "$(__color "green")$gem_name $gem_version installed.$(__color "none") (--force to re-install)"
+        else
+          __rvm_log "error" "$(__color "red")$gem_name $gem_version failed to install.$(__color "none") (--force to re-install)"
         fi
       fi
       unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
