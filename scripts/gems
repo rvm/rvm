@@ -4,8 +4,8 @@ __rvm_gems() {
   unset GEM_PATH
   if [ -z "$rvm_ruby_selected_flag" ] ; then __rvm_select $* ; fi
 
-  if [ ! -z "$rvm_use_flag" ] ; then
-    __rvm_gems_use
+  if [ ! -z "$rvm_clear_flag" ] ; then
+    __rvm_gems_clear
   elif [ ! -z "$rvm_load_flag" ] ; then
     __rvm_gems_load
   elif [ ! -z "$rvm_dump_flag" ] ; then
@@ -18,8 +18,9 @@ __rvm_gems() {
     __rvm_gems_dir
   elif [ ! -z "$rvm_list_flag" ] ; then
     __rvm_gems_list
-  elif [ ! -z "$rvm_clear_flag" ] ; then
-    __rvm_gems_clear
+  #elif [ ! -z "$rvm_use_flag" ] ; then
+  else
+    __rvm_gems_use
   fi
 }
 
@@ -53,7 +54,9 @@ __rvm_gems_select() {
 }
 
 __rvm_gems_use() {
-  mkdir -p "$rvm_ruby_gem_home" ; GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
+  mkdir -p "$rvm_ruby_gem_home"
+  GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
+  GEM_PATH="$GEM_HOME" ; export GEM_PATH
 }
 
 __rvm_gems_name() {
@@ -71,9 +74,30 @@ __rvm_gems_list() {
 }
 
 __rvm_gems_clear() {
+  unset rvm_ruby_gem_home rvm_gem_set_name GEM_HOME GEM_PATH
+  __rvm_gems_select
   __rvm_gems_use
-  if [ -d "$rvm_ruby_gem_home" -a "$rvm_ruby_gem_home" != '/' ] ; then
-    rm -rf "$rvm_ruby_gem_home"
+}
+
+__rvm_gems_delete () {
+  if [ ! -z "$rvm_gem_set_name" ] ; then
+    gemdir="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version%$rvm_gem_set_name"
+    if [ -d "$gemdir" -a ! -z "$rvm_force_flag" ] ; then
+        rm -rf  "$gemdir"
+    elif [ -d "$gemdir" ] ; then
+      __rvm_log "warn" "Are you SURE you wish to remove the installed gems '$rvm_gem_set_name ' ($gemdir)?"
+      echo -n "(anything other than 'yes' will cancel) > "
+      read response
+      if [ "yes" = "$response" ] ; then
+        rm -rf  "$gemdir"
+      else
+        __rvm_log "info" "Not doing anything, phew... close call that one eh?"
+      fi
+    else
+      __rvm_log "info" "$gemdir already does not exist."
+    fi ; unset gemdir
+  else
+    __rvm_log "error" "A gems name must be specified in order to delete a gems."
   fi
 }
 
@@ -194,27 +218,4 @@ __rvm_gems_load() {
     __rvm_log "error" "$rvm_file_name does not exist to load from."
   fi
 }
-
-__rvm_gems_delete () {
-  if [ ! -z "$rvm_gem_set_name" ] ; then
-    gemdir="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version%$rvm_gem_set_name"
-    if [ -d "$gemdir" -a ! -z "$rvm_force_flag" ] ; then
-        rm -rf  "$gemdir"
-    elif [ -d "$gemdir" ] ; then
-      __rvm_log "warn" "Are you SURE you wish to remove the installed gems '$rvm_gem_set_name ' ($gemdir)?"
-      echo -n "(anything other than 'yes' will cancel) > "
-      read response
-      if [ "yes" = "$response" ] ; then
-        rm -rf  "$gemdir"
-      else
-        __rvm_log "info" "Not doing anything, phew... close call that one eh?"
-      fi
-    else
-      __rvm_log "info" "$gemdir already does not exist."
-    fi ; unset gemdir
-  else
-    __rvm_log "error" "A gems name must be specified in order to delete a gems."
-  fi
-}
-
 
