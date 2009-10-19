@@ -82,12 +82,12 @@ __rvm_push() {
 }
 
 function __rvm_clean_path {
-  PATH=$(echo $PATH | tr -s ':' '\n' | awk '!($0 in a){a[$0];print}' | tr -s '\n' ':' | sed 's/:$//')
+  PATH=$(echo $PATH | tr -s ':' '\n' | awk '!($0 in a){a[$0];print}' | tr -s '\n' ':' | sed 's#:$##')
   export PATH
 }
 
 function __rvm_remove_rvm_from_path {
-  PATH=$(echo $PATH | tr -s ':' '\n' | grep -v "\.rvm" | tr -s '\n' ':' | sed 's/:$//')
+  PATH=$(echo $PATH | tr -s ':' '\n' | grep -v "\.rvm" | tr -s '\n' ':' | sed 's#:$##')
   export PATH
 }
 
@@ -352,7 +352,7 @@ function __rvm_db {
   else
     value="$*"
     if [ "unset" = "$value" -o "delete" = "$value" ] ; then
-      sed -i.tmp "s/^$key=.*$//" $rvm_hash_file
+      sed -i.tmp "s#^$key=.*$\##" $rvm_hash_file
     else
       if [ -z "$value" ] ; then # get
         grep "^$key=" $rvm_hash_file | head -n 1 | awk -F'=' '{print $2}'
@@ -360,7 +360,7 @@ function __rvm_db {
         if [ -z "$(grep "^$key=" $rvm_hash_file)" ] ; then # append
           echo "$key=$value" >> $rvm_hash_file
         else # overwrite
-          sed -i.tmp "s/^$key=.*$/$key=$value/" $rvm_hash_file
+          sed -i.tmp "s#^$key=.*$\#$key=$value#" $rvm_hash_file
         fi
       fi
     fi
@@ -369,7 +369,7 @@ function __rvm_db {
 
 function __rvm_list {
   if [ "$rvm_all_flag" ] ; then
-    svn list http://svn.ruby-lang.org/repos/ruby/tags/ | grep 'v1_[8|9]' | sed 's/^v1_//' | sed 's/\/$//' | awk -F'_' '{print "1."$1"."$2 " -l "$3}' | sed 's/p$//'
+    svn list http://svn.ruby-lang.org/repos/ruby/tags/ | grep 'v1_[8|9]' | sed 's#^v1_##' | sed 's#/$##' | awk -F'_' '{print "1."$1"."$2 " -l "$3}' | sed 's#p$##'
     echo -e "jruby 1.2.0\njruby 1.3.0\njruby (1.3.1, the default)\njruby 1.4.1\njruby --head"
     echo -e "rbx head (rubinius head, the default)\nrbx head --jit"
     echo -e "ree 1.8.6 --head\nree (1.8.7, the default)"
@@ -545,7 +545,7 @@ __rvm_reload() {
 __rvm_ruby_do() {
   __rvm_select
   __rvm_use
-  binary="$(echo $rvm_action | sed 's/do$//')"
+  binary="$(echo $rvm_action | sed 's#do$##')"
   if [ -x $rvm_ruby_home/bin/$binary ] ; then
     load_path="$rvm_ruby_home/bin:$rvm_ruby_load_path"
     if [ "ruby" = "$binary" ] ; then
@@ -621,10 +621,10 @@ function __rvm_summary {
   export successes errors statuses
   summary="\nSummary:\n\n"
   if [ ${#successes[*]} -gt 0 ] ; then
-    summary="$summary \033[0;32m${#successes[*]} successful: $(echo "${successes[*]}" | sed 's/ /, /g')\033[0m\n"
+    summary="$summary \033[0;32m${#successes[*]} successful: $(echo "${successes[*]}" | sed 's# #, #g')\033[0m\n"
   fi
   if [ ${#errors[*]} -gt 0 ] ; then
-    summary="$summary \033[0;31m${#errors[*]} errors: $(echo "${errors[*]}" | sed 's/ /, /g')\033[0m\n"
+    summary="$summary \033[0;31m${#errors[*]} errors: $(echo "${errors[*]}" | sed 's# #, #g')\033[0m\n"
   fi
   total=${#rubies[*]}
   if [ ! -z "$ZSH_VERSION" ] ; then array_start=1 ; else array_start=0 ; fi
@@ -654,8 +654,8 @@ function __rvm_yaml {
 function __rvm_json {
   json="{"
   json="$json\n  \"totals\": { \"rubies\": ${#rubies[*]}, \"successes\": ${#successes[*]}, \"errors\": ${#errors[*]}},"
-  json="$json\n  \"successful\": [ "$(echo ${successes[*]} | sed 's/ /", "/g')" ],"
-  json="$json\n  \"errors\": [ "$(echo ${errors[*]} | sed 's/ /", "/g')" ],"
+  json="$json\n  \"successful\": [ "$(echo ${successes[*]} | sed 's# #", "#g')" ],"
+  json="$json\n  \"errors\": [ "$(echo ${errors[*]} | sed 's# #", "#g')" ],"
   json="$json\n  \"rubies\": {"
 
   total=${#rubies[*]}

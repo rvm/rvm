@@ -119,10 +119,10 @@ __rvm_gems_dump() {
   touch $rvm_file_name
   echo "# $rvm_file_name generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_file_name
 
-  for gem in $(gem list | sed 's/[\(|\)]//g' | sed 's/, /,/g' | tr ' ' ';') ; do
+  for gem in $(gem list | sed 's#[\(|\)]##g' | sed 's#, #,#g' | tr ' ' ';') ; do
     name="$(echo $gem | awk -F';' '{print $1}')"
     if [ -z "$rvm_latest_flag" ] ; then
-      versions="$(echo $gem | awk -F';' '{print $2}' | sed 's/,/ /g')"
+      versions="$(echo $gem | awk -F';' '{print $2}' | sed 's#,# #g')"
       for version in $versions ; do
         echo "$name -v$version" >> $rvm_file_name
       done ; unset version versions
@@ -150,18 +150,26 @@ __rvm_gems_load() {
 
   if [ -f "$rvm_file_name" ] ; then
     echo "Loading $rvm_file_name file..."
-    rvm_ruby_gem_list=$(/bin/ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's/\.gemspec$//' 2> /dev/null)
+  set -x
+    rvm_ruby_gem_list=$(/bin/ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's#\.gemspec$##' 2> /dev/null)
     while read line
     do # Keep this on 2nd line :( bash fail.
       # TODO: Switch to a different field separator than ; to allow for evals
       gem="$(echo $line | awk -F';' '{print $1}')"
-      gem_prefix="$(echo $line | awk -F';' '{print $2}')"
-      gem_name="$(echo $gem | awk '{print $1}')"
-      gem_version="$(echo $gem | awk '{print $2}' | sed 's/^.*-v[=]*[ ]*//' )"
-      gem_postfix="$(echo $gem | sed "s/$gem_name//" | sed "s/-v[=]*[ ]*$gem_version//")"
+      if [[ $gem =~ \.gem$ ]] ; then
+        gem_prefix="$(echo $line | awk -F';' '{print $2}')"
+        gem_name="$(echo $gem | awk '{print $1}')"
+        gem_version="$(echo $gem | awk '{print $2}' | sed 's#^.*-v[=]*[ ]*##' )"
+        gem_postfix="$(echo $gem | sed "s/$gem_name//" | sed "s#-v[=]*[ ]*$gem_version##")"
+      else
+        gem_prefix="$(echo $line | awk -F';' '{print $2}')"
+        gem_name="$(echo $gem | awk '{print $1}')"
+        gem_version="$(echo $gem | awk '{print $2}' | sed 's#^.*-v[=]*[ ]*##' )"
+        gem_postfix="$(echo $gem | sed "s/$gem_name//" | sed "s#-v[=]*[ ]*$gem_version##")"
+      fi
 
       if [ -f "$gem" ] ; then
-        gem_file_name="${gem}"
+        gem_file_name="$(basename $gem)"
       elif [[ "$gem" =~ ".gem$" ]] ; then
         gem_file_name="${gem}"
       elif [ -z "$gem_version" ] ; then # no version
@@ -185,7 +193,7 @@ __rvm_gems_load() {
           fi
         else # cached
           gem_file_name="$(basename $cache_file)"
-          gem_string="$(echo "$gem_file_name" | sed 's/\.gem$//')"
+          gem_string="$(echo "$gem_file_name" | sed 's#\.gem$##')"
           if [ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/$gem_string/{print}")" ] ; then
             #if [[ $rvm_ruby_gem_list =~ $gem_string ]] ; then
             if [ ! -z "$rvm_force_flag" ] ; then
@@ -200,21 +208,18 @@ __rvm_gems_load() {
 
       if [ ! -z "$gem" ] ; then
         # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
-        if [ -z "$vars" ] ; then
-          command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
-        else
-          command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix"
-        fi
+        command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
         eval $command > /dev/null 2>&1
         result=$?
         if [[ $result -eq 0 ]] ; then
-        __rvm_log "info" "$(__color "green")$gem_name $gem_version$(__color "none") installed. (--force to re-install)"
+        __rvm_log "info" "$(__color "green")$gem_name $gem_version$(__color "none") installed."
         else
-          __rvm_log "error" "$(__color "red")$gem_name $gem_version$(__color "none") failed to install. (--force to re-install)"
+          __rvm_log "error" "$(__color "red")$gem_name $gem_version$(__color "none") failed to install."
         fi
       fi
       unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
     done < <(awk '/^[\.\/a-zA-Z]/{print}' "$rvm_file_name")
+    set +x
   else
     __rvm_log "error" "$rvm_file_name does not exist to load from."
   fi
