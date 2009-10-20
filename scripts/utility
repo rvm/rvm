@@ -469,8 +469,6 @@ function __rvm_initialize {
   rvm_ruby_load_path="."
   rvm_ruby_require=""
 
-  if [ "Darwin" = "$(uname)" ] ; then rvm_archflags="${rvm_archflags:-'-arch i386 -arch x86_64'}" ; fi
-
   __rvm_clean_path
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
   if [ -z $rvm_result ] ; then
@@ -753,6 +751,7 @@ function __rvm_inspect {
 # ruby supporting libraries:
 #
 function __rvm_readline_install {
+  __rvm_make_flags
   __rvm_pushpop $rvm_src_path
   package="readline" ; version="5.2" ; archive_format="tar.gz"
   # TODO: Figure out how to list, grab and apply the patches
@@ -761,10 +760,10 @@ function __rvm_readline_install {
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
   cd "$rvm_src_path/$package-$version"
   if [ "Darwin" = "$(uname)" ] ; then
-    sdk=$(ls -t /Developer/SDKs/ | head -n 1)
-    CFLAGS="-isysroot /Developer/SDKs/$sdk -arch i386 -arch x86_64"
-    LDFLAGS="-Wl,-syslibroot,/Developer/SDKs/$sdk -arch i386 -arch x86_64"
-    export CFLAGS LDFLAGS
+    #sdk=$(ls -t /Developer/SDKs/ | head -n 1)
+    #CFLAGS="-isysroot /Developer/SDKs/$sdk -arch i386 -arch x86_64"
+    #LDFLAGS="-Wl,-syslibroot,/Developer/SDKs/$sdk -arch i386 -arch x86_64"
+    #export CFLAGS LDFLAGS
     __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared" "Configuring $package"
   else
     __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --disable-dependency-tracking --disable-static --enable-shared" "Configuring $package"
@@ -775,16 +774,78 @@ function __rvm_readline_install {
 }
 
 function __rvm_iconv_install {
+  __rvm_make_flags
   __rvm_pushpop $rvm_src_path
   package="libiconv" ; version=1.13.1 ; archive_format="tar.gz"
   __rvm_log "info" "Retrieving $package-$version.$archive_format"
   __rvm_fetch "http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.$archive_format"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
   cd "$rvm_src_path/$package-$version"
-  __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --disable-static --enable-shared" "Configuring $package."
+  __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr" "Configuring $package."
   __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
   __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
   __rvm_pushpop
+}
+
+function __rvm_openssl_install {
+  __rvm_make_flags
+  __rvm_pushpop $rvm_src_path
+  package="openssl" ; version="0.9.8k" ; archive_format="tar.gz"
+  __rvm_log "info" "Retrieving $package-$version.$archive_format"
+  __rvm_fetch "http://www.openssl.org/source/$package-$version.tar.gz"
+  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
+  cd "$rvm_src_path/$package-$version"
+  __rvm_run "$package/config" "./config --prefix=$rvm_path/usr zlib no-asm no-krb5 shared" "Configuring $package."
+  __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
+  __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
+  __rvm_pushpop
+}
+
+function __rvm_zlib_install {
+  __rvm_make_flags
+  __rvm_pushpop $rvm_src_path
+  package="zlib" ; version="1.2.3" ; archive_format="tar.gz"
+  __rvm_log "info" "Retrieving $package-$version.$archive_format"
+  __rvm_fetch "http://www.zlib.net/$package-$version.tar.gz"
+  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
+  cd "$rvm_src_path/$package-$version"
+  __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr" "Configuring $package."
+  __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
+  __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
+  __rvm_pushpop
+}
+
+function __rvm_ncurses_install {
+  __rvm_make_flags
+  __rvm_pushpop $rvm_src_path
+  package="ncurses" ; version="5.7" ; archive_format="tar.gz"
+  __rvm_log "info" "Retrieving $package"
+  __rvm_fetch "ftp://invisible-island.net/ncurses/ncurses.tar.gz"
+  __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package.$archive_format -C $rvm_src_path" "Extracting $package.$archive_format"
+  cd "$rvm_src_path/$package-$version"
+  __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --with-shared --disable-rpath --without-debug --without-ada --enable-safe-sprintf --enable-sigwinch --without-progs" "Configuring $package."
+  __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
+  __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
+  __rvm_pushpop
+}
+
+__rvm_make_flags() {
+  PATH=.rvm/usr/bin:$PATH ; export PATH
+  if [ "Darwin" = "$(uname)" ] ; then
+    sdk="$(/bin/ls -t /Developer/SDKs/ | head -n 1)"
+    if [ "Darwin" = "$(uname)" ] ; then
+      if [[ "$(sw_vers -productVersion)" =~ ^10.6 ]] ; then
+        rvm_archflags="-arch x86_64"
+        openssl_os="os/compiler darwin64-x86_64-cc"
+      else
+        rvm_archflags="-arch i386"
+        openssl_os="os/compiler darwin-i386-cc"
+      fi
+    fi
+    CFLAGS="-isysroot /Developer/SDKs/$sdk $rvm_archflags" ; export CFLAGS
+    LDFLAGS="-Wl,-syslibroot /Developer/SDKs/$sdk $rvm_archflags" ; export LDFLAGS
+    ARCHFLAGS="$rvm_archflags" ; export ARCHFLAGS
+  fi
 }
 
 __rvm_monitor() {
