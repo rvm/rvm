@@ -167,32 +167,33 @@ __rvm_gems_load() {
       fi
 
       if [[ -f "$gem" ]] ; then
-        gem_file_name="$(basename $gem)"
+        gem_file_name="$gem"
+        cache_file="$gem"
       elif [[ ! -z "$gem" ]] && [[ "$gem" =~ ".gem$" ]] ; then
-        gem_file_name="${gem}"
+        gem_file_name="$gem"
       elif [[ -z "$gem_version" ]] ; then # no version
-        gem_file_name="${gem_name}*.gem"
+        gem_file_name="${gem_name/ /}*.gem"
       else # version
-        gem_file_name="$gem_name-$gem_version.gem"
+        gem_file_name="${gem_name/ /}-${gem_version/ /}.gem"
       fi
 
-      if [[ -z "$rvm_force_flag" ]] && [[ -f "$rvm_ruby_gem_home/specifications/${gem_file_name/\.gem/.gemspec}" ]] ; then
+      if [[ -z "$rvm_force_flag" ]] && [[ -f "${rvm_ruby_gem_home}/specifications/${gem_file_name/\.gem/.gemspec}" ]] ; then
         unset gem
         __rvm_log "warn" "$(__color "yellow")$gem_name $gem_version$(__color "none") exists, skipping (--force to re-install)"
       else
-        cache_file=$(/bin/ls -t "$rvm_gem_path/*/*/cache/${gem_file_name}*" 2> /dev/null | head -n1)
+        cache_file="${cache_file:-$(/bin/ls -t "${rvm_gem_path}/*/*/cache/${gem_file_name}*" 2> /dev/null | head -n1)}"
         if [[ -z "$cache_file" ]] ; then
           if [[ -f "$gem_file_name" ]] ; then
             gem="$gem_file_name"
           elif [[ -z "$gem_version" ]] ; then
-            gem="$gem_name"
+            gem="${gem_name/ /}"
           else
-            gem="$gem_name -v $gem_version"
+            gem="${gem_name/ /} -v $gem_version"
           fi
         else # cached
           gem_file_name="$(basename "$cache_file")"
           gem_string="$(echo "$gem_file_name" | sed 's#\.gem$##')"
-          if [[ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/$gem_string/{print}")" ]] ; then
+          if [[ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/${gem_name/ /} (.*$gem_version/{print}")" ]] ; then
             #if [[ ! -z "$rvm_ruby_gem_list" ]] && [[ "$rvm_ruby_gem_list" =~ $gem_string ]] ; then
             if [[ ! -z "$rvm_force_flag" ]] ; then
               cp $cache_file $rvm_temp_path/$gem_file_name
