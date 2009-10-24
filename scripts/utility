@@ -840,11 +840,35 @@ __rvm_make_flags() {
 }
 
 __rvm_monitor() {
-  if [[ -d "test/" ]] ; then
-    :
-  elif [[ -d "spec/" ]] ; then
-    :
-  fi
+  if [[ -d "test/" ]] ; then test_timestamp=$(timestamp "test/") ; fi
+  if [[ -d "spec/" ]] ; then spec_timestamp=$(timestamp "spec/") ; fi
+  while : ; do
+    changed_test_files=() ; changed_spec_files=()
+
+    if [[ -d "test/" ]] ; then
+      test_files=($(/bin/ls test/**/*_test.rb))
+      for file in "${test_files[@]}"; do
+        if [[ $(timestamp $file) -gt $timestamp ]] ; then
+          array_push $changed_test_files
+        fi
+      done
+    fi
+
+    if [[ -d "spec/" ]] ; then
+      spec_files=($(/bin/ls spec/**/*_spec.rb))
+      for file in "${spec_files[@]}"; do
+        if [[ $(timestamp $file) -gt $timestamp ]] ; then
+          array_push $changed_spec_files
+        fi
+      done
+    fi
+    if [[ $(array_length $changed_test_files) -gt 0 ]] ; then
+      testrb "${myarray[*]}"
+    fi
+    if [[ $(array_length $changed_spec_files) -gt 0 ]] ; then
+      spec "${myarray[*]}"
+    fi
+  done
 }
 
 #
@@ -852,9 +876,9 @@ __rvm_monitor() {
 #
 timestamp() {
   if [[ "Darwin" = "$(uname)" ]] ; then
-   echo $(stat -c "%Y" $1)
-  else
     echo $(stat -f "%m" $1)
+  else
+    echo $(stat -c "%Y" $1)
   fi
 }
 
@@ -867,5 +891,16 @@ contains() {
     [[ ${list[index]} = $pattern ]] && { echo $index ; return 0 ; }
   done
   echo -1 ; return 1
+}
+
+array_length() {
+  array=$1 ; return "${#array[*]}"
+}
+
+array_push() {
+  array=$1 ; shift ; item=$2
+  # TODO: allow loop over more arguments.
+  eval "index=\$((\${#${array}[*]} + $__array_start))"
+  eval "${array}[${index}]=${item}"
 }
 
