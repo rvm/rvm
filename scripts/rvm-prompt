@@ -1,8 +1,52 @@
 #!/bin/bash
-if [[ ! -z "$(which ruby | awk '/\.rvm/{print}')" ]] ; then
-  command=$(which ruby)
-  if [[ ! -z "$command" ]] ; then
-    echo "[$(echo $command | xargs dirname | xargs dirname | xargs basename | tr '-' ':')]"
-  fi ; unset command
+
+add(){
+  token="$1"
+  eval "${token}_flag=1" ; shift
+  if [[ ! -z "$format" ]] ; then
+    format="${format}-\$${token}"
+  else
+    format="\$${token}"
+  fi
+}
+
+if [[ ! -z "$(which ruby | awk '/rvm/{print}')" ]] ; then
+  unset format
+  while [[ $# -gt 0 ]] ; do
+    token="$1" ; shift
+    case "$token" in
+      i|interpreter)  add "interpreter"  ;;
+      v|version)      add "version"      ;;
+      p|patchlevel)   add "patchlevel"   ;;
+      r|revision)     add "revision"     ;;
+      a|architecture) add "architecture" ;;
+      *) echo "Unrecognized command line option '$token' for $0" ; exit 1 ;;
+    esac
+  done
+
+  if [[ -z "$format" ]] ; then
+    add "interpreter"
+    add "version"
+    add "patchlevel"
+  fi
+
+  ruby_string=$(dirname "$(which ruby)" | xargs dirname | xargs basename)
+  if [[ ! -z "$interpreter_flag" ]] ; then
+    interpreter="$(echo $ruby_string | awk -F'-' '{print $1}')"
+  fi
+  if [[ ! -z "$version_flag" ]] ; then
+    version="$(echo $ruby_string | awk -F'-' '{print $2}')"
+  fi
+  if [[ ! -z "$patchlevel_flag" ]] ; then
+    patchlevel=$(echo $ruby_string | awk -F'-' '{print $3}')
+  fi
+  if [[ ! -z "$architecture_flag" ]] ; then
+    architecture="$(echo "$(ruby -v)" | sed 's/^.*\[//' | sed 's/\].*$//')"
+  fi
+
+  command="prompt=\"[$format]\""
+  eval "$command"
+  echo "${prompt/-]/]}"
 fi
 
+exit 0
