@@ -133,10 +133,7 @@ function __rvm_parse_args {
       jruby|ree|macruby|rbx|rubinius|mput|shyouhei|default|all)
         rvm_ruby_interpreter="$rvm_token"
         rvm_action="${rvm_action:-use}"
-        #if [[ ! -z "$(echo $1 | awk '/^[0-9]/')" ]] ; then
-        if [[ ! -z "$1" ]] && [[ "$1" =~ ^[0-9] ]] ; then
-          rvm_ruby_version=$1 ; shift
-        fi
+        if match "$1" "^[0-9]" ; then rvm_ruby_version=$1 ; shift ; fi
       ;;
 
       gems|gemset)
@@ -192,10 +189,10 @@ function __rvm_parse_args {
             rvm_parse_break=1
           fi
         else
-          if [[ ! -z "$(echo $1 | awk '/^-/')" ]] ; then
+          if match "$1" "^-" ; then
             unset rvm_ruby_version
           else
-            if [[ ! -z "$(echo $1 | awk '/^[0-9]/')" ]] ; then
+            if match "$1" "^[0-9]" ; then
               rvm_ruby_version=$(echo "$1" | tr ',' ' ') ; shift
               unset rvm_ruby_interpreter
             else
@@ -352,7 +349,7 @@ function __rvm_parse_args {
       --make)               rvm_ruby_make="$1"        ; shift ;;
       --make-install)       rvm_ruby_make_install="$1"; shift ;;
       --nice)               rvm_niceness="$1"         ; shift ;;
-      -l|--level)           rvm_ruby_patch_level="$1" ; shift ;;
+      -l|--level)           rvm_ruby_patch_level="p$1" ; shift ;;
       # TODO: handle this below better (if $1 is null)
       -m|--gem-set)         rvm_gem_set_name="$1"     ; shift ;;
       tests|specs)          rvm_action="tests"                ;;
@@ -377,31 +374,29 @@ function __rvm_parse_args {
       *)
         if [[ ! -z "$rvm_token" ]] ; then
           if [[ "gems" = "$rvm_action" ]] ; then
-            if [[ ! -z "$(echo $rvm_token | awk '/\.gems$/')" ]] ; then
-              rvm_file_name="$(echo $rvm_token | sed 's#\.gems##g').gems"
-              # elif [[ ! -z "$(echo $rvm_token | awk '/\.gems$/')" ]] ; then
+            if [[ ! -z "$(echo "$rvm_token" | awk '/\.gems$/')" ]] ; then
+              rvm_file_name="$(echo "$rvm_token" | sed 's#\.gems##g').gems"
+              # elif [[ ! -z "$(echo "$rvm_token" | awk '/\.gems$/')" ]] ; then
             else
-              rvm_gem_set_name="$(echo $rvm_token | sed 's#\.gems##g')"
+              rvm_gem_set_name="$(echo "$rvm_token" | sed 's#\.gems##g')"
               rvm_file_name="$rvm_gem_set_name.gems"
             fi
-          elif [[ ! -z "$(echo $rvm_token | awk '/,/')" ]] ; then
+          elif [[ ! -z "$(echo "$rvm_token" | awk '/,/')" ]] ; then
             rvm_ruby_version="$rvm_token"
             if [[ -z "$rvm_action" ]] ; then
               rvm_action="do" # Not sure if we really want to do this but we'll try it out.
             fi
-          elif [[ ! -z "$(echo $rvm_token | awk '/^.+%.+$/')" ]] ; then
-            rvm_gem_set_name="$(echo $rvm_token | awk -F'%' '{print $2}')"
-            rvm_ruby_string="$(echo $rvm_token | awk -F'%' '{print $1}')"
-          #elif [[ ! -z "$(echo $rvm_token | awk '/^[0-9].[0-9]/')" ]] ; then
-          elif [[ ! -z "$rvm_token" ]] && [[ "$rvm_token" =~ ^[0-9].[0-9] ]] ; then
+          elif match "$rvm_token" "^.+%.+$" ; then
+            rvm_gem_set_name="$(echo "$rvm_token" | awk -F'%' '{print $2}')"
+            rvm_ruby_string="$(echo "$rvm_token" | awk -F'%' '{print $1}')"
+          elif match "$rvm_token" "^[0-9].[0-9]" ; then
             rvm_ruby_string="$rvm_token"
             rvm_action="${rvm_action:-use}"
-          elif [[ ! -z "$rvm_token" ]] && [[ "$rvm_token" =~ ^ree ]] ; then
+          elif match "$rvm_token" "^ree" ; then
             rvm_ruby_string="$rvm_token"
             rvm_action="${rvm_action:-use}"
           else
-            if [[ ! -z "$(echo $rvm_token | awk '/\.rb$/{print}')" ]] ; then # we have a specified ruby script
-            #if [[ ! -z "$rvm_token" ]] && [[ " ! $rvm_token =~ \.rb$ ]] ; then # we have a specified ruby script
+            if match "$rvm_token" "\.rb$" ; then # we have a specified ruby script
               rvm_ruby_args=$rvm_token
               rvm_ruby_file=$rvm_token
               if [[ -z "$rvm_action" ]] ; then
