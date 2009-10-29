@@ -148,11 +148,14 @@ __rvm_gems_load() {
     fi
   fi
 
+  mkdir -p "$rvm_gem_path/cache"
+
   if [[ -f "$rvm_file_name" ]] ; then
     echo "Loading $rvm_file_name file..."
     rvm_ruby_gem_list=$(/bin/ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's#.gems.*$##' 2> /dev/null)
+
     while read line
-    do # Keep this on 2nd line :( bash fail.
+    do # Keep this on 2nd line :(
       # TODO: Switch to a different field separator than ; to allow for evals
       gem="$(echo $line | awk -F';' '{print $1}')"
       gem_prefix="$(echo $line | awk -F';' '{print $2}')"
@@ -177,11 +180,21 @@ __rvm_gems_load() {
         gem_file_name="${gem_name/ /}-${gem_version/ /}.gem"
       fi
 
-      if [[ -z "$rvm_force_flag" ]] && [[ -f "${rvm_ruby_gem_home}/specifications/${gem_name/ /}-${gem_version/ /}.gemspec" ]] ; then
+      if [[ -z "$rvm_force_flag" ]] && [[ -f "${rvm_ruby_gem_home}/specifications/${gem_file_name}" ]] ; then
         unset gem
         __rvm_log "warn" "$(__color "yellow")$gem_name $gem_version$(__color "none") exists, skipping (--force to re-install)"
       else
-        cache_file="${cache_file:-$(/bin/ls -t "${rvm_gem_path}/*/*/cache/${gem_file_name}*" 2> /dev/null | head -n1)}"
+        set -x
+        if [[ -f "$rvm_gem_path/cache/${gem_file_name}" ]] ; then
+          cache_file="$rvm_gem_path/cache/${gem_file_name}"
+        else
+          cache_file="${cache_file:-$(/bin/ls -t "${rvm_gem_path}/*/*/cache/${gem_file_name}*" 2> /dev/null | head -n1)}"
+          if [[ -f "$cache_file" ]] ; then
+            cp "$cache_file" "$rvm_gem_path/cache/$(basename "$cache_file")"
+          fi
+        fi
+        set +x
+
         if [[ -z "$cache_file" ]] ; then
           if [[ -f "$gem_file_name" ]] ; then
             gem="$gem_file_name"
@@ -193,10 +206,10 @@ __rvm_gems_load() {
         else # cached
           gem_file_name="$(basename "$cache_file")"
           gem_string="$(echo "$gem_file_name" | sed 's#\.gem$##')"
+
           # TODO: Switch this to use match
           if [[ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/${gem_name/ /} \(.*$gem_version/{print}")" ]] ; then
             if [[ ! -z "$rvm_force_flag" ]] ; then
-              cp $cache_file $rvm_temp_path/$gem_file_name
               gem="$rvm_temp_path/$gem_file_name" # install as a named local gem
             fi
           else
