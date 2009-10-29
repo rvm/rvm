@@ -122,12 +122,12 @@ function __rvm_run {
   unset log_file command
 }
 
-function __rvm_cleanup_variables {
+__rvm_cleanup_variables() {
   __rvm_unset_ruby_variables
-  unset rvm_ruby_selected_flag rvm_action rvm_irbrc_file rvm_src_path rvm_path rvm_prefix_path rvm_gem_path rvm_command rvm_error_message rvm_gem_set_name rvm_url rvm_config_path rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_log_path rvm_file_name rvm_ruby_configure
+  unset rvm_ruby_selected_flag rvm_action rvm_irbrc_file rvm_src_path rvm_path rvm_prefix_path rvm_gem_path rvm_command rvm_error_message rvm_gem_set_name rvm_url rvm_config_path rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_log_path rvm_file_name rvm_ruby_configure rvm_benchmark_flag
 }
 
-function __rvm_unset_ruby_variables {
+__rvm_unset_ruby_variables() {
   unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag
 }
 
@@ -562,11 +562,12 @@ __rvm_ruby_do() {
   binary="$(echo $rvm_action | sed 's#do$##')"
   if [[ -x "$rvm_ruby_home/bin/$binary" ]] ; then
     load_path="$rvm_ruby_home/bin:$rvm_ruby_load_path"
-    if [[ "ruby" = "$binary" ]] ; then
+    # TODO: the else case below should be run if $rvm_ruby_args =~ /\.rb$/
+    if [[ "ruby" = "$binary" ]] && [[ "$rvm_benchmark_flag" -ne 1 ]] ; then
       if match "$rvm_ruby_args" "\.rb$" ; then
         if [[ -z "$prefix" ]] ; then prefix="-S" ; fi
         if ! match "$rvm_ruby_args" "$prefix" ; then
-          rvm_ruby_args="$prefix $rvm_ruby_args"
+          rvm_ruby_args="$prefix '$rvm_ruby_args'"
         fi
       fi
       rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_require -I$load_path $rvm_ruby_args"
@@ -693,6 +694,7 @@ function __rvm_benchmark {
   cat $rvm_ruby_file >> "$rvm_temp_path/$$.rb"
   echo -e "\n end \nend\n" >> "$rvm_temp_path/$$.rb"
   rvm_ruby_args="$rvm_temp_path/$$.rb"
+  rvm_benchmark_flag=1
   rvm_action="ruby"
   if [[ ! -z "$rvm_debug_flag" ]] ; then echo -e "$rvm_temp_path/$$.rb:\n$(cat $rvm_temp_path/$$.rb)" ; fi
   __rvm_do
