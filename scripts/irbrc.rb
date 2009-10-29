@@ -9,7 +9,7 @@ require "irb/ext/save-history"
 IRB.conf[:HISTORY_FILE] = File.join(ENV["HOME"], ".irb-history")
 
 # Calculate the ruby string.
-rvm_ruby_string = ENV["rvm_ruby_string"] || "#{RUBY_ENGINE}-#{RUBY_VERSION}-#{(RUBY_PATCHLEVEL) ? "p#{RUBY_PATCHLEVEL}" : "r#{RUBY_REVISION}"}"
+rvm_ruby_string = ENV["rvm_ruby_string"] || "#{RUBY_ENGINE rescue 'ruby'}-#{RUBY_VERSION}-#{(RUBY_PATCHLEVEL) ? "p#{RUBY_PATCHLEVEL}" : "r#{RUBY_REVISION}"}"
 
 # Set up the prompt to be RVM specific.
 @prompt = {
