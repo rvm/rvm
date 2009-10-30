@@ -4,12 +4,12 @@ function __rvm_meta {
   rvm_meta_author="Wayne E. Seguin"
   rvm_meta_author_email="wayneeseguin@gmail.com"
   rvm_meta_website="http://rvm.beginrescueend.com/"
-  rvm_meta_version="$(cat $rvm_path/lib/VERSION.yml | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//')"
+  rvm_meta_version="${RVM_VERSION}"
 }
 
 function __rvm_version { __rvm_meta ; echo "rvm ${rvm_meta_version} by ${rvm_meta_author} (${rvm_meta_author_email}) [${rvm_meta_website}]" ; }
 
-function __rvm_usage { cat "$rvm_path/README" | ${PAGER:-less} ; }
+function __rvm_usage { cat "${rvm_path:-$HOME/.rvm}/README" | ${PAGER:-less} ; }
 
 function __rvm_parse_args {
   if [[ ! -z "$(echo "$*" | awk '/trace/')" ]] ; then echo "$*" ; fi
@@ -350,6 +350,14 @@ function __rvm_parse_args {
 function rvm {
 
   trap '__rvm_cleanup_variables ; rm -rf "/tmp/rvm/$$" >/dev/null 2>&1' 0 1 2 3 15
+
+  # Check that this is the current version.
+  disk_version=$(cat "${rvm_path:-$HOME/.rvm}/lib/VERSION.yml" | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//')
+  if [ -z "${RVM_VERSION}" -o "${RVM_VERSION}" != "${disk_version}" ]; then
+      echo "Your shell's copy of rvm is out of date with the version on disk."
+      echo "Please restart your shell or run rvm-restart."
+      return 1
+  fi
 
   __rvm_cleanup_variables
   __rvm_load_rvmrc
