@@ -24,8 +24,10 @@ IRB.conf[:PROMPT][:RVM] = @prompt
 IRB.conf[:PROMPT_MODE] = :RVM
 
 # Load the user's irbrc file, if possible.
-if File.exists?("#{ENV["HOME"]}/.irbrc_disabled")
-  load File.join(ENV["HOME"], ".irbrc") rescue nil
+begin
+  load File.join(ENV["HOME"], ".irbrc") if File.exists?("#{ENV["HOME"]}/.irbrc")
+rescue => exception
+  puts "Error : 'load #{ENV["HOME"]}/.irbrc' : #{exception.message}"
 end
 
 # EOF
