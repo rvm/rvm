@@ -171,7 +171,6 @@ __rvm_gems_load() {
 
       if [[ -f "$gem" ]] ; then
         gem_file_name="$gem"
-        cache_file="$gem"
       elif match "$gem" ".gem$" ]] ; then
         gem_file_name="$gem"
       elif [[ -z "${gem_version/ /}" ]] ; then # no version
@@ -184,16 +183,18 @@ __rvm_gems_load() {
         unset gem
         __rvm_log "warn" "$(__color "yellow")$gem_name $gem_version$(__color "none") exists, skipping (--force to re-install)"
       else
-        set -x
-        if [[ -f "$rvm_gem_path/cache/${gem_file_name}" ]] ; then
+        if [[ -f "$gem" ]] ; then
+          cache_file="$gem"
+        elif [[ -f "$rvm_gem_path/cache/${gem_file_name}" ]] ; then
           cache_file="$rvm_gem_path/cache/${gem_file_name}"
         else
-          cache_file="${cache_file:-$(/bin/ls -t ${rvm_gem_path}/*/*/cache/${gem_file_name}* 2> /dev/null | head -n1)}"
-          if [[ -f "$cache_file" ]] ; then
-            cp "$cache_file" "$rvm_gem_path/cache/$(basename "$cache_file")"
+          cache_file="${cache_file:-$(ls ${rvm_gem_path}/*/*/cache/${gem_file_name}* 2> /dev/null | sort | head -n1)}"
+          if [[ ! -z "$cache_file" ]] && [[ -f "$cache_file" ]] ; then
+            if [[ "$(dirname $cache_file)" != "$rvm_gem_path/cache/" ]] ; then
+            cp "$cache_file" "$rvm_gem_path/cache/"
+            cache_file="$rvm_gem_path/cache/$(basename $cache_file)"
           fi
         fi
-        set +x
 
         if [[ -z "$cache_file" ]] ; then
           if [[ -f "$gem_file_name" ]] ; then
@@ -210,7 +211,7 @@ __rvm_gems_load() {
           # TODO: Switch this to use match
           if [[ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/${gem_name/ /} \(.*$gem_version/{print}")" ]] ; then
             if [[ ! -z "$rvm_force_flag" ]] ; then
-              gem="$rvm_temp_path/$gem_file_name" # install as a named local gem
+              gem="$rvm_gem_path/cache/$gem_file_name" # install as a named local gem
             fi
           else
             gem="$cache_file"
