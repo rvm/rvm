@@ -25,7 +25,6 @@ function __rvm_install_source {
     if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
   else
     if [[ ! -z "$(echo $rvm_url | awk '/^git/')" ]] ; then
-
       if [[ -d "$rvm_ruby_src_path/.git" ]] ; then
         cd $rvm_ruby_src_path
         if [[ -z "$rvm_ruby_revision" ]] ; then
@@ -126,16 +125,64 @@ function __rvm_install_ruby {
 
   case "$rvm_ruby_interpreter" in
     macruby)
-      if [[ "$(uname)" = "Darwin" ]] ; then
-        rvm_url="$(__rvm_db "macruby_nightly_url")"
-        __rvm_log "info" "Retrieving latest macruby" # $rvm_archives_path/macruby_nightly.pkg
-        __rvm_fetch $rvm_url
-        mv $rvm_archives_path/latest $rvm_archives_path/macruby_nightly.pkg
-        __rvm_run "macruby/extract" "xar -x -f $rvm_archives_path/macruby_nightly.pkg -C $rvm_ruby_home" "Extracting macruby nightly package."
+      if [[ "Darwin" = "$(uname)" ]] ; then
+        if [[ "nightly" = "$rvm_ruby_version" ]] ; then
+          macruby_path="/usr/local/bin"
+          # TODO: Separated nightly from head.
+          rvm_url="$(__rvm_db "macruby_nightly_url")"
+          __rvm_log "info" "Retrieving the latest nightly macruby build..."
+          __rvm_fetch $rvm_url
+          mv "$rvm_archives_path/latest" "$rvm_archives_path/macruby_nightly.pkg"
+          __rvm_run "macruby/extract" "sudo installer -pkg '$rvm_path/archives/macruby_nightly.pkg' -target '/'"
+          mkdir -p "$rvm_ruby_home/bin"
+        elif [[ "head" = "$rvm_ruby_version" ]] ; then
+          # TODO: configure & make variables should be set here.
+          rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_repo_url")"
+          if [[ -z "$rvm_url" ]] ; then
+            __rvm_log "fail" "rvm does not know the rvm repo url for 'ree_${rvm_ruby_version}'"
+            result=1
+          else
+            rvm_ruby_repo_url=$rvm_url
+            __rvm_install_source $*
+          fi
+        else
+          macruby_path="/usr/local/bin"
+          # TODO: Separated nightly from head.
+          rvm_url="$(__rvm_db "macruby_nightly_url")"
+          __rvm_log "info" "Retrieving latest macruby" # $rvm_archives_path/macruby_nightly.pkg
+          __rvm_fetch $rvm_url
+          mv $rvm_archives_path/latest $rvm_archives_path/macruby_nightly.pkg
+          __rvm_run "macruby/extract" "sudo installer -pkg '$rvm_path/archives/$rvm_ruby_package_file.zip' -target '/'"
+          mkdir -p "$rvm_ruby_home/bin"
+
+        fi
+
+        binaries="erb gem irb rake rdoc ri ruby testrb" # Trick to work in more shells :)
+        for binary_name in $(echo $binaries); do
+          # if [[ $binary_name != "gem" ]] ; then prefix="-S" ; fi
+          ruby_wrapper=$(cat <<RubyWrapper
+#!/bin/bash
+
+GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
+GEM_PATH="$rvm_ruby_gem_home" ; export GEM_PATH
+MY_RUBY_HOME="$rvm_ruby_home" ; export MY_RUBY_HOME
+PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH" ; export PATH
+
+exec $macruby_path/mac$binary_name $prefix "\$@"
+RubyWrapper
+)
+          files="$rvm_ruby_home/bin/$binary_name $rvm_path/bin/$binary_name-$rvm_ruby_package_name"
+          for file_name in $(echo $files)  ; do
+            rm -f $file_name
+            echo "$ruby_wrapper" > $file_name
+            if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
+          done
+          unset file_name ruby_wrapper binary_name files prefix
+        done
+        __rvm_irbrc
       else
         __rvm_log "fail" "MacRuby can only be installed on a Darwin OS."
       fi
-      __rvm_irbrc
     ;;
 
     ree)
