@@ -1,7 +1,5 @@
 task :default => ["test"]
-task :test do
-  exec "bash -l -c \"./test/suite\""
-end
+task :test do exec "bash -l -c \"./test/suite\"" ; end
 
 namespace :gem do
   task :refresh do
@@ -14,8 +12,8 @@ puts <<-LOCAL_INSTALL_WARNING
 
   $(tput setaf 3)INSTALLING FROM SOURCE$(tput sgr0)
 
-  If you're using rvm from source, don't build the gem
-  Instead, run the following from the rvm source root
+  If you are using rvm from source, DO NOT build the gem.
+  Instead, run the following from the rvm source's root dir.
 
     $(tput setaf 2)For installing/updating:  ./install$(tput sgr0)
 
@@ -31,8 +29,11 @@ end
 
 begin
   require "jeweler"
+  require "lib/rvm/version"
+
   Jeweler::Tasks.new do |gemspec|
     gemspec.name            = "rvm"
+    gemspec.version         = RVM::Version::STRING
     gemspec.summary         = "Ruby Version Manager (rvm)"
     gemspec.require_paths   = ["lib"]
     gemspec.date            = Time.now.strftime("%Y-%m-%d")
@@ -50,6 +51,6 @@ begin
     gemspec.rubyforge_project = "rvm"
   end
 rescue LoadError
-  puts "Jeweler not available. Install it with: sudo gem install technicalpickles-jeweler -s http://gems.github.com"
+  puts "Jeweler not available. Install it with: gem install jeweler -s http://gemcutter.org/"
 end
 
