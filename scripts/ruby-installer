@@ -315,14 +315,34 @@ RubyWrapper
     ;;
 
     jruby)
-      mkdir -p $rvm_ruby_log_path
+      mkdir -p "$rvm_ruby_log_path"  "$rvm_ruby_src_path"
       __rvm_pushpop $rvm_src_path
 
-      if [[ ! -z "$rvm_ruby_revision" ]] ; then
-        if [[ ! -d "$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version" ]] || [[ ! -d "$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version/.git" ]] ; then
-          git clone --depth 1 $rvm_jruby_repo_url $rvm_ruby_src_path
-          cd $rvm_ruby_src_path && ant # TODO: Test if 'ant' is installed, if not throw error.
+      if [[ "$rvm_head_flag" -eq 1 ]] || [[ ! -z "$rvm_ruby_revision" ]] ; then
+        if [[ -d "$rvm_ruby_src_path/.git" ]] ; then
+          cd "$rvm_ruby_src_path"
+          if [[ -z "$rvm_ruby_revision" ]] ; then
+            __rvm_log "info" "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
+            git pull origin master
+            if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+          else
+            if [[ -z "$rvm_ruby_sha" ]] ; then
+              git checkout HEAD
+            else
+              git checkout $(echo $rvm_ruby_sha | sed 's#^s##')
+            fi
+            if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+          fi
+        else
+          rm -rf "$rvm_ruby_src_path"
+          __rvm_log "info" "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
+          git clone --depth 1 "$rvm_ruby_repo_url" "$rvm_ruby_src_path"
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
         fi
+
+        cd "$rvm_ruby_src_path"
+        ant dist
+
       else
         if [[ -d $rvm_ruby_src_path ]] ; then
           cd $rvm_ruby_src_path
