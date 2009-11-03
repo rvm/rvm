@@ -89,7 +89,7 @@ __rvm_install_source() {
     __rvm_run "configure" "$rvm_ruby_configure"
     if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
   elif [[ -s ./configure ]] ; then
-    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure $configure_parameters" "Configuring $rvm_ruby_package_name, this may take a while depending on your cpu(s)..."
+    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure_flags $configure_parameters" "Configuring $rvm_ruby_package_name, this may take a while depending on your cpu(s)..."
     if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
     unset configure_parameters
   else
@@ -128,7 +128,7 @@ __rvm_install_ruby() {
         if [[ "$rvm_head_flag" = 1 ]] ; then
           macruby_path="/usr/local/bin"
           # TODO: configure & make variables should be set here.
-          rvm_ruby_configure=""
+          rvm_ruby_configure=" true "
           rvm_ruby_make="rake"
           rvm_ruby_make_install="sudo rake install"
           rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_repo_url")"
@@ -193,8 +193,10 @@ RubyWrapper
 
         mkdir -p "$rvm_ruby_log_path"
         mkdir -p "${rvm_ruby_home}/lib/ruby/gems/1.8/gems"
-        if [[ ! -z "$rvm_ruby_configure" ]] ; then rvm_ruby_configure="$(echo $rvm_ruby_configure | sed 's#--#-c --#g')"; fi
-        __rvm_run "install" "./installer -a $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level $rvm_ree_options --dont-install-useful-gems $rvm_ruby_configure" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..." # --no-tcmalloc
+        if [[ ! -z "$rvm_ruby_configure_flags" ]] ; then
+          rvm_ruby_configure_flags="$(echo $rvm_ruby_configure_flags | sed 's#--#-c --#g')"
+        fi
+        __rvm_run "install" "./installer -a $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level $rvm_ree_options --dont-install-useful-gems $rvm_ruby_configure_flags" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..." # --no-tcmalloc
         if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
         chmod +x $rvm_ruby_home/bin/*
 
@@ -394,7 +396,7 @@ RubyWrapper
       PATH=$rvm_bin_path:$PATH ; export PATH
 
       rvm_ruby_repo_url=$rvm_shyouhei_repo_url
-      rvm_ruby_configure=" "
+      unset rvm_ruby_configure
       rvm_ruby_src_path=$rvm_ruby_home
       # rvm_ruby_make="rake"
       # rvm_ruby_make_install="rake install"
@@ -419,12 +421,12 @@ RubyWrapper
 
       if [[ -s ./Makefile ]] && [[ -z "$rvm_reconfigure_flag" ]] ; then
           __rvm_log "debug" "Skipping configure step, Makefile exists so configure must have already been run."
-      elif [[ -s ./configure ]] ; then
-          __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure $configure_parameters" "Configuring $rvm_ruby_package_name using $rvm_ruby_configure, this may take a while depending on your cpu(s)..."
-          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
-          unset configure_parameters
       elif [[ ! -z "rvm_ruby_configure" ]] ; then
           $rvm_ruby_configure
+      elif [[ -s ./configure ]] ; then
+          __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure_flags $configure_parameters" "Configuring $rvm_ruby_package_name using $rvm_ruby_configure_flags, this may take a while depending on your cpu(s)..."
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+          unset configure_parameters
       else
           __rvm_log "error" "Skipping configure step, 'configure' script does not exist, did autoconf not run successfully?"
       fi
