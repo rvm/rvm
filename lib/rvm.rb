@@ -1,3 +1,1 @@
-module RVM
-  VERSION = YAML.load_file("#{File.dirname(File.dirname(__FILE__))}/VERSION.yml")
-end
+Dir.glob("#{File.expand_path(File.dirname(__FILE__))}/rvm/*.rb").each { |file| require file }

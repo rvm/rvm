@@ -1,24 +1,24 @@
-task :default => [:gem]
-puts <<-LOCAL_INSTALL_WARNING
-
-  \033[0;33mINSTALLING FROM SOURCE\033[0m
-
-  If you're using rvm from source, don't build the gem
-  Instead, run the following from the rvm source root
-
-    \033[0;32mFor installing/updating:  ./install\033[0m
-
-LOCAL_INSTALL_WARNING
-
-desc "Build the rvm gem and then install it (NO sudo)."
-task :gem do
-  exec "gem uninstall rvm ; rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
-end
+task :default => ["test"]
+task :test do exec "bash -l -c \"./test/suite\"" ; end
 
 namespace :gem do
+  task :refresh do
+    exec "gem uninstall rvm ; rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
+  end
+
   desc "Build the rvm gem."
   task :build do
-    puts `gem build rvm.gemspec`
+puts <<-LOCAL_INSTALL_WARNING
+
+  $(tput setaf 3)INSTALLING FROM SOURCE$(tput sgr0)
+
+  If you are using rvm from source, DO NOT build the gem.
+  Instead, run the following from the rvm source's root dir.
+
+    $(tput setaf 2)For installing/updating:  ./install$(tput sgr0)
+
+LOCAL_INSTALL_WARNING
+    puts "$(gem build rvm.gemspec)"
   end
 
   desc "Install the rvm gem (NO sudo)."
@@ -29,8 +29,11 @@ end
 
 begin
   require "jeweler"
+  require "lib/rvm/version"
+
   Jeweler::Tasks.new do |gemspec|
     gemspec.name            = "rvm"
+    gemspec.version         = RVM::Version::STRING
     gemspec.summary         = "Ruby Version Manager (rvm)"
     gemspec.require_paths   = ["lib"]
     gemspec.date            = Time.now.strftime("%Y-%m-%d")
@@ -45,9 +48,9 @@ begin
     gemspec.email           = "wayneeseguin@gmail.com"
     gemspec.homepage        = "http://github.com/wayneeseguin/rvm"
     gemspec.extensions      << "extconf.rb" if File::exists?("extconf.rb")
-    gemspec.rubyforge_project = "dynamicreports"
+    gemspec.rubyforge_project = "rvm"
   end
 rescue LoadError
-  puts "Jeweler not available. Install it with: sudo gem install technicalpickles-jeweler -s http://gems.github.com"
+  puts "Jeweler not available. Install it with: gem install jeweler -s http://gemcutter.org/"
 end
 
