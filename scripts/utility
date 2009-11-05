@@ -47,13 +47,19 @@ __rvm_debug() {
     __rvm_log "debug" "/Developer/SDKs/*:$(basename -a /Developer/SDKs/* | tr "\n" ',')"
   fi
 
-  for file_name in ~/.bash_profile ~/.bashrc ~/.zshrc ; do
+  for file_name in $(echo $rc_files) ; do
     if [[ -s "$file_name" ]] ; then
       __rvm_log "debug" "$file_name:\n$(grep 'rvm' $file_name)"
     fi
   done
 
-  for file_name in $rvm_path/default $rvm_path/system $rvm_path/config/db ~/.rvmrc ~/.gemrc; do
+  if [[ "root" = "$(whoami)" ]] ; then
+    debug_files="$rvm_path/default $rvm_path/system $rvm_path/config/db /etc/rvmrc /etc/gemrc"
+  else
+    debug_files="$rvm_path/default $rvm_path/system $rvm_path/config/db $HOME/.rvmrc $HOME/.gemrc"
+  fi
+
+  for file_name in $(echo $debug_files); do
     if [[ -f "$file_name" ]] && [[ -s "$file_name" ]] ; then
       __rvm_log "debug" "$file_name (filtered):\n$(cat $file_name | awk '!/assword|_key/')\n"
     fi
@@ -131,9 +137,9 @@ __rvm_unset_ruby_variables() {
   unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure_flags rvm_ruby_configure
 }
 
-# TODO: root user loadng of /etc/rvmrc
 __rvm_load_rvmrc() {
-  if [[ -s ~/.rvmrc ]] ; then source ~/.rvmrc ; fi
+  if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
+  if [[ -f $HOME/.rvmrc ]] ; then source $HOME/.rvmrc ; fi
 }
 
 __rvm_bin_scripts() {
@@ -325,7 +331,7 @@ __rvm_gemdup() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select $* ; fi
   __rvm_log "debug" "$rvm_ruby_interpreter"
   if [[ "default" = "$rvm_ruby_interpreter" ]] ; then
-    # TODO: ~/.rvm/default first, then system user
+    # TODO: $rvm_path/default first, then system user
     rvm_source_gem_path="$rvm_system_user_gem_path"
   elif [[ "user" = "$rvm_ruby_interpreter" ]] ; then
     rvm_source_gem_path="$rvm_system_user_gem_path"
@@ -466,7 +472,7 @@ __rvm_list() {
     fi
 
     if [[ -f "$rvm_path/default" ]] && [[ -s $rvm_path/default ]] ; then
-      version=$(grep '^MY_RUBY_HOME' ~/.rvm/default | awk -F"'" '{print $2}' | xargs basename)
+      version=$(grep '^MY_RUBY_HOME' $rvm_path/default | awk -F"'" '{print $2}' | xargs basename)
       if [[ ! -z "$version" ]] ; then
         echo -e "\ndefault:\n"
         string=$($rvm_path/$version/bin/ruby -v)
@@ -492,25 +498,21 @@ __rvm_list() {
 }
 
 __rvm_initialize() {
-  rvm_fetch=$(which curl)
-  if [[ $? -ne 0 ]] ; then
-    __rvm_log "fail" "rvm requires curl, which does not seem to exist in your path :("
-  else
-    rvm_fetch="$rvm_fetch -O -L --create-dirs -C - " # -s for silent
-  fi
-
   # TODO: Sanitize user input, ensure that there is a / a the end...
   if [[ "root" = "$(whoami)" ]] ; then
-    __rvm_log "fail" "root user support is not yet implemented."
     rvm_prefix_path="${rvm_prefix_path:-/usr/local/}"
+    rc_files="/etc/profile /etc/zshenv"
   else
     rvm_prefix_path="${rvm_prefix_path:-"$HOME/."}"
+    rc_files="$HOME/.bash_profile $HOME/.bashrc $HOME/.zshrc"
   fi
+
   if [[ "${rvm_prefix_path#${rvm_prefix_path%?}}" = '.' ]] || [[ "${rvm_prefix_path#${rvm_prefix_path%?}}" = '/' ]] ; then
     rvm_path="${rvm_prefix_path}rvm"
   else
     rvm_path="${rvm_prefix_path}/rvm"
   fi
+
   rvm_archives_path="${rvm_archives_path:-"$rvm_path/archives"}"
   rvm_src_path="${rvm_src_path:-"$rvm_path/src"}"
   rvm_log_path="${rvm_log_path:-"$rvm_path/log"}"
@@ -528,6 +530,14 @@ __rvm_initialize() {
   rvm_ruby_require=""
 
   __rvm_clean_path
+
+  rvm_fetch=$(which curl)
+  if [[ $? -ne 0 ]] ; then
+    __rvm_log "fail" "rvm requires curl, which does not seem to exist in your path :("
+  else
+    rvm_fetch="$rvm_fetch -O -L --create-dirs -C - " # -s for silent
+  fi
+
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
   if [[ -z "$rvm_result" ]] ; then
     PATH=$rvm_bin_path:$PATH ; export PATH
@@ -556,7 +566,7 @@ __rvm_update_rvm() {
     fi
   else
     # TODO: rvm_install_path:
-    gem install rvm --no-rdoc --no-ri -q rvm && $(gem env gemdir user)/bin/rvm-install && source ~/.rvm/scripts/rvm
+    gem install rvm --no-rdoc --no-ri -q rvm && $(gem env gemdir user)/bin/rvm-install && source $rvm_path/scripts/rvm
   fi
   __rvm_pushpop
 }
@@ -565,25 +575,16 @@ __rvm_reboot() {
   __rvm_log "warn" "Do you wish to reset rvm? ('yes', or 'no')"
   read response
   if [[ "yes" = "$response" ]] ; then
-    cd
+    cd $rvm_path
     __rvm_reset
-    mv ~/.rvm/archives ~/.archives
+    mv $rvm_path/archives ~/.archives
     if [[ "/" = "$rvm_path" ]] ; then
       __rvm_log "error" "remove '/' ?!... NO!"
     else
       if [[ -d "$rvm_path" ]] ; then rm -rf "$rvm_path/" ; fi
     fi
     gem install rvm --no-rdoc --no-ri -q
-    which rvm-install 2> /dev/null
-    if [[ $? -gt 0 ]] ; then
-      if [[ -x "~/.gem/ruby/1.8/bin/rvm-install" ]] ; then
-        ~/.gem/ruby/1.8/bin/rvm-install
-      else
-        __rvm_log "error" "Could not find an executable rvm-install in your path :("
-      fi
-    else
-      rvm-install
-    fi
+    __rvm_update_rvm
     source ~/.rvm/scripts/rvm
   else
     __rvm_log "info" "Carry on then..."
