@@ -76,7 +76,7 @@ __rvm_install_source() {
   cd $rvm_ruby_src_path
   if [[ $? -gt 0 ]] ; then result=$? ; __rvm_log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; __rvm_pushpop ; return $result ; fi
 
-  if [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
+  if [[ -z "$rvm_ruby_configure" ]] && [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
     rvm_autoconf="$(which autoconf)"
     if [[ $? -gt 0 ]] ; then __rvm_log "fail" "rvm expects autoconf" ; result=$? ; return $result ; fi
     __rvm_run "autoconf" "$rvm_autoconf" "Running autoconf"
@@ -126,6 +126,7 @@ __rvm_install_ruby() {
     macruby)
       if [[ "Darwin" = "$(uname)" ]] ; then
         if [[ "$rvm_head_flag" = 1 ]] ; then
+          __rvm_install_llvm
           macruby_path="/usr/local/bin"
           # TODO: configure & make variables should be set here.
           rvm_ruby_configure=" true "
@@ -646,6 +647,18 @@ __rvm_actual_file() {
     actual_file="$(readlink $1)" # read the link target so we can preserve it.
   else
     actual_file="$1"
+  fi
+}
+
+__rvm_install_llvm() {
+  cd "$rvm_src_path"
+  if [[ ! -d "$rvm_src_path/llvm/.svn" ]] ; then
+    rm -rf "$rvm_src_path/llvm"
+    svn co -r 82747 https://llvm.org/svn/llvm-project/llvm/trunk llvm
+    cd "$rvm_src_path/llvm"
+    ./configure --enable-bindings=none
+    UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make -j2
+    sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make install
   fi
 }
 

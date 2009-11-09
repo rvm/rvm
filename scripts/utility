@@ -47,13 +47,19 @@ __rvm_debug() {
     __rvm_log "debug" "/Developer/SDKs/*:$(basename -a /Developer/SDKs/* | tr "\n" ',')"
   fi
 
-  for file_name in ~/.bash_profile ~/.bashrc ~/.zshrc ; do
+  for file_name in $(echo $rc_files) ; do
     if [[ -s "$file_name" ]] ; then
       __rvm_log "debug" "$file_name:\n$(grep 'rvm' $file_name)"
     fi
   done
 
-  for file_name in $rvm_path/default $rvm_path/system $rvm_path/config/db ~/.rvmrc ~/.gemrc; do
+  if [[ "root" = "$(whoami)" ]] ; then
+    debug_files="$rvm_path/default $rvm_path/system $rvm_path/config/db /etc/rvmrc /etc/gemrc"
+  else
+    debug_files="$rvm_path/default $rvm_path/system $rvm_path/config/db $HOME/.rvmrc $HOME/.gemrc"
+  fi
+
+  for file_name in $(echo $debug_files); do
     if [[ -f "$file_name" ]] && [[ -s "$file_name" ]] ; then
       __rvm_log "debug" "$file_name (filtered):\n$(cat $file_name | awk '!/assword|_key/')\n"
     fi
@@ -124,16 +130,16 @@ __rvm_run() {
 
 __rvm_cleanup_variables() {
   __rvm_unset_ruby_variables
-  unset rvm_ruby_selected_flag rvm_action rvm_irbrc_file rvm_src_path rvm_path rvm_prefix_path rvm_gem_path rvm_command rvm_error_message rvm_gem_set_name rvm_url rvm_config_path rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_log_path rvm_file_name rvm_benchmark_flag
+  unset rvm_ruby_selected_flag rvm_action rvm_irbrc_file rvm_src_path rvm_path rvm_prefix_path rvm_gem_path rvm_command rvm_error_message rvm_gem_set_name rvm_url rvm_config_path rvm_bin_path rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_log_path rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag
 }
 
 __rvm_unset_ruby_variables() {
   unset rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure_flags rvm_ruby_configure
 }
 
-# TODO: root user loadng of /etc/rvmrc
 __rvm_load_rvmrc() {
-  if [[ -s ~/.rvmrc ]] ; then source ~/.rvmrc ; fi
+  if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
+  if [[ -f $HOME/.rvmrc ]] ; then source $HOME/.rvmrc ; fi
 }
 
 __rvm_bin_scripts() {
@@ -325,7 +331,7 @@ __rvm_gemdup() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select $* ; fi
   __rvm_log "debug" "$rvm_ruby_interpreter"
   if [[ "default" = "$rvm_ruby_interpreter" ]] ; then
-    # TODO: ~/.rvm/default first, then system user
+    # TODO: $rvm_path/default first, then system user
     rvm_source_gem_path="$rvm_system_user_gem_path"
   elif [[ "user" = "$rvm_ruby_interpreter" ]] ; then
     rvm_source_gem_path="$rvm_system_user_gem_path"
@@ -393,124 +399,116 @@ __rvm_list() {
     fi
   else
     current_ruby="$(which ruby | xargs dirname | xargs dirname | xargs basename 2> /dev/null)"
-    echo -e "\nruby:\n"
     for version in $(\ls -l $rvm_path/ 2> /dev/null | awk '/ ruby-[1-2].*/ { print $NF  }') ; do
       string=$($rvm_path/$version/bin/ruby -v)
       if [[ "$version" = "$current_ruby" ]] ; then
-        echo -e "=> $version : $string"
+        echo -e "=> $(tput setaf 2)$version$(tput sgr0):  $string"
         selected="1"
       else
-        echo -e "   $version : $string"
+        echo -e "   $(tput setaf 2)$version$(tput sgr0):  $string"
       fi
     done ; unset version
 
-    echo -e "\nree:\n"
     for version in $(\ls $rvm_path/ 2> /dev/null | awk '/ree-.*/ { print $NF }') ; do
       string="$($rvm_path/$version/bin/ruby -v | tr "\n" ' ' )"
       if [[ "$version" = "$current_ruby" ]] ; then
-        echo -e "=> $version : $string"
+        echo -e "=> $(tput setaf 2)$version$(tput sgr0):  $string"
         selected="1"
       else
-        echo -e "   $version : $string"
+        echo -e "   $(tput setaf 2)$version$(tput sgr0):  $string"
       fi
     done ; unset version
 
-    echo -e "\nmput:\n"
     for version in $(\ls $rvm_path/ 2> /dev/null | awk '/mput-.*/ { print $NF }') ; do
       string="$($rvm_path/$version/bin/ruby -v | tr "\n" ' ' )"
       if [[ "$version" = "$current_ruby" ]] ; then
-        echo -e "=> $version : $string"
+        echo -e "=> $(tput setaf 2)$version$(tput sgr0):  $string"
         selected="1"
       else
-        echo -e "   $version : $string"
+        echo -e "   $(tput setaf 2)$version$(tput sgr0):  $string"
       fi
     done ; unset version
 
-    echo -e "\njruby:\n"
     for version in $(\ls $rvm_path/ 2> /dev/null | awk '/jruby-.*/ { print $NF }') ; do
       string=$($rvm_path/$version/bin/ruby -v)
       if [[ "$version" = "$current_ruby" ]] ; then
-        echo -e "=> $version : $string"
+        echo -e "=> $(tput setaf 2)$version$(tput sgr0):  $string"
         selected="1"
       else
-        echo -e "   $version : $string"
+        echo -e "   $(tput setaf 2)$version$(tput sgr0):  $string"
       fi
     done ; unset version
 
-    echo -e "\nrbx:\n"
     # for version in $(\ls $rvm_path/ 2> /dev/null | awk '/rbx-.*/ { print $NF }') ; do
     for version in "rbx-head" ; do
       if [[ -f "$rvm_path/$version/bin/ruby" ]] ; then
         string="$($rvm_path/$version/bin/ruby -v | tr "\n" ' ' )"
         if [[ "$version" = "$current_ruby" ]] ; then
-          echo -e "=> $version : $string"
+          echo -e "=> $(tput setaf 2)$version$(tput sgr0):  $string"
           selected="1"
         else
-          echo -e "   $version : $string"
+          echo -e "   $(tput setaf 2)$version$(tput sgr0):  $string"
         fi
       fi
     done ; unset version
 
 
     if [[ "Darwin" = "$(uname)" ]] ; then
-      echo -e "\nmacruby:\n"
       for version in $(\ls $rvm_path/ 2> /dev/null | awk '/macruby-.*/ { print $NF }') ; do
         string="$($rvm_path/$version/bin/ruby -v | tr "\n" ' ' )"
         if [[ "$version" = "$current_ruby" ]] ; then
-          echo -e "=> $version : $string"
+          echo -e "=> $(tput setaf 2)$version$(tput sgr0):  $string"
           selected="1"
         else
-          echo -e "   $version : $string"
+          echo -e "   $(tput setaf 2)$version$(tput sgr0):  $string"
         fi
       done ; unset version
     fi
 
     if [[ -f "$rvm_path/default" ]] && [[ -s $rvm_path/default ]] ; then
-      version=$(grep '^MY_RUBY_HOME' ~/.rvm/default | awk -F"'" '{print $2}' | xargs basename)
+      version=$(grep '^MY_RUBY_HOME' $rvm_path/default | awk -F"'" '{print $2}' | xargs basename)
       if [[ ! -z "$version" ]] ; then
-        echo -e "\ndefault:\n"
         string=$($rvm_path/$version/bin/ruby -v)
         if [[ "$version" = "$current_ruby" ]] ; then
-          echo -e "=> $version : $string"
+          echo -e "=> $(tput setaf 3)(default)$(tput sgr0) $(tput setaf 2)$version$(tput sgr0):  $string"
           selected="1"
         else
-          echo -e "   $version : $string"
+          echo -e "   $(tput setaf 3)(default)$(tput sgr0) $(tput setaf 2)$version$(tput sgr0):  $string"
         fi
       fi ; unset version
     fi
 
-    echo -e "\nsystem:\n"
     system_version=$(rvm system ; ruby -v 2> /dev/null)
     if [[ ! -z "$system_version" ]] ; then
       if [[ "$($(which ruby) -v)" = "$system_version" ]] ; then
-        echo -e "=> $system_version\n"
+        echo -e "=> $(tput setaf 2)system$(tput sgr0): $system_version\n"
       else
-        echo -e "   $system_version\n"
+        echo -e "   $(tput setaf 2)system$(tput sgr0): $system_version\n"
       fi
     fi ; unset current_ruby version selected
   fi
 }
 
 __rvm_initialize() {
-  rvm_fetch=$(which curl)
-  if [[ $? -ne 0 ]] ; then
-    __rvm_log "fail" "rvm requires curl, which does not seem to exist in your path :("
-  else
-    rvm_fetch="$rvm_fetch -O -L --create-dirs -C - " # -s for silent
-  fi
-
   # TODO: Sanitize user input, ensure that there is a / a the end...
   if [[ "root" = "$(whoami)" ]] ; then
-    __rvm_log "fail" "root user support is not yet implemented."
     rvm_prefix_path="${rvm_prefix_path:-/usr/local/}"
+    rc_files="/etc/profile /etc/zshenv"
   else
-    rvm_prefix_path="${rvm_prefix_path:-"$HOME/."}"
+    if [[ -f "$HOME/.rvm/scripts/rvm" ]] ; then
+      rvm_prefix_path="${rvm_prefix_path:-"$HOME/."}"
+    else
+      rvm_prefix_path="${rvm_prefix_path:-"/usr/local/"}"
+    fi
+    rc_files="$HOME/.bash_profile $HOME/.bashrc $HOME/.zshrc"
   fi
+
   if [[ "${rvm_prefix_path#${rvm_prefix_path%?}}" = '.' ]] || [[ "${rvm_prefix_path#${rvm_prefix_path%?}}" = '/' ]] ; then
     rvm_path="${rvm_prefix_path}rvm"
   else
     rvm_path="${rvm_prefix_path}/rvm"
   fi
+
   rvm_archives_path="${rvm_archives_path:-"$rvm_path/archives"}"
   rvm_src_path="${rvm_src_path:-"$rvm_path/src"}"
   rvm_log_path="${rvm_log_path:-"$rvm_path/log"}"
@@ -528,6 +526,14 @@ __rvm_initialize() {
   rvm_ruby_require=""
 
   __rvm_clean_path
+
+  rvm_fetch=$(which curl)
+  if [[ $? -ne 0 ]] ; then
+    __rvm_log "fail" "rvm requires curl, which does not seem to exist in your path :("
+  else
+    rvm_fetch="$rvm_fetch -O -L --create-dirs -C - " # -s for silent
+  fi
+
   rvm_result=$(echo $PATH | grep 'rvm\/bin:')
   if [[ -z "$rvm_result" ]] ; then
     PATH=$rvm_bin_path:$PATH ; export PATH
@@ -556,7 +562,7 @@ __rvm_update_rvm() {
     fi
   else
     # TODO: rvm_install_path:
-    gem install rvm --no-rdoc --no-ri -q rvm && $(gem env gemdir user)/bin/rvm-install && source ~/.rvm/scripts/rvm
+    gem install rvm --no-rdoc --no-ri -q rvm && $(gem env gemdir user)/bin/rvm-install && source $rvm_path/scripts/rvm
   fi
   __rvm_pushpop
 }
@@ -565,25 +571,16 @@ __rvm_reboot() {
   __rvm_log "warn" "Do you wish to reset rvm? ('yes', or 'no')"
   read response
   if [[ "yes" = "$response" ]] ; then
-    cd
+    cd $rvm_path
     __rvm_reset
-    mv ~/.rvm/archives ~/.archives
+    mv $rvm_path/archives ~/.archives
     if [[ "/" = "$rvm_path" ]] ; then
       __rvm_log "error" "remove '/' ?!... NO!"
     else
       if [[ -d "$rvm_path" ]] ; then rm -rf "$rvm_path/" ; fi
     fi
     gem install rvm --no-rdoc --no-ri -q
-    which rvm-install 2> /dev/null
-    if [[ $? -gt 0 ]] ; then
-      if [[ -x "~/.gem/ruby/1.8/bin/rvm-install" ]] ; then
-        ~/.gem/ruby/1.8/bin/rvm-install
-      else
-        __rvm_log "error" "Could not find an executable rvm-install in your path :("
-      fi
-    else
-      rvm-install
-    fi
+    __rvm_update_rvm
     source ~/.rvm/scripts/rvm
   else
     __rvm_log "info" "Carry on then..."
@@ -605,6 +602,8 @@ __rvm_ruby_do() {
         fi
       fi
       rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_require -I$load_path $rvm_ruby_args"
+    elif [[ "gem" = "$binary" ]] && match "$rvm_ruby_args" 'install' ; then
+      rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args --no-rdoc --no-ri"
     else
       rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
     fi
@@ -875,7 +874,7 @@ __rvm_make_flags() {
     fi
 
     if [[ "-arch x86_64" = "$rvm_archflags" ]] ; then
-      rvm_ruby_configure_flags="${rvm_ruby_configure_flags} --build=x86_64-apple-darwin$(uname -r) --host=x86_64-apple-darwin$(uname -r)"
+      rvm_ruby_configure_flags="${rvm_ruby_configure_flags} --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)"
     elif [[ "-arch i386" = "$rvm_archflags" ]] ; then
       rvm_ruby_configure_flags="${rvm_ruby_configure_flags} --build=i386-apple-darwin$(uname -r) --host=i386-apple-darwin$(uname -r)"
     fi
