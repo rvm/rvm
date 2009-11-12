@@ -865,28 +865,35 @@ __rvm_ncurses_install() {
 
 __rvm_make_flags() {
   PATH=${rvm_path}/usr/bin:$PATH ; export PATH
+  # This is only an issue with Darwin :/
   if [[ "Darwin" = "$(uname)" ]] ; then
+    # ls /usr/lib/gcc/i686-apple-darwin10
 
-    if [[ -z "$rvm_archflags" ]] ; then
-      # Build for the archtecture that is reported.
-      # The user may override via setting rvm_archflags in ~/.rvmrc
-      rvm_archflags="-arch $(uname -m )"
+    # Set the build & host type
+    if [[ $(sysctl hw.cpu64bit_capable | awk '{print $2}') = 1 ]] ; then # we could also use: sysctl hw.optional.x86_64
+      #   64 bit capable
+      if [[ "-arch x86_64" = "$rvm_archflags" ]] ; then
+        :
+        #rvm_ruby_configure_flags="${rvm_ruby_configure_flags}" #" --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)"
+      elif [[ "-arch i386" = "$rvm_archflags" ]] ; then
+        :
+        #rvm_ruby_configure_flags="${rvm_ruby_configure_flags}" #" --build=i386-apple-darwin$(uname -r) --host=i386-apple-darwin$(uname -r)"
+      else
+        rvm_archflags="-arch x86_64"
+        #rvm_ruby_configure_flags="${rvm_ruby_configure_flags}" #" --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)"
+      fi
+    else
+      #   32 bit capable only
+      if [[ -z "$rvm_archflags" ]] ; then rvm_archflags="-arch i386" ; fi
+      #rvm_ruby_configure_flags="${rvm_ruby_configure_flags}" #" --build=i386-apple-darwin$(uname -r) --host=i386-apple-darwin$(uname -r)"
     fi
+    ARCHFLAGS="$rvm_archflags" ; export ARCHFLAGS
 
-    if [[ "-arch x86_64" = "$rvm_archflags" ]] ; then
-      rvm_ruby_configure_flags="${rvm_ruby_configure_flags} --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)"
-    elif [[ "-arch i386" = "$rvm_archflags" ]] ; then
-      rvm_ruby_configure_flags="${rvm_ruby_configure_flags} --build=i386-apple-darwin$(uname -r) --host=i386-apple-darwin$(uname -r)"
-    fi
-
-    if [[ -z "$rvm_sdk" ]] ; then
-      rvm_sdk="$(basename -a /Developer/SDKs/* | awk '/^M/' | sort | tail -n 1)"
-    fi
-
+    # Use the latest sdk available.
+    if [[ -z "$rvm_sdk" ]] ; then rvm_sdk="$(basename -a /Developer/SDKs/* | awk '/^M/' | sort | tail -n 1)" ; fi
     CFLAGS="-isysroot /Developer/SDKs/$rvm_sdk $rvm_archflags" ; export CFLAGS
     LDFLAGS="-Wl,-syslibroot /Developer/SDKs/$rvm_sdk $rvm_archflags" ; export LDFLAGS
     # CXXFLAGS="-mmacosx-version-min="$(sw_vers -productVersion | awk -F'.' '{print $1"."$2}')" -isysroot /Developer/SDKs/$rvm_sdk " ; export CXXFLAGS
-    ARCHFLAGS="$rvm_archflags" ; export ARCHFLAGS
   fi
 }
 
@@ -897,21 +904,19 @@ __rvm_monitor() {
     changed_test_files=() ; changed_spec_files=()
 
     if [[ -d "test/" ]] ; then
-      test_files=($(\ls test/**/*_test.rb))
-      for file in "${test_files[@]}"; do
+      while read -r line ; do
         if [[ $(timestamp $file) -gt $timestamp ]] ; then
-          array_push $changed_test_files
+          array_push $changed_test_files $file
         fi
-      done
+      done < <($(\ls test/**/*_test.rb))
     fi
 
     if [[ -d "spec/" ]] ; then
-      spec_files=($(\ls spec/**/*_spec.rb))
-      for file in "${spec_files[@]}"; do
+      while read -r line ; do
         if [[ $(timestamp $file) -gt $timestamp ]] ; then
-          array_push $changed_spec_files
+          array_push $changed_spec_files $file
         fi
-      done
+      done < <($(\ls spec/**/*_spec.rb))
     fi
     if [[ $(array_length $changed_test_files) -gt 0 ]] ; then
       testrb "${myarray[*]}"
