@@ -236,26 +236,21 @@ RubyWrapper
       echo "$(export rvm_install_on_use_flag=1 ; rvm 1.8.7)" # This should install if missing.
       # TODO: use 'rvm gems load' here:
       echo "$(rvm 1.8.7%rbx ; gem install --no-rdoc --no-ri rake ParseTree)" # This should install if missing.
-      __rvm_unset_ruby_variables
-      rvm_ruby_string="rbx-head" ; __rvm_select
+      __rvm_unset_ruby_variables ; rvm_ruby_string="rbx-head" ; __rvm_select
 
       unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
       PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
       PATH=$rvm_bin_path:$PATH ; export PATH
 
-      rvm_ruby_repo_url=$rvm_rubinius_repo_url
+      rvm_ruby_repo_url="$rvm_rubinius_repo_url"
       rvm_ruby_home="$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"
 
-      # For Installer, can do this once it's ready:
-      RBX_PREFIX=$rvm_ruby_home ; export RBX_PREFIX
-      # Also see 'rakelib/configuration.rake'
-
       if [[ ! -d "$rvm_ruby_home" ]] || [[ ! -d "$rvm_ruby_home/.git" ]] ; then
-        rm -rf $rvm_ruby_home ; cd $rvm_home
+        rm -rf "$rvm_ruby_home" ; cd "$rvm_home"
         __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_home" "Cloning $rvm_ruby_repo_url"
-        cd $rvm_ruby_home
+        cd "$rvm_ruby_home"
       else
-        cd $rvm_ruby_home
+        cd "$rvm_ruby_home"
         __rvm_run "rbx.repo" "git pull origin master" "Pulling from origin master"
       fi
 
@@ -263,13 +258,24 @@ RubyWrapper
       #  __rvm_run "rake.distclean" "\$(rvm 1.8.7%rbx ; rake distclean --trace)" "Running distclean."
       #fi
 
-      rvm_ruby_configure="./configure --prefix=$rvm_ruby_home" ; message="Configuring rbx"
+      # For Installer, can do this once it's ready:
+      # RBX_PREFIX="$rvm_ruby_home" ; export RBX_PREFIX
+      # Also see 'rakelib/configuration.rake'
+
+      cd "$rvm_ruby_home"
+      # TODO: Once installer is done add the prefix:
+      #rvm_ruby_configure="./configure --prefix=$rvm_ruby_home" ; message="Configuring rbx"
+      rvm_ruby_configure="./configure" ; message="Configuring rbx"
       if [[ ! -z "$rvm_jit_flag" ]] ; then
         rvm_ruby_configure="$rvm_ruby_configure --enable-llvm" ; message="$message with LLVM enabled"
       fi
       __rvm_run "configure" "$rvm_ruby_configure" "$message"
 
-      rvm_ruby_make="\$(rvm 1.8.7%rbx ; rake --trace)" ; message="Compiling rbx"
+      if [[ "$rvm_trace_flag" ]] ; then
+        rvm_ruby_make="\$(rvm 1.8.7%rbx ; rake --trace)" ; message="Compiling rbx"
+      else
+        rvm_ruby_make="\$(rvm 1.8.7%rbx ; rake)" ; message="Compiling rbx"
+      fi
       __rvm_run "rake" "$rvm_ruby_make" "$message"
 
       # TODO: Uncomment the following once --prefix is working properly again
