@@ -584,41 +584,47 @@ __rvm_ruby_do() {
   __rvm_use
   binary="$(echo $rvm_action | sed 's#do$##')"
   if [[ -x "$rvm_ruby_home/bin/$binary" ]] ; then
-    load_path="$rvm_ruby_home/bin:$rvm_ruby_load_path"
-    # TODO: the else case below should be run if $rvm_ruby_args =~ /\.rb$/
-    if [[ "ruby" = "$binary" ]] && [[ "$rvm_benchmark_flag" -ne 1 ]] ; then
-      if match "$rvm_ruby_args" "\.rb$" ; then
-        if [[ -z "$prefix" ]] ; then prefix="-S" ; fi
-        if ! match "$rvm_ruby_args" "$prefix" ; then
-          rvm_ruby_args="$prefix $rvm_ruby_args"
-        fi
-      fi
-      rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_require -I$load_path $rvm_ruby_args"
-    elif [[ "gem" = "$binary" ]] && match "$rvm_ruby_args" '^install' ; then
-      rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args --no-rdoc --no-ri"
-    else
-      rvm_command="$rvm_ruby_home/bin/$binary $rvm_ruby_args"
-    fi
-
-    if [[ ! -z "$rvm_json_flag" ]] || [[ ! -z "$rvm_yaml_flag" ]] || [[ ! -z "$rvm_summary_flag" ]] ; then
-      mkdir -p ./log/$rvm_ruby_string/
-      touch ./log/$rvm_ruby_string/$rvm_action.log ./log/$rvm_ruby_string/$rvm_action.error.log
-      eval "$rvm_command" >> ./log/$rvm_ruby_string/$rvm_action.log 2>> ./log/$rvm_ruby_string/$rvm_action.error.log
-    else
-      echo -e "\n\n\033[0;32m$rvm_ruby_string: $($rvm_ruby_home/bin/ruby -v | tr "\n" ' ')\033[0m\n"
-      eval "$rvm_command"
-    fi
-    result=$?
-    if [[ $result -eq 0 ]]; then
-      eval "successes=(${successes[*]} $rvm_ruby_string)"
-    else
-      eval "errors=(${errors[*]} $rvm_ruby_string)"
-    fi
-    eval "rubies=(${rubies[*]} $rvm_ruby_string)"
-    eval "statuses=(${statuses[*]} $result)"
+    binary="$rvm_ruby_home/bin/$binary"
+  elif [[ "system" = "$rvm_ruby_string" ]] && [[ -x "$(which $binary)" ]] ; then
+    binary="$(which $binary)"
   else
-    __rvm_log "warn" "'$rvm_ruby_home/bin/$binary' either does not exist or is not executable? :("
+    __rvm_log "warn" "'$binary not found for $rvm_ruby_string' either does not exist or is not executable? :("
+    __rvm_unset_ruby_variables
+    return 1
   fi
+
+  load_path="$rvm_ruby_home/bin:$rvm_ruby_load_path"
+  # TODO: the else case below should be run if $rvm_ruby_args =~ /\.rb$/
+  if [[ "ruby" = "$binary" ]] && [[ "$rvm_benchmark_flag" -ne 1 ]] ; then
+    if match "$rvm_ruby_args" "\.rb$" ; then
+      if [[ -z "$prefix" ]] ; then prefix="-S" ; fi
+      if ! match "$rvm_ruby_args" "$prefix" ; then
+        rvm_ruby_args="$prefix $rvm_ruby_args"
+      fi
+    fi
+    rvm_command="$binary $rvm_ruby_require -I$load_path $rvm_ruby_args"
+  elif [[ "gem" = "$binary" ]] && match "$rvm_ruby_args" '^install' ; then
+    rvm_command="$binary $rvm_ruby_args --no-rdoc --no-ri"
+  else
+    rvm_command="$binary $rvm_ruby_args"
+  fi
+
+  if [[ ! -z "$rvm_json_flag" ]] || [[ ! -z "$rvm_yaml_flag" ]] || [[ ! -z "$rvm_summary_flag" ]] ; then
+    mkdir -p ./log/$rvm_ruby_string/
+    touch ./log/$rvm_ruby_string/$rvm_action.log ./log/$rvm_ruby_string/$rvm_action.error.log
+    eval "$rvm_command" >> ./log/$rvm_ruby_string/$rvm_action.log 2>> ./log/$rvm_ruby_string/$rvm_action.error.log
+  else
+    echo -e "\n\n\033[0;32m$rvm_ruby_string: $($rvm_ruby_home/bin/ruby -v | tr "\n" ' ')\033[0m\n"
+    eval "$rvm_command"
+  fi
+  result=$?
+  if [[ $result -eq 0 ]]; then
+    eval "successes=(${successes[*]} $rvm_ruby_string)"
+  else
+    eval "errors=(${errors[*]} $rvm_ruby_string)"
+  fi
+  eval "rubies=(${rubies[*]} $rvm_ruby_string)"
+  eval "statuses=(${statuses[*]} $result)"
   __rvm_unset_ruby_variables
 }
 
