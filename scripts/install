@@ -1,18 +1,19 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 
 if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
 if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
 
 if [[ -z "$rvm_path" ]] ; then
   if [[ "root" = "$(whoami)" ]] ; then
-    rvm_path="/usr/local/rvm"
+    rvm_path="${rvm_path:-/usr/local/rvm}"
   else
-    rvm_path="$HOME/.rvm"
+    rvm_path="${rvm_path:-$HOME/.rvm}"
   fi
 fi
 
 source scripts/initialize
 
+set +x
 #
 # Setup
 #
@@ -50,17 +51,15 @@ ln -nfs $rvm_path/scripts/rvm $rvm_path/bin/rvm
 #
 # RC Files
 #
-if [[ -z "$rvm_loaded_flag" ]] ; then
-  for rcfile in $(echo $rvm_rc_files) ; do
-    if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
-    if [[ -z "$(awk "/$(echo $rvm_path | sed 's#/#\\/#g')\\/scripts\\/rvm/" $rcfile)" ]] ; then
-      echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
-      echo -e "\n# rvm-install added line:\nif [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> $rcfile
-    else
-      : # it exists... remove it and append at the end
-    fi
-  done
-fi
+for rcfile in $(echo $rvm_rc_files) ; do
+  if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
+  if [[ -z "$(awk "/$(echo "$rvm_path/scripts/rvm" | sed 's#/#\\/#g')/" $rcfile)" ]] ; then
+    echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] && [[ "\$rvm_loaded_flag" -le 0 ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
+    echo -e "\n# rvm-install added line:\nif [[ -s $rvm_path/scripts/rvm ]] && [[ "\$rvm_loaded_flag" -le 0 ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> $rcfile
+  else
+    : # it exists... remove it and append at the end
+  fi
+done
 
 if [[ "root" = "$(whoami)" ]] ; then
   ln -nfs $rvm_path/scripts/rvm /usr/local/bin/rvm
