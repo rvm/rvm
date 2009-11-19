@@ -95,7 +95,7 @@ __rvm_run() {
   mkdir -p $(dirname "$rvm_ruby_log_path/$log_file_name.log")
 
   if [[ ! -z "$message" ]] ; then $rvm_scripts_path/log "info" "$message" ; fi
-  (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "Executing: $command"
+  (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Executing: $command"
   touch "$rvm_ruby_log_path/$log_file_name.log" "$rvm_ruby_log_path/$log_file_name.error.log" # for zsh :(
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee "$rvm_ruby_log_path/$log_file_name.log" > "$rvm_ruby_log_path/$log_file_name.error.log"
   if [[ -z "$rvm_niceness" ]] || [[ "0" = "$rvm_niceness" ]] ; then
@@ -150,62 +150,6 @@ RubyWrapper
   chmod +x $rvm_path/bin/$rvm_ruby_package_name
 }
 
-__rvm_fetch() {
-  __rvm_pushpop $rvm_archives_path
-  if [[ -z "$1" ]] ; then log "fail" "BUG: __rvm_fetch called without an argument :/" ; return 1 ; fi
-  archive=$(basename "$1") ; downlaod=1
-  (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "Fetching $archive"
-  # Check first if we have the correct archive
-  if [[ -e "$archive" ]] && [[ -e "$archive.md5" ]] ; then
-    (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "Found archive and its md5, testing correctness"
-    if [[ $(md5sum --status -c "$archive.md5") -gt 0 ]] ; then
-      (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "Archive is bad, downloading"
-      download=1
-    else
-      (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "Archive is good, not downloading"
-      download=0
-      result=0
-    fi
-  else
-    (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "No archive or no MD5, downloading"
-    download=1
-  fi
-  if [[ $download -gt 0 ]] ; then
-    eval $rvm_fetch "$1"
-    result=$?
-    if [[ $result -gt 0 ]] ; then
-      retry=0
-      if [[ $result -eq 78 ]] ; then
-        $rvm_scripts_path/log "error" "The requested url does not exist: '$1'"
-      elif [[ $result -eq 18 ]] ; then
-        $rvm_scripts_path/log "error" "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
-        rm -f "$archive"
-        retry=1
-      elif [[ $result -eq 33 ]] ; then
-        (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "Server does not support 'range' command, removing '$archive'"
-        rm -f "$archive"
-        retry=1
-      else
-        $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
-      fi
-
-      if [[ $retry -eq 1 ]] ; then
-        eval $rvm_fetch "$1"
-        result=$?
-        if [[ $result -gt 0 ]] ; then
-          $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
-        fi
-      fi
-
-    fi
-    __rvm_pushpop
-  fi
-
-  unset archive
-  unset download
-  return $result
-}
-
 __rvm_load_defaults() {
   if [[ ! -s "$rvm_path/system" ]] ; then
     for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME ; do
@@ -220,24 +164,24 @@ __rvm_load_defaults() {
     done
   fi
 
-  rvm_system_ruby=$(__rvm_db "system_ruby")
+  rvm_system_ruby=$($rvm_scripts_path/db "$rvm_config_path/db" "system_ruby")
   if [[ ! -z "$rvm_system_ruby" ]] ; then
     rvm_system_ruby=$(which ruby)
     if [[ $? -ne 0 ]] ; then
       $rvm_scripts_path/log "info" "System ruby not found, no db will be stored."
     else
-      __rvm_db "system_ruby" "$rvm_system_ruby"
+      $rvm_scripts_path/db "$rvm_config_path/db" "system_ruby" "$rvm_system_ruby"
 
       # Now store system system & user gem paths
-      rvm_system_user_gem_path=$(__rvm_db "system_user_gem_path")
+      rvm_system_user_gem_path=$($rvm_scripts_path/db "$rvm_config_path/db" "system_user_gem_path")
       if [[ -z "$rvm_system_user_gem_path" ]] ; then
         rvm_system_user_gem_path=$( rvm system ; gem env gemdir user; )
-        __rvm_db "system_user_gem_path" "$rvm_system_user_gem_path"
+        $rvm_scripts_path/db "$rvm_config_path/db" "system_user_gem_path" "$rvm_system_user_gem_path"
       fi
-      rvm_system_gem_path=$(__rvm_db "system_gem_path")
+      rvm_system_gem_path=$($rvm_scripts_path/db "$rvm_config_path/db" "system_gem_path")
       if [[ -z "$rvm_system_gem_path" ]] ; then
         rvm_system_gem_path=$( rvm system ; gem env gemdir; )
-        __rvm_db "system_gem_path" "$rvm_system_gem_path"
+        $rvm_scripts_path/db "$rvm_config_path/db" "system_gem_path" "$rvm_system_gem_path"
       fi
     fi
   fi
@@ -256,7 +200,7 @@ __rvm_reset() {
   __rvm_select
 
   for system_config in system_ruby system_gem_path system_user_gem_path ; do
-    __rvm_db "$system_config" "delete"
+    $rvm_scripts_path/db "$rvm_config_path/db" "$system_config" "delete"
   done ; unset system_config variable
 
   rm -f $rvm_path/bin/ruby $rvm_path/bin/gem $rvm_path/bin/rake $rvm_path/bin/irb $rvm_path/bin/default*
@@ -292,69 +236,6 @@ __rvm_source_dir() {
     $rvm_scripts_path/log "fail" "No source directory exists for the default implementation."
   else
     echo "$rvm_ruby_src_path"
-  fi
-}
-
-# clones from source implementation/version to default
-# TODO: Merge this into 'rvm sync'
-__rvm_gemdup() {
-  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select $* ; fi
-  (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "$rvm_ruby_interpreter"
-  if [[ "default" = "$rvm_ruby_interpreter" ]] ; then
-    # TODO: $rvm_path/default first, then system user
-    rvm_source_gem_path="$rvm_system_user_gem_path"
-  elif [[ "user" = "$rvm_ruby_interpreter" ]] ; then
-    rvm_source_gem_path="$rvm_system_user_gem_path"
-  elif [[ "system" = "$rvm_ruby_interpreter" ]] ; then
-    rvm_source_gem_path="$rvm_system_gem_path"
-  else
-    # TODO: use selector for this?
-    rvm_source_gem_path=${rvm_ruby_gem_home/$rvm_ruby_interpreter/$rvm_ruby_version}
-  fi
-  __rvm_gem_sync
-}
-
-__rvm_gem_sync() {
-  if [[ ! -z "$rvm_source_gem_path" ]] ; then
-    for rvm_gem_name_version in $rvm_source_gem_path/gems/* ; do
-      rvm_gem_name_version=$(basename $rvm_gem_name_version)
-      rvm_gem_name="${rvm_gem_name_version%-*}"
-      rvm_gem_version="${rvm_gem_name_version##*-}"
-      if [[ -d $GEM_HOME/gems/$rvm_gem_name_version ]] ; then
-        echo "$rvm_gem_name_version already installed."
-      else
-        __rvm_gi "$rvm_source_gem_path/cache/$rvm_gem_name-$rvm_gem_version.gem"
-      fi
-    done
-    unset rvm_gem_name_version rvm_gem_name rvm_gem_version
-  else
-    $rvm_scripts_path/log "fail" "Unknown ruby selected :("
-    result=1
-  fi
-}
-
-__rvm_db() {
-  rvm_hash_file="$rvm_config_path/db"
-  touch $rvm_hash_file
-  key="$1" ; shift
-
-  if [[ -z "$key" ]] ; then
-    $rvm_scripts_path/log "fail" "__rvm_db must be called with at least one argument: __rvm_db key [value]"
-  else
-    value="$*"
-    if [[ "unset" = "$value" ]] || [[ "delete" = "$value" ]] ; then
-      sed -i.tmp "s#^$key=.*\$##" $rvm_hash_file
-    else
-      if [[ -z "$value" ]] ; then # get
-        awk -F= '/^'"$key"'=/{print $2}' $rvm_hash_file
-      else # set
-        if [[ -z "$(awk -F= "/^'"$key"'=/{print $2}" $rvm_hash_file)" ]] ; then # append
-          echo "$key=$value" >> $rvm_hash_file
-        else # overwrite
-          sed -i.tmp "s#^$key=.*\$#$key=$value#" $rvm_hash_file
-        fi
-      fi
-    fi
   fi
 }
 
@@ -496,9 +377,9 @@ __rvm_update_rvm() {
   __rvm_pushpop "$rvm_src_path"
   if [[ "head" = "$rvm_ruby_revision" ]] ; then
     if [[ -d "$rvm_src_path/rvm/.git" ]] ; then
-      cd $rvm_src_path/rvm/ && git pull origin master && ./scripts/install
+      builtin cd $rvm_src_path/rvm/ && git pull origin master && ./scripts/install
     else
-      cd $rvm_src_path && git clone git://github.com/wayneeseguin/rvm.git && cd rvm/ && ./install
+      builtin cd $rvm_src_path && git clone git://github.com/wayneeseguin/rvm.git && builtin cd rvm/ && ./install
     fi
   else
     # TODO: rvm_install_path:
@@ -511,7 +392,7 @@ __rvm_reboot() {
   $rvm_scripts_path/log "warn" "Do you wish to reset rvm? ('yes', or 'no')"
   read response
   if [[ "yes" = "$response" ]] ; then
-    cd $rvm_path
+    builtin cd $rvm_path
     __rvm_reset
     mv $rvm_path/archives ~/.archives
     if [[ "/" = "$rvm_path" ]] ; then
@@ -544,9 +425,9 @@ __rvm_ruby_do() {
   load_path="$rvm_ruby_home/bin:$rvm_ruby_load_path"
   # TODO: the else case below should be run if $rvm_ruby_args =~ /\.rb$/
   if [[ "ruby" = "$binary" ]] && [[ "$rvm_benchmark_flag" -ne 1 ]] ; then
-    if match "$rvm_ruby_args" "\.rb$" ; then
+    if $rvm_scripts_path/match "$rvm_ruby_args" "\.rb$" ; then
       if [[ -z "$prefix" ]] ; then prefix="-S" ; fi
-      if ! match "$rvm_ruby_args" "$prefix" ; then
+      if ! $rvm_scripts_path/match "$rvm_ruby_args" "$prefix" ; then
         rvm_ruby_args="$prefix $rvm_ruby_args"
       fi
     fi
@@ -635,7 +516,7 @@ __rvm_yaml() {
   total=${#rubies[*]}
   if [[ ! -z "$ZSH_VERSION" ]] ; then array_start=1 ; else array_start=0 ; fi
   for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
-    (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
     yaml="$yaml\n  \"${rubies[$index]}\": ${statuses[$index]}"
   done ; unset index array_start
   mkdir -p log
@@ -654,7 +535,7 @@ __rvm_json() {
   total=${#rubies[*]}
   if [[ ! -z "$ZSH_VERSION" ]] ; then array_start=1 ; else array_start=0 ; fi
   for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
-    (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
     json="$json\n    {\"${rubies[$index]}\": ${statuses[$index]}}"
     if (( $index + 1 < $total + $array_start )) ; then json="$json,  " ; fi
   done ; unset index array_start
@@ -731,9 +612,9 @@ __rvm_readline_install() {
   package="readline" ; version="5.2" ; archive_format="tar.gz"
   # TODO: Figure out how to list, grab and apply the patches
   $rvm_scripts_path/log "info" "Retrieving $package-$version.$archive_format"
-  __rvm_fetch "ftp://ftp.gnu.org/gnu/readline/$package-$version.$archive_format"
+  $rvm_scripts_path/fetch "ftp://ftp.gnu.org/gnu/readline/$package-$version.$archive_format"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
-  cd "$rvm_src_path/$package-$version"
+  builtin cd "$rvm_src_path/$package-$version"
   if [[ "Darwin" = "$(uname)" ]] ; then
     #sdk=$(\ls -t /Developer/SDKs/ | head -n 1)
     #CFLAGS="-isysroot /Developer/SDKs/$sdk -arch i386 -arch x86_64"
@@ -753,9 +634,9 @@ __rvm_iconv_install() {
   __rvm_pushpop $rvm_src_path
   package="libiconv" ; version=1.13.1 ; archive_format="tar.gz"
   $rvm_scripts_path/log "info" "Retrieving $package-$version.$archive_format"
-  __rvm_fetch "http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.$archive_format"
+  $rvm_scripts_path/fetch "http://ftp.gnu.org/pub/gnu/libiconv/$package-$version.$archive_format"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
-  cd "$rvm_src_path/$package-$version"
+  builtin cd "$rvm_src_path/$package-$version"
   __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr" "Configuring $package."
   __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
   __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
@@ -767,19 +648,18 @@ __rvm_curl_install() {
   __rvm_pushpop $rvm_src_path
   package="curl" ; version=7.19.7 ; archive_format="tar.gz"
   $rvm_scripts_path/log "info" "Retrieving $package-$version.$archive_format"
-  __rvm_fetch "http://curl.haxx.se/download/$package-$version.$archive_format"
+  $rvm_scripts_path/fetch "http://curl.haxx.se/download/$package-$version.$archive_format"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
-  cd "$rvm_src_path/$package-$version"
+  builtin cd "$rvm_src_path/$package-$version"
   __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr" "Configuring $package."
   __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
   __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
   __rvm_pushpop
 }
 
-
 __rvm_openssl_install() {
   __rvm_make_flags
-    if match "$rvm_archflags" "x86_64" ; then
+    if $rvm_scripts_path/match "$rvm_archflags" "x86_64" ; then
       openssl_os="os/compiler darwin64-x86_64-cc"
     else
       openssl_os="os/compiler darwin-i386-cc"
@@ -787,9 +667,9 @@ __rvm_openssl_install() {
   __rvm_pushpop $rvm_src_path
   package="openssl" ; version="0.9.8k" ; archive_format="tar.gz"
   $rvm_scripts_path/log "info" "Retrieving $package-$version.$archive_format"
-  __rvm_fetch "http://www.openssl.org/source/$package-$version.tar.gz"
+  $rvm_scripts_path/fetch "http://www.openssl.org/source/$package-$version.tar.gz"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
-  cd "$rvm_src_path/$package-$version"
+  builtin cd "$rvm_src_path/$package-$version"
   __rvm_run "$package/config" "./config --prefix=$rvm_path/usr zlib no-asm no-krb5 shared" "Configuring $package."
   __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
   __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
@@ -801,9 +681,9 @@ __rvm_zlib_install() {
   __rvm_pushpop $rvm_src_path
   package="zlib" ; version="1.2.3" ; archive_format="tar.gz"
   $rvm_scripts_path/log "info" "Retrieving $package-$version.$archive_format"
-  __rvm_fetch "http://www.zlib.net/$package-$version.tar.gz"
+  $rvm_scripts_path/fetch "http://www.zlib.net/$package-$version.tar.gz"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format"
-  cd "$rvm_src_path/$package-$version"
+  builtin cd "$rvm_src_path/$package-$version"
   __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr" "Configuring $package."
   __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
   __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
@@ -815,9 +695,9 @@ __rvm_ncurses_install() {
   __rvm_pushpop $rvm_src_path
   package="ncurses" ; version="5.7" ; archive_format="tar.gz"
   $rvm_scripts_path/log "info" "Retrieving $package"
-  __rvm_fetch "ftp://invisible-island.net/ncurses/ncurses.tar.gz"
+  $rvm_scripts_path/fetch "ftp://invisible-island.net/ncurses/ncurses.tar.gz"
   __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package.$archive_format -C $rvm_src_path" "Extracting $package.$archive_format"
-  cd "$rvm_src_path/$package-$version"
+  builtin cd "$rvm_src_path/$package-$version"
   __rvm_run "$package/configure" "./configure --prefix=$rvm_path/usr --with-shared --disable-rpath --without-debug --without-ada --enable-safe-sprintf --enable-sigwinch --without-progs" "Configuring $package."
   __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package"
   __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_path/usr"
@@ -922,18 +802,3 @@ array_push() {
   eval "index=\$((\${#${array}[*]} + $__array_start))"
   eval "${array}[${index}]=${item}"
 }
-
-match() {
-  #if [[ ! -z "$BASH_VERSION" ]] && [[ ${BASH_VERSION:0:1} -gt 2 ]] && [[ ${BASH_VERSION:2:1} -ge 1 ]] ; then
-    #[[ "$1" =~ $2 ]] ; return $?
-  # elif [[ ! -z "$ZSH_VERSION"]] && [[ ${ZSH_VERSION:0:1} -gt 3 ]] && [[ ${ZSH_VERSION:2:1} -ge 2 ]] && [[ ${ZSH_VERSION:4:1} -ge 4 ]] ; then
-  # return [[ "$1" =~ "$2" ]]
-  #else
-  if [ ! -z "$(echo "$1" | awk "/${2}/")" ] ; then
-    return 0
-  else
-    return 1
-  fi
-  #fi
-}
-

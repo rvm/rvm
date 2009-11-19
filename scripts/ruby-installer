@@ -17,7 +17,7 @@ __rvm_install_source() {
     if [[ ! -f "$rvm_archives_path/$rvm_ruby_package_name.tar.gz" ]] ; then
       rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
       $rvm_scripts_path/log "info" "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
-      __rvm_fetch "$rvm_url"
+      $rvm_scripts_path/fetch "$rvm_url"
       if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
     fi
     #mkdir -p "$rvm_ruby_src_path" # Is this line necessary considering -C below?    v
@@ -26,7 +26,7 @@ __rvm_install_source() {
   else
     if [[ ! -z "$(echo $rvm_url | awk '/^git/')" ]] ; then
       if [[ -d "$rvm_ruby_src_path/.git" ]] ; then
-        cd $rvm_ruby_src_path
+        builtin builtin cd $rvm_ruby_src_path
         if [[ -z "$rvm_ruby_revision" ]] ; then
           $rvm_scripts_path/log "info" "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
           git pull origin master
@@ -58,7 +58,7 @@ __rvm_install_source() {
       fi
 
       if [[ -d "$rvm_ruby_src_path/.svn" ]] ; then
-        cd $rvm_ruby_src_path
+        builtin cd $rvm_ruby_src_path
         $rvm_scripts_path/log "info" "Updating ruby from $rvm_url"
         __rvm_run "svn.update" "svn update"
         if [[ ! -z "$rvm_rev" ]] ; then
@@ -73,7 +73,7 @@ __rvm_install_source() {
     fi
   fi
 
-  cd $rvm_ruby_src_path
+  builtin builtin cd $rvm_ruby_src_path
   if [[ $? -gt 0 ]] ; then result=$? ; $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; __rvm_pushpop ; return $result ; fi
 
   if [[ -z "$rvm_ruby_configure" ]] && [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
@@ -131,15 +131,16 @@ __rvm_install_ruby() {
           rvm_ruby_configure=" true "
           rvm_ruby_make="rake"
           rvm_ruby_make_install="sudo rake install"
-          rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_repo_url")"
+          rvm_url="$($rvm_scripts_path/db "$rvm_config_path/db" "${rvm_ruby_interpreter}_repo_url")"
           rvm_ruby_repo_url=$rvm_url
           __rvm_install_source $*
         else # if [[ "nightly" = "$rvm_ruby_version" ]] ; then
           macruby_path="/usr/local/bin"
           # TODO: Separated nightly from head.
-          rvm_url="$(__rvm_db "macruby_nightly_url")"
+          rvm_url="$($rvm_scripts_path/db "$rvm_config_path/db" "macruby_nightly_url")"
           $rvm_scripts_path/log "info" "Retrieving the latest nightly macruby build..."
-          __rvm_fetch "$rvm_url"
+          $rvm_scripts_path/fetch "$rvm_url"
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
           mv "$rvm_archives_path/macruby_nightly-latest.pkg" "$rvm_archives_path/macruby_nightly.pkg"
           __rvm_run "macruby/extract" "sudo installer -pkg '$rvm_path/archives/macruby_nightly.pkg' -target '/'"
           mkdir -p "$rvm_ruby_home/bin"
@@ -175,21 +176,21 @@ RubyWrapper
 
     ree)
       if [[ ! -z "$(echo $rvm_ruby_version | awk '/^1\.8/')" ]] && [[ -z "$rvm_head_flag" ]] ; then
-        rvm_url="$(__rvm_db "ree_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
+        rvm_url="$($rvm_scripts_path/db "$rvm_config_path/db" "ree_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
         $rvm_scripts_path/log "info" "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
         __rvm_pushpop "$rvm_src_path"
         if [[ -z "$rvm_force_flag" ]] && [[ -d "$rvm_ruby_src_path" ]] && [[ ! -x "$rvm_ruby_src_path/installer" ]] ; then
           $rvm_scripts_path/log "It appears that the archive has already been extracted. Skipping extract (use --force to force re-download and extract)."
         else
           $rvm_scripts_path/log "Downloading $rvm_ruby_package_file, this may take a while depending on your connection..."
-          __rvm_fetch "$rvm_url"
+          $rvm_scripts_path/fetch "$rvm_url"
           if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
           rm -rf "$rvm_ruby_src_path"
           __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_file.tar.gz -C $rvm_src_path" "Extracting $rvm_ruby_package_file..."
           if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
           mv "$rvm_src_path/$rvm_ruby_package_file" "$rvm_ruby_src_path"
         fi
-        cd "$rvm_ruby_src_path"
+        builtin cd "$rvm_ruby_src_path"
 
         mkdir -p "$rvm_ruby_log_path"
         mkdir -p "${rvm_ruby_home}/lib/ruby/gems/1.8/gems"
@@ -218,7 +219,7 @@ RubyWrapper
         __rvm_post_install
         __rvm_pushpop
       else
-        rvm_url="$(__rvm_db "ree_${rvm_ruby_version}_repo_url")"
+        rvm_url="$($rvm_scripts_path/db "$rvm_config_path/db" "ree_${rvm_ruby_version}_repo_url")"
         if [[ -z "$rvm_url" ]] ; then
           $rvm_scripts_path/log "fail" "rvm does not know the rvm repo url for 'ree_${rvm_ruby_version}'"
           result=1
@@ -246,11 +247,11 @@ RubyWrapper
       rvm_ruby_home="$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"
 
       if [[ ! -d "$rvm_ruby_home" ]] || [[ ! -d "$rvm_ruby_home/.git" ]] ; then
-        rm -rf "$rvm_ruby_home" ; cd "$rvm_home"
+        rm -rf "$rvm_ruby_home" ; builtin cd "$rvm_home"
         __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_home" "Cloning $rvm_ruby_repo_url"
-        cd "$rvm_ruby_home"
+        builtin cd "$rvm_ruby_home"
       else
-        cd "$rvm_ruby_home"
+        builtin cd "$rvm_ruby_home"
         __rvm_run "rbx.repo" "git pull origin master" "Pulling from origin master"
       fi
 
@@ -262,7 +263,7 @@ RubyWrapper
       # RBX_PREFIX="$rvm_ruby_home" ; export RBX_PREFIX
       # Also see 'rakelib/configuration.rake'
 
-      cd "$rvm_ruby_home"
+      builtin cd "$rvm_ruby_home"
       # TODO: Once installer is done add the prefix:
       #rvm_ruby_configure="./configure --prefix=$rvm_ruby_home" ; message="Configuring rbx"
       rvm_ruby_configure="./configure" ; message="Configuring rbx"
@@ -334,7 +335,7 @@ RubyWrapper
 
       if [[ "$rvm_head_flag" -eq 1 ]] || [[ ! -z "$rvm_ruby_revision" ]] ; then
         if [[ -d "$rvm_ruby_src_path/.git" ]] ; then
-          cd "$rvm_ruby_src_path"
+          builtin cd "$rvm_ruby_src_path"
           if [[ -z "$rvm_ruby_revision" ]] ; then
             $rvm_scripts_path/log "info" "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
             git pull origin master
@@ -354,24 +355,25 @@ RubyWrapper
           if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
         fi
 
-        cd "$rvm_ruby_src_path"
+        builtin cd "$rvm_ruby_src_path"
         ant dist
       else
         if [[ -z "$rvm_force_flag" ]] && [[ -f $rvm_package_file ]] && [[ -s $rvm_package_file ]] ; then
           $rvm_scripts_path/log "info" "It appears that $rvm_package_file has already been downloaded, skipping. Use --force to force re-download."
         else
           $rvm_scripts_path/log "info" "Downloading $rvm_package_file, this may take a while depending on your connection..."
-          __rvm_fetch "$rvm_url"
+          $rvm_scripts_path/fetch "$rvm_url"
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
         fi
         __rvm_run "extract" "tar zxf $rvm_archives_path/$rvm_package_file.tar.gz -C $rvm_src_path" "Extracting $rvm_package_file..."
         if [[ "$rvm_package_file" != "$rvm_ruby_string" ]] ; then
           mv "$rvm_src_path/$rvm_package_file" "$rvm_src_path/$rvm_ruby_string"
         fi
-        cd "$rvm_ruby_src_path"
+        builtin cd "$rvm_ruby_src_path"
       fi
 
       mkdir -p "$rvm_ruby_home/bin/"
-      cd "$rvm_ruby_src_path/tool/nailgun" && /usr/bin/make $rvm_make_flags
+      builtin cd "$rvm_ruby_src_path/tool/nailgun" && /usr/bin/make $rvm_make_flags
 
       __rvm_pushpop
 
@@ -419,9 +421,9 @@ RubyWrapper
       if [[ ! -d "$rvm_ruby_src_path" ]] || [[ ! -d "$rvm_ruby_src_path/.git" ]] ; then
         rm -rf $rvm_ruby_src_path
         __rvm_run "mput.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path" "Cloning $rvm_ruby_repo_url"
-        cd $rvm_ruby_home
+        builtin cd $rvm_ruby_home
       else
-        cd $rvm_ruby_home
+        builtin cd $rvm_ruby_home
         __rvm_run "mput.repo" "git pull origin trunk" "Pulling from origin trunk"
       fi
 
@@ -614,11 +616,12 @@ __rvm_rubygems_setup() {
     if [[ ! -f "$rvm_src_path/$rvm_gem_package_name/setup.rb" ]]; then rm -rf "$rvm_src_path/$rvm_gem_package_name" ; fi
     if [[ ! -d "$rvm_src_path/$rvm_gem_package_name" ]] ; then
       $rvm_scripts_path/log "info" "Retrieving $rvm_gem_package_name"
-      __rvm_fetch "$rvm_gem_url"
+      $rvm_scripts_path/fetch "$rvm_gem_url"
+      if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
       mkdir -p "$rvm_src_path/$rvm_gem_package_name"
       __rvm_run "rubygems.extract" "tar zxf $rvm_archives_path/$rvm_gem_package_name.tgz -C $rvm_src_path" "Extracting $rvm_gem_package_name"
     fi
-    cd "$rvm_src_path/$rvm_gem_package_name"
+    builtin cd "$rvm_src_path/$rvm_gem_package_name"
     __rvm_run "rubygems.install" "GEM_PATH=$rvm_gem_path GEM_HOME=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_src_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
     result=$?
     if [[ $result -eq 0 ]] ; then
@@ -664,11 +667,11 @@ __rvm_actual_file() {
 }
 
 __rvm_install_llvm() {
-  cd "$rvm_src_path"
+  builtin cd "$rvm_src_path"
   if [[ ! -d "$rvm_src_path/llvm/.svn" ]] ; then
     rm -rf "$rvm_src_path/llvm"
     svn co -r 82747 https://llvm.org/svn/llvm-project/llvm/trunk llvm
-    cd "$rvm_src_path/llvm"
+    builtin cd "$rvm_src_path/llvm"
     ./configure --enable-bindings=none
     UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make -j2
     sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make install

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+if [[ -f "$1" ]] ; then
+  database_file="$1" ; shift
+  if [[ ! -f "$database_file" ]] ; then
+    mkdir -p $(dirname $database_file)
+    touch $database_file
+  fi
+else
+  echo "usage: $0 database key [value]"
+  exit 1
+fi
+
+key="$1" ; shift
+if [[ -z "$key" ]] ; then
+  echo "usage: $0 database key [value]"
+  exit 1
+else
+  value="$*"
+  if [[ "unset" = "$value" ]] || [[ "delete" = "$value" ]] ; then
+    sed -i.tmp "s#^$key=.*\$##" $database_file
+  else
+    if [[ -z "$value" ]] ; then # get
+      awk -F= '/^'"$key"'=/{print $2}' $database_file
+    else # set
+      if [[ -z "$(awk -F= "/^'"$key"'=/{print $2}" $database_file)" ]] ; then # append
+        echo "$key=$value" >> $database_file
+      else # overwrite
+        sed -i.tmp "s#^$key=.*\$#$key=$value#" $database_file
+      fi
+    fi
+  fi
+fi
+

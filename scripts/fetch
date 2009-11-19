@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+rvm_fetch=$(which curl)
+if [[ $? -ne 0 ]] ; then
+  $rvm_scripts_path/log "fail" "rvm requires curl, which does not seem to exist in your path :("
+  exit 1
+else
+  rvm_fetch="$rvm_fetch -O -L --create-dirs -C - " # -s for silent
+fi
+
+pushd "$rvm_archives_path" > /dev/null 2>&1
+
+if [[ -z "$1" ]] ; then $rvm_scripts_path/log "fail" "BUG: $0 called without an argument :/" ; exit 1 ; fi
+
+archive=$(basename "$1") ; downlaod=1
+
+(( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Fetching $archive"
+
+# Check first if we have the correct archive
+if [[ -e "$archive" ]] && [[ -e "$archive.md5" ]] ; then
+  (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Found archive and its md5, testing correctness"
+  if [[ $(md5sum --status -c "$archive.md5") -gt 0 ]] ; then
+    (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Archive is bad, downloading"
+    download=1
+  else
+    (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Archive is good, not downloading"
+    download=0
+    result=0
+  fi
+else
+  (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "No archive or no MD5, downloading"
+  download=1
+fi
+if [[ $download -gt 0 ]] ; then
+  eval $rvm_fetch "$1"
+  result=$?
+  if [[ $result -gt 0 ]] ; then
+    retry=0
+    if [[ $result -eq 78 ]] ; then
+      $rvm_scripts_path/log "error" "The requested url does not exist: '$1'"
+    elif [[ $result -eq 18 ]] ; then
+      $rvm_scripts_path/log "error" "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
+      rm -f "$archive"
+      retry=1
+    elif [[ $result -eq 33 ]] ; then
+      (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Server does not support 'range' command, removing '$archive'"
+      rm -f "$archive"
+      retry=1
+    else
+      $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+    fi
+
+    if [[ $retry -eq 1 ]] ; then
+      eval $rvm_fetch "$1"
+      result=$?
+      if [[ $result -gt 0 ]] ; then
+        $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      fi
+    fi
+
+  fi
+  popd > /dev/null 2>&1
+fi
+
+exit $result
