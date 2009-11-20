@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 __rvm_gems_select() {
   if [[ -z "$rvm_gem_set_name" ]] ; then
@@ -10,7 +10,7 @@ __rvm_gems_select() {
       rvm_gem_set_name=$(echo $rvm_ruby_gem_home | xargs basename | awk -F'%' '{print $2}')
     fi
 
-    if [[ ! -z "$rvm_gem_set_name" ]] && ! match "$rvm_gem_set_name" "^[0-9]\.[0-9]" ; then
+    if [[ ! -z "$rvm_gem_set_name" ]] && ! $rvm_scripts_path/match "$rvm_gem_set_name" "^[0-9]\.[0-9]" ; then
       rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version%$rvm_gem_set_name"
     else
       if [[ ! -z "$rvm_ruby_interpreter" ]] && [[ ! -z "$rvm_ruby_version" ]] && [[ "$rvm_ruby_interpreter" != "system" ]] ; then
@@ -20,7 +20,7 @@ __rvm_gems_select() {
       elif [[ ! -z "$GEM_HOME" ]] ; then
         rvm_ruby_gem_home="$GEM_HOME"
       else
-        __rvm_log "error" "Cannot select gem home, something definitely wrong :/"
+        $rvm_scripts_path/log "error" "Cannot select gem home, something definitely wrong :/"
       fi
     fi
     if [[ -z "$rvm_gem_set_name" ]] ; then unset rvm_gem_set_name ; fi
@@ -62,19 +62,19 @@ __rvm_gems_delete() {
     if [[ -d "$gemdir" ]] && [[ ! -z "$rvm_force_flag" ]] ; then
         rm -rf  "$gemdir"
     elif [[ -d "$gemdir" ]] ; then
-      __rvm_log "warn" "Are you SURE you wish to remove the installed gems '$rvm_gem_set_name ' ($gemdir)?"
+      $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the installed gems '$rvm_gem_set_name ' ($gemdir)?"
       echo -n "(anything other than 'yes' will cancel) > "
       read response
       if [[ "yes" = "$response" ]] ; then
         rm -rf  "$gemdir"
       else
-        __rvm_log "info" "Not doing anything, phew... close call that one eh?"
+        $rvm_scripts_path/log "info" "Not doing anything, phew... close call that one eh?"
       fi
     else
-      __rvm_log "info" "$gemdir already does not exist."
+      $rvm_scripts_path/log "info" "$gemdir already does not exist."
     fi ; unset gemdir
   else
-    __rvm_log "error" "A gems name must be specified in order to delete a gems."
+    $rvm_scripts_path/log "error" "A gems name must be specified in order to delete a gems."
   fi
 }
 
@@ -121,43 +121,60 @@ __rvm_gems_load() {
       rvm_file_name="default.gems"
     elif [[ -f "system.gems" ]] ; then
       rvm_file_name="system.gems"
+    elif [[ -f ".gems" ]] ; then
+      rvm_file_name=".gems"
+    else
+      $rvm_scripts_path/log "error" "No gem set file found."
+      return 1
     fi
   fi
 
-  mkdir -p "$rvm_gem_path/cache"
+  mkdir -p "$rvm_gem_path/cache" # Ensure the base cache dir is initialized.
 
   if [[ -f "$rvm_file_name" ]] ; then
     echo "Loading $rvm_file_name file..."
     rvm_ruby_gem_list=$(\ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's#.gems.*$##' 2> /dev/null)
 
-    while read line
+    while read -r line
     do # Keep this on 2nd line :(
-      # TODO: Switch to a different field separator than ; to allow for evals
+      #
+      # Parse the line
+      #
       gem="$(echo $line | awk -F';' '{print $1}')"
       gem_prefix="$(echo $line | awk -F';' '{print $2}')"
-      if match "$gem" "\.gem$" ; then
+      if $rvm_scripts_path/match "$gem" "\.gem$" ; then
         gem_name="$(basename $gem | sed 's#\.gem##' | awk -F'-' '{$NF=NULL;print}')"
         gem_version="$(basename $gem | sed 's#\.gem##' | awk -F'-' '{print $NF}' )"
         gem_postfix="$(basename $gem | sed "s#.*\.gem##")"
       else
         gem_name="$(echo $gem | awk '{print $1}')"
-        gem_version="$(echo $gem | awk '{print $2}' | sed 's#.*-v[=]*[ ]*##' )"
-        gem_postfix="$(echo $gem | sed "s#${gem_name/ /}##" | sed "s#-v[=]*[ ]*${gem_version/ /}##")"
+        if $rvm_scripts_path/match "$gem" "--version" ; then
+          gem_version="$(echo $gem | sed 's#.*--version[=]*[ ]*##' | awk '{print $1}')"
+          gem_postfix="$(echo $gem | sed "s#${gem_name/ /}##" | sed "s#--version[=]*[ ]*${gem_version/ /}##")"
+        elif $rvm_scripts_path/match "$gem" "-v" ; then
+          gem_version="$(echo $gem | sed 's#.*-v[=]*[ ]*##' | awk '{print $1}')"
+          gem_postfix="$(echo $gem | sed "s#${gem_name/ /}##" | sed "s#-v[=]*[ ]*${gem_version/ /}##")"
+        else
+          unset gem_version # no version
+        fi
       fi
 
       if [[ -f "$gem" ]] ; then
         gem_file_name="$gem"
-      elif match "$gem" ".gem$" ; then
+      elif $rvm_scripts_path/match "$gem" ".gem$" ; then
         gem_file_name="$gem"
-      elif [[ -z "${gem_version/ /}" ]] ; then # no version
+      elif [[ -z "${gem_version/ /}" ]] ; then # no v/Users/wayne/projects/db0/rvm/scripts/gems
         gem_file_name="${gem_name/ /}*.gem"
       else # version
         gem_file_name="${gem_name/ /}-${gem_version/ /}.gem"
       fi
 
+      #
+      # Evaluate
+      #
       if [[ -z "$rvm_force_flag" ]] && [[ -f "${rvm_ruby_gem_home}/specifications/${gem_file_name}spec" ]] ; then
         unset gem
-        __rvm_log "warn" "$(__color "yellow")$gem_name $gem_version$(__color "none") exists, skipping (--force to re-install)"
+        $rvm_scripts_path/log "warn" "$($rvm_scripts_path/color "yellow")$gem_name $gem_version$($rvm_scripts_path/color "none") exists, skipping (--force to re-install)"
       else
         if [[ -f "$gem" ]] ; then
           cache_file="$gem"
@@ -199,20 +216,43 @@ __rvm_gems_load() {
       if [[ ! -z "$gem" ]] ; then
         # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
         __rvm_make_flags
-        __rvm_log "info" "Installing $gem_name $gem_version..."
-        command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
+        $rvm_scripts_path/log "info" "Installing $gem_name $gem_version..."
+        if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
+          command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
+        else
+          if [[ ! -z "$rvm_ruby_home" ]] ; then
+            command="$gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
+          else
+            command="$gem_prefix gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
+          fi
+        fi
+        if [[ -f "$gem" ]] ; then command="${command} -l" ; fi
         eval $command > /dev/null 2>&1
         result=$?
         if [[ $result -eq 0 ]] ; then
-        __rvm_log "info" "$(__color "green")$gem_name $gem_version$(__color "none") installed."
+        $rvm_scripts_path/log "info" "$($rvm_scripts_path/color "green")$gem_name $gem_version$($rvm_scripts_path/color "none") installed."
         else
-          __rvm_log "error" "$(__color "red")$gem_name $gem_version$(__color "none") failed to install."
+          $rvm_scripts_path/log "error" "$($rvm_scripts_path/color "red")$gem_name $gem_version$($rvm_scripts_path/color "none") failed to install."
         fi
       fi
       unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
     done < <(awk '/^[\.\/a-zA-Z]/{print}' "$rvm_file_name")
   else
-    __rvm_log "error" "$rvm_file_name does not exist to load from."
+    $rvm_scripts_path/log "error" "$rvm_file_name does not exist to load from."
+  fi
+}
+
+__rvm_gemdir() {
+  if [[ "$rvm_user_flag" -eq 1 ]] ; then
+    echo $(rvm system ; gem env | grep $HOME | awk '{print $NF}')
+  elif [[ "$rvm_system_flag" -eq 1 ]] ; then
+    echo $(rvm system ; gem env gemdir system)
+  elif [[ ! -z "$rvm_ruby_string" ]] ; then
+    echo $(rvm "$rvm_ruby_string" ; gem env gemdir)
+  elif [[ ! -z "$GEM_HOME" ]] ; then
+    echo "$GEM_HOME"
+  else
+    gem env gemdir
   fi
 }
 

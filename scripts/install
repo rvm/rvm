@@ -1,12 +1,18 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-rc_files="$HOME/.bash_profile $HOME/.bashrc $HOME/.zshrc"
-if [[ "root" = "$(whoami)" ]] ; then
-  rvm_path=/usr/local/rvm
-  rc_files="$rc_files /etc/profile /etc/zshenv"
-else
-  rvm_path=$HOME/.rvm
+if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
+if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
+if [[ -z "$rvm_path" ]] ; then unset rvm_path ; fi
+
+if [[ -z "$rvm_path" ]] ; then
+  if [[ "root" = "$(whoami)" ]] ; then
+    rvm_path="${rvm_path:-/usr/local/rvm}"
+  else
+    rvm_path="${rvm_path:-$HOME/.rvm}"
+  fi
 fi
+
+source scripts/initialize
 
 #
 # Setup
@@ -19,8 +25,8 @@ if [[ ! -d "$source_dir" ]] ; then unset source_dir ; fi
 source_dir="${source_dir:-$cwd}"
 
 # State what is required to use rvm
-echo -e "\n$(tput setaf 2)rvm$(tput sgr0)\n\n    shell scripts that allows a user to manage multiple ruby versions in their own account."
-echo -e "\n    Installing rvm to $rvm_path ..."
+echo -e "\n$(tput setaf 2)rvm$(tput sgr0) - shell scripts that allows a user to manage multiple ruby versions in their own account."
+echo -e "\n    Installing to $rvm_path..."
 for dir_name in src scripts bin log archives config gems examples ; do
   mkdir -p "$rvm_path/$dir_name"
 done
@@ -45,15 +51,15 @@ ln -nfs $rvm_path/scripts/rvm $rvm_path/bin/rvm
 #
 # RC Files
 #
-if [[ -z "$rvm_loaded_flag" ]] ; then
-  for rcfile in $(echo $rc_files) ; do
-    if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
-    if [[ -z "$(awk '/\.rvm\/scripts\/rvm/' $rcfile)" ]] ; then
-      echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
-      echo -e "\n# rvm-install added line:\nif [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> $rcfile
-    fi
-  done
-fi
+for rcfile in $(echo $rvm_rc_files) ; do
+  if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
+  if [[ -z "$(awk "/$(echo "$rvm_path/scripts/rvm" | sed 's#/#\\/#g')/" $rcfile)" ]] ; then
+    echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] && [[ "\$rvm_loaded_flag" -le 0 ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
+    echo -e "\n# rvm-install added line:\nif [[ -s $rvm_path/scripts/rvm ]] && [[ "\$rvm_loaded_flag" != "1" ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> $rcfile
+  else
+    : # it exists... remove it and append at the end
+  fi
+done
 
 if [[ "root" = "$(whoami)" ]] ; then
   ln -nfs $rvm_path/scripts/rvm /usr/local/bin/rvm
@@ -64,7 +70,7 @@ fi
 # System Checks
 #
 system="$(uname)"
-echo -e "\n    $(tput setaf 3)NOTES: $(tput sgr0)\n"
+echo -e "\n$(tput setaf 2)Notes: $(tput sgr0)\n"
 if [[ "Linux" = "$system" ]] ; then
   rvm_apt_get_binary="$(which aptitude 2> /dev/null)"
   rvm_emerge_binary="$(which emerge 2> /dev/null)"
@@ -72,44 +78,42 @@ if [[ "Linux" = "$system" ]] ; then
   rvm_yum_binary="$(which yum 2> /dev/null)"
 
   if [[ ! -z "$rvm_apt_get_binary" ]] ; then
-    echo -e "      $item For jRuby (if you wish to use it) you will need:"
-    echo -e "        $ sudo aptitude install sun-java6-bin sun-java6-jre sun-java6-jdk"
-    echo -e "      $item For ree (if you wish to use it) you will need:"
-    echo -e "        $ sudo aptitude install libreadline5-dev libssl-dev bison"
-    echo -e "      $item For 1.9.X (if you wish to use it) we additionally recommend:"
-    echo -e "        $ sudo aptitude install libxml2-dev"
+    echo -e "    $item For JRuby (if you wish to use it) you will need:"
+    echo -e "      $ aptitude install sun-java6-bin sun-java6-jre sun-java6-jdk"
+    echo -e "    $item For ree (if you wish to use it) you will need:"
+    echo -e "      $ aptitude install libreadline5-dev libssl-dev bison"
+    echo -e "    $item For 1.9.X (if you wish to use it) we additionally recommend:"
+    echo -e "      $ aptitude install libxml2-dev"
 
   elif [[ ! -z "$rvm_emerge_binary" ]] ; then
-    echo -e "      $item For jRuby (if you wish to use it) you will need:"
-    echo -e "        $ sudo emerge dev-java/sun-jdk dev-java/sun-jre-bin"
+    echo -e "    $item For JRuby (if you wish to use it) you will need:"
+    echo -e "      $ emerge dev-java/sun-jdk dev-java/sun-jre-bin"
 
   elif [[ ! -z "$rvm_pacman_binary" ]] ; then
-    echo -e "      $item For jRuby (if you wish to use it) you will need:"
-    echo -e "        $ sudo pacman -Sy jdk jre"
+    echo -e "    $item For JRuby (if you wish to use it) you will need:"
+    echo -e "      $ pacman -Sy jdk jre"
 
   elif [[ ! -z "$rvm_yum_binary" ]] ; then
-    echo -e "      $item For ree (if you wish to use it) you will need:"
-    echo -e "        $ yum install -y rpm-build gcc gcc-c++ redhat-rpm-config ; then download and rpmbuild and install the sdk, Have fun..."
+    echo -e "    $item For ree (if you wish to use it) you will need:"
+    echo -e "      $ yum install -y rpm-build gcc gcc-c++ redhat-rpm-config ; then download and rpmbuild and install the sdk, Have fun..."
 
   else
-    echo -e "      $item For jRuby (if you wish to use it) you will need:"
-    echo -e "        The SUN java runtime environment and development kit."
+    echo -e "    $item For JRuby (if you wish to use it) you will need:"
+    echo -e "      The SUN java runtime environment and development kit."
   fi
 elif [[ "Darwin" = "$system"  ]] ; then
-  echo -e "      $item Be sure that you have XCode Tools installed in order to use rvm."
-  echo -e "      $item If you intend on installing MacRuby you must install LLVM first."
+  echo -e "    $item Be sure that you have XCode Tools installed in order to use rvm."
+  echo -e "    $item If you intend on installing MacRuby you must install LLVM first."
 fi
 
-echo -e "      $item In order to use rvm the following line must occur in your shell's loading files, after all path/variable settings.:"
-echo -e "      $item if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
-echo -e "      $item CLOSE THIS SHELL AND OPEN A NEW ONE in order to use rvm."
+echo -e "    $item In order to use rvm the following line must occur in your shell's loading files, after all path/variable settings.:"
+echo -e "    $item if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
+echo -e "    $item CLOSE THIS SHELL AND OPEN A NEW ONE in order to use rvm."
 
-echo -e "\n    \033[0;33mRTFM: $(tput sgr0) http://rvm.beginrescueend.com/ \n"
+echo -e "\n$(tput setaf 2)RTFM:\n    $(tput sgr0) http://rvm.beginrescueend.com/ \n"
 echo -e "$(tput setaf 2)w⦿‿⦿t!$(tput sgr0)"
 echo -e "\n    ~ Wayne\n"
 
-source $rvm_path/scripts/rvm
-rvm -v
-echo
+$rvm_path/bin/rvm -v
 
 exit 0
