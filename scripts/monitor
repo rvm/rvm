@@ -1,1 +1,41 @@
 #!/usr/bin/env bash
+
+timestamp() {
+  if [[ "Darwin" = "$(uname)" ]] ; then
+    echo $(stat -f "%m" $1)
+  else
+    echo $(stat -c "%Y" $1)
+  fi
+}
+
+if [[ -d "test/" ]] ; then test_timestamp=$(timestamp "test/") ; fi
+if [[ -d "spec/" ]] ; then spec_timestamp=$(timestamp "spec/") ; fi
+
+while : ; do
+  changed_test_files=() ; changed_spec_files=()
+
+  if [[ -d "test/" ]] ; then
+    while read -r line ; do
+      if [[ $(timestamp $file) -gt $timestamp ]] ; then
+        array_push $changed_test_files $file
+      fi
+    done < <($(\ls test/**/*_test.rb))
+  fi
+
+  if [[ -d "spec/" ]] ; then
+    while read -r line ; do
+      if [[ $(timestamp $file) -gt $timestamp ]] ; then
+        array_push $changed_spec_files $file
+      fi
+    done < <($(\ls spec/**/*_spec.rb))
+  fi
+
+  if [[ $(array_length $changed_test_files) -gt 0 ]] ; then
+    testrb "${myarray[*]}"
+  fi
+
+  if [[ $(array_length $changed_spec_files) -gt 0 ]] ; then
+    spec "${myarray[*]}"
+  fi
+done
+
