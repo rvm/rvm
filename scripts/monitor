@@ -1,4 +1,7 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
+
+rvm_monitor_sleep=3
+source $rvm_scripts_path/rvm
 
 timestamp() {
   if [[ "Darwin" = "$(uname)" ]] ; then
@@ -8,34 +11,61 @@ timestamp() {
   fi
 }
 
-if [[ -d "test/" ]] ; then test_timestamp=$(timestamp "test/") ; fi
-if [[ -d "spec/" ]] ; then spec_timestamp=$(timestamp "spec/") ; fi
+push_if_timestamp_changed() {
+  file=$1
+  file_timestamp=$(timestamp $file)
+
+  eval "time=\$${framework}_timestamp"
+  if [[ "$file_timestamp" -gt $time ]] ; then
+    array_push "changed_${framework}_files" $file
+  fi
+}
+
+update_timestamp() {
+  if [[ -d "${1}/" ]] ; then
+    touch "$rvm_path/${1}_timestamp"
+    eval "${1}_timestamp=\$(timestamp \"$rvm_path/${1}_timestamp\")"
+  fi
+}
+
+update_timestamp "test"
+update_timestamp "spec"
 
 while : ; do
   changed_test_files=() ; changed_spec_files=()
 
-  if [[ -d "test/" ]] ; then
-    while read -r line ; do
-      if [[ $(timestamp $file) -gt $timestamp ]] ; then
-        array_push $changed_test_files $file
+  for framework in test spec ; do
+    #eval "new_${framework}_timestamp=\$${framework}_timestamp"
+
+    if [[ -d "$framework/" ]] ; then
+
+      files=($(\ls ${framework}/**/*_${framework}.rb))
+      for file in $files ; do
+        push_if_timestamp_changed $file $framework
+      done
+
+      if [[ "$(array_length "changed_${framework}_files")" -gt 0 ]] ; then
+        if [[ "spec" = "$framework" ]] ; then
+          rvm_action="spec"
+          #....
+          rvm_ruby_args="spec/spec_helper.rb ${changed_spec_files[*]}"
+          __rvm_do
+
+        elif [[ "test" = "$framework" ]] ; then
+          rvm_action="ruby"
+          rvm_ruby_args="test/test_helper.rb ${changed_test_files[*]}"
+          __rvm_do
+        fi
+        update=1
       fi
-    done < <($(\ls test/**/*_test.rb))
+    fi
+  done
+
+  if [[ "$update" -eq 1 ]] ; then
+    update_timestamp $framework
   fi
 
-  if [[ -d "spec/" ]] ; then
-    while read -r line ; do
-      if [[ $(timestamp $file) -gt $timestamp ]] ; then
-        array_push $changed_spec_files $file
-      fi
-    done < <($(\ls spec/**/*_spec.rb))
-  fi
+  unset update changed_test_files changed_spec_files
 
-  if [[ $(array_length $changed_test_files) -gt 0 ]] ; then
-    testrb "${myarray[*]}"
-  fi
-
-  if [[ $(array_length $changed_spec_files) -gt 0 ]] ; then
-    spec "${myarray[*]}"
-  fi
+  sleep $rvm_monitor_sleep
 done
-
