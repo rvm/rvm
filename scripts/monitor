@@ -1,6 +1,9 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env bash
 
 rvm_monitor_sleep=3
+original_ruby_version=$rvm_ruby_version
+original_ruby_string=$rvm_ruby_string
+
 source $rvm_scripts_path/rvm
 
 timestamp() {
@@ -35,7 +38,6 @@ while : ; do
   changed_test_files=() ; changed_spec_files=()
 
   for framework in test spec ; do
-    #eval "new_${framework}_timestamp=\$${framework}_timestamp"
 
     if [[ -d "$framework/" ]] ; then
 
@@ -45,27 +47,29 @@ while : ; do
       done
 
       if [[ "$(array_length "changed_${framework}_files")" -gt 0 ]] ; then
+        rvm_ruby_version=$original_ruby_version
+        rvm_ruby_string=$original_ruby_string
         if [[ "spec" = "$framework" ]] ; then
           rvm_action="spec"
-          #....
           rvm_ruby_args="spec/spec_helper.rb ${changed_spec_files[*]}"
           __rvm_do
 
         elif [[ "test" = "$framework" ]] ; then
           rvm_action="ruby"
-          rvm_ruby_args="test/test_helper.rb ${changed_test_files[*]}"
+          rvm_ruby_args=" -r$(echo "${changed_test_files[*]}" | sed 's/ / -r/g') test/test_helper.rb"
           __rvm_do
         fi
         update=1
       fi
     fi
-  done
 
-  if [[ "$update" -eq 1 ]] ; then
-    update_timestamp $framework
-  fi
+    if [[ "$update" -eq 1 ]] ; then
+      update_timestamp $framework
+    fi
+  done
 
   unset update changed_test_files changed_spec_files
 
   sleep $rvm_monitor_sleep
 done
+
