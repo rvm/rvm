@@ -26,7 +26,7 @@ __rvm_install_source() {
   else
     if [[ ! -z "$(echo $rvm_url | awk '/^git/')" ]] ; then
       if [[ -d "$rvm_ruby_src_path/.git" ]] ; then
-        builtin builtin cd $rvm_ruby_src_path
+        builtin cd $rvm_ruby_src_path
         if [[ -z "$rvm_ruby_revision" ]] ; then
           $rvm_scripts_path/log "info" "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
           git pull origin master
@@ -73,7 +73,7 @@ __rvm_install_source() {
     fi
   fi
 
-  builtin builtin cd $rvm_ruby_src_path
+  builtin cd $rvm_ruby_src_path
   if [[ $? -gt 0 ]] ; then result=$? ; $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; __rvm_pushpop ; return $result ; fi
 
   if [[ -z "$rvm_ruby_configure" ]] && [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
@@ -96,11 +96,11 @@ __rvm_install_source() {
     $rvm_scripts_path/log "error" "Skipping configure step, 'configure' script does not exist, did autoconf not run successfully?"
   fi
 
-  rvm_ruby_make=${rvm_ruby_make:-"/usr/bin/make"}
+  rvm_ruby_make=${rvm_ruby_make:-"make"}
   __rvm_run "make" "$rvm_ruby_make $rvm_make_flags" "Compiling $rvm_ruby_package_name, this may take a while, depending on your cpu(s)..."
   if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
 
-  rvm_ruby_make_install=${rvm_ruby_make_install:-"/usr/bin/make install"}
+  rvm_ruby_make_install=${rvm_ruby_make_install:-"make install"}
   __rvm_run "install" "$rvm_ruby_make_install" "Installing $rvm_ruby_package_name"
   if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
 
@@ -237,22 +237,32 @@ RubyWrapper
       echo "$(export rvm_install_on_use_flag=1 ; rvm 1.8.7)" # This should install if missing.
       # TODO: use 'rvm gems load' here:
       unset CFLAGS LDFLAGS ARCHFLAGS # Important.
-      __rvm_unset_ruby_variables ; rvm_ruby_string="rbx-head" ; __rvm_select
+      # __rvm_unset_ruby_variables ; rvm_ruby_string="rbx-head" ; __rvm_select
 
       unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
       PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
       PATH=$rvm_bin_path:$PATH ; export PATH
 
-      rvm_ruby_repo_url="$rvm_rubinius_repo_url"
-      rvm_ruby_home="$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"
-
-      if [[ ! -d "$rvm_ruby_home" ]] || [[ ! -d "$rvm_ruby_home/.git" ]] ; then
-        rm -rf "$rvm_ruby_home" ; builtin cd "$rvm_home"
-        __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_home" "Cloning $rvm_ruby_repo_url"
-        builtin cd "$rvm_ruby_home"
+      if [[ ! -z "$(echo $rvm_ruby_version | awk '/^1\.0/')" ]] && [[ -z "$rvm_head_flag" ]] ; then
+        if [[ ! -f "$rvm_archives_path/$rvm_ruby_package_name.tar.gz" ]] ; then
+          $rvm_scripts_path/log "info" "Downloading $rvm_ruby_file, this may take a while depending on your connection..."
+          $rvm_scripts_path/fetch "$rvm_url"
+          result=$? ; if [[ "$result" -gt 0 ]] ; then return $result ; fi
+        fi
+        __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_file.tar.gz -C $rvm_src_path" "Extracting $rvm_ruby_file.tar.gz ..."
+        if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+        mv $rvm_src_path/rubinius-$rvm_ruby_version $rvm_ruby_src_path
       else
-        builtin cd "$rvm_ruby_home"
-        __rvm_run "rbx.repo" "git pull origin master" "Pulling from origin master"
+        rvm_ruby_repo_url="$rvm_rubinius_repo_url"
+        #rvm_ruby_home="$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"
+        if [[ ! -d "$rvm_ruby_src_path" ]] || [[ ! -d "$rvm_ruby_src_path/.git" ]] ; then
+          rm -rf "$rvm_ruby_src_path" ; builtin cd "$rvm_home"
+          __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path" "Cloning $rvm_ruby_repo_url"
+          builtin cd "$rvm_ruby_src_path"
+        else
+          builtin cd "$rvm_ruby_src_path"
+          __rvm_run "rbx.repo" "git pull origin master" "Pulling from origin master"
+        fi
       fi
 
       #if [[ ! -x "$rvm_ruby_distclean" ]] ; then
@@ -263,19 +273,19 @@ RubyWrapper
       # RBX_PREFIX="$rvm_ruby_home" ; export RBX_PREFIX
       # Also see 'rakelib/configuration.rake'
 
-      builtin cd "$rvm_ruby_home"
+      builtin cd "$rvm_ruby_src_path"
       # TODO: Once installer is done add the prefix:
-      #rvm_ruby_configure="./configure --prefix=$rvm_ruby_home" ; message="Configuring rbx"
-      rvm_ruby_configure="./configure" ; message="Configuring rbx"
+      rvm_ruby_configure="./configure --prefix=$rvm_ruby_home" ; message="Configuring rbx"
+      #rvm_ruby_configure="./configure" ; message="Configuring rbx"
       if [[ ! -z "$rvm_jit_flag" ]] ; then
         rvm_ruby_configure="$rvm_ruby_configure --enable-llvm" ; message="$message with LLVM enabled"
       fi
       __rvm_run "configure" "$rvm_ruby_configure" "$message"
 
       if [[ "$rvm_trace_flag" -eq 1 ]] ; then
-        rvm_ruby_make="\$(rvm 1.8.7 ; rake --trace)" ; message="Compiling rbx"
+        rvm_ruby_make="\$(rvm 1.8.7 ; rake install --trace)" ; message="Compiling rbx"
       else
-        rvm_ruby_make="\$(rvm 1.8.7 ; rake)" ; message="Compiling rbx"
+        rvm_ruby_make="\$(rvm 1.8.7 ; rake install)" ; message="Compiling rbx"
       fi
       __rvm_run "rake" "$rvm_ruby_make" "$message"
 
@@ -287,18 +297,6 @@ RubyWrapper
       for binary_name in $(echo $binaries) ; do
         ln -fs $rvm_ruby_home/bin/rbx $rvm_ruby_home/bin/$binary_name
       done ; unset binary_name binaries
-
-      __rvm_run "rake.install" "$rvm_ruby_home/bin/rbx gem install rake --no-rdoc --no-ri" "Installing Rake"
-
-      binary=rake
-      if [[ -f $rvm_ruby_gem_home/bin/$binary ]] ; then
-        if [[ "$rvm_ruby_gem_home" != "$rvm_ruby_home" ]] ; then
-          cp $rvm_ruby_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
-        fi
-        chmod +x $rvm_ruby_home/bin/$binary
-        __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
-        __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
-      fi ; unset binary
 
       binaries="erb ri rdoc"
       __rvm_post_install
@@ -325,6 +323,19 @@ RubyWrapper
         done ; unset file_name
         unset ruby_wrapper binary_name files prefix
       done
+
+      __rvm_run "rake.install" "$rvm_ruby_home/bin/rbx gem install rake --no-rdoc --no-ri" "Installing Rake"
+
+      binary=rake
+      if [[ -f $rvm_ruby_gem_home/bin/$binary ]] ; then
+        if [[ "$rvm_ruby_gem_home" != "$rvm_ruby_home" ]] ; then
+          cp $rvm_ruby_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
+        fi
+        chmod +x $rvm_ruby_home/bin/$binary
+        __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
+        __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
+      fi ; unset binary
+
       __rvm_irbrc
       __rvm_bin_scripts
     ;;
