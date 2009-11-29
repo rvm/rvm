@@ -6,39 +6,41 @@
 # http://gitub.com/wayneeseguin/rvm
 #
 
-if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
-if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
-if [[ -z "$rvm_path" ]] ; then unset rvm_path ; fi
+if [[ "$rvm_loaded_flag" -ne 1 ]] ; then
+  if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
+  if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
+  if [[ -z "$rvm_path" ]] ; then unset rvm_path ; fi
 
-if [[ "root" = "$(whoami)" ]] ; then
-  rvm_path="${rvm_path:-/usr/local/rvm}"
-else
-  if [[ -d "$HOME/.rvm" ]] ; then
-    rvm_path="${rvm_path:-$HOME/.rvm}"
-  else
+  if [[ "root" = "$(whoami)" ]] ; then
     rvm_path="${rvm_path:-/usr/local/rvm}"
+  else
+    if [[ -d "$HOME/.rvm" ]] ; then
+      rvm_path="${rvm_path:-$HOME/.rvm}"
+    else
+      rvm_path="${rvm_path:-/usr/local/rvm}"
+    fi
   fi
+
+  source $rvm_path/scripts/array
+  source $rvm_path/scripts/initialize
+  source $rvm_path/scripts/utility
+  source $rvm_path/scripts/selector
+  source $rvm_path/scripts/ruby-installer # TODO: Script not function.
+  source $rvm_path/scripts/cli
+  source $rvm_path/scripts/gems
+  source $rvm_path/scripts/libraries
+
+  rvm_loaded_flag=1 ; export rvm_loaded_flag
+
+  rvm_version="$(cat "${rvm_path}/lib/VERSION.yml" | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//')" ; export rvm_version
+
+  if [[ -f "$rvm_path/default" ]] ; then source "$rvm_path/default" ; fi
+
+  # Source a .rvmrc file in a directory after changing to it, if it exists.
+  cd() { builtin cd "$@" ; if [[ -f .rvmrc ]] ; then source .rvmrc ; fi ; }
+
+  alias rvm-restart="source '${rvm_path}/scripts/rvm'"
 fi
-
-source $rvm_path/scripts/array
-source $rvm_path/scripts/initialize
-source $rvm_path/scripts/utility
-source $rvm_path/scripts/selector
-source $rvm_path/scripts/ruby-installer # TODO: Script not function.
-source $rvm_path/scripts/cli
-source $rvm_path/scripts/gems
-source $rvm_path/scripts/libraries
-
-rvm_loaded_flag=1 ; export rvm_loaded_flag
-
-rvm_version="$(cat "${rvm_path}/lib/VERSION.yml" | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//')" ; export rvm_version
-
-alias rvm-restart="source \"${rvm_path}/scripts/rvm\""
-
-if [[ -f "$rvm_path/default" ]] ; then source "$rvm_path/default" ; fi
-
-# Source a .rvmrc file in a directory after changing to it, if it exists.
-cd() { builtin cd "$@" ; if [[ -f .rvmrc ]] ; then source .rvmrc ; fi ; }
 
 # Ok now we determine if we were called or sourced... under assumption of course ;)
 if [[ $# -gt 0 ]] && [[ -z "$(echo "$*" | awk '/completion-/')" ]] ; then rvm "$*" ; fi
