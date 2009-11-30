@@ -1,5 +1,24 @@
 #!/usr/bin/env bash
 
+__rvm_db() {
+  key=$1 ; variable=$2
+  if [[ -f "$rvm_config_path/user" ]] ; then
+    value="$($rvm_scripts_path/db "$rvm_config_path/user" "$key")"
+  fi
+
+  if [[ -z "$value" ]] ; then
+    value="$($rvm_scripts_path/db "$rvm_config_path/db" "$key")"
+  fi
+
+  if [[ ! -z "$value" ]] ; then
+    if [[ -z $variable ]] ; then
+      echo $value
+    else
+      eval "$variable=$value"
+    fi
+  fi
+}
+
 __rvm_info() {
   if [[ ! -z "$(which ruby 2>/dev/null)" ]] ; then full_version=$(ruby -v) ; fi
 
@@ -166,25 +185,25 @@ __rvm_load_defaults() {
     done
   fi
 
-  rvm_system_ruby=$($rvm_scripts_path/db "$rvm_config_path/db" "system_ruby")
+  __rvm_db "system_ruby" "rvm_system_ruby"
   if [[ ! -z "$rvm_system_ruby" ]] ; then
     rvm_system_ruby=$(which ruby 2>/dev/null)
     if [[ $? -ne 0 ]] ; then
       $rvm_scripts_path/log "info" "System ruby not found, no system default will be stored."
     else
-      $rvm_scripts_path/db "$rvm_config_path/db" "system_ruby" "$rvm_system_ruby"
+      $rvm_scripts_path/db "$rvm_config_path/user" "system_ruby" "$rvm_system_ruby"
 
       # Now store system system & user gem paths
       if [[ ! -z "$(which gem 2>/dev/null)" ]] ; then
-        rvm_system_user_gem_path=$($rvm_scripts_path/db "$rvm_config_path/db" "system_user_gem_path")
+        __rvm_db "system_user_gem_path" "rvm_system_user_gem_path"
         if [[ -z "$rvm_system_user_gem_path" ]] ; then
           rvm_system_user_gem_path=$( rvm system ; gem env gemdir user; )
-          $rvm_scripts_path/db "$rvm_config_path/db" "system_user_gem_path" "$rvm_system_user_gem_path"
+          $rvm_scripts_path/db "$rvm_config_path/user" "system_user_gem_path" "$rvm_system_user_gem_path"
         fi
-        rvm_system_gem_path=$($rvm_scripts_path/db "$rvm_config_path/db" "system_gem_path")
+        __rvm_db "system_gem_path" "rvm_system_gem_path"
         if [[ -z "$rvm_system_gem_path" ]] ; then
           rvm_system_gem_path=$( rvm system ; gem env gemdir; )
-          $rvm_scripts_path/db "$rvm_config_path/db" "system_gem_path" "$rvm_system_gem_path"
+          $rvm_scripts_path/db "$rvm_config_path/user" "system_gem_path" "$rvm_system_gem_path"
         fi
       fi
     fi
@@ -204,7 +223,7 @@ __rvm_reset() {
   __rvm_select
 
   for system_config in system_ruby system_gem_path system_user_gem_path ; do
-    $rvm_scripts_path/db "$rvm_config_path/db" "$system_config" "delete"
+    $rvm_scripts_path/db "$rvm_config_path/user" "$system_config" "delete"
   done ; unset system_config variable
 
   rm -f $rvm_path/bin/ruby $rvm_path/bin/gem $rvm_path/bin/rake $rvm_path/bin/irb $rvm_path/bin/default*
