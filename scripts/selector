@@ -18,14 +18,14 @@ __rvm_select() {
         if [[ "$rvm_head_flag" -eq 1 ]] ; then
           unset rvm_ruby_version rvm_ruby_tag
           rvm_ruby_revision="head"
-          rvm_ruby_repo_url=${rvm_ruby_repo_url:-"$($rvm_scripts_path/db "$rvm_config_path/db" "macruby_repo_url")"}
+          __rvm_db "macruby_repo_url" "rvm_ruby_repo_url"
           rvm_url="$rvm_ruby_repo_url"
           rvm_ruby_string="${rvm_ruby_interpreter}-head"
         elif [[ "nightly" = "$rvm_ruby_version" ]] ; then
           rvm_url="http://macruby.icoretech.org/latest"
           rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         else
-          rvm_ruby_version="${rvm_ruby_version:-"$($rvm_scripts_path/db "$rvm_config_path/db" "macruby_version")"}"
+          __rvm_db "macruby_version" "rvm_ruby_version"
           rvm_ruby_package_name="${rvm_ruby_interpreter}_nightly-${rvm_ruby_version}"
           rvm_ruby_package_file="MacRuby%200.5%20beta%201.zip"
           rvm_url="http://www.macruby.org/files/MacRuby%200.5%20beta%201.zip"
@@ -40,14 +40,12 @@ __rvm_select() {
 
     rbx|rubinius)
       rvm_ruby_interpreter="rbx"
-      rvm_ruby_version="${rvm_ruby_version:-head}"
-      unset rvm_ruby_patch_level
-      rvm_ruby_repo_url=${rvm_rbx_repo_url:-"$($rvm_scripts_path/db "$rvm_config_path/db" "rubinius_repo_url")"}
-      rvm_ruby_string="rbx-head" # for now :)
-      rvm_url=$rvm_ruby_repo_url
-      rvm_ruby_configure=" true "
-      rvm_ruby_make="build"
-      rvm_ruby_make_install=""
+      rvm_ruby_version=${rvm_ruby_version:-$(__rvm_db "rbx_version")}
+      rvm_ruby_patch_level=${rvm_ruby_patch_level:-$(__rvm_db "rbx_patch_level")}
+      rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
+      __rvm_db "rbx_url" "rvm_url"
+
+      rvm_ruby_file="rubinius-$rvm_ruby_version-$rvm_ruby_patch_level"
     ;;
 
     jruby)
@@ -55,10 +53,10 @@ __rvm_select() {
       if [[ "$rvm_head_flag" -eq 1 ]] ; then
         rvm_ruby_version="head"
         rvm_ruby_string="jruby-head"
-        rvm_ruby_repo_url="${rvm_ruby_repo_url:-$($rvm_scripts_path/db "$rvm_config_path/db" "jruby_repo_url")}"
-        rvm_url="${rvm_ruby_repo_url:-$($rvm_scripts_path/db "$rvm_config_path/db" "jruby_repo_url")}"
+        rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
+        rvm_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
       else
-        rvm_ruby_version="${rvm_ruby_version:-"$($rvm_scripts_path/db "$rvm_config_path/db" "jruby_version")"}"
+        rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "jruby_version")"}"
         rvm_package_file="${rvm_ruby_interpreter}-bin-${rvm_ruby_version}"
         rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         rvm_url="http://jruby.kenai.com/downloads/${rvm_ruby_version}/${rvm_package_file}.tar.gz"
@@ -69,7 +67,7 @@ __rvm_select() {
 
     ree)
       rvm_ruby_interpreter=ree
-      rvm_ruby_version=${rvm_ruby_version:-"$($rvm_scripts_path/db "$rvm_config_path/db" "ree_version")"}
+      rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "ree_version")"}
       if [[ ! -z "$rvm_ruby_patch_level" ]] ; then
         rvm_ruby_patch_level="$(echo $rvm_ruby_patch_level | sed 's#^p##')"
         rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
@@ -83,7 +81,7 @@ __rvm_select() {
           rvm_ruby_package_name="ree-$rvm_ruby_version-$rvm_ruby_revision"
         else
           rvm_ruby_package_file="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
-          rvm_url="${rvm_url:-$($rvm_scripts_path/db "$rvm_config_path/db" "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")}/$rvm_ruby_package_file.tar.gz"
+          rvm_url="${rvm_url:-$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")}/$rvm_ruby_package_file.tar.gz"
         fi
       fi
 
@@ -97,18 +95,18 @@ __rvm_select() {
       rvm_ruby_version="head"
       rvm_ruby_string="mput-head"
       unset rvm_ruby_patch_level
-      rvm_ruby_repo_url=${rvm_mput_repo_url:-"$($rvm_scripts_path/db "$rvm_config_path/db" "shyouhei_repo_url")"}
+      rvm_ruby_repo_url=${rvm_mput_repo_url:-"$(__rvm_db "shyouhei_repo_url")"}
       rvm_url=$rvm_ruby_repo_url
       unset rvm_ruby_configure rvm_ruby_make rvm_ruby_make_install
     ;;
 
     ruby)
-      rvm_ruby_repo_url="${rvm_ruby_repo_url:-"$($rvm_scripts_path/db "$rvm_config_path/db" "ruby_repo_url")"}"
+      rvm_ruby_repo_url="${rvm_ruby_repo_url:-"$(__rvm_db "ruby_repo_url")"}"
       if [[ -z "$rvm_ruby_version" ]] ; then $rvm_scripts_path/log "fail" "Unknown ruby version: $rvm_ruby_version" ; fi
     ;;
 
     current)
-      ruby_binary="$(which binary)"
+      ruby_binary="$(which binary 2>/dev/null)"
       if $rvm_scripts_path/match "$ruby_binary" "rvm" ; then
         rvm_ruby_string="$(dirname "$ruby_binary" | xargs dirname | xargs basename)"
       else
@@ -198,7 +196,7 @@ __rvm_use() {
 
     if [[ "root" = "$(whoami)" ]] ; then
       for binary in erb gem irb rake rdoc ri ruby testrb ; do
-        rm -f /usr/local/bin/$binary
+        rm -f $rvm_symlink_path/$binary
       done
     fi
 
@@ -241,10 +239,10 @@ __rvm_use() {
 
     if [[ "root" = "$(whoami)" ]] ; then
       for binary in erb gem irb rake rdoc ri ruby testrb ; do
-        rm -f /usr/local/bin/$binary
-        ln -nfs $rvm_ruby_home/bin/$binary /usr/local/bin/$binary
-        rm -f /usr/local/bin/passenger_ruby
-        ln -nfs $rvm_bin_path/$rvm_ruby_string /usr/local/bin/passenger_ruby
+        rm -f $rvm_symlink_path/$binary
+        ln -nfs $rvm_ruby_home/bin/$binary $rvm_symlink_path/$binary
+        rm -f $rvm_symlink_path/passenger_ruby
+        ln -nfs $rvm_bin_path/$rvm_ruby_string $rvm_symlink_path/passenger_ruby
       done
     fi
   fi
@@ -287,6 +285,8 @@ __rvm_use() {
 
   if [[ ! -z "$rvm_load_flag" ]] ; then __rvm_gems_load ; fi
   if [[ ! -z "$rvm_dump_flag" ]] ; then __rvm_gems_dump ; fi
+
+  __rvm_hook "after_use"
 }
 
 __rvm_ruby_string() {
@@ -297,6 +297,7 @@ __rvm_ruby_string() {
   # * rvm_ruby_patch_level
   # * rvm_ruby_revision
   # * rvm_ruby_tag
+  # * rvm_ruby_patch
 
   set_name=$(echo "$rvm_ruby_string" | awk -F'%' '{print $2}')
   if [[ ! -z "$set_name" ]] ; then rvm_gem_set_name="$set_name" ; fi
@@ -346,6 +347,9 @@ __rvm_ruby_string() {
       rvm_ruby_tag="$string"
     elif $rvm_scripts_path/match "$string" "^m[0-9]" ; then
       rvm_ruby_mode="$string"
+    elif $rvm_scripts_path/match "$string" "^h[a-z]" ; then
+      unset rvm_ruby_patch_level rvm_ruby_revision rvm_ruby_tag
+      rvm_ruby_patch="$string"
     elif $rvm_scripts_path/match "$string" "^[a-z][a-z]" ; then
       rvm_ruby_interpreter="$string"
     else
@@ -366,8 +370,9 @@ __rvm_ruby_string() {
 
   # Unspecified version
   if [[ -z "$rvm_ruby_version" ]] ; then
-    rvm_ruby_version=${rvm_ruby_version:-"$($rvm_scripts_path/db "$rvm_config_path/db" "${rvm_ruby_interpreter}_version")"}
+    rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "${rvm_ruby_interpreter}_version")"}
   fi
+
   if [[ -z "$rvm_ruby_version" ]] ; then
     rvm_ruby_string="${rvm_ruby_interpreter}"
   else
@@ -380,10 +385,15 @@ __rvm_ruby_string() {
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_revision}"
   elif [[ ! -z "$rvm_ruby_tag" ]]  ; then
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_tag}"
+  elif [[ ! -z "$rvm_ruby_patch" ]]  ; then
+    if [[ -z "$rvm_ruby_patch_name" ]] ; then
+      rvm_ruby_patch_name="$(basename $rvm_ruby_patch | awk -F',' '{print $1}')"
+    fi
+    rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch}"
   elif [[ ! -z "$rvm_ruby_patch_level" ]]  ; then
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
   else
-    patch_level="$($rvm_scripts_path/db "$rvm_config_path/db" "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level")"
+    patch_level="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level")"
     if [[ ! -z "$patch_level" ]] ; then rvm_ruby_patch_level="p${patch_level}" ; fi
     if [[ ! -z "$rvm_ruby_patch_level" ]] ; then
       rvm_ruby_patch_level="$(echo $rvm_ruby_patch_level | sed 's#^pp#p#')"

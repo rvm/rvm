@@ -17,7 +17,7 @@ __rvm_parse_args() {
   while [[ $# -gt 0 ]] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|readline|update|iconv|curl|openssl|ncurses|zlib|readline)
+      install|uninstall|path|info|setup|version|srcdir|list|reset|debug|reload|implode|readline|update|iconv|curl|openssl|ncurses|zlib|readline|monitor|notes)
         rvm_action=$rvm_token
       ;;
 
@@ -104,7 +104,7 @@ __rvm_parse_args() {
               rvm_ruby_version=$(echo "$1" | tr ',' ' ') ; shift
               unset rvm_ruby_interpreter
             else
-              if [[ "jruby" = "$1" ]] || [[ "rbx" = "$1" ]] || [[ "rubinius" = "$1" ]] || [[ "macruby" = "$1" ]] || [[ "ree" = "$1" ]] || [[  "mput" = "$1" ]]  || [[  "shyouhei" = "$1" ]] ; then
+              if $rvm_scripts_path/match "rbx jruby rubinius macruby ree mput shyouhei" "$1" ; then
                 rvm_ruby_interpreter=$1 ; shift
               else
                 unset rvm_ruby_interpreter rvm_ruby_version
@@ -147,6 +147,19 @@ __rvm_parse_args() {
 
       -t|--tag)
         rvm_ruby_tag="$1";
+        rvm_action="${rvm_action:-use}"
+        shift
+      ;;
+
+      # For use with --patch
+      --patch-name) rvm_ruby_patch_name="$1" ; shift ;;
+
+      -h|--patch)
+        if [[ -z "$rvm_ruby_patch" ]] ; then
+          rvm_ruby_patch="$1";
+        else
+          rvm_ruby_patch="$rvm_ruby_patch,$1";
+        fi
         rvm_action="${rvm_action:-use}"
         shift
       ;;
@@ -338,24 +351,28 @@ rvm() {
   if [[ -z "$rvm_trace_flag" ]] ; then set +x ; else set -x ; fi
   result=0
   case "$rvm_action" in
-    use)           __rvm_use              ; result=$?  ;;
-    gemdir)        __rvm_gemdir           ; result=$?  ;;
-    srcdir)        __rvm_source_dir       ; result=$?  ;;
-    list)          __rvm_list             ; result=$?  ;;
-    version)       __rvm_version          ; result=$?  ;;
-    reset)         __rvm_reset            ; result=$?  ;;
-    implode)       __rvm_implode          ; result=$?  ;;
-    update)        __rvm_update           ; result=$?  ;;
-    readline)      __rvm_readline_install ; result=$?  ;;
-    reboot)        __rvm_reboot           ; result=$?  ;;
-    usage|help)    __rvm_usage            ; result=$?  ;;
-    benchmark)     __rvm_benchmark        ; result=$?  ;;
-    inspect)       __rvm_inspect          ; result=$?  ;;
-    gems)          __rvm_gems             ; result=$?  ;;
-    remove)        __rvm_remove_ruby      ; result=$?  ;;
-    ruby|gem|rake) __rvm_do               ; result=$?  ;;
-    reload)        source "$rvm_path/scripts/rvm"      ;;
-    install|uninstall) __rvm_manage_rubies ; result=$? ;;
+    use)           __rvm_use                 ; result=$?  ;;
+    gemdir)        __rvm_gemdir              ; result=$?  ;;
+    srcdir)        __rvm_source_dir          ; result=$?  ;;
+    list)          __rvm_list                ; result=$?  ;;
+    version)       __rvm_version             ; result=$?  ;;
+    reset)         __rvm_reset               ; result=$?  ;;
+    implode)       __rvm_implode             ; result=$?  ;;
+    update)        __rvm_update              ; result=$?  ;;
+    reboot)        __rvm_reboot              ; result=$?  ;;
+    usage|help)    __rvm_usage               ; result=$?  ;;
+    benchmark)     __rvm_benchmark           ; result=$?  ;;
+    inspect)       __rvm_inspect             ; result=$?  ;;
+    gems)          __rvm_gems                ; result=$?  ;;
+    remove)        __rvm_remove_ruby         ; result=$?  ;;
+    ruby|gem|rake) __rvm_do                  ; result=$?  ;;
+    monitor)
+      export rvm_ruby_version rvm_ruby_string
+      $rvm_scripts_path/monitor ; result=$?
+    ;;
+    notes)         $rvm_scripts_path/notes   ; result=$?  ;;
+    reload) rvm_reload_flag=1                             ;;
+    install|uninstall) __rvm_manage_rubies   ; result=$? ;;
     tests|specs)   rvm_action="rake" ; __rvm_do ; result=$? ;;
 
     iconv|openssl|ncurses|zlib|readline|curl)
@@ -372,7 +389,7 @@ rvm() {
     error)
       $rvm_scripts_path/log "fail" "$rvm_error_message ( see: 'rvm usage' )"
       __rvm_pushpop
-      result=1;
+      result=1
     ;;
 
     *)
@@ -384,9 +401,10 @@ rvm() {
       result=1
   esac
 
+  if [[ "$rvm_reload_flag" -eq 1 ]] ; then source "$rvm_path/scripts/rvm" ; fi
+
   if [[ "1" = "$rvm_trace_flag" ]] ; then set +x ; unset rvm_trace_flag ; fi
 
   return $result
 }
-
 

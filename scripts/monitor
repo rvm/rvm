@@ -1,1 +1,83 @@
 #!/usr/bin/env bash
+
+if [[ -z "$rvm_trace_flag" ]] ; then set +x ; else set -x ; fi
+
+original_ruby_version=$rvm_ruby_version
+original_ruby_string=$rvm_ruby_string
+
+source $rvm_scripts_path/rvm
+
+rvm_monitor_sleep="${rvm_monitor_sleep:-2}"
+
+trap "rm -f $rvm_path/$$* > /dev/null 2>&1 ; exit" 0 1 2 3 15
+
+timestamp() {
+  if [[ "Darwin" = "$(uname)" ]] ; then
+    echo $(stat -f "%m" $1)
+  else
+    echo $(stat -c "%Y" $1)
+  fi
+}
+
+push_if_timestamp_changed() {
+  file=$1
+  file_timestamp=$(timestamp $file)
+
+  eval "time=\$${framework}_timestamp"
+  if [[ "$file_timestamp" -gt $time ]] ; then
+    array_push "changed_${framework}_files" $file
+  fi
+}
+
+update_timestamp() {
+  if [[ -d "${1}/" ]] ; then
+    touch "$rvm_path/${$}_${1}_timestamp"
+    eval "${1}_timestamp=\$(timestamp \"$rvm_path/${$}_${1}_timestamp\")"
+  fi
+}
+
+update_timestamp "test"
+update_timestamp "spec"
+
+while : ; do
+  changed_test_files=() ; changed_spec_files=()
+
+  for framework in test spec ; do
+
+    if [[ -d "$framework/" ]] ; then
+
+      #files=($(\ls ${framework}/**/*_${framework}.rb) $(ls ${framework}/*_${framework}.rb))
+      #for file in "${files[@]}" ; do
+      for file in ${framework}/**/*_${framework}.rb ${framework}/*_${framework}.rb ; do
+        if [[ -f "$file" ]] ; then
+          push_if_timestamp_changed $file $framework
+        fi
+      done
+
+      if [[ "$(array_length "changed_${framework}_files")" -gt 0 ]] ; then
+        rvm_ruby_version=$original_ruby_version
+        rvm_ruby_string=$original_ruby_string
+        if [[ "spec" = "$framework" ]] ; then
+          rvm_action="spec"
+          rvm_ruby_args="spec/spec_helper.rb ${changed_spec_files[*]}"
+          __rvm_do
+
+        elif [[ "test" = "$framework" ]] ; then
+          rvm_action="ruby"
+          rvm_ruby_args=" -r$(echo "${changed_test_files[*]}" | sed 's/ / -r/g') test/test_helper.rb"
+          __rvm_do
+        fi
+        update=1
+      fi
+    fi
+
+    if [[ "$update" -eq 1 ]] ; then
+      update_timestamp $framework
+    fi
+  done
+
+  unset update changed_test_files changed_spec_files
+
+  sleep $rvm_monitor_sleep
+done
+

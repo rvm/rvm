@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 __rvm_gems_select() {
+  if [[ -z "$(which gem 2>/dev/null)" ]] ; then return 0 ; fi
+
   if [[ -z "$rvm_gem_set_name" ]] ; then
     if [[ ! -z "$GEM_HOME" ]] ; then
       rvm_gem_set_name=$(echo $GEM_HOME | xargs basename | awk -F'%' '{print $2}')
@@ -15,12 +17,12 @@ __rvm_gems_select() {
     else
       if [[ ! -z "$rvm_ruby_interpreter" ]] && [[ ! -z "$rvm_ruby_version" ]] && [[ "$rvm_ruby_interpreter" != "system" ]] ; then
         rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_interpreter/$rvm_ruby_version"
-      elif [[ -z "$GEM_HOME" ]] ; then
+      elif [[ -z "$GEM_HOME" ]]  && [[ ! -z "$(which gem 2>/dev/null)" ]] ; then
         rvm_ruby_gem_home=$(gem env gemdir)
       elif [[ ! -z "$GEM_HOME" ]] ; then
         rvm_ruby_gem_home="$GEM_HOME"
       else
-        $rvm_scripts_path/log "error" "Cannot select gem home, something definitely wrong :/"
+        unset rvm_ruby_gem_home
       fi
     fi
     if [[ -z "$rvm_gem_set_name" ]] ; then unset rvm_gem_set_name ; fi
@@ -243,8 +245,9 @@ __rvm_gems_load() {
 }
 
 __rvm_gemdir() {
+
   if [[ "$rvm_user_flag" -eq 1 ]] ; then
-    echo $(rvm system ; gem env | grep $HOME | awk '{print $NF}')
+    echo $(rvm system ; gem env | grep "\- $HOME" | awk '{print $NF}')
   elif [[ "$rvm_system_flag" -eq 1 ]] ; then
     echo $(rvm system ; gem env gemdir system)
   elif [[ ! -z "$rvm_ruby_string" ]] ; then
@@ -259,6 +262,11 @@ __rvm_gemdir() {
 __rvm_gems() {
   unset GEM_PATH
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select $* ; fi
+
+  if [[ -z "$(which gem 2>/dev/null)" ]] ; then
+    $rvm_scripts_path/log "error" "'gem' was not found, cannot perform gem actions."
+    return 1
+  fi
 
   if [[ ! -z "$rvm_clear_flag" ]] ; then
     __rvm_gems_clear
