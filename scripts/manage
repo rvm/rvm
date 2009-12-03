@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+if [[ -z "$rvm_trace_flag" ]] ; then set +x ; else set -x ; fi
+
+original_ruby_version=$rvm_ruby_version
+original_ruby_string=$rvm_ruby_string
+
+source $rvm_scripts_path/rvm
+
+trap "rm -f $rvm_path/$$* > /dev/null 2>&1 ; exit" 0 1 2 3 15
+
 __rvm_install_source() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select $* ; fi
   $rvm_scripts_path/log "info" "Installing Ruby from source to: $rvm_ruby_home"
@@ -412,45 +421,6 @@ RubyWrapper
   if [[ ! -z "$ruby_options" ]] ; then RUBYOPT=$ruby_options ; export RUBYOPT ; fi
 }
 
-__rvm_manage_rubies() {
-  __rvm_state
-  rubies=() ; successes=() ; errors=() ; statuses=()
-  unset rvm_gem_set_name
-  rvm_ruby_gem_home=$(echo $rvm_ruby_gem_home | awk -F'%' '{print $1}')
-  rvm_ruby_string=$(echo $rvm_ruby_string | awk -F'%' '{print $1}')
-  # TODO: Extract the common functionality out of the if below
-  if [[ ! -z "$rvm_ruby_string" ]] ; then
-    unset rvm_ruby_interpreter rvm_ruby_version
-    __rvm_${rvm_action}_ruby
-  elif [[ ! -z "$rvm_ruby_version" ]] ;then
-    for rvm_ruby_string in $(echo $rvm_ruby_version | tr ',' ' ') ; do
-      eval "__rvm_${rvm_action}_ruby"
-      __rvm_unset_ruby_variables
-    done
-  elif [[ ! -z "$rvm_ruby_interpreter" ]] ; then
-    unset rvm_ruby_string rvm_ruby_version
-    eval "__rvm_${rvm_action}_ruby"
-  else # all
-    if [[ "$rvm_action" != "install" ]] ; then
-      while read -r bin_line
-      do # Keep this on second line damnit!
-        if [[ -x "$bin_line" ]] ; then
-          rvm_ruby_string="$(dirname "$bin_line" | xargs dirname | xargs basename)"
-          eval "__rvm_${rvm_action}_ruby"
-          __rvm_unset_ruby_variables
-        fi
-      done < <(\ls $rvm_path/*/bin/ruby 2> /dev/null)
-    else
-      $rvm_scripts_path/log "warn" 'Really? Install all? See "rvm list --all" and limit the selection to something more sane please :)'
-    fi
-  fi
-  __rvm_state
-
-  if [[ ! -z "$rvm_summary_flag" ]] ; then __rvm_summary ; fi
-  if [[ ! -z "$rvm_yaml_flag" ]]   ; then __rvm_yaml    ; fi
-  if [[ ! -z "$rvm_json_flag" ]]   ; then __rvm_json    ; fi
-}
-
 __rvm_fetch_ruby() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select $* ; fi
 
@@ -668,15 +638,49 @@ __rvm_actual_file() {
   fi
 }
 
-__rvm_install_llvm() {
-  builtin cd "$rvm_src_path"
-  if [[ ! -d "$rvm_src_path/llvm/.svn" ]] ; then
-    rm -rf "$rvm_src_path/llvm"
-    svn co -r 82747 https://llvm.org/svn/llvm-project/llvm/trunk llvm
-    builtin cd "$rvm_src_path/llvm"
-    ./configure --enable-bindings=none
-    UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make -j2
-    sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make install
+__rvm_manage_rubies() {
+  #__rvm_state
+  rubies=() ; successes=() ; errors=() ; statuses=()
+  unset rvm_gem_set_name rvm_ruby_selected_flag
+  rvm_ruby_gem_home=$(echo $rvm_ruby_gem_home | awk -F'%' '{print $1}')
+  rvm_ruby_string=$(echo $rvm_ruby_string | awk -F'%' '{print $1}')
+
+  # TODO: Extract the common functionality out of the if below
+  #if [[ ! -z "$rvm_ruby_string" ]] ; then
+  #  unset rvm_ruby_interpreter rvm_ruby_version
+  #  eval "__rvm_${rvm_action}_ruby"
+  #  __rvm_unset_ruby_variables
+  #elif [[ ! -z "$rvm_ruby_version" ]] ;then
+  if [[ ! -z "$rubies_string" ]] ;then
+    for rvm_ruby_string in $(echo $rubies_string | tr ',' ' ') ; do
+      eval "__rvm_${rvm_action}_ruby"
+      __rvm_unset_ruby_variables
+    done
+  #elif [[ ! -z "$rvm_ruby_interpreter" ]] ; then
+  #  unset rvm_ruby_string rvm_ruby_version
+  #  eval "__rvm_${rvm_action}_ruby"
+  #  __rvm_unset_ruby_variables
+  else # all
+    if [[ "$rvm_action" != "install" ]] ; then
+      while read -r bin_line
+      do # Keep this on second line damnit!
+        if [[ -x "$bin_line" ]] ; then
+          rvm_ruby_string="$(dirname "$bin_line" | xargs dirname | xargs basename)"
+          eval "__rvm_${rvm_action}_ruby"
+          __rvm_unset_ruby_variables
+        fi
+      done < <(\ls $rvm_path/*/bin/ruby 2> /dev/null)
+    else
+      $rvm_scripts_path/log "warn" 'Really? Install all? See "rvm list --all" and limit the selection to something more sane please :)'
+    fi
   fi
+  #__rvm_state
+
+  if [[ ! -z "$rvm_summary_flag" ]] ; then __rvm_summary ; fi
+  if [[ ! -z "$rvm_yaml_flag" ]]   ; then __rvm_yaml    ; fi
+  if [[ ! -z "$rvm_json_flag" ]]   ; then __rvm_json    ; fi
 }
 
+rvm_action="$1" ; rubies_string="$2"
+__rvm_manage_rubies
+exit $?
