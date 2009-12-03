@@ -4,74 +4,12 @@ __rvm_install_source() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select $* ; fi
   $rvm_scripts_path/log "info" "Installing Ruby from source to: $rvm_ruby_home"
   mkdir -p "$rvm_ruby_log_path"
-
   __rvm_pushpop "$rvm_src_path"
-
-  if [[ ! -z "$rvm_force_flag" ]] ; then
-    rm -rf "$rvm_ruby_home" "$rvm_ruby_src_path"
-  fi
+  if [[ ! -z "$rvm_force_flag" ]] ; then rm -rf "$rvm_ruby_home" "$rvm_ruby_src_path" ; fi
 
   result=0
-  # TODO: This really should be about the url instead of this hokey logic.
-  if [[ -z "$rvm_head_flag" ]] && [[ -z "$rvm_ruby_tag" ]] && [[ -z "$rvm_ruby_revision" ]] ; then
-    if [[ ! -f "$rvm_archives_path/$rvm_ruby_package_name.tar.gz" ]] ; then
-      rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
-      $rvm_scripts_path/log "info" "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
-      $rvm_scripts_path/fetch "$rvm_url"
-      result=$? ; if [[ "$result" -gt 0 ]] ; then return $result ; fi
-    fi
-    #mkdir -p "$rvm_ruby_src_path" # Is this line necessary considering -C below?    v
-    __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_src_path" "Extracting $rvm_ruby_package_name ..."
-    if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
-  else
-    if [[ ! -z "$(echo $rvm_url | awk '/^git/')" ]] ; then
-      if [[ -d "$rvm_ruby_src_path/.git" ]] ; then
-        builtin cd $rvm_ruby_src_path
-        if [[ -z "$rvm_ruby_revision" ]] ; then
-          $rvm_scripts_path/log "info" "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
-          git pull origin master
-          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
-        else
-          if [[ -z "$rvm_ruby_sha" ]] ; then
-            git checkout HEAD
-          else
-            git checkout $(echo $rvm_ruby_sha | sed 's#^s##')
-          fi
-          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
-        fi
-      else
-        $rvm_scripts_path/log "info" "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
-        git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path
-        if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
-      fi
-    else
-      if [[ ! -z "$rvm_head_flag" ]] || [[  "trunk" = "$rvm_ruby_revision" ]] ; then
-        rvm_url="$rvm_ruby_repo_url/trunk"
-        rvm_rev=""
-      elif [[ ! -z "$rvm_ruby_tag" ]] ; then
-        # TODO: Check if tag v is valid
-        rvm_url="$rvm_ruby_repo_url/tags/$(echo $rvm_ruby_tag | sed 's/^t//')"
-        rvm_rev=""
-      else
-        rvm_url=$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}
-        rvm_rev="-$rvm_ruby_revision"
-      fi
-
-      if [[ -d "$rvm_ruby_src_path/.svn" ]] ; then
-        builtin cd $rvm_ruby_src_path
-        $rvm_scripts_path/log "info" "Updating ruby from $rvm_url"
-        __rvm_run "svn.update" "svn update"
-        if [[ ! -z "$rvm_rev" ]] ; then
-          $rvm_scripts_path/log "info" "Checking out revision ${rvm_rev/-r/-r } from $rvm_url"
-          __rvm_run "svn.checkout" "svn update -q ${rvm_rev/-r/-r }"
-        fi
-      else
-        rm -rf $rvm_ruby_src_path
-        __rvm_run "svn.checkout" "svn checkout -q ${rvm_rev/-r/-r } $rvm_url $rvm_ruby_src_path"
-      fi
-      if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
-    fi
-  fi
+  __rvm_fetch_ruby
+  if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
 
   builtin cd $rvm_ruby_src_path
   if [[ $? -gt 0 ]] ; then result=$? ; $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log" ; __rvm_pushpop ; return $result ; fi
@@ -538,6 +476,73 @@ __rvm_manage_rubies() {
   if [[ ! -z "$rvm_summary_flag" ]] ; then __rvm_summary ; fi
   if [[ ! -z "$rvm_yaml_flag" ]]   ; then __rvm_yaml    ; fi
   if [[ ! -z "$rvm_json_flag" ]]   ; then __rvm_json    ; fi
+}
+
+__rvm_fetch_ruby() {
+  # TODO: This really should be about the url instead of this hokey logic.
+  if [[ -z "$rvm_head_flag" ]] && [[ -z "$rvm_ruby_tag" ]] && [[ -z "$rvm_ruby_revision" ]] ; then
+    if [[ ! -f "$rvm_archives_path/$rvm_ruby_package_name.tar.gz" ]] ; then
+      if [[ "ruby" = "$rvm_ruby_interpreter" ]] ; then
+        rvm_url="${rvm_url:-"ftp://ftp.ruby-lang.org/pub/ruby/1.$rvm_major_version/$rvm_ruby_package_name.tar.gz"}"
+      else
+        rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
+      fi
+      $rvm_scripts_path/log "info" "Downloading $rvm_ruby_package_name, this may take a while depending on your connection..."
+      $rvm_scripts_path/fetch "$rvm_url"
+      result=$? ; if [[ "$result" -gt 0 ]] ; then return $result ; fi
+    fi
+    #mkdir -p "$rvm_ruby_src_path" # Is this line necessary considering -C below?    v
+    __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_name.tar.gz -C $rvm_src_path" "Extracting $rvm_ruby_package_name ..."
+    if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+  else
+    if [[ ! -z "$(echo $rvm_url | awk '/^git/')" ]] ; then
+      if [[ -d "$rvm_ruby_src_path/.git" ]] ; then
+        builtin cd $rvm_ruby_src_path
+        if [[ -z "$rvm_ruby_revision" ]] ; then
+          $rvm_scripts_path/log "info" "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
+          git pull origin master
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+        else
+          if [[ -z "$rvm_ruby_sha" ]] ; then
+            git checkout HEAD
+          else
+            git checkout $(echo $rvm_ruby_sha | sed 's#^s##')
+          fi
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+        fi
+      else
+        $rvm_scripts_path/log "info" "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
+        git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path
+        if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+      fi
+    else
+      if [[ ! -z "$rvm_head_flag" ]] || [[  "trunk" = "$rvm_ruby_revision" ]] ; then
+        rvm_url="$rvm_ruby_repo_url/trunk"
+        rvm_rev=""
+      elif [[ ! -z "$rvm_ruby_tag" ]] ; then
+        # TODO: Check if tag v is valid
+        rvm_url="$rvm_ruby_repo_url/tags/$(echo $rvm_ruby_tag | sed 's/^t//')"
+        rvm_rev=""
+      else
+        rvm_url=$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}
+        rvm_rev="-$rvm_ruby_revision"
+      fi
+
+      if [[ -d "$rvm_ruby_src_path/.svn" ]] ; then
+        builtin cd $rvm_ruby_src_path
+        $rvm_scripts_path/log "info" "Updating ruby from $rvm_url"
+        __rvm_run "svn.update" "svn update"
+        if [[ ! -z "$rvm_rev" ]] ; then
+          $rvm_scripts_path/log "info" "Checking out revision ${rvm_rev/-r/-r } from $rvm_url"
+          __rvm_run "svn.checkout" "svn update -q ${rvm_rev/-r/-r }"
+        fi
+      else
+        rm -rf $rvm_ruby_src_path
+        __rvm_run "svn.checkout" "svn checkout -q ${rvm_rev/-r/-r } $rvm_url $rvm_ruby_src_path"
+      fi
+      if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+    fi
+  fi
 }
 
 __rvm_uninstall_ruby() {
