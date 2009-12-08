@@ -17,20 +17,22 @@ archive=$(basename "$1") ; downlaod=1
 (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Fetching $archive"
 
 # Check first if we have the correct archive
-if [[ -e "$archive" ]] && [[ -e "$archive.md5" ]] ; then
+archive_md5="$($rvm_scripts_path/db "$rvm_config_path/md5" "$archive")"
+if [[ -e "$archive" ]] && [[ ! -z "$archive_md5" ]] ; then
   (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Found archive and its md5, testing correctness"
-  if [[ $(md5sum --status -c "$archive.md5") -gt 0 ]] ; then
+  if [[ $($rvm_scripts_path/md5 $archive $archive_md5) -gt 0 ]] ; then
     (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Archive is bad, downloading"
     download=1
   else
     (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Archive is good, not downloading"
     download=0
     result=0
-  fi
+  fi ; unset archive_md5
 else
   (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "No archive or no MD5, downloading"
   download=1
 fi
+
 if [[ $download -gt 0 ]] ; then
   eval $fetch_command "$1"
   result=$?
