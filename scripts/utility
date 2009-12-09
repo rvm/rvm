@@ -357,7 +357,16 @@ __rvm_update_rvm() {
   mkdir -p "$rvm_src_path"
   __rvm_pushpop "$rvm_src_path"
 
+  ruby="$(which ruby)"
   system_ruby="$(rvm system ; which ruby 2>/dev/null)"
+  if [[ ! -x "$ruby" ]] ; then
+    if [[ ! -x "$system" ]] ; then
+      unset ruby
+    else
+      ruby=$system_ruby
+    fi
+  fi
+
   if [[ "head" = "$rvm_ruby_revision" ]] || [[ -z "$system_ruby" ]] ; then
     if [[ -d "$rvm_src_path/rvm/.git" ]] ; then
       builtin cd $rvm_src_path/rvm/ && git pull origin master && ./scripts/install
@@ -365,14 +374,15 @@ __rvm_update_rvm() {
       builtin cd $rvm_src_path && git clone git://github.com/wayneeseguin/rvm.git && builtin cd rvm/ && ./install
     fi
   else
-    # TODO: rvm_install_path:
-    if [ $(gem list rvm --installed) = 'true' ]; then
-        gem update rvm --no-rdoc --no-ri --quiet
+    if [[ "true" = "$($ruby -S gem list rvm --installed)" ]]; then
+      $ruby -S gem update rvm --no-rdoc --no-ri --quiet
     else
-        gem install rvm --no-rdoc --no-ri --quiet
+      $ruby -S gem install rvm --no-rdoc --no-ri --quiet
     fi
-    builtin cd "$(rvm system ; gem env | grep "\- $HOME" | awk '{print $NF}' | head -n 1)/gems/rvm-$(gem list rvm | sed 's/.*(//' | sed 's/).*//' | awk -F',' '{print $1 ; exit}')" && ./install
+    # TODO: Check all gem paths instead of simply assuming the last one...
+    builtin cd "$($ruby -S gem env | grep "\- $HOME" | awk '{print $NF}' | head -n 1)/gems/rvm-$(gem list rvm | sed 's/.*(//' | sed 's/).*//' | awk -F',' '{print $1 ; exit}')" && ./install
   fi
+  unset ruby system_ruby
   __rvm_pushpop
   __rvm_hook "after_update"
 }
