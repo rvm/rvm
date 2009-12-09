@@ -58,11 +58,11 @@ __rvm_parse_args() {
 
       gems|gemset)
         rvm_action="gems"
-        if [[ "name" = "$1" ]] || [[ "dir" = "$1" ]] || [[ "list" = "$1" ]] || [[ "empty" = "$1" ]] || [[ "delete" = "$1" ]] ; then
-          export rvm_${1}_flag=1 ; shift
-        elif [[ "dump" = "$1" ]] || [[ "$1" = "load" ]] ; then
-          export rvm_${1}_flag=1 ; shift
+        if [[ "name" = "$1" ]] || [[ "dir" = "$1" ]] || [[ "list" = "$1" ]] || [[ "empty" = "$1" ]] || [[ "delete" = "$1" ]] || [[ "dump" = "$1" ]] || [[ "load" = "$1" ]] ; then
+          rvm_ruby_args="$*"
+          #export rvm_${1}_flag=1 ; shift
         else
+          rvm_gem_set_name="$1" ; shift
           export rvm_use_flag=1 # Default is to use the (named) gem set.
         fi
       ;;
@@ -72,11 +72,6 @@ __rvm_parse_args() {
         rvm_gemdir_flag=1
         if [[ "system" = "$1" ]] ; then export rvm_system_flag=1 ; shift ; fi
         if [[ "user" = "$1"  ]]   ; then export rvm_user_flag=1  ;  shift ; fi
-      ;;
-
-      --load|load|dump|clear)
-        rvm_action="gems"
-        export rvm_${rvm_token}_flag=1
       ;;
 
       -S|-e)
@@ -362,7 +357,6 @@ rvm() {
   result=0
   case "$rvm_action" in
     use)           __rvm_use                 ; result=$?  ;;
-    gemdir)        $rvm_scripts_path/gems gemdir ; result=$?  ;;
     srcdir)        __rvm_source_dir          ; result=$?  ;;
     list)          __rvm_list                ; result=$?  ;;
     version)       __rvm_version             ; result=$?  ;;
@@ -373,8 +367,18 @@ rvm() {
     usage|help)    __rvm_usage               ; result=$?  ;;
     benchmark)     __rvm_benchmark           ; result=$?  ;;
     inspect)       __rvm_inspect             ; result=$?  ;;
-    gems)          $rvm_scripts_path/gems ${rvm_ruby_file:-$rvm_ruby_args} ; result=$?  ;;
     ruby|gem|rake) __rvm_do                  ; result=$?  ;;
+    gemdir)        $rvm_scripts_path/gems gemdir ; result=$?  ;;
+    gems)
+      if [[ "$rvm_use_flag" -eq 1 ]] ; then
+        __rvm_gems_select
+        __rvm_gems_use
+      else
+        $rvm_scripts_path/gems $rvm_ruby_args
+      fi
+      result=$?
+    ;;
+
     monitor)
       export rvm_ruby_version rvm_ruby_string
       $rvm_scripts_path/monitor ; result=$?
