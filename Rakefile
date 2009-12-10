@@ -49,6 +49,18 @@ begin
     gemspec.homepage        = "http://github.com/wayneeseguin/rvm"
     gemspec.extensions      << "extconf.rb" if File::exists?("extconf.rb")
     gemspec.rubyforge_project = "rvm"
+    gemspec.post_install_message = <<-POST_INSTALL_MESSAGE
+#{"*" * 80}
+
+  In order to setup rvm for your user's environment you must now run rvm-install.
+  rvm-install will be found in your current gems bin directory corresponding to where the gem was installed.
+
+  rvm-install will install the scripts to your user account and append itself to your profiles in order to
+  inject the proper rvm functions into your shell so that you can manage multiple rubies.
+
+#{"*" * 80}
+    POST_INSTALL_MESSAGE
+
   end
 rescue LoadError
   puts "Jeweler not available. Install it with: gem install jeweler -s http://gemcutter.org/"
