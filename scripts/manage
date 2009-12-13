@@ -351,6 +351,47 @@ RubyWrapper
       done ; unset rvm_gem_name
     ;;
 
+    ironruby|ir)
+      if [[ -z "$(which mono 2>/dev/null)" ]] ; then
+        echo -e "mono must be installed and in your path in order to install IronRuby." ; return 1
+      fi
+
+      $rvm_scripts_path/log "info" "Retrieving IronRuby"
+      $rvm_scripts_path/fetch "$rvm_url"
+      result=$? ; if [[ "$result" -gt 0 ]] ; then return $result ; fi
+
+      __rvm_run "extract" "unzip $rvm_archives_path/$rvm_ruby_package_file ironruby/bin/* ironruby/lib/* -d $rvm_ruby_home" "Extracting $rvm_ruby_package_file ..."
+      mv $rvm_ruby_home/ironruby/* $rvm_ruby_home
+      rm -rf $rvm_ruby_home/ironruby
+      mv $rvm_ruby_home/lib/ironruby $rvm_ruby_home/lib/IronRuby
+
+      binaries="gem irb rake rdoc ri ruby"
+      for binary_name in $(echo $binaries); do
+        binary_path=""
+        if [[ "ruby" != "$binary_name" ]] ; then 
+          binary_path="$rvm_ruby_home/bin/i$binary_name"
+        fi
+        ruby_wrapper=$(cat <<RubyWrapper
+#!/bin/bash
+
+GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
+GEM_PATH="$rvm_ruby_gem_home" ; export GEM_PATH
+MY_RUBY_HOME="$rvm_ruby_home" ; export MY_RUBY_HOME
+PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH" ; export PATH
+
+exec mono $rvm_ruby_home/bin/ir.exe $binary_path "\$@"
+RubyWrapper
+)
+        files="$rvm_ruby_home/bin/$binary_name $rvm_path/bin/$binary_name-$rvm_ruby_string"
+        for file_name in $(echo $files)  ; do
+          rm -f $file_name
+          echo "$ruby_wrapper" > $file_name
+          if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
+        done
+        unset file_name ruby_wrapper binary_name binary_path files prefix
+      done
+    ;;
+
     mput|shyouhei)
       if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
       unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
