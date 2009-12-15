@@ -235,7 +235,9 @@ __rvm_use() {
 
     new_path=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
     new_path=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_path/bin:$rvm_bin_path:$new_path
+  fi
 
+  if [[ ! -z "$rvm_default_flag" ]] && [[ "default" != "$rvm_ruby_interpreter" ]] ; then
     if [[ "root" = "$(whoami)" ]] ; then
       for binary in erb gem irb rake rdoc ri ruby testrb ; do
         rm -f $rvm_symlink_path/$binary
@@ -243,36 +245,34 @@ __rvm_use() {
         rm -f $rvm_symlink_path/passenger_ruby
         ln -nfs $rvm_bin_path/$rvm_ruby_string $rvm_symlink_path/passenger_ruby
       done
-    fi
-  fi
-
-  if [[ ! -z "$rvm_default_flag" ]] && [[ "default" != "$rvm_ruby_interpreter" ]] ; then
-    if [[ "system" = "$rvm_ruby_interpreter" ]] ; then
-      rm -f $rvm_path/default
-      rm -f $rvm_path/bin/default*
     else
-      RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's#^\(.*\) (.*$#\1#')"
-      export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
-
-      echo "PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_path/bin:\$PATH ; export PATH" > $rvm_path/default
-
-      for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gem_set_name; do
-        eval "export $variable"
-        eval value=\$${variable}
-        if [[ ! -z "$value" ]] ; then
-          echo "${variable}='$value' ; export ${variable}" >> $rvm_path/default
-        else
-          echo "unset ${variable}" >> $rvm_path/default
-        fi
-      done ; unset variable value
-
-      if [[ -s "$rvm_path/bin/$rvm_ruby_string" ]] ; then
+      if [[ "system" = "$rvm_ruby_interpreter" ]] ; then
+        rm -f $rvm_path/default
         rm -f $rvm_path/bin/default*
-        ln -fs "$rvm_path/bin/$rvm_ruby_string" "$rvm_path/bin/default_ruby" # So that people know what it's for :)
-        ln -fs "$rvm_path/$rvm_ruby_string/bin/gem" "$rvm_path/bin/default_gem"
-        ln -fs "$rvm_path/$rvm_ruby_string/bin/irb" "$rvm_path/bin/default_irb"
       else
-        rm -f $rvm_path/bin/default*
+        RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's#^\(.*\) (.*$#\1#')"
+        export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
+
+        echo "PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_path/bin:\$PATH ; export PATH" > $rvm_path/default
+
+        for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gem_set_name; do
+          eval "export $variable"
+          eval value=\$${variable}
+          if [[ ! -z "$value" ]] ; then
+            echo "${variable}='$value' ; export ${variable}" >> $rvm_path/default
+          else
+            echo "unset ${variable}" >> $rvm_path/default
+          fi
+        done ; unset variable value
+
+        if [[ -s "$rvm_path/bin/$rvm_ruby_string" ]] ; then
+          rm -f $rvm_path/bin/default*
+          ln -fs "$rvm_path/bin/$rvm_ruby_string" "$rvm_path/bin/default_ruby" # So that people know what it's for :)
+          ln -fs "$rvm_path/$rvm_ruby_string/bin/gem" "$rvm_path/bin/default_gem"
+          ln -fs "$rvm_path/$rvm_ruby_string/bin/irb" "$rvm_path/bin/default_irb"
+        else
+          rm -f $rvm_path/bin/default*
+        fi
       fi
     fi
     unset rvm_default_flag
