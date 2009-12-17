@@ -71,7 +71,7 @@ __rvm_debug() {
 
   for file_name in $(echo $rc_files) ; do
     if [[ -s "$file_name" ]] ; then
-      $rvm_scripts_path/log "debug" "$file_name:\n$(grep 'rvm' $file_name)"
+      $rvm_scripts_path/log "debug" "$file_name:\n$(grep 'rvm' $file_name 2>/dev/null)"
     fi
   done
 
@@ -117,7 +117,10 @@ __rvm_run() {
   mkdir -p $(dirname "$rvm_ruby_log_path/$log_file_name.log")
 
   if [[ ! -z "$message" ]] ; then $rvm_scripts_path/log "info" "$message" ; fi
-  (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "Executing: $command"
+  if [[ ! -z "$rvm_debug_flag" ]] ; then
+    $rvm_scripts_path/log "debug" "Executing: $command"
+  fi
+
   touch "$rvm_ruby_log_path/$log_file_name.log" "$rvm_ruby_log_path/$log_file_name.error.log" # for zsh :(
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee "$rvm_ruby_log_path/$log_file_name.log" > "$rvm_ruby_log_path/$log_file_name.error.log"
   if [[ -z "$rvm_niceness" ]] || [[ "0" = "$rvm_niceness" ]] ; then
@@ -339,8 +342,7 @@ __rvm_initialize() {
 
   __rvm_clean_path
 
-  rvm_result=$(echo $PATH | grep 'rvm\/bin:')
-  if [[ -z "$rvm_result" ]] ; then
+  if echo $PATH | grep -q 'rvm\/bin:' ; then
     PATH=$rvm_bin_path:$PATH ; export PATH
   fi
 
@@ -533,7 +535,9 @@ __rvm_yaml() {
   total=${#rubies[*]}
   if [[ ! -z "$ZSH_VERSION" ]] ; then array_start=1 ; else array_start=0 ; fi
   for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
-    (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    if [[ ! -z "$rvm_debug_flag" ]] ; then
+      $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    fi
     yaml="$yaml\n  \"${rubies[$index]}\": ${statuses[$index]}"
   done ; unset index array_start
   mkdir -p log
@@ -552,7 +556,9 @@ __rvm_json() {
   total=${#rubies[*]}
   if [[ ! -z "$ZSH_VERSION" ]] ; then array_start=1 ; else array_start=0 ; fi
   for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
-    (( $rvm_debug_flag )) && $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    if [[ ! -z "$rvm_debug_flag" ]] ; then
+      $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    fi
     json="$json\n    {\"${rubies[$index]}\": ${statuses[$index]}}"
     if (( $index + 1 < $total + $array_start )) ; then json="$json,  " ; fi
   done ; unset index array_start
