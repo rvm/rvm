@@ -114,44 +114,47 @@ __rvm_gems_load() {
 
     while read -r line
     do # Keep this on 2nd line :(
-      #
-      # Parse the line
-      #
-      gem="$(echo $line | awk -F';' '{print $1}')"
-      gem_prefix="$(echo $line | awk -F';' '{print $2}')"
-      if $rvm_scripts_path/match "$gem" "\.gem$" ; then
-        gem_name="$(basename $gem | sed 's#\.gem##' | awk -F'-' '{$NF=NULL;print}')"
-        gem_version="$(basename $gem | sed 's#\.gem##' | awk -F'-' '{print $NF}' )"
-        gem_postfix="$(basename $gem | sed "s#.*\.gem##")"
-      else
-        gem_name="$(echo $gem | awk '{print $1}')"
-        if $rvm_scripts_path/match "$gem" "--version" ; then
-          gem_version="$(echo $gem | sed 's#.*--version[=]*[ ]*##' | awk '{print $1}')"
-          gem_postfix="$(echo $gem | sed "s#${gem_name/ /}##" | sed "s#--version[=]*[ ]*${gem_version/ /}##")"
-        elif $rvm_scripts_path/match "$gem" "-v" ; then
-          gem_version="$(echo $gem | sed 's#.*-v[=]*[ ]*##' | awk '{print $1}')"
-          gem_postfix="$(echo $gem | sed "s#${gem_name/ /}##" | sed "s#-v[=]*[ ]*${gem_version/ /}##")"
-        else
-          unset gem_version # no version
-        fi
-      fi
-
-      if [[ -f "$gem" ]] ; then
-        gem_file_name="$gem"
-      elif $rvm_scripts_path/match "$gem" ".gem$" ; then
-        gem_file_name="$gem"
-      elif [[ -z "${gem_version/ /}" ]] ; then # no v/Users/wayne/projects/db0/rvm/scripts/gems
-        gem_file_name="${gem_name/ /}*.gem"
-      else # version
-        gem_file_name="${gem_name/ /}-${gem_version/ /}.gem"
-      fi
+      __rvm_parse_gem_line $line
       __rvm_gem_install
     done < <(awk '/^[\.\/a-zA-Z]/{print}' "$rvm_file_name")
   else
     $rvm_scripts_path/log "error" "$rvm_file_name does not exist to load from."
   fi
 }
+
+__rvm_parse_gem_line() {
+  line="$*"
+  gem="$(echo $line | awk -F';' '{print $1}')"
+  gem_prefix="$(echo $line | awk -F';' '{print $2}')"
+  if $rvm_scripts_path/match "$gem" "\.gem$" ; then
+    gem_name="$(basename $gem | sed 's#\.gem##' | awk -F'-' '{$NF=NULL;print}')"
+    gem_version="$(basename $gem | sed 's#\.gem##' | awk -F'-' '{print $NF}' )"
+    gem_postfix="$(basename $gem | sed "s#.*\.gem##")"
+  else
+    gem_name="$(echo $gem | awk '{print $1}')"
+    if $rvm_scripts_path/match "$gem" "--version" ; then
+      gem_version="$(echo $gem | sed 's#.*--version[=]*[ ]*##' | awk '{print $1}')"
+      gem_postfix="$(echo $gem | sed "s#${gem_name/ /}##" | sed "s#--version[=]*[ ]*${gem_version/ /}##")"
+    elif $rvm_scripts_path/match "$gem" "-v" ; then
+      gem_version="$(echo $gem | sed 's#.*-v[=]*[ ]*##' | awk '{print $1}')"
+      gem_postfix="$(echo $gem | sed "s#${gem_name/ /}##" | sed "s#-v[=]*[ ]*${gem_version/ /}##")"
+    else
+      unset gem_version # no version
+    fi
+  fi
+
+  if [[ -f "$gem" ]] ; then
+    gem_file_name="$gem"
+  elif $rvm_scripts_path/match "$gem" ".gem$" ; then
+    gem_file_name="$gem"
+  elif [[ -z "${gem_version/ /}" ]] ; then # no v/Users/wayne/projects/db0/rvm/scripts/gems
+    gem_file_name="${gem_name/ /}*.gem"
+  else # version
+    gem_file_name="${gem_name/ /}-${gem_version/ /}.gem"
+  fi
+}
 __rvm_gem_install() {
+  __rvm_parse_gem_line $*
 
   installed_gem="$(ls ${rvm_ruby_gem_home}/specifications/${gem_file_name}spec 2>/dev/null | head -n 1)"
   if [[ -z "$rvm_force_flag" ]] && [[ -f "$installed_gem" ]] ; then
@@ -211,7 +214,7 @@ __rvm_gem_install() {
     if [[ $result -eq 0 ]] ; then
       $rvm_scripts_path/log "info" "$color_green$gem_name $gem_version$color_none installed."
     else
-      $rvm_scripts_path/log "error" "$color_red$gem_name $gem_version$color_none failed to install."
+      $rvm_scripts_path/log "error" "$color_red$gem_name $gem_version$color_none failed to install, output logged to $rvm_path/log/$rvm_ruby_string/gem.install.error.log"
     fi
   fi ; unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
   return $result
@@ -257,8 +260,7 @@ elif [[ "list" = "$action" ]] ; then
 elif [[ "gemdir" = "$action" ]] ; then
   __rvm_gems_gemdir
 elif [[ "install" = "$action" ]] ; then
-  gem_file_name="$1"
-  __rvm_gem_install
+  __rvm_gem_install $*
 else
   $rvm_scripts_path/log "error" "gems must be passed an action as the first parameter {load,dump,delete,name,list,gemdir,install}"
 fi
