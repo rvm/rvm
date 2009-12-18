@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 
 source $rvm_path/scripts/utility
 
@@ -10,7 +10,7 @@ color_none=$($rvm_scripts_path/color "none")
 if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
 if [[ -d "$rvm_ruby_gem_home" ]] && which gem &> /dev/null ; then rvm_ruby_gem_home="$(gem env home)" ; fi
 
-trap "rm -f $rvm_path/tmp/$$* > /dev/null 2>&1 ; exit" 0 1 2 3 15
+trap "if [[ -d $rvm_path/tmp/ ]] && [[ -f $rvm_path/tmp/$$ ]] ; then rm -f $rvm_path/tmp/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
 
 __rvm_gems_name() {
   echo "$rvm_gem_set_name"
@@ -153,7 +153,7 @@ __rvm_gems_load() {
 }
 __rvm_gem_install() {
 
-  installed_gem="$(ls ${rvm_ruby_gem_home}/specifications/${gem_file_name}*spec 2>/dev/null | head -n 1)"
+  installed_gem="$(ls ${rvm_ruby_gem_home}/specifications/${gem_file_name}spec 2>/dev/null | head -n 1)"
   if [[ -z "$rvm_force_flag" ]] && [[ -f "$installed_gem" ]] ; then
     unset gem
     $rvm_scripts_path/log "info" "$color_green$gem_name $gem_version$yellow exists, skipping (--force to re-install)"
@@ -201,20 +201,20 @@ __rvm_gem_install() {
 
     $rvm_scripts_path/log "warn" "$gem_name $gem_version is not installed, installing..."
     if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
-      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
+      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
     else
-      command="$gem_prefix gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
+      command="$gem_prefix $rvm_ruby_home/bin/gem install --no-rdoc --no-ri -q $gem $gem_postfix $vars"
     fi
-    if [[ -f "$gem" ]] ; then command="${command} -l" ; fi
-    eval $command > /dev/null 2>&1
+
+    eval $command >> "$rvm_path/log/$rvm_ruby_string/gem.install.log" 2>> "$rvm_path/log/$rvm_ruby_string/gem.install.error.log"
     result=$?
     if [[ $result -eq 0 ]] ; then
-    $rvm_scripts_path/log "info" "$color_green$gem_name $gem_version$color_none installed."
+      $rvm_scripts_path/log "info" "$color_green$gem_name $gem_version$color_none installed."
     else
       $rvm_scripts_path/log "error" "$color_red$gem_name $gem_version$color_none failed to install."
     fi
-  fi
-  unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
+  fi ; unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
+  return $result
 }
 
 __rvm_gems_gemdir() {
