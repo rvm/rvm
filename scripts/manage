@@ -329,13 +329,44 @@ RubyWrapper
         echo -e "mono must be installed and in your path in order to install IronRuby." ; return 1
       fi
 
-      $rvm_scripts_path/log "info" "Retrieving IronRuby"
-      $rvm_scripts_path/fetch "$rvm_url" || (result=$? && return $result)
+      if [[ "$rvm_head_flag" = 1 ]] ; then
+          mono_version="$(mono -V | head -n 1 | cut -d ' ' -f5)"
+          if [[ "$mono_version" =~ ([0-9]+)\.([0-9]+)\.?([0-9]+)? ]] ; then
+            if [[ ${BASH_REMATCH[1]} -lt 2 ]] || [[ ${BASH_REMATCH[2]} -lt 6 ]] ; then 
+              echo -e "Mono 2.6 (or greater) must be installed and in your path in order to build IronRuby from the repository."
+              echo -e "Version detected: ${BASH_REMATCH[0]}"
+              return 1
+            fi
+          else 
+            echo -e "Cannot recognize mono version."
+            return 1
+          fi
 
-      __rvm_run "extract" "unzip $rvm_archives_path/$rvm_ruby_package_file ironruby/bin/* ironruby/lib/* -d $rvm_ruby_home" "Extracting $rvm_ruby_package_file ..."
-      mv $rvm_ruby_home/ironruby/* $rvm_ruby_home
-      rm -rf $rvm_ruby_home/ironruby
-      mv $rvm_ruby_home/lib/ironruby $rvm_ruby_home/lib/IronRuby
+          __rvm_fetch_ruby
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+
+          rvm_ruby_make='rake MERLIN_ROOT="`pwd`/Merlin/Main" compile mono=1 configuration=release --trace'
+          __rvm_run "rake" "$rvm_ruby_make" "Building IronRuby..."
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+
+          rm -rf $rvm_ruby_home/*
+          mkdir -p $rvm_ruby_home/bin $rvm_ruby_home/lib $rvm_ruby_home/lib/ruby $rvm_ruby_home/lib/IronRuby
+
+          cp -r `pwd`/Merlin/Main/Bin/mono_release/* $rvm_ruby_home/bin/
+          cp -r `pwd`/Merlin/Main/Languages/Ruby/Scripts/bin/* $rvm_ruby_home/bin/
+          cp -r `pwd`/Merlin/External.LCA_RESTRICTED/Languages/Ruby/ruby-1.8.6p*/lib/ruby/* $rvm_ruby_home/lib/ruby
+          cp -r `pwd`/Merlin/Main/Languages/Ruby/Libs/* $rvm_ruby_home/lib/IronRuby
+      else
+        $rvm_scripts_path/log "info" "Retrieving IronRuby"
+        $rvm_scripts_path/fetch "$rvm_url" || (result=$? && return $result)
+
+        __rvm_run "extract" "unzip $rvm_archives_path/$rvm_ruby_package_file ironruby/bin/* ironruby/lib/* -d $rvm_ruby_home" "Extracting $rvm_ruby_package_file ..."
+        if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+
+        mv $rvm_ruby_home/ironruby/* $rvm_ruby_home
+        rm -rf $rvm_ruby_home/ironruby
+        mv $rvm_ruby_home/lib/ironruby $rvm_ruby_home/lib/IronRuby
+      fi
 
       binaries="gem irb rake rdoc ri ruby"
       for binary_name in $(echo $binaries); do
