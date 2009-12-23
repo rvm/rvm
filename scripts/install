@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+if [[ "--auto" = "$1" ]] ; then rvm_auto_flag=1 ; else unset rvm_auto_flag ; fi
+
 if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
 if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
 
@@ -28,8 +30,7 @@ if [[ ! -d "$source_dir" ]] ; then unset source_dir ; fi
 source_dir="${source_dir:-$cwd}"
 
 # State what is required to use rvm
-echo -e "\n$(tput setaf 2)rvm$(tput sgr0) - shell scripts that allows a user to manage multiple ruby versions in their own account."
-echo -e "\n    Prepairing $rvm_path ..."
+echo -e "\nInstalling rvm to $rvm_path/ ..."
 for dir_name in src scripts bin log archives config gems examples ; do
   mkdir -p "$rvm_path/$dir_name"
 done
@@ -38,7 +39,6 @@ cp -f "$source_dir/README" "$rvm_path/"
 #
 # Scripts
 #
-echo -e "\n    Installing rvm to $rvm_path/ ..."
 rm -rf $rvm_path/scripts # Clear the old scripts directory so that the old style rvm- scripts are cleared out.
 for dir_name in config scripts examples lib hooks ; do
   mkdir -p "$rvm_path/$dir_name"
@@ -54,7 +54,6 @@ fi
 #
 # Bin Scripts
 #
-echo -e "\n    Installing bin scripts to $rvm_path/bin ..."
 # Cleanse and purge...
 rm -f $rvm_path/bin/rvm ; rm -rf $rvm_path/bin/binscripts
 for file in rvm-prompt rvm rvmsudo ; do
@@ -65,21 +64,23 @@ chmod +x $rvm_path/bin/*
 #
 # RC Files
 #
-echo -e "\n    Checking rc files ($rvm_rc_files) ..."
-if [[ "$rvm_loaded_flag" != "1" ]] ; then
-  for rcfile in $(echo $rvm_rc_files) ; do
-    if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
-    if [[ -s "$HOME/.profile" ]] ; then
-      if ! grep -q '.profile' "$rcfile" ; then
-        echo "    Adding 'if [[ -s \$HOME/.profile ]] ; then source \$HOME ; fi' to $rcfile."
-        echo -e "\n# rvm-install added line:\nif [[ -s \$HOME/.profile ]] ; then source \$HOME/.profile ; fi\n" >> $rcfile
+if [[ ! -z "$rvm_auto_flag" ]] ; then
+  echo -e "Checking rc files... ($rvm_rc_files)"
+  if [[ "$rvm_loaded_flag" != "1" ]] ; then
+    for rcfile in $(echo $rvm_rc_files) ; do
+      if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
+      if [[ -s "$HOME/.profile" ]] ; then
+        if ! grep -q '.profile' "$rcfile" ; then
+          echo "    Adding 'if [[ -s \$HOME/.profile ]] ; then source \$HOME ; fi' to $rcfile."
+          echo -e "\n# rvm-install added line:\nif [[ -s \$HOME/.profile ]] ; then source \$HOME/.profile ; fi\n" >> $rcfile
+        fi
       fi
-    fi
-    if ! grep -q "scripts\/rvm" "$rcfile" ; then
-      echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
-      echo -e "\n# rvm-install added:\nif [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> $rcfile
-    fi
-  done
+      if ! grep -q "scripts\/rvm" "$rcfile" ; then
+        echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
+        echo -e "\n# rvm-install added:\nif [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> $rcfile
+      fi
+    done
+  fi
 fi
 
 if [[ "root" = "$(whoami)" ]] ; then
@@ -92,15 +93,26 @@ fi
 #
 # System Checks
 #
+echo -e "\n$(tput setaf 2)rvm$(tput sgr0) - shell scripts that allows a user to manage multiple ruby versions in their own account."
 $rvm_path/scripts/notes
 
-echo -e "    $item In order to use rvm the following line must occur in your shell's loading files, after all path/variable settings:"
-echo -e "\n       if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
-echo -e "\n    $item CLOSE THIS SHELL AND OPEN A NEW ONE in order to use rvm."
+echo -e "$(tput setaf 2)RTFM: $(tput sgr0) http://rvm.beginrescueend.com/"
+echo -e "\n$(tput setaf 2)HELP: $(tput sgr0) http://webchat.freenode.net/?channels=rvm "
 
-echo -e "\n$(tput setaf 2)RTFM:\n    $(tput sgr0) http://rvm.beginrescueend.com/ \n"
-echo -e "$(tput setaf 2)w⦿‿⦿t!$(tput sgr0)"
+name="$(awk -F= '/^[[:space:]]*name/{print $2}' ~/.gitconfig 2>/dev/null)"
+echo -e "\n\n${name:-"$(whoami)"},\n"
+echo -e "\nThank you for using rvm. I sincerly hope it makes your work easier and more enjoyable."
+echo -e "If you have any questions, issues and/or ideas for improvement please hop in #rvm on irc.freenode.net and let me know."
+echo -e "My irc nickname is 'wayneeseguin' and I hang out from ~09:00-17:00EST and again from ~21:00EST-~00:00EST."
+echo -e "If I do not respond right away, please hang around after asking your question, I will respond as soon as I am back."
+echo -e "\nw$(tput setaf 2)⦿‿⦿$(tput sgr0)t!"
 echo -e "\n    ~ Wayne\n"
+
+echo -e "\n$(tput setaf 1)You must now finish the install manually:$(tput sgr0)"
+echo -e "\n1) Place the folowing line at the end of your shell's loading files(.bash_profile and/or .zshenv), after all path/variable settings:"
+echo -e "\n     if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
+echo -e "\n2) Ensure that there is no 'return' from inside the .bashrc file. (otherwise rvm will be prevented from working properly)."
+echo -e "\n3) $(tput setaf 1)CLOSE THIS SHELL$(tput sgr0) and open a new one in order to use rvm.\n"
 
 if [[ -x "$rvm_path/bin/rvm" ]] ; then "$rvm_path/bin/rvm" -v ; fi
 
