@@ -1,6 +1,32 @@
 #!/usr/bin/env bash
 
-if [[ "--auto" = "$1" ]] ; then rvm_auto_flag=1 ; else unset rvm_auto_flag ; fi
+unset rvm_auto_flag
+
+source scripts/version
+source scripts/utility
+
+usage() {
+  echo -e "
+  Usage:
+    ${0} <options>
+
+  Options:
+    --auto    : Automatically update shell profile files.
+    --prefix  : Installation prefix directory.
+    --help    : Display help/usage (this) message
+    --version : display rvm package version
+  "
+}
+
+while [[ $# -gt 0 ]] ; do
+  token="$1" ; shift
+  case "$token" in
+    --auto)    rvm_auto_flag=1          ;;
+    --prefix)  prefix_path="$1" ; shift ;;
+    --version) rvm_path="$(pwd)" ; __rvm_version ; unset rvm_path ; exit ;;
+    --help|*)  usage                    ;;
+  esac
+done
 
 if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
 if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
@@ -14,7 +40,6 @@ if ! [[ "$rvm_path" =~ /rvm/?$ ]] ; then
   fi
 fi
 
-source scripts/utility
 source scripts/initialize
 
 __rvm_initialize
@@ -25,16 +50,16 @@ __rvm_initialize
 item="$(tput setaf 2)* $(tput sgr0)"
 question="\n$(tput setaf 2)<?>$(tput sgr0)"
 cwd=$(pwd)
-source_dir="${source_dir:-"$(dirname $0 | xargs dirname)"}"
-if [[ ! -d "$source_dir" ]] ; then unset source_dir ; fi
-source_dir="${source_dir:-$cwd}"
+source_path="${source_path:-"$(dirname $0 | xargs dirname)"}"
+if [[ ! -d "$source_path" ]] ; then unset source_path ; fi
+source_path="${source_path:-$cwd}"
 
 # State what is required to use rvm
 echo -e "\nInstalling rvm to $rvm_path/ ..."
 for dir_name in src scripts bin log archives config gems examples ; do
   mkdir -p "$rvm_path/$dir_name"
 done
-cp -f "$source_dir/README" "$rvm_path/"
+cp -f "$source_path/README" "$rvm_path/"
 
 #
 # Scripts
@@ -42,8 +67,8 @@ cp -f "$source_dir/README" "$rvm_path/"
 rm -rf $rvm_path/scripts # Clear the old scripts directory so that the old style rvm- scripts are cleared out.
 for dir_name in config scripts examples lib hooks ; do
   mkdir -p "$rvm_path/$dir_name"
-  if [[ -d "$source_dir/$dir_name" ]] ; then
-    cp -Rf "$source_dir/$dir_name" "$rvm_path"
+  if [[ -d "$source_path/$dir_name" ]] ; then
+    cp -Rf "$source_path/$dir_name" "$rvm_path"
   fi
 done ; unset dir_name
 
@@ -57,7 +82,7 @@ fi
 # Cleanse and purge...
 rm -f $rvm_path/bin/rvm ; rm -rf $rvm_path/bin/binscripts
 for file in rvm-prompt rvm rvmsudo ; do
-  cp -f "$source_dir/binscripts/$file" $rvm_path/bin/
+  cp -f "$source_path/binscripts/$file" $rvm_path/bin/
 done
 chmod +x $rvm_path/bin/*
 
@@ -83,6 +108,15 @@ if [[ ! -z "$rvm_auto_flag" ]] ; then
   fi
 fi
 
+#
+# TODO: Migrate ~/.rvm/ruby-X,jruby-X,... to ~/.rvm/rubies/
+#
+#rvm_rubies_path="${rvm_rubies_path:-"$rvm_path/rubies"}"
+#mkdir -p $rvm_rubies_path
+#for ruby in "$rvm_path"/ruby-* "$rvm_path"/jruby-* "$rvm_path"/mput-* "$rvm_path"/rbx-* ; do
+#  if [[ -d "$ruby" ]] ; then mv "$ruby" "$rvm_rubies_path" ; fi
+#done
+
 if [[ "root" = "$(whoami)" ]] ; then
   echo -e "\n    Symlinking rvm to $rvm_symlink_path/rvm ..."
   mkdir -p $rvm_symlink_path
@@ -107,13 +141,15 @@ echo -e "If I do not respond right away, please hang around after asking your qu
 echo -e "\n  w$(tput setaf 2)⦿‿⦿$(tput sgr0)t!"
 echo -e "\n    ~ Wayne\n"
 echo "================================================================================"
-
+echo -e "Upgrades"
+echo -e "Gems are now per interpreter installation instead of per interpreter/version"
+echo -e "so for example to upgrade an older install of 1.8.6 and preserve gems:"
+echo -e "rm -rf ~/.rvm/gems/ruby-1.8.6-p383 ;  mv ~/.rvm/gems/ruby/1.8.6 ~/.rvm/gems/ruby-1.8.6-p383"
+echo "================================================================================"
 echo -e "\n$(tput setaf 1)You must now finish the install manually:$(tput sgr0)"
 echo -e "\n1) Place the folowing line at the end of your shell's loading files(.bashrc and then .bash_profile for bash and .zshrc for zsh), after all path/variable settings:"
 echo -e "\n     if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
 echo -e "\n2) Ensure that there is no 'return' from inside the .bashrc file. (otherwise rvm will be prevented from working properly)."
 echo -e "\n3) $(tput setaf 1)CLOSE THIS SHELL$(tput sgr0) and open a new one in order to use rvm.\n"
-
-if [[ -x "$rvm_path/bin/rvm" ]] ; then "$rvm_path/bin/rvm" -v ; fi
 
 exit 0
