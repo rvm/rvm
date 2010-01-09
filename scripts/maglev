@@ -59,13 +59,13 @@ fi
 
 # We're good to go. Let user know.
 machine_name="`uname -n`"
-echo "[[Info]] Starting installation of $version on $machine_name"
+$rvm_scripts_path/log "info" "Starting installation of $version on $machine_name"
 
 # Do a trivial sudo to test we can and get the password prompt out of the way
 sudo date
 
 # Figure out how much total memory is installed
-echo "[[Info]] Setting up shared memory"
+$rvm_scripts_path/log "info" "Setting up shared memory"
 #
 # Ref: http://wiki.finkproject.org/index.php/Shared_Memory_Regions_on_Darwin
 # Ref: http://developer.postgresql.org/pgdocs/postgres/kernel-resources.html
@@ -127,22 +127,22 @@ shmallNewMB=$(($shmallNew / 256))
 
 # Increase shmmax if appropriate
 if [[ $shmmaxNew -gt $shmmax ]]; then
-  echo "[[Info]] Increasing max shared memory segment size to $shmmaxNewMB MB"
+  $rvm_scripts_path/log "info" "Increasing max shared memory segment size to $shmmaxNewMB MB"
   [[ $system = "Darwin" ]] && sudo sysctl -w kern.sysv.shmmax=$shmmaxNew
   [[ $system = "Linux" ]] && sudo bash -c "echo $shmmaxNew > /proc/sys/kernel/shmmax"
   [[ $system = "Solaris-x86" ]] && echo "[[Warning]] shmmax must be set manually on Solaris-x86"
 else
-  echo "[[Info]] No need to increase max shared memory segment size"
+  $rvm_scripts_path/log "info" "No need to increase max shared memory segment size"
 fi
 
 # Increase shmall if appropriate
 if [[ $shmallNew -gt $shmall ]]; then
-  echo "[[Info]] Increasing max shared memory allowed to $shmallNewMB MB"
+  $rvm_scripts_path/log "info" "Increasing max shared memory allowed to $shmallNewMB MB"
   [[ $system = "Darwin" ]] && sudo sysctl -w kern.sysv.shmall=$shmallNew
   [[ $system = "Linux" ]] && sudo bash -c "echo $shmallNew > /proc/sys/kernel/shmall"
   [[ $system = "Solaris-x86" ]] && echo "[[Warning]]shmall must be set manually on Solaris-x86"
 else
-  echo "[[Info]] No need to increase max shared memory allowed"
+  $rvm_scripts_path/log "info" "No need to increase max shared memory allowed"
 fi
 
 # At this point, shared memory settings contain the values we want,
@@ -151,8 +151,8 @@ if [ ! -f /etc/sysctl.conf  ||  "$(grep -sc "kern.*.shm" /etc/sysctl.conf)" = "0
   case "$system" in
     Linux)
       echo "# kernel.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
-      echo "kernel.shmmax=`cat /proc/sys/kernel/shmmax`" >> /tmp/sysctl.conf.$$
-      echo "kernel.shmall=`cat /proc/sys/kernel/shmall`" >> /tmp/sysctl.conf.$$
+      echo "kernel.shmmax=$(cat /proc/sys/kernel/shmmax)" >> /tmp/sysctl.conf.$$
+      echo "kernel.shmall=$(cat /proc/sys/kernel/shmall)" >> /tmp/sysctl.conf.$$
     ;;
     Darwin)
       # On Mac OS X Leopard, you must have all five settings in sysctl.conf
@@ -172,24 +172,24 @@ if [ ! -f /etc/sysctl.conf  ||  "$(grep -sc "kern.*.shm" /etc/sysctl.conf)" = "0
   esac
   # Do nothing on Solaris-x86 since /etc/sysctl.conf is ignored on Solaris 10.
   if [[ "$system" != "Solaris-x86" ]]; then
-    echo "[[Info]] Adding the following section to /etc/sysctl.conf"
+    $rvm_scripts_path/log "info" "Adding the following section to /etc/sysctl.conf"
     cat /tmp/sysctl.conf.$$
     sudo bash -c "cat /tmp/sysctl.conf.$$ >> /etc/sysctl.conf"
     /bin/rm -f /tmp/sysctl.conf.$$
   fi
 else
-  echo "[[Info]] The following shared memory settings already exist in /etc/sysctl.conf"
+  $rvm_scripts_path/log "info" "The following shared memory settings already exist in /etc/sysctl.conf"
   echo "To change them, remove the following lines from /etc/sysctl.conf and rerun this script"
   grep "kern.*.shm" /etc/sysctl.conf
 fi
 
 # Now setup for NetLDI in case we ever need it.
-echo "[[Info]] Setting up GemStone netldi service port"
-if [[ `grep -sc "^gs64ldi" /etc/services` -eq 0 ]]; then
+$rvm_scripts_path/log "info" "Setting up GemStone netldi service port"
+if [[ $(grep -sc "^gs64ldi" /etc/services) -eq 0 ]]; then
   echo '[[Info]] Adding "gs64ldi  50378/tcp" to /etc/services'
   sudo bash -c 'echo "gs64ldi         50378/tcp        # Gemstone netldi"  >> /etc/services'
 else
-  echo "[[Info]] GemStone netldi service port is already set in /etc/services"
+  $rvm_scripts_path/log "info" "GemStone netldi service port is already set in /etc/services"
   echo "To change it, remove the following line from /etc/services and rerun this script"
   grep "^gs64ldi" /etc/services
 fi
