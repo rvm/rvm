@@ -380,12 +380,15 @@ RubyWrapper
     maglev)
       export rvm_install_on_use_flag=1 ; $rvm_bin_path/rvm 1.8.7 --install # This should install if missing.
 
-      mkdir -p "$rvm_ruby_log_path" "$rvm_ruby_src_path"
+      mkdir -p "$rvm_ruby_log_path"
       __rvm_pushpop $rvm_src_path
 
-      __rvm_fetch_ruby
-      result=$? ; if [[ "$result" -gt 0 ]] ; then
-        $rvm_scripts_path/log "error" "There has been an error while trying to fetch the source. Aborting the installation." ; __rvm_pushpop ; return $result
+      if [[ ! -d "$rvm_src_path/$rvm_ruby_string" ]] || [[ ! -z "$rvm_force_flag" ]] ; then
+        rm -rf "$rvm_src_path/$rvm_ruby_string/" "$rvm_src_path/$rvm_ruby_string/"
+        __rvm_fetch_ruby
+        result=$? ; if [[ "$result" -gt 0 ]] ; then
+          $rvm_scripts_path/log "error" "There has been an error while trying to fetch the source. Aborting the installation." ; __rvm_pushpop ; return $result
+        fi
       fi
 
       $rvm_scripts_path/log "info" "Downloading the gemstone package, this may take a while depending on your connection..."
@@ -394,17 +397,18 @@ RubyWrapper
         $rvm_scripts_path/log "error" "There has been an error while trying to fetch the gemstone package. Aborting the installation." ; __rvm_pushpop ; return $result
       fi
 
+      builtin cd "$rvm_src_path"
+
+      mv "$rvm_ruby_package_file" "$rvm_ruby_string"
+
       builtin cd "$rvm_ruby_src_path"
 
-      __rvm_run "maglev.extract" "unzip -q $rvm_archives_path/$rvm_ruby_package_file/ $rvm_ruby_src_path/"
+      __rvm_run "gemstone.extract" "unzip -q -o $rvm_archives_path/$rvm_gemstone_package_file -d $rvm_ruby_src_path"
       result=$? ; if [[ "$result" -gt 0 ]] ; then
         $rvm_scripts_path/log "error" "There has been an error while trying to extract the gemstone package. Aborting the installation." ; __rvm_pushpop ; return $result
       fi
 
-      __rvm_run "gemstone.extract" "unzip -q $rvm_archives_path/$rvm_gemstone_package_file/ $rvm_ruby_src_path/"
-      result=$? ; if [[ "$result" -gt 0 ]] ; then
-        $rvm_scripts_path/log "error" "There has been an error while trying to extract the gemstone package. Aborting the installation." ; __rvm_pushpop ; return $result
-      fi
+      mv "$rvm_gemstone_package_file" "gemstone"
 
       __rvm_pushpop
 
@@ -424,12 +428,19 @@ RubyWrapper
 
       builtin cd "$rvm_ruby_home"
 
-      if [ ! -e ${MAGLEV_HOME}/etc/conf.d/maglev.conf ]; then
+      #ln -fs "$rvm_ruby_home/$(echo $rvm_gemstone_package_file | awk -F'.' '{print $1}')" "$rvm_ruby_home/gemstone"
+
+      if [[ ! -e ${rvm_ruby_home}/etc/conf.d/maglev.conf ]] ; then
         $rvm_scripts_path/log "info" "Creating default 'maglev' repository." ; __rvm_pushpop ; return $result
-        $rvm_bin_path/rvm 1.8.7 rake stone:create[maglev] >/dev/null
+        $rvm_bin_path/rvm 1.8.7 rake "stone:create[maglev]" >/dev/null
       fi
+
       $rvm_scripts_path/log "info" "Generating maglev HTML documentation" ; __rvm_pushpop ; return $result
-      $rvm_bin_path/rvm 1.8.7 rake rake rdoc >/dev/null 2>&1
+      $rvm_bin_path/rvm 1.8.7 rake rdoc >/dev/null 2>&1
+
+      $rvm_scripts_path/log "info" "Generating smalltalk FFI." ; __rvm_pushpop ; return $result
+      $rvm_bin_path/rvm 1.8.7 rake stwrappers >/dev/null 2>&1
+
 
       # TODO: Figure out if anything needs to be done with rubygems.
       #__rvm_rubygems_setup
@@ -479,7 +490,7 @@ RubyWrapper
           $rvm_scripts_path/log "error" "There has been an error while trying to fetch the source. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
 
-        __rvm_run "extract" "unzip $rvm_archives_path/$rvm_ruby_package_file ironruby/bin/* ironruby/lib/* -d $rvm_ruby_home" "Extracting $rvm_ruby_package_file ..."
+        __rvm_run "extract" "unzip -q -o $rvm_archives_path/$rvm_ruby_package_file ironruby/bin/* ironruby/lib/* -d $rvm_ruby_home" "Extracting $rvm_ruby_package_file ..."
         result=$? ; if [[ "$result" -gt 0 ]] ; then
           $rvm_scripts_path/log "error" "There has been an error while trying to extract the source. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
@@ -628,9 +639,16 @@ __rvm_fetch_ruby() {
 
     # Only re-extract if forced.
     if [[ ! -d "$rvm_src_path/$rvm_ruby_string" ]] || [[ ! -z "$rvm_force_flag" ]] ; then
-      __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension -C $rvm_src_path" "Extracting $rvm_ruby_package_file ..."
-      result=$? ; if [[ "$result" -gt 0 ]] ; then
-        $rvm_scripts_path/log "error" "There has been an error while trying to extract the source. Aborting the installation." ; __rvm_pushpop ; return $result
+      if [[ "tar.gz" = "$rvm_archive_extension" ]] ; then
+        __rvm_run "extract" "tar xzf $rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension -C $rvm_src_path" "Extracting $rvm_ruby_package_file ..."
+        result=$? ; if [[ "$result" -gt 0 ]] ; then
+          $rvm_scripts_path/log "error" "There has been an error while trying to extract the source. Aborting the installation." ; __rvm_pushpop ; return $result
+        fi
+      elif [[ "zip" = "$rvm_archive_extension" ]] ; then
+        __rvm_run "extract" "unzip -q -o $rvm_archives_path/$rvm_ruby_package_file -d $rvm_src_path"
+        result=$? ; if [[ "$result" -gt 0 ]] ; then
+          $rvm_scripts_path/log "error" "There has been an error while trying to extract $rvm_ruby_package_file. Aborting the installation." ; __rvm_pushpop ; return $result
+        fi
       fi
     else
       $rvm_scripts_path/log "info" "$rvm_ruby_src_path has already been extracted." ; __rvm_pushpop ; return 0
