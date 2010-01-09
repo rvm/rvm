@@ -75,6 +75,35 @@ __rvm_select() {
       alias jruby_ng_server="jruby --ng-server"
     ;;
 
+    maglev)
+      unset rvm_ruby_patch_level
+      if [[ ! -z "$rvm_head_flag" ]] ; then
+        rvm_ruby_version="head"
+        rvm_ruby_string="maglev-head"
+        rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
+        rvm_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
+      else
+        system="$(uname -s)"
+        # It would be nice if we didn't have to do this if..else..
+        if [[ "Darwin" = "$system" ]] ; then
+          rvm_ruby_package_file="MagLev-${rvm_ruby_version}.MacOSX"
+          rvm_gemstone_package_file="GemStone-${rvm_ruby_version}.MacOSX"
+        elif [[ "SunOS" = "$system" ]] && [[ "i86pc" = "$(uname -m)"]]; then
+          rvm_ruby_package_file="MagLev-${rvm_ruby_version}.Solaris-x86"
+          rvm_gemstone_package_file="GemStone-${rvm_ruby_version}.Solaris-x86"
+        else
+          rvm_ruby_package_file="MagLev-${rvm_ruby_version}.${system}"
+          rvm_gemstone_package_file="GemStone-${rvm_ruby_version}.${system}"
+        fi
+        rvm_archive_extension="zip"
+        rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "maglev_version")"}"
+        rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+        rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+        rvm_url="http://glass-downloads.gemstone.com/maglev/${rvm_ruby_package_file}.zip"
+        rvm_gemstone_url="http://glass-downloads.gemstone.com/maglev/${rvm_ruby_package_file}.zip"
+      fi
+    ;;
+
     ironruby)
       unset rvm_ruby_patch_level
       if [[ "$rvm_head_flag" -eq 1 ]] ; then
@@ -171,6 +200,8 @@ __rvm_select() {
     rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
     rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
     rvm_ruby_gem_home="${rvm_gem_path}/${rvm_ruby_string}"
+
+    if [[ "maglev" = "$rvm_ruby_interpreter" ]] ; then export MAGLEV_HOME="$rvm_ruby_home" ; fi
 
     if [[ ! -z "$rvm_gem_set_name" ]] ; then
       rvm_ruby_gem_home="${rvm_ruby_gem_home}%${rvm_gem_set_name}"
@@ -280,7 +311,7 @@ __rvm_use() {
 
       echo "export PATH=\"$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_path/bin:\$PATH\"" > $rvm_path/default
 
-      for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gem_set_name ; do
+      for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gem_set_name MAGLEV_HOME ; do
         eval "export $variable"
         eval value=\$${variable}
         if [[ ! -z "$value" ]] ; then
@@ -295,17 +326,13 @@ __rvm_use() {
   fi
   unset rvm_default_flag
 
-  if [[ ! -z "$rvm_symlink_name" ]] ; then $rvm_scripts_path/symlink "$rvm_symlink_name" ; unset rvm_symlink_name ; fi
-  if [[ ! -z "$rvm_editor_flag" ]] ; then $rvm_scripts_path/symlink "editor" ; unset rvm_editor_flag ; fi
-  if [[ ! -z "$rvm_passenger_flag" ]] ; then $rvm_scripts_path/symlink "passenger" ; unset rvm_passenger_flag; fi
-
+  if [[ ! -z "$rvm_symlink_name" ]]   ; then $rvm_scripts_path/symlink "$rvm_symlink_name" ; unset rvm_symlink_name   ; fi
+  if [[ ! -z "$rvm_editor_flag" ]]    ; then $rvm_scripts_path/symlink "editor"            ; unset rvm_editor_flag    ; fi
+  if [[ ! -z "$rvm_passenger_flag" ]] ; then $rvm_scripts_path/symlink "passenger"         ; unset rvm_passenger_flag ; fi
   # Export ruby string and gem set name for extrnal scripts to take advantage of them.
-  if [[ ! -z "$rvm_ruby_string" ]] ; then export rvm_ruby_string ; fi
-  if [[ ! -z "$rvm_gem_set_name" ]] ; then export rvm_gem_set_name ; fi
-
-  if [[ ! -z "$new_path" ]] ; then
-    export PATH="$new_path" ; unset new_path
-  fi
+  if [[ ! -z "$rvm_ruby_string" ]]    ; then export rvm_ruby_string  ; fi
+  if [[ ! -z "$rvm_gem_set_name" ]]   ; then export rvm_gem_set_name ; fi
+  if [[ ! -z "$new_path" ]]           ; then export PATH="$new_path" ; unset new_path ; fi
 
   $rvm_scripts_path/hook "after_use"
 }
@@ -378,7 +405,7 @@ __rvm_ruby_string() {
     elif $rvm_scripts_path/match "$string" "^u[a-z0-9]" ; then
       unset rvm_ruby_patch_level rvm_ruby_revision rvm_ruby_tag rvm_ruby_patch
       rvm_ruby_user_tag="$string"
-    elif $rvm_scripts_path/match "ruby rbx jruby macruby ree rubinius mput shyouhei ironruby" "$string" ; then
+    elif $rvm_scripts_path/match "ruby rbx jruby macruby ree rubinius maglev mput shyouhei ironruby" "$string" ; then
       rvm_ruby_interpreter="$string"
     else
       $rvm_scripts_path/log "error" "Unknown ruby string component: '$string'"
@@ -408,6 +435,7 @@ __rvm_ruby_string() {
     rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
   fi
 
+  # Head
   if [[ "$rvm_head_flag" -eq 1 ]] ; then
     rvm_ruby_string="${rvm_ruby_string}-head"
   elif [[ ! -z "$rvm_ruby_revision" ]]  ; then
