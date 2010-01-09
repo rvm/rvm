@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; fi
+
 system="$(uname -s)"
 if [[ $system = "SunOS" ]] && [[ "$(uname -m)" = "i86pc" ]] ; then OS="Solaris-x86" ; fi
 version="MagLev-${1}.${system}"
@@ -9,34 +11,34 @@ zipfile=${version}.zip
 # Check we're on a suitable 64-bit machine
 case "$system" in
   Linux)
-  if [[ "`uname -sm`" != "Linux x86_64" ]]; then
-    echo "[[Error]] This script only works on a 64-bit Linux OS."
+  if [[ "$(uname -sm)" != "Linux x86_64" ]]; then
+    $rvm_scripts_path/log "error" "This script only works on a 64-bit Linux OS."
     echo "The result from \"uname -sm\" is \"`uname -sm`\" not \"Linux x86_64\""
     exit 1
   fi
   ;;
   Darwin)
-  OSVERSION="`sw_vers -productVersion`"
-  MAJOR="`echo $systemVERSION | cut -f1 -d.`"
-  MINOR="`echo $systemVERSION | cut -f2 -d.`"
-  CPU_TYPE="`uname -p`"
-  CPU_CAPABLE="`sysctl hw.cpu64bit_capable | cut -f2 -d' '`"
+  system_version="$(sw_vers -productVersion)"
+  MAJOR="$(echo $system_version | cut -f1 -d.)"
+  MINOR="$(echo $system_version | cut -f2 -d.)"
+  CPU_TYPE="$(uname -p)"
+  CPU_CAPABLE="$(sysctl hw.cpu64bit_capable | cut -f2 -d' ')"
   #
   # Check the CPU and Mac OS profile.
-  if [[ $CPU_TYPE != "i386" ]] || [[ $CPU_CAPABLE -ne 1 ]] || [[ $MAJOR -lt 10 ]] || [[ $MINOR -lt 5 ]] ; then
-    echo "[[Error]] This script requires Mac OS 10.5 or later on a 64-bit Intel CPU."
+  if [[ $CPU_TYPE != "i386" || $CPU_CAPABLE -ne 1 || $MAJOR -lt 10 || $MINOR -lt 5 ]] ; then
+    $rvm_scripts_path/log "error" "This script requires Mac OS 10.5 or later on a 64-bit Intel CPU."
     exit 1
   fi
   ;;
   Solaris-x86)
-  if [[ "`uname -sm`" != "SunOS i86pc" ]]; then
-    echo "[[Error]] This script only works on a 64-bit Solaris-x86 OS."
+  if [[ "$(uname -sm)" != "SunOS i86pc" ]]; then
+    $rvm_scripts_path/log "error" "This script only works on a 64-bit Solaris-x86 OS."
     echo "The result from \"uname -sm\" is \"`uname -sm`\" not \"SunOS i86pc\""
     exit 1
   fi
   ;;
   *)
-  echo "[[Error]] This script only works on a 64-bit Linux, Mac OS X, or Solaris-x86 machine"
+  $rvm_scripts_path/log "error" "This script only works on a 64-bit Linux, Mac OS X, or Solaris-x86 machine"
   echo "The result from \"uname -sm\" is \"`uname -sm`\""
   exit 1
   ;;
@@ -44,13 +46,13 @@ esac
 
 # We should run this as a normal user, not root.
 if [[ `id | cut -f2 -d= | cut -f1 -d\(` -eq 0 ]]; then
-  echo "[[Error]] This script should be run as a normal user, not root."
+  $rvm_scripts_path/log "error" "This script should be run as a normal user, not root."
   exit 1
 fi
 
 # Check that the current directory is writable
 if [[ ! -w "." ]]; then
-  echo "[[Error]] This script requires write permission on your current directory."
+  $rvm_scripts_path/log "error" "This script requires write permission on your current directory."
   /bin/ls -ld $PWD
   exit 1
 fi
@@ -95,7 +97,7 @@ case "$system" in
   shmall=$(($shmmax / 4096))
   ;;
   *)
-  echo "[[Error]] Can't determine operating system. Check script."
+  $rvm_scripts_path/log "error" "Can't determine operating system. Check script."
   exit 1
   ;;
 esac
@@ -145,27 +147,27 @@ fi
 
 # At this point, shared memory settings contain the values we want,
 # put them in sysctl.conf so they are preserved.
-if [[ ! -f /etc/sysctl.conf ]] || [[ `grep -sc "kern.*.shm" /etc/sysctl.conf` -eq 0 ]] ; then
+if [ ! -f /etc/sysctl.conf  ||  "$(grep -sc "kern.*.shm" /etc/sysctl.conf)" = "0" ] ; then
   case "$system" in
     Linux)
-    echo "# kernel.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
-    echo "kernel.shmmax=`cat /proc/sys/kernel/shmmax`" >> /tmp/sysctl.conf.$$
-    echo "kernel.shmall=`cat /proc/sys/kernel/shmall`" >> /tmp/sysctl.conf.$$
+      echo "# kernel.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
+      echo "kernel.shmmax=`cat /proc/sys/kernel/shmmax`" >> /tmp/sysctl.conf.$$
+      echo "kernel.shmall=`cat /proc/sys/kernel/shmall`" >> /tmp/sysctl.conf.$$
     ;;
     Darwin)
-    # On Mac OS X Leopard, you must have all five settings in sysctl.conf
-    # before they will take effect.
-    echo "# kern.sysv.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
-    sysctl kern.sysv.shmmax kern.sysv.shmall kern.sysv.shmmin kern.sysv.shmmni \
-    kern.sysv.shmseg  | tr ":" "=" | tr -d " " >> /tmp/sysctl.conf.$$
+      # On Mac OS X Leopard, you must have all five settings in sysctl.conf
+      # before they will take effect.
+      echo "# kern.sysv.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
+      sysctl kern.sysv.shmmax kern.sysv.shmall kern.sysv.shmmin kern.sysv.shmmni \
+      kern.sysv.shmseg  | tr ":" "=" | tr -d " " >> /tmp/sysctl.conf.$$
     ;;
     Solaris-x86)
-    # Do nothing in Solaris-x86 since /etc/sysctl.conf is ignored on Solaris 10.
-    # Must configure shared memory settings manually.
+      # Do nothing in Solaris-x86 since /etc/sysctl.conf is ignored on Solaris 10.
+      # Must configure shared memory settings manually.
     ;;
     *)
-    echo "[[Error]] Can't determine operating system. Check script."
-    exit 1
+      $rvm_scripts_path/log "error" "Can't determine operating system. Check script."
+      exit 1
     ;;
   esac
   # Do nothing on Solaris-x86 since /etc/sysctl.conf is ignored on Solaris 10.
