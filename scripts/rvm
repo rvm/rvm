@@ -5,44 +5,49 @@
 # http://gitub.com/wayneeseguin/rvm
 
 if [[ "$rvm_loaded_flag" != "1" ]] || [[ "$rvm_reload_flag" = "1" ]] ; then
-  if [[ ! -z "$rvm_reload_flag" ]] ; then
-    unset rvm_reload_flag
-    while [[ $# -gt 0 ]] ; do shift ; done
-  fi
+  unset rvm_reload_flag
 
   if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
   if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
-  if [[ -z "$rvm_path" ]] ; then unset rvm_path ; fi
 
-  if [[ "root" = "$(whoami)" ]] ; then
-    rvm_path="${rvm_path:-/usr/local/rvm}"
-  else
-    if [[ -d "$HOME/.rvm" ]] ; then
-      rvm_path="${rvm_path:-$HOME/.rvm}"
+  if [[ -z "$rvm_path" ]] ; then
+    unset rvm_path
+    if [[ "root" = "$(whoami)" ]] ; then
+      rvm_path="/usr/local/rvm"
     else
-      rvm_path="${rvm_path:-/usr/local/rvm}"
+      if [[ -d "$HOME/.rvm" ]] && [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
+        rvm_path="$HOME/.rvm"
+      elif [[ -d "/usr/local/rvm" ]] && [[ -s "/usr/local/rvm/scripts/rvm" ]] ; then
+        rvm_path="${rvm_path:-"/usr/local/rvm"}"
+      fi
     fi
   fi
+  if [[ -d "$rvm_path" ]] ; then
+    source $rvm_path/scripts/array
+    source $rvm_path/scripts/utility
+    source $rvm_path/scripts/initialize
+    source $rvm_scripts_path/version
+    source $rvm_path/scripts/selector
+    source $rvm_path/scripts/cli
+    #source $rvm_path/scripts/gems
+    source $rvm_path/scripts/libraries
+    source $rvm_path/scripts/cd
 
-  source $rvm_path/scripts/array
-  source $rvm_path/scripts/initialize
-  source $rvm_path/scripts/utility
-  source $rvm_path/scripts/selector
-  source $rvm_path/scripts/ruby-installer # TODO: Script not function.
-  source $rvm_path/scripts/cli
-  source $rvm_path/scripts/gems
-  source $rvm_path/scripts/libraries
-  source $rvm_path/scripts/cd
+    rvm_loaded_flag=1
 
-  rvm_loaded_flag=1
+    rvm_version="$(cat "${rvm_path}/lib/VERSION.yml" | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//')" ; export rvm_version
 
-  rvm_version="$(cat "${rvm_path}/lib/VERSION.yml" | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//')" ; export rvm_version
+    alias rvm-restart="source '${rvm_path}/scripts/rvm'"
 
-  alias rvm-restart="source '${rvm_path}/scripts/rvm'"
-
-  if [[ -f "$rvm_path/default" ]] ; then source "$rvm_path/default" ; fi
+    if [[ -s "$HOME/.rvm/default" ]] ; then
+      source "$HOME/.rvm/default"
+    elif [[ -s "$rvm_path/default" ]] ; then
+      source "$rvm_path/default"
+    elif [[ -s "/usr/local/rvm/default" ]] ; then
+      source "/usr/local/rvm/default"
+    fi
+  else
+    echo -e "\$rvm_path is not set. rvm cannot load."
+  fi
 fi
-
-# Ok now we determine if we were called or sourced... under assumption of course ;)
-if [[ $# -gt 0 ]] && [[ -z "$(echo "$*" | awk '/completion-/')" ]] && [[ "$(basename $0)" = "rvm" ]] ; then rvm "$*" ; fi
 

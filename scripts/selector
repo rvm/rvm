@@ -11,6 +11,8 @@ __rvm_select() {
 
   __rvm_ruby_string
 
+  rvm_archive_extension="tar.gz"
+
   case "$rvm_ruby_interpreter" in
     macruby)
       if [[ "Darwin" = "$(uname)" ]] ; then
@@ -24,12 +26,13 @@ __rvm_select() {
         elif [[ "nightly" = "$rvm_ruby_version" ]] ; then
           rvm_url="http://macruby.icoretech.org/latest"
           rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+          rvm_ruby_package_name="${rvm_ruby_interpreter}_nightly-${rvm_ruby_version}"
+          rvm_ruby_package_file="$rvm_ruby_package_name"
         else
           __rvm_db "macruby_version" "rvm_ruby_version"
-          rvm_ruby_package_name="${rvm_ruby_interpreter}_nightly-${rvm_ruby_version}"
-          rvm_ruby_package_file="MacRuby%200.5%20beta%201.zip"
+          rvm_ruby_package_name="MacRuby%200.5%20beta%201.zip"
+          rvm_ruby_package_file="$rvm_ruby_package_name"
           rvm_url="http://www.macruby.org/files/MacRuby%200.5%20beta%201.zip"
-          rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         fi
 
         unset rvm_ruby_patch_level
@@ -41,28 +44,85 @@ __rvm_select() {
     rbx|rubinius)
       rvm_ruby_interpreter="rbx"
       rvm_ruby_version=${rvm_ruby_version:-$(__rvm_db "rbx_version")}
-      rvm_ruby_patch_level=${rvm_ruby_patch_level:-$(__rvm_db "rbx_patch_level")}
       rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
       __rvm_db "rbx_url" "rvm_url"
-
-      rvm_ruby_file="rubinius-$rvm_ruby_version-$rvm_ruby_patch_level"
+      if [[ -z "$rvm_head_flag" ]] ; then
+        rvm_ruby_patch_level=${rvm_ruby_patch_level:-$(__rvm_db "rbx_patch_level")}
+        rvm_ruby_string="$rvm_ruby_interpreter-$rvm_ruby_version-p$rvm_ruby_patch_level"
+        rvm_ruby_string="${rvm_ruby_string/-prc/-rc}"
+        rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-pp#-p#')"
+        rvm_ruby_file="rubinius-$rvm_ruby_version-$rvm_ruby_patch_level"
+      else
+        unset rvm_ruby_patch_level
+        unset rvm_ruby_version
+        rvm_ruby_string="$rvm_ruby_interpreter-head"
+      fi
     ;;
 
     jruby)
       unset rvm_ruby_patch_level
-      if [[ "$rvm_head_flag" -eq 1 ]] ; then
+      if [[ ! -z "$rvm_head_flag" ]] ; then
         rvm_ruby_version="head"
         rvm_ruby_string="jruby-head"
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
         rvm_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
       else
         rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "jruby_version")"}"
-        rvm_package_file="${rvm_ruby_interpreter}-bin-${rvm_ruby_version}"
+        rvm_ruby_package_file="${rvm_ruby_interpreter}-bin-${rvm_ruby_version}"
+        rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
-        rvm_url="http://jruby.kenai.com/downloads/${rvm_ruby_version}/${rvm_package_file}.tar.gz"
+        rvm_url="http://jruby.kenai.com/downloads/${rvm_ruby_version}/${rvm_ruby_package_file}.tar.gz"
       fi
       alias jruby_ng="jruby --ng"
       alias jruby_ng_server="jruby --ng-server"
+    ;;
+
+    maglev)
+      unset rvm_ruby_patch_level
+      if [[ ! -z "$rvm_head_flag" ]] ; then
+        rvm_ruby_version="head"
+        rvm_ruby_string="maglev-head"
+        rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
+        rvm_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
+      else
+        system="$(uname -s)"
+        arch="$(uname -m)"
+        # It would be nice if we didn't have to do this if..else..
+        #if [[ "Darwin" = "$system" ]] ; then
+        #  rvm_ruby_package_file="MagLev-${rvm_ruby_version}.MacOSX"
+        #  rvm_gemstone_package_file="GemStone-${rvm_ruby_version}.MacOSX"
+        #elif [[ "SunOS" = "$system" ]] && [[ "i86pc" = "$(uname -m)" ]] ; then
+        #  rvm_ruby_package_file="MagLev-${rvm_ruby_version}.Solaris-x86"
+        #  rvm_gemstone_package_file="GemStone-${rvm_ruby_version}.Solaris-x86"
+        #else
+        rvm_ruby_package_file="MagLev-${rvm_ruby_version}.${system}-${arch}"
+        rvm_gemstone_package_file="GemStone-${rvm_ruby_version}.${system}-${arch}"
+        #fi
+        rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "maglev_version")"}"
+        rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+        rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+        maglev_url="$(__rvm_db "maglev_url")"
+        rvm_url="${rvm_ruby_url:-"$maglev_url/${rvm_ruby_package_file}.${rvm_archive_extension}"}"
+        rvm_gemstone_url="${rvm_gemstone_url:-"$maglev_url/${rvm_gemstone_package_file}.${rvm_archive_extension}"}"
+        export MAGLEV_HOME="$rvm_path/$rvm_ruby_string"
+      fi
+    ;;
+
+    ironruby)
+      unset rvm_ruby_patch_level
+      if [[ "$rvm_head_flag" -eq 1 ]] ; then
+        rvm_ruby_version="head"
+        rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+        rvm_ruby_package_name="${rvm_ruby_string}"
+        rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "ironruby_repo_url")}"
+        rvm_url="${rvm_ruby_repo_url:-$(__rvm_db "ironruby_repo_url")}"
+      else
+        rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "ironruby_version")"}
+        rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+        rvm_ruby_package_file="${rvm_ruby_string}.zip"
+        rvm_ruby_package_name="${rvm_ruby_string}"
+        rvm_url="$(__rvm_db "ironruby_url")${rvm_ruby_package_file}"
+      fi
     ;;
 
     ree)
@@ -81,7 +141,7 @@ __rvm_select() {
           rvm_ruby_package_name="ree-$rvm_ruby_version-$rvm_ruby_revision"
         else
           rvm_ruby_package_file="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
-          rvm_url="${rvm_url:-$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")}/$rvm_ruby_package_file.tar.gz"
+          rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
         fi
       fi
 
@@ -131,7 +191,7 @@ __rvm_select() {
 
   __rvm_gems_select
 
-  if [[ ! -z "$rvm_ruby_interpreter" ]] && [[ "system" != "$rvm_ruby_interpreter" ]] ; then
+  if [[ ! -z "$rvm_ruby_interpreter" ]] && [[ "system" != "$rvm_ruby_interpreter" ]]  && [[ "default" != "$rvm_ruby_interpreter" ]] ; then
     if [[ ! -z "$rvm_ruby_version" ]] ; then
       rvm_major_version=$(echo $rvm_ruby_version | awk -F'.' '{ print $2 }')
       rvm_minor_version=$(echo $rvm_ruby_version | awk -F'.' '{ print $3 }')
@@ -143,18 +203,22 @@ __rvm_select() {
     rvm_ruby_src_path="$rvm_src_path/$rvm_ruby_string"
     rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
     rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
-    if [[ -z "$rvm_gem_set_name" ]] ; then
-      rvm_ruby_gem_home="${rvm_gem_path}/${rvm_ruby_interpreter}/${rvm_ruby_version}"
-    else
-      rvm_ruby_gem_home="${rvm_gem_path}/${rvm_ruby_interpreter}/${rvm_ruby_version}%${rvm_gem_set_name}"
+    rvm_ruby_gem_home="${rvm_gem_path}/${rvm_ruby_string}"
+
+    if [[ "maglev" = "$rvm_ruby_interpreter" ]] ; then
+      export MAGLEV_HOME="$rvm_ruby_home"
+      export GEMSTONE_GLOBAL_DIR=$MAGLEV_HOME
+    fi
+
+    if [[ ! -z "$rvm_gem_set_name" ]] ; then
+      rvm_ruby_gem_home="${rvm_ruby_gem_home}%${rvm_gem_set_name}"
     fi
 
     rvm_ruby_selected_flag=1
 
     export rvm_ruby_interpreter rvm_ruby_version rvm_ruby_repo_url rvm_ruby_package_name rvm_url rvm_ruby_patch_level rvm_ruby_configure rvm_ruby_configure_flags rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_gem_set_name rvm_gem_path rvm_ruby_gem_home rvm_path rvm_src_path rvm_bin_path rvm_ruby_binary rvm_ruby_home rvm_log_path rvm_ruby_log_path rvm_src_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_string
   else
-    __rvm_unset_ruby_variables
-    rvm_ruby_interpreter="system"
+    rvm_ruby_interpreter="${rvm_ruby_interpreter:-system}"
   fi
 }
 
@@ -164,12 +228,12 @@ __rvm_use() {
 
   if [[ "default" = "$rvm_ruby_interpreter" ]] ; then
 
-    PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
-    PATH=$rvm_bin_path:$PATH ; export PATH
+    new_path=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
+    new_path=$rvm_bin_path:$new_path
 
     if [[ -s $rvm_path/default ]] ; then
+      unset new_path
       source $rvm_path/default
-
       if [[ ! -z "$rvm_verbose_flag" ]] ; then
         $rvm_scripts_path/log "info" "Now using default ruby."
       fi
@@ -183,10 +247,10 @@ __rvm_use() {
   elif [[ "system" = "$rvm_ruby_interpreter" ]] ; then
 
     unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
-    PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
-    PATH=$rvm_bin_path:$PATH ; export PATH
+    new_path=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
+    new_path=$rvm_bin_path:$new_path
     if [[ -s $rvm_path/system ]] ; then
-      grep "^MY_RUBY_HOME='$rvm_path" "$rvm_path/system" > /dev/null
+      grep "MY_RUBY_HOME='$rvm_path" "$rvm_path/system" > /dev/null
       if [[ $? -eq 0 ]] ; then
         rm -f $rvm_path/system # 'system' should *not* point to an rvm ruby.
       else
@@ -204,7 +268,7 @@ __rvm_use() {
       $rvm_scripts_path/log "info" "Now using system ruby."
     fi
 
-    rvm_ruby_string="system"
+    export rvm_ruby_string="system"
 
   else
     GEM_HOME=$rvm_ruby_gem_home
@@ -220,7 +284,7 @@ __rvm_use() {
     if [[ ! -d $MY_RUBY_HOME ]] ; then
       $rvm_scripts_path/log "warn" "$rvm_ruby_interpreter $rvm_ruby_string is not installed."
       if [[ ! -z "$rvm_install_on_use_flag" ]] ; then
-        __rvm_install_ruby $rvm_ruby_interpreter $rvm_ruby_version $rvm_ruby_patch_level
+        $rvm_scripts_path/manage "install" "$rvm_ruby_string"
       else
         $rvm_scripts_path/log "info" "To install do: 'rvm install $rvm_ruby_string'"
         return 1
@@ -231,12 +295,11 @@ __rvm_use() {
       $rvm_scripts_path/log "info" "Now using $(echo $rvm_ruby_string | tr '-' ' ')"
     fi
 
-    __rvm_irbrc
+    new_path=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
+    new_path=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_path/bin:$rvm_bin_path:$new_path
+  fi
 
-    PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
-    PATH=$rvm_bin_path:$PATH ; export PATH
-    PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_path/bin:$PATH ; export PATH
-
+  if [[ ! -z "$rvm_default_flag" ]] && [[ "default" != "$rvm_ruby_interpreter" ]] ; then
     if [[ "root" = "$(whoami)" ]] ; then
       for binary in erb gem irb rake rdoc ri ruby testrb ; do
         rm -f $rvm_symlink_path/$binary
@@ -245,48 +308,49 @@ __rvm_use() {
         ln -nfs $rvm_bin_path/$rvm_ruby_string $rvm_symlink_path/passenger_ruby
       done
     fi
-  fi
 
-  if [[ ! -z "$rvm_default_flag" ]] && [[ "default" != "$rvm_ruby_interpreter" ]] ; then
     if [[ "system" = "$rvm_ruby_interpreter" ]] ; then
       rm -f $rvm_path/default
       rm -f $rvm_path/bin/default*
     else
-      RUBY_VERSION="$($MY_RUBY_HOME/bin/ruby -v | sed 's#^\(.*\) (.*$#\1#')"
+      RUBY_VERSION="$($rvm_ruby_home/bin/ruby -v | sed 's#^\(.*\) (.*$#\1#')"
       export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
 
-      echo "PATH=$MY_RUBY_HOME/bin:$GEM_HOME/bin:$rvm_path/bin:\$PATH ; export PATH" > $rvm_path/default
+      echo "export PATH=\"$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_path/bin:\$PATH\"" > $rvm_path/default
 
-      for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gem_set_name; do
+      for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gem_set_name MAGLEV_HOME ; do
         eval "export $variable"
         eval value=\$${variable}
         if [[ ! -z "$value" ]] ; then
-          echo "${variable}='$value' ; export ${variable}" >> $rvm_path/default
+          echo "export ${variable}='$value'" >> $rvm_path/default
         else
           echo "unset ${variable}" >> $rvm_path/default
         fi
       done ; unset variable value
 
-      if [[ -s "$rvm_path/bin/$rvm_ruby_string" ]] ; then
-        rm -f $rvm_path/bin/default*
-        ln -fs "$rvm_path/bin/$rvm_ruby_string" "$rvm_path/bin/default_ruby" # So that people know what it's for :)
-        ln -fs "$rvm_path/$rvm_ruby_string/bin/gem" "$rvm_path/bin/default_gem"
-        ln -fs "$rvm_path/$rvm_ruby_string/bin/irb" "$rvm_path/bin/default_irb"
-      else
-        rm -f $rvm_path/bin/default*
-      fi
+      if [[ ! -z "$rvm_default_flag" ]] ; then $rvm_scripts_path/symlink "default" ; fi
     fi
-    unset rvm_default_flag
+  fi
+  unset rvm_default_flag
+
+  if [[ ! -z "$rvm_symlink_name" ]]   ; then $rvm_scripts_path/symlink "$rvm_symlink_name" ; unset rvm_symlink_name   ; fi
+  if [[ ! -z "$rvm_editor_flag" ]]    ; then $rvm_scripts_path/symlink "editor"            ; unset rvm_editor_flag    ; fi
+  if [[ ! -z "$rvm_passenger_flag" ]] ; then $rvm_scripts_path/symlink "passenger"         ; unset rvm_passenger_flag ; fi
+  # Export ruby string and gem set name for extrnal scripts to take advantage of them.
+  if [[ ! -z "$rvm_ruby_string" ]]    ; then export rvm_ruby_string  ; fi
+  if [[ ! -z "$rvm_gem_set_name" ]]   ; then export rvm_gem_set_name ; fi
+  if [[ ! -z "$new_path" ]]           ; then export PATH="$new_path" ; unset new_path ; fi
+
+  if [[ "maglev" = "$rvm_ruby_interpreter" ]] ; then
+    export MAGLEV_HOME="$rvm_ruby_home"
+    export GEMSTONE_GLOBAL_DIR=$MAGLEV_HOME
+    if [[ -x "$MAGLEV_HOME/gemstone/bin/gslist" ]] ; then
+      $MAGLEV_HOME/gemstone/bin/gslist -clv > /dev/null 2>&1 ; result=$?
+      if [[ $result -eq 1 ]] ; then $rvm_ruby_home/bin/maglev start ; fi
+    fi
   fi
 
-  # Export ruby string and gem set name for extrnal scripts to take advantage of them.
-  if [[ ! -z "$rvm_ruby_string" ]] ; then export rvm_ruby_string ; fi
-  if [[ ! -z "$rvm_gem_set_name" ]] ; then export rvm_gem_set_name ; fi
-
-  if [[ ! -z "$rvm_load_flag" ]] ; then __rvm_gems_load ; fi
-  if [[ ! -z "$rvm_dump_flag" ]] ; then __rvm_gems_dump ; fi
-
-  __rvm_hook "after_use"
+  $rvm_scripts_path/hook "after_use"
 }
 
 __rvm_ruby_string() {
@@ -309,18 +373,22 @@ __rvm_ruby_string() {
     if [[ "head" = "$string" ]] ; then
       rvm_ruby_revision="head"
       unset rvm_ruby_patch_level rvm_ruby_revision rvm_ruby_tag
-      rvm_head_flag=1
+      export rvm_head_flag=1
     elif [[ "default" = "$string" ]] ; then
       rvm_ruby_interpreter="default"
-      break
+      unset rvm_ruby_patch_level rvm_ruby_tag rvm_head_flag rvm_ruby_revision rvm_ruby_version rvm_gem_set_name
+      return
     elif [[ "system" = "$string" ]] ; then
       rvm_ruby_interpreter="system"
-      break
+      unset rvm_ruby_patch_level rvm_ruby_tag rvm_head_flag rvm_ruby_revision rvm_ruby_version rvm_gem_set_name
+      return
     elif [[ "nightly" = "$string" ]] ; then
       rvm_ruby_version="nightly"
       rvm_nightly_flag=1
       break
     elif $rvm_scripts_path/match "$string" "^preview" ; then
+      rvm_ruby_patch_level="$string"
+    elif $rvm_scripts_path/match "$string" "^rc[0-9]" ; then
       rvm_ruby_patch_level="$string"
     elif $rvm_scripts_path/match "$string" "^[0-9]\.[0-9]" ; then
       if [[ "1.8" = "$string" ]] ; then string="1.8.6" ; fi
@@ -333,6 +401,9 @@ __rvm_ruby_string() {
       if [[ "ree" = "$rvm_ruby_interpreter" ]] ; then
         rvm_ruby_patch_level="$string"
         unset rvm_ruby_revision
+      elif [[ "maglev" = "$rvm_ruby_interpreter" ]] ; then
+        rvm_ruby_version="$string"
+        unset rvm_ruby_revision rvm_ruby_patch_level
       else
         rvm_ruby_revision="r$string"
       fi
@@ -347,13 +418,17 @@ __rvm_ruby_string() {
       rvm_ruby_tag="$string"
     elif $rvm_scripts_path/match "$string" "^m[0-9]" ; then
       rvm_ruby_mode="$string"
-    elif $rvm_scripts_path/match "$string" "^h[a-z]" ; then
+    elif $rvm_scripts_path/match "$string" "^h[a-z0-9]" ; then
       unset rvm_ruby_patch_level rvm_ruby_revision rvm_ruby_tag
       rvm_ruby_patch="$string"
-    elif $rvm_scripts_path/match "$string" "^[a-z][a-z]" ; then
+    elif $rvm_scripts_path/match "$string" "^u[a-z0-9]" ; then
+      unset rvm_ruby_patch_level rvm_ruby_revision rvm_ruby_tag rvm_ruby_patch
+      rvm_ruby_user_tag="$string"
+    elif $rvm_scripts_path/match "ruby rbx jruby macruby ree rubinius maglev mput shyouhei ironruby" "$string" ; then
       rvm_ruby_interpreter="$string"
     else
       $rvm_scripts_path/log "error" "Unknown ruby string component: '$string'"
+      return 1
     fi
   done
 
@@ -369,7 +444,7 @@ __rvm_ruby_string() {
   fi
 
   # Unspecified version
-  if [[ -z "$rvm_ruby_version" ]] ; then
+  if [[ -z "$rvm_ruby_version" ]] && [[ -z "$rvm_head_flag" ]]; then
     rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "${rvm_ruby_interpreter}_version")"}
   fi
 
@@ -379,6 +454,7 @@ __rvm_ruby_string() {
     rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
   fi
 
+  # Head
   if [[ "$rvm_head_flag" -eq 1 ]] ; then
     rvm_ruby_string="${rvm_ruby_string}-head"
   elif [[ ! -z "$rvm_ruby_revision" ]]  ; then
@@ -392,12 +468,15 @@ __rvm_ruby_string() {
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch}"
   elif [[ ! -z "$rvm_ruby_patch_level" ]]  ; then
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
+  elif [[ ! -z "$rvm_ruby_user_tag" ]]  ; then
+    rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_user_tag}"
   else
     patch_level="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level")"
     if [[ ! -z "$patch_level" ]] ; then rvm_ruby_patch_level="p${patch_level}" ; fi
     if [[ ! -z "$rvm_ruby_patch_level" ]] ; then
       rvm_ruby_patch_level="$(echo $rvm_ruby_patch_level | sed 's#^pp#p#')"
       rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
+      rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-pp#-p#')"
     fi
   fi
 }

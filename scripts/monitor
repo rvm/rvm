@@ -9,7 +9,7 @@ source $rvm_scripts_path/rvm
 
 rvm_monitor_sleep="${rvm_monitor_sleep:-2}"
 
-trap "rm -f $rvm_path/$$* > /dev/null 2>&1 ; exit" 0 1 2 3 15
+trap "rm -f $rvm_path/tmp/$$* > /dev/null 2>&1 ; exit" 0 1 2 3 15
 
 timestamp() {
   if [[ "Darwin" = "$(uname)" ]] ; then
@@ -40,14 +40,16 @@ update_timestamp "test"
 update_timestamp "spec"
 
 while : ; do
-  changed_test_files=() ; changed_spec_files=()
+  changed_test_files=() ; changed_spec_files=() ; changed_code_files=()
+
+  for file in lib/**/*.rb lib/*.rb app/**/*.rb app/*.rb ; do
+    if [[ -f "$file" ]] ; then push_if_timestamp_changed $file "code" ; fi
+  done
 
   for framework in test spec ; do
 
     if [[ -d "$framework/" ]] ; then
 
-      #files=($(\ls ${framework}/**/*_${framework}.rb) $(ls ${framework}/*_${framework}.rb))
-      #for file in "${files[@]}" ; do
       for file in ${framework}/**/*_${framework}.rb ${framework}/*_${framework}.rb ; do
         if [[ -f "$file" ]] ; then
           push_if_timestamp_changed $file $framework
@@ -65,6 +67,21 @@ while : ; do
         elif [[ "test" = "$framework" ]] ; then
           rvm_action="ruby"
           rvm_ruby_args=" -r$(echo "${changed_test_files[*]}" | sed 's/ / -r/g') test/test_helper.rb"
+          __rvm_do
+        fi
+        update=1
+      fi
+
+      if [[ "$(array_length "changed_code_files")" -gt 0 ]] ; then
+        rvm_ruby_version=$original_ruby_version
+        rvm_ruby_string=$original_ruby_string
+        if [[ "spec" = "$framework" ]] ; then
+          rvm_action="spec"
+          rvm_ruby_args="spec/"
+          __rvm_do
+        elif [[ "test" = "$framework" ]] ; then
+          rvm_action="rake"
+          rvm_ruby_args="test"
           __rvm_do
         fi
         update=1

@@ -1,18 +1,48 @@
 #!/usr/bin/env bash
 
-if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
-if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
-if [[ -z "$rvm_path" ]] ; then unset rvm_path ; fi
+unset rvm_auto_flag
 
-if [[ -z "$rvm_path" ]] ; then
+source scripts/version
+source scripts/utility
+
+usage() {
+  echo -e "
+  Usage:
+    ${0} <options>
+
+  Options:
+    --auto    : Automatically update shell profile files.
+    --prefix  : Installation prefix directory.
+    --help    : Display help/usage (this) message
+    --version : display rvm package version
+  "
+}
+
+while [[ $# -gt 0 ]] ; do
+  token="$1" ; shift
+  case "$token" in
+    --auto)    rvm_auto_flag=1          ;;
+    --prefix)  prefix_path="$1" ; shift ;;
+    --version) rvm_path="$(pwd)" ; __rvm_version ; unset rvm_path ; exit ;;
+    --help|*)  usage                    ;;
+  esac
+done
+
+if [[ -s /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
+if [[ -s "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
+
+if ! [[ "$rvm_path" =~ /rvm/?$ ]] ; then
+  unset rvm_path
   if [[ "root" = "$(whoami)" ]] ; then
-    rvm_path="${rvm_path:-/usr/local/rvm}"
+    rvm_path="/usr/local/rvm"
   else
-    rvm_path="${rvm_path:-$HOME/.rvm}"
+    rvm_path="$HOME/.rvm"
   fi
 fi
 
 source scripts/initialize
+
+__rvm_initialize
 
 #
 # Setup
@@ -20,76 +50,106 @@ source scripts/initialize
 item="$(tput setaf 2)* $(tput sgr0)"
 question="\n$(tput setaf 2)<?>$(tput sgr0)"
 cwd=$(pwd)
-source_dir="${source_dir:-"$(dirname $0 | xargs dirname)"}"
-if [[ ! -d "$source_dir" ]] ; then unset source_dir ; fi
-source_dir="${source_dir:-$cwd}"
+source_path="${source_path:-"$(dirname $0 | xargs dirname)"}"
+if [[ ! -d "$source_path" ]] ; then unset source_path ; fi
+source_path="${source_path:-$cwd}"
 
 # State what is required to use rvm
-echo -e "\n$(tput setaf 2)rvm$(tput sgr0) - shell scripts that allows a user to manage multiple ruby versions in their own account."
-echo -e "\n    Prepairing $rvm_path ..."
+echo -e "\nInstalling rvm to $rvm_path/ ..."
 for dir_name in src scripts bin log archives config gems examples ; do
   mkdir -p "$rvm_path/$dir_name"
 done
-cp -f "$source_dir/README" "$rvm_path/"
+cp -f "$source_path/README" "$rvm_path/"
 
 #
 # Scripts
 #
-echo -e "\n    Installing rvm to $rvm_path/ ..."
 rm -rf $rvm_path/scripts # Clear the old scripts directory so that the old style rvm- scripts are cleared out.
 for dir_name in config scripts examples lib hooks ; do
   mkdir -p "$rvm_path/$dir_name"
-  if [[ -d "$source_dir/$dir_name" ]] ; then
-    cp -Rf "$source_dir/$dir_name" "$rvm_path"
+  if [[ -d "$source_path/$dir_name" ]] ; then
+    cp -Rf "$source_path/$dir_name" "$rvm_path"
   fi
 done ; unset dir_name
+
+if [[ ! -s "$rvm_path/config/user" ]] ; then
+  echo '# Users settings file, overrides db file settings and persists across installs.' >> $rvm_path/config/user
+fi
 
 #
 # Bin Scripts
 #
-echo -e "\n    Installing bin scripts to $rvm_path/bin ..."
-cp -Rf "$source_dir/binscripts/" $rvm_path/bin
+# Cleanse and purge...
+rm -f $rvm_path/bin/rvm ; rm -rf $rvm_path/bin/binscripts
+for file in rvm-prompt rvm rvmsudo ; do
+  cp -f "$source_path/binscripts/$file" $rvm_path/bin/
+done
 chmod +x $rvm_path/bin/*
-ln -nfs $rvm_path/scripts/rvm $rvm_path/bin/rvm
 
 #
 # RC Files
 #
-echo -e "\n    Checking rc files ($rvm_rc_files) ..."
-if [[ "$rvm_loaded_flag" != "1" ]] ; then
-  for rcfile in $(echo $rvm_rc_files) ; do
-    if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
-    if ! awk "/scripts\/rvm/" "$rcfile" ; then
-      echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
-      echo -e "\n# rvm-install added line:\nif [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> $rcfile
-    fi
-  done
+if [[ ! -z "$rvm_auto_flag" ]] ; then
+  echo -e "Checking rc files... ($rvm_rc_files)"
+  if [[ "$rvm_loaded_flag" != "1" ]] ; then
+    for rcfile in $(echo $rvm_rc_files) ; do
+      if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
+      if [[ -s "$HOME/.profile" ]] ; then
+        if ! grep -q '.profile' "$rcfile" ; then
+          echo "    Adding 'if [[ -s \$HOME/.profile ]] ; then source \$HOME ; fi' to $rcfile."
+          echo -e "\n# rvm-install added line:\nif [[ -s \$HOME/.profile ]] ; then source \$HOME/.profile ; fi\n" >> $rcfile
+        fi
+      fi
+      if ! grep -q "scripts\/rvm" "$rcfile" ; then
+        echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
+        echo -e "\n# rvm-install added:\nif [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> $rcfile
+      fi
+    done
+  fi
 fi
+
+#
+# TODO: Migrate ~/.rvm/ruby-X,jruby-X,... to ~/.rvm/rubies/
+#
+#rvm_rubies_path="${rvm_rubies_path:-"$rvm_path/rubies"}"
+#mkdir -p $rvm_rubies_path
+#for ruby in "$rvm_path"/ruby-* "$rvm_path"/jruby-* "$rvm_path"/mput-* "$rvm_path"/rbx-* ; do
+#  if [[ -d "$ruby" ]] ; then mv "$ruby" "$rvm_rubies_path" ; fi
+#done
 
 if [[ "root" = "$(whoami)" ]] ; then
   echo -e "\n    Symlinking rvm to $rvm_symlink_path/rvm ..."
-  ln -nfs $rvm_path/scripts/rvm $rvm_symlink_path/rvm
-else
-  echo -e "\n    Symlinking rvm to $rvm_path/bin/rvm ..."
-  ln -nfs $rvm_path/scripts/rvm $rvm_path/bin/rvm
+  mkdir -p $rvm_symlink_path
+  ln -nfs $rvm_path/bin/rvm $rvm_symlink_path/rvm
+  ln -nfs $rvm_path/bin/rvmsudo $rvm_symlink_path/rvmsudo
+  chmod +x $rvm_symlink_path/rvm
+  chmod +x $rvm_symlink_path/rvmsudo
 fi
-chmod +x $rvm_path/scripts/rvm
 
-#
-# System Checks
-#
+echo -e "\n$(tput setaf 2)rvm$(tput sgr0) - shell scripts that allows a user to manage multiple ruby versions in their own account."
 $rvm_path/scripts/notes
 
-echo -e "    $item In order to use rvm the following line must occur in your shell's loading files, after all path/variable settings.:"
-echo -e "    $item if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
-echo -e "    $item CLOSE THIS SHELL AND OPEN A NEW ONE in order to use rvm."
-
-echo -e "\n$(tput setaf 2)RTFM:\n    $(tput sgr0) http://rvm.beginrescueend.com/ \n"
-echo -e "$(tput setaf 2)w⦿‿⦿t!$(tput sgr0)"
+echo -e "$(tput setaf 2)RTFM: $(tput sgr0) http://rvm.beginrescueend.com/"
+echo -e "\n$(tput setaf 2)HELP: $(tput sgr0) http://webchat.freenode.net/?channels=rvm "
+echo "================================================================================"
+name="$(awk -F= '/^[[:space:]]*name/{print $2}' ~/.gitconfig 2>/dev/null)"
+echo -e "\n${name:-"$(whoami)"},\n"
+echo -e "\nThank you for using rvm. I hope that it makes your work easier and more enjoyable."
+echo -e "If you have any questions, issues and/or ideas for improvement please hop in #rvm on irc.freenode.net and let me know."
+echo -e "My irc nickname is 'wayneeseguin' and I hang out from ~09:00-17:00EST and again from ~21:00EST-~00:00EST."
+echo -e "If I do not respond right away, please hang around after asking your question, I will respond as soon as I am back."
+echo -e "\n  w$(tput setaf 2)⦿‿⦿$(tput sgr0)t!"
 echo -e "\n    ~ Wayne\n"
-
-if [[ -x "$rvm_path/scripts/rvm" ]] ; then
-  "$rvm_path/scripts/rvm" -v
-fi
+echo "================================================================================"
+echo -e "Upgrades"
+echo -e "Gems are now per interpreter installation instead of per interpreter/version"
+echo -e "so for example to upgrade an older install of 1.8.6 and preserve gems:"
+echo -e "rm -rf ~/.rvm/gems/ruby-1.8.6-p383 ;  mv ~/.rvm/gems/ruby/1.8.6 ~/.rvm/gems/ruby-1.8.6-p383"
+echo "================================================================================"
+echo -e "\n$(tput setaf 1)You must now finish the install manually:$(tput sgr0)"
+echo -e "\n1) Place the folowing line at the end of your shell's loading files(.bashrc and then .bash_profile for bash and .zshrc for zsh), after all path/variable settings:"
+echo -e "\n     if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
+echo -e "\n2) Ensure that there is no 'return' from inside the .bashrc file. (otherwise rvm will be prevented from working properly)."
+echo -e "\n3) $(tput setaf 1)CLOSE THIS SHELL$(tput sgr0) and open a new one in order to use rvm.\n"
 
 exit 0
