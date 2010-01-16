@@ -8,7 +8,7 @@ source $rvm_scripts_path/utility
 source $rvm_scripts_path/selector
 source $rvm_scripts_path/libraries
 
-trap "rm -f $rvm_path/tmp/$$* > /dev/null 2>&1 ; exit" 0 1 2 3 15
+trap "rm -f $rvm_tmp_path/$$* > /dev/null 2>&1 ; exit" 0 1 2 3 15
 
 if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
 
@@ -130,7 +130,7 @@ __rvm_install_ruby() {
           fi
 
           mv "$rvm_archives_path/macruby_nightly-latest.pkg" "$rvm_archives_path/macruby_nightly.pkg"
-          __rvm_run "macruby/extract" "sudo installer -pkg '$rvm_path/archives/macruby_nightly.pkg' -target '/'"
+          __rvm_run "macruby/extract" "sudo installer -pkg '$rvm_archives_path/macruby_nightly.pkg' -target '/'"
           mkdir -p "$rvm_ruby_home/bin"
         fi
 
@@ -148,7 +148,7 @@ PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH" ; export PATH
 exec $macruby_path/mac$binary_name $prefix "\$@"
 RubyWrapper
 )
-          for file_name in "$rvm_ruby_home/bin/$binary_name" "$rvm_path/bin/$binary_name-$rvm_ruby_string" ; do
+          for file_name in "$rvm_ruby_home/bin/$binary_name" "$rvm_bin_path/$binary_name-$rvm_ruby_string" ; do
             rm -f $file_name
             echo "$ruby_wrapper" > $file_name
             if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
@@ -196,7 +196,7 @@ RubyWrapper
           rvm_ree_options="${rvm_ree_options} --no-tcmalloc"
         fi
 
-        __rvm_run "install" "./installer -a $rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level $rvm_ree_options --dont-install-useful-gems $rvm_ruby_configure_flags" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..."
+        __rvm_run "install" "./installer -a $rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level $rvm_ree_options --dont-install-useful-gems $rvm_ruby_configure_flags" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..."
           result=$? ; if [[ "$result" -gt 0 ]] ; then
             $rvm_scripts_path/log "error" "There has been an error while trying to run the ree installer. Aborting the installation." ; __rvm_pushpop ; return $result
           fi
@@ -258,7 +258,7 @@ RubyWrapper
         mv "$rvm_src_path/rubinius-$rvm_ruby_version-${rvm_ruby_patch_level/^p//}" $rvm_ruby_src_path
       else
         __rvm_db "rubinius_repo_url" "rvm_ruby_repo_url"
-        #rvm_ruby_home="$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"
+        #rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version"
         if [[ ! -d "$rvm_ruby_src_path" ]] || [[ ! -d "$rvm_ruby_src_path/.git" ]] ; then
           rm -rf "$rvm_ruby_src_path" ; builtin cd "$rvm_home"
           __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path" "Cloning $rvm_ruby_repo_url"
@@ -320,7 +320,7 @@ PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH" ; export PATH
 exec $rvm_ruby_home/bin/rbx $prefix$binary_name "\$@"
 RubyWrapper
 )
-        for file_name in "$rvm_ruby_home/bin/$binary_name" "$rvm_path/bin/$binary_name-$rvm_ruby_string"  ; do
+        for file_name in "$rvm_ruby_home/bin/$binary_name" "$rvm_bin_path/$binary_name-$rvm_ruby_string"  ; do
           rm -f $file_name
           echo "$ruby_wrapper" > $file_name
           if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
@@ -526,7 +526,7 @@ PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH" ; export PATH
 exec mono $rvm_ruby_home/bin/ir.exe $binary_path "\$@"
 RubyWrapper
 )
-        files="$rvm_ruby_home/bin/$binary_name $rvm_path/bin/$binary_name-$rvm_ruby_string"
+        files="$rvm_ruby_home/bin/$binary_name $rvm_bin_path/$binary_name-$rvm_ruby_string"
         for file_name in $(echo $files)  ; do
           rm -f $file_name
           echo "$ruby_wrapper" > $file_name
@@ -542,7 +542,7 @@ RubyWrapper
       PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
       PATH=$rvm_bin_path:$PATH ; export PATH
 
-      rvm_ruby_home="$rvm_path/$rvm_ruby_interpreter-$rvm_ruby_version"
+      rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version"
 
       if [[ ! -d "$rvm_ruby_src_path" ]] || [[ ! -d "$rvm_ruby_src_path/.git" ]] ; then
         rm -rf $rvm_ruby_src_path
@@ -729,7 +729,7 @@ __rvm_uninstall_ruby() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   if [[ ! -z "$rvm_ruby_string" ]] ; then
-    for dir in $rvm_path ; do
+    for dir in $rvm_rubies_path ; do
       if [[ -d $dir/$rvm_ruby_string ]] ; then
         $rvm_scripts_path/log "info" "Removing $dir/$rvm_ruby_string..."
         rm -rf $dir/$rvm_ruby_string
@@ -750,7 +750,7 @@ __rvm_remove_ruby() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   if [[ ! -z "$rvm_ruby_string" ]] ; then
-    for dir in $rvm_src_path $rvm_path ; do
+    for dir in $rvm_src_path $rvm_rubies_path ; do
       if [[ -d $dir/$rvm_ruby_string ]] ; then
         $rvm_scripts_path/log "info" "Removing $dir/$rvm_ruby_string..."
         rm -rf $dir/$rvm_ruby_string
@@ -905,7 +905,7 @@ __rvm_manage_rubies() {
           eval "__rvm_${rvm_action}_ruby"
           __rvm_unset_ruby_variables
         fi
-      done < <(\ls $rvm_path/*/bin/ruby 2> /dev/null)
+      done < <(\ls $rvm_rubies_path/*/bin/ruby 2> /dev/null)
     else
       $rvm_scripts_path/log "warn" 'Really? Install all? See "rvm list --all" and limit the selection to something more sane please :)'
     fi
