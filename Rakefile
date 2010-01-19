@@ -1,25 +1,24 @@
-task :default => [:gem]
-puts <<-LOCAL_INSTALL_WARNING
-
-  \033[0;33mINSTALLING FROM SOURCE\033[0m
-
-  If you're using rvm from source, don't build the gem
-  Instead, run one of the following from the rvm source root
-
-    \033[0;32mFor first-time install:     ./scripts/rvm-install\033[0m
-    \033[0;32mFor updating your install:  ./scripts/rvm-install\033[0m
-
-LOCAL_INSTALL_WARNING
-
-desc "Build the rvm gem and then install it (NO sudo)."
-task :gem do
-  exec "gem uninstall rvm ; rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
-end
+task :default => ["test"]
+task :test do exec "bash -l -c \"./test/suite\"" ; end
 
 namespace :gem do
+  task :refresh do
+    exec "gem uninstall rvm ; rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
+  end
+
   desc "Build the rvm gem."
   task :build do
-    puts `gem build gemspec.rb`
+puts <<-LOCAL_INSTALL_WARNING
+
+  $(tput setaf 3)INSTALLING FROM SOURCE$(tput sgr0)
+
+  If you are using rvm from source, DO NOT build the gem.
+  Instead, run the following from the rvm source's root dir.
+
+    $(tput setaf 2)For installing/updating:  ./install$(tput sgr0)
+
+LOCAL_INSTALL_WARNING
+    puts "$(gem build rvm.gemspec)"
   end
 
   desc "Install the rvm gem (NO sudo)."
@@ -30,14 +29,17 @@ end
 
 begin
   require "jeweler"
+  require "lib/rvm/version"
+
   Jeweler::Tasks.new do |gemspec|
     gemspec.name            = "rvm"
+    gemspec.version         = RVM::Version::STRING
     gemspec.summary         = "Ruby Version Manager (rvm)"
     gemspec.require_paths   = ["lib"]
     gemspec.date            = Time.now.strftime("%Y-%m-%d")
     gemspec.description     = "Manages Ruby interpreter installations and switching between them."
     gemspec.platform        = Gem::Platform::RUBY
-    gemspec.files           = ["INSTALL", "README", "LICENCE", "rvm.gemspec", "bash/*", "scripts/*", "examples/*", "config/*", Dir::glob("lib/**/**")].flatten
+    gemspec.files           = ["install", "README", "LICENCE", "rvm.gemspec", "bash/*", "binscripts/*", "scripts/*", "examples/*", "config/*", Dir::glob("lib/**/**")].flatten
     gemspec.executables     = Dir::glob("bin/rvm-*").map{ |script| File::basename script }
     gemspec.require_path    = "lib"
     gemspec.has_rdoc        = File::exist?("doc")
@@ -46,9 +48,21 @@ begin
     gemspec.email           = "wayneeseguin@gmail.com"
     gemspec.homepage        = "http://github.com/wayneeseguin/rvm"
     gemspec.extensions      << "extconf.rb" if File::exists?("extconf.rb")
-    gemspec.rubyforge_project = "dynamicreports"
+    gemspec.rubyforge_project = "rvm"
+    gemspec.post_install_message = <<-POST_INSTALL_MESSAGE
+#{"*" * 80}
+
+  In order to setup rvm for your user's environment you must now run rvm-install.
+  rvm-install will be found in your current gems bin directory corresponding to where the gem was installed.
+
+  rvm-install will install the scripts to your user account and append itself to your profiles in order to
+  inject the proper rvm functions into your shell so that you can manage multiple rubies.
+
+#{"*" * 80}
+    POST_INSTALL_MESSAGE
+
   end
 rescue LoadError
-  puts "Jeweler not available. Install it with: sudo gem install technicalpickles-jeweler -s http://gems.github.com"
+  puts "Jeweler not available. Install it with: gem install jeweler -s http://gemcutter.org/"
 end
 

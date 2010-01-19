@@ -1,18 +1,54 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-#
 # rvm : Ruby Version Manager
 # http://rvm.beginrescueend.com
 # http://gitub.com/wayneeseguin/rvm
-#
 
-if [ -s ~/.rvmrc ] ; then source ~/.rvmrc ; fi
-eval rvm_path="${rvm_path:-~/.rvm}"
+if [[ "$rvm_loaded_flag" != "1" ]] || [[ "$rvm_reload_flag" = "1" ]] ; then
+  unset rvm_reload_flag
 
-source $rvm_path/scripts/rvm-utility
-source $rvm_path/scripts/rvm-selector
-source $rvm_path/scripts/rvm-ruby-installer # TODO: Script not function.
-source $rvm_path/scripts/rvm-cli
+  if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
+  if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
 
-if [ -f $rvm_path/default ] ; then source $rvm_path/default ; fi
+  if [[ -z "$rvm_path" ]] ; then
+    unset rvm_path
+    if [[ "root" = "$(whoami)" ]] ; then
+      rvm_path="/usr/local/rvm"
+    else
+      if [[ -d "$HOME/.rvm" ]] && [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
+        rvm_path="$HOME/.rvm"
+      elif [[ -d "/usr/local/rvm" ]] && [[ -s "/usr/local/rvm/scripts/rvm" ]] ; then
+        rvm_path="${rvm_path:-"/usr/local/rvm"}"
+      fi
+    fi
+  fi
+  if [[ -d "$rvm_path" ]] ; then
+    rvm_scripts_path="${rvm_scripts_path:-"$rvm_path/scripts"}"
+    source $rvm_scripts_path/array
+    source $rvm_scripts_path/utility
+    source $rvm_scripts_path/initialize
+    source $rvm_scripts_path/version
+    source $rvm_scripts_path/selector
+    source $rvm_scripts_path/cli
+    #source $rvm_scripts_path/gems
+    source $rvm_scripts_path/libraries
+    source $rvm_scripts_path/cd
+
+    rvm_loaded_flag=1
+
+    rvm_version="$(cat "${rvm_path}/lib/VERSION.yml" | tail -n 3 | sed 's/^.*: //g' | tr "\n" '.' | sed 's/\.$//')" ; export rvm_version
+
+    alias rvm-restart="source '${rvm_path}/scripts/rvm'"
+
+    if [[ -s "$HOME/.rvm/default" ]] ; then
+      source "$HOME/.rvm/default"
+    elif [[ -s "$rvm_path/default" ]] ; then
+      source "$rvm_path/default"
+    elif [[ -s "/usr/local/rvm/default" ]] ; then
+      source "/usr/local/rvm/default"
+    fi
+  else
+    echo -e "\$rvm_path is not set. rvm cannot load."
+  fi
+fi
 

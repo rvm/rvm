@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
+
+trap "if [[ -d $rvm_tmp_path/ ]] && [[ -f $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
+
+if ! which curl &> /dev/null; then
+  $rvm_scripts_path/log "fail" "rvm requires curl, which does not seem to exist in your path :("
+  exit 1
+else
+  fetch_command="curl -O -L --create-dirs -C - " # -s for silent
+fi
+
+pushd "$rvm_archives_path" > /dev/null 2>&1
+
+if [[ -z "$1" ]] ; then $rvm_scripts_path/log "fail" "BUG: $0 called without an argument :/" ; exit 1 ; fi
+
+archive=$(basename "$1") ; downlaod=1
+
+if [[ ! -z "$rvm_debug_flag" ]] ; then $rvm_scripts_path/log "debug" "Fetching $archive" ; fi
+
+# Check first if we have the correct archive
+archive_md5="$($rvm_scripts_path/db "$rvm_config_path/md5" "$archive")"
+if [[ -e "$archive" ]] && [[ ! -z "$archive_md5" ]] ; then
+  if [[ ! -z "$rvm_debug_flag" ]] ; then $rvm_scripts_path/log "debug" "Found archive and its md5, testing correctness" ; fi
+  if [[ $($rvm_scripts_path/md5 $archive $archive_md5) -gt 0 ]] ; then
+    if [[ ! -z "$rvm_debug_flag" ]] ; then $rvm_scripts_path/log "debug" "Archive is bad, downloading" ; fi
+    download=1
+  else
+    if [[ ! -z "$rvm_debug_flag" ]] ; then $rvm_scripts_path/log "debug" "Archive is good, not downloading" ; fi
+    download=0
+    result=0
+  fi ; unset archive_md5
+else
+  if [[ ! -z "$rvm_debug_flag" ]] ; then $rvm_scripts_path/log "debug" "No archive or no MD5, downloading" ; fi
+  download=1
+fi
+
+if [[ $download -gt 0 ]] ; then
+  eval $fetch_command "$1"
+  result=$?
+  if [[ $result -gt 0 ]] ; then
+    retry=0
+    if [[ $result -eq 78 ]] ; then
+      $rvm_scripts_path/log "error" "The requested url does not exist: '$1'"
+    elif [[ $result -eq 18 ]] ; then
+      $rvm_scripts_path/log "error" "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
+      rm -f "$archive"
+      retry=1
+    elif [[ $result -eq 33 ]] ; then
+      if [[ ! -z "$rvm_debug_flag" ]] ; then $rvm_scripts_path/log "debug" "Server does not support 'range' command, removing '$archive'" ; fi
+      rm -f "$archive"
+      retry=1
+    else
+      $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+    fi
+
+    if [[ $retry -eq 1 ]] ; then
+      eval $fetch_command "$1"
+      result=$?
+      if [[ $result -gt 0 ]] ; then
+        $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      fi
+    fi
+
+  fi
+  popd > /dev/null 2>&1
+fi
+
+exit $result
