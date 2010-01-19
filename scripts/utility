@@ -76,9 +76,9 @@ __rvm_debug() {
   done
 
   if [[ "root" = "$(whoami)" ]] ; then
-    debug_files="$rvm_path/default $rvm_path/system $rvm_path/config/db /etc/rvmrc /etc/gemrc"
+    debug_files="$rvm_path/default $rvm_path/system $rvm_config_path/db /etc/rvmrc /etc/gemrc"
   else
-    debug_files="$rvm_path/default $rvm_path/system $rvm_path/config/db $HOME/.rvmrc $HOME/.gemrc"
+    debug_files="$rvm_path/default $rvm_path/system $rvm_config_path/db $HOME/.rvmrc $HOME/.gemrc"
   fi
 
   for file_name in $(echo $debug_files); do
@@ -113,7 +113,7 @@ __rvm_gi() { gem install $rvm_gem_options $* ; }
 
 __rvm_run() {
   log_file_name="$1" ; command="$2" ; message="$3"
-  rvm_ruby_log_path="${rvm_ruby_log_path:-$rvm_path/log}"
+  rvm_ruby_log_path="${rvm_ruby_log_path:-$rvm_log_path}"
   mkdir -p $(dirname "$rvm_ruby_log_path/$log_file_name.log")
 
   if [[ ! -z "$message" ]] ; then $rvm_scripts_path/log "info" "$message" ; fi
@@ -134,7 +134,10 @@ __rvm_run() {
 
 __rvm_cleanup_variables() {
   __rvm_unset_ruby_variables
-  unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_gem_set_name rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag
+
+  if [[ "$rvm_sticky_gems" = "1" ]] ; then export rvm_gem_set_name ; else unset rvm_gem_set_name  ; fi
+
+  unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag
 }
 
 __rvm_unset_ruby_variables() {
@@ -147,7 +150,7 @@ __rvm_load_rvmrc() {
 }
 
 __rvm_bin_scripts() {
-  for rvm_ruby_binary in $rvm_path/*/bin/ruby ; do
+  for rvm_ruby_binary in $rvm_rubies_path/*/bin/ruby ; do
   if [[ -x "$rvm_ruby_binary" ]] ; then
     rvm_ruby_string=$(dirname "$rvm_ruby_binary" | xargs dirname | xargs basename)
     __rvm_select
@@ -169,10 +172,10 @@ PATH=$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH ; export PATH
 exec "$rvm_ruby_binary" "\$@"
 RubyWrapper
 )
-  rm -f $rvm_path/bin/$rvm_ruby_package_name
-  echo "$ruby_wrapper" > $rvm_path/bin/$rvm_ruby_package_name
+  rm -f $rvm_bin_path/$rvm_ruby_package_name
+  echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_package_name
   unset ruby_wrapper
-  chmod +x $rvm_path/bin/$rvm_ruby_package_name
+  chmod +x $rvm_bin_path/$rvm_ruby_package_name
 }
 
 __rvm_load_defaults() {
@@ -232,7 +235,7 @@ __rvm_reset() {
     $rvm_scripts_path/db "$rvm_config_path/user" "$system_config" "delete"
   done ; unset system_config variable
 
-  rm -f $rvm_path/bin/ruby $rvm_path/bin/gem $rvm_path/bin/rake $rvm_path/bin/irb $rvm_path/bin/default*
+  rm -f $rvm_bin_path/ruby $rvm_bin_path/gem $rvm_bin_path/rake $rvm_bin_path/irb $rvm_bin_path/default*
 }
 
 __rvm_implode() {
@@ -281,6 +284,7 @@ __rvm_list() {
     echo -e "jruby-1.2.0\njruby-1.3.0\njruby-1.3.1\njruby(-1.4.0) # the default\njruby-head"
     echo -e "rbx(-prc1) # default\nrbx-head"
     echo -e "ree-1.8.6\nree(-1.8.7) # the default\nree-1.8.6-head\nree-1.8.7-head"
+    echo -e "maglev(-22725)"
     echo -e "mput(-head) # shyouhei head, the default mput"
     echo -e "ironruby-0.9.3 # (1.0 RC1)\nironruby-head"
     if [[ "Darwin" = "$(uname)" ]] ; then
@@ -292,11 +296,11 @@ __rvm_list() {
       current_ruby="$(echo $ruby | xargs dirname | xargs dirname | xargs basename 2> /dev/null)"
     fi
 
-    for version in $(\ls $rvm_path/ 2> /dev/null | awk '/[a-z]*-.*/ {print $NF}') ; do
+    for version in $(\ls $rvm_rubies_path/ 2> /dev/null | awk '/[a-z]*-.*/ {print $NF}') ; do
       if [[ ! -z "$(echo $version | awk '/^jruby-/')" ]] ; then
-        string="$($rvm_path/$version/bin/ruby -v | awk '{print $NF}')"
+        string="$($rvm_rubies_path/$version/bin/ruby -v | awk '{print $NF}')"
       else
-        string="[ $(file $rvm_path/$version/bin/ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
+        string="[ $(file $rvm_rubies_path/$version/bin/ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
       fi
       if [[ "$version" = "$current_ruby" ]] ; then
         echo -e "=> $(tput setaf 2)$version$(tput sgr0) $string"
@@ -309,7 +313,7 @@ __rvm_list() {
     if [[ -f "$rvm_path/default" ]] && [[ -s $rvm_path/default ]] ; then
       version=$(grep 'MY_RUBY_HOME' $rvm_path/default | awk -F"'" '{print $2}' | xargs basename)
       if [[ ! -z "$version" ]] ; then
-        string="[ $(file $rvm_path/$version/bin/ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
+        string="[ $(file $rvm_rubies_path/$version/bin/ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
         if [[ "$version" = "$current_ruby" ]] ; then
           echo -e "=> $(tput setaf 3)(default)$(tput sgr0) $(tput setaf 2)$version$(tput sgr0) $string"
           selected="1"
@@ -493,7 +497,7 @@ __rvm_do() {
       unset rvm_ruby_string rvm_ruby_version
       __rvm_ruby_do
   else # all
-    for full_binary in $rvm_path/*/bin/ruby ; do
+    for full_binary in $rvm_rubies_path/*/bin/ruby ; do
       if [[ -x "$full_binary" ]] ; then
         rvm_ruby_string="$(dirname $full_binary | xargs dirname | xargs basename)"
         __rvm_ruby_do
@@ -588,7 +592,7 @@ __rvm_benchmark() {
 __rvm_irbrc() {
   # Create the irbrc for the currently selected ruby installation.
   if [[ -d "$rvm_ruby_home" ]] && [[ ! -s "$rvm_ruby_irbrc" ]] ; then
-    cp $rvm_path/scripts/irbrc $rvm_ruby_irbrc
+    cp $rvm_scripts_path/irbrc $rvm_ruby_irbrc
   fi
 }
 
@@ -602,7 +606,7 @@ __rvm_pushpop() {
 
 __rvm_state() {
   if [[ -z "$rvm_state" ]] ; then
-    if [[ -z "$(which ruby 2>/dev/null | awk /$(basename $rvm_path)/)" ]] ; then
+    if [[ -z "$(which ruby 2>/dev/null | awk /$(basename $rvm_rubies_path)/)" ]] ; then
       rvm_state=system
     else
       rvm_state="$(dirname "$(which ruby 2>/dev/null)" | xargs dirname | xargs basename)"
