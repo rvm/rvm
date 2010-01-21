@@ -148,11 +148,15 @@ PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH" ; export PATH
 exec $macruby_path/mac$binary_name $prefix "\$@"
 RubyWrapper
 )
+
           for file_name in "$rvm_ruby_home/bin/$binary_name" "$rvm_bin_path/$binary_name-$rvm_ruby_string" ; do
             rm -f $file_name
             echo "$ruby_wrapper" > $file_name
             if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
           done
+          if [[ "$binary_name" = "ruby" ]] ; then
+            echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_string
+          fi
           unset file_name ruby_wrapper binary_name files prefix
         done
         __rvm_irbrc
@@ -340,7 +344,7 @@ RubyWrapper
         echo -e "java must be installed and in your path in order to install JRuby." ; return 1
       fi
 
-      mkdir -p "$rvm_ruby_log_path" "$rvm_ruby_src_path"
+      mkdir -p "$rvm_ruby_log_path"
       __rvm_pushpop $rvm_src_path
       __rvm_fetch_ruby
       result=$? ; if [[ "$result" -gt 0 ]] ; then
@@ -424,8 +428,8 @@ RubyWrapper
         $rvm_scripts_path/log "error" "There has been an error while trying to extract the gemstone package. Aborting the installation." ; __rvm_pushpop ; return $result
       fi
 
-      mv "$rvm_gemstone_package_file" "gemstone"
-      chmod -R 777 gemstone # for now.
+      chmod -R 777 "$rvm_gemstone_package_file" # for now.
+      ln -nfs "$rvm_gemstone_package_file" "gemstone"
 
       __rvm_pushpop
 
@@ -447,19 +451,20 @@ RubyWrapper
       if [[ ! -z "$rvm_head_flag" ]] ; then
         git submodule update --init
         $rvm_ruby_home/bin/maglev force-reload
+        ln -sf maglev.demo.key-$(uname -sm | tr ' ' '-') etc/maglev.demo.key
       fi
 
       #ln -fs "$rvm_ruby_home/$(echo $rvm_gemstone_package_file | awk -F'.' '{print $1}')" "$rvm_ruby_home/gemstone"
 
       if [[ ! -e ${rvm_ruby_home}/etc/conf.d/maglev.conf ]] ; then
-        $rvm_scripts_path/log "info" "Creating default 'maglev' repository." ; __rvm_pushpop ; return $result
-        $rvm_bin_path/rvm 1.8.7 rake "stone:create[maglev]" >/dev/null
+        $rvm_scripts_path/log "info" "Creating default 'maglev' repository."
+        $rvm_bin_path/rvm 1.8.7 rake "stone:create[maglev]" >/dev/null 2>&1
       fi
 
-      $rvm_scripts_path/log "info" "Generating maglev HTML documentation" ; __rvm_pushpop ; return $result
+      $rvm_scripts_path/log "info" "Generating maglev HTML documentation"
       $rvm_bin_path/rvm 1.8.7 rake rdoc >/dev/null 2>&1
 
-      $rvm_scripts_path/log "info" "Generating smalltalk FFI." ; __rvm_pushpop ; return $result
+      $rvm_scripts_path/log "info" "Generating smalltalk FFI."
       $rvm_bin_path/rvm 1.8.7 rake stwrappers >/dev/null 2>&1
 
 
@@ -544,6 +549,9 @@ RubyWrapper
           echo "$ruby_wrapper" > $file_name
           if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
         done
+        if [[ "$binary_name" = "ruby" ]] ; then
+          echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_string
+        fi
         unset file_name ruby_wrapper binary_name binary_path files prefix
       done
     ;;
