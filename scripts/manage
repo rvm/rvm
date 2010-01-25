@@ -16,7 +16,6 @@ __rvm_install_source() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   $rvm_scripts_path/log "info" "Installing Ruby from source to: $rvm_ruby_home"
-  mkdir -p "$rvm_ruby_log_path"
   __rvm_pushpop "$rvm_src_path"
   if [[ ! -z "$rvm_force_flag" ]] ; then rm -rf "$rvm_ruby_home" "$rvm_ruby_src_path" ; fi
 
@@ -148,11 +147,15 @@ PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH" ; export PATH
 exec $macruby_path/mac$binary_name $prefix "\$@"
 RubyWrapper
 )
+
           for file_name in "$rvm_ruby_home/bin/$binary_name" "$rvm_bin_path/$binary_name-$rvm_ruby_string" ; do
             rm -f $file_name
             echo "$ruby_wrapper" > $file_name
             if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
           done
+          if [[ "$binary_name" = "ruby" ]] ; then
+            echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_string
+          fi
           unset file_name ruby_wrapper binary_name files prefix
         done
         __rvm_irbrc
@@ -186,7 +189,6 @@ RubyWrapper
         fi
         builtin cd "$rvm_ruby_src_path"
 
-        mkdir -p "$rvm_ruby_log_path"
         mkdir -p "${rvm_ruby_home}/lib/ruby/gems/1.8/gems"
         if [[ ! -z "$rvm_ruby_configure_flags" ]] ; then
           rvm_ruby_configure_flags="$(echo $rvm_ruby_configure_flags | sed 's#--#-c --#g')"
@@ -340,7 +342,6 @@ RubyWrapper
         echo -e "java must be installed and in your path in order to install JRuby." ; return 1
       fi
 
-      mkdir -p "$rvm_ruby_log_path"
       __rvm_pushpop $rvm_src_path
       __rvm_fetch_ruby
       result=$? ; if [[ "$result" -gt 0 ]] ; then
@@ -388,7 +389,6 @@ RubyWrapper
         $rvm_scripts_path/log "error" "Prerequisite checks have failed. Aborting the installation." ; __rvm_pushpop ; return $result
       fi
 
-      mkdir -p "$rvm_ruby_log_path"
       __rvm_pushpop $rvm_src_path
 
       if [[ ! -d "$rvm_src_path/$rvm_ruby_string" ]] || [[ ! -z "$rvm_force_flag" ]] ; then
@@ -479,9 +479,11 @@ RubyWrapper
       if [[ "$rvm_head_flag" = 1 ]] ; then
           mono_version="$(mono -V | head -n 1 | cut -d ' ' -f5)"
           if $rvm_scripts_path/match "$mono_version" "([0-9]+)\.([0-9]+)\.?([0-9]+)?" ; then
-            if [[ ${BASH_REMATCH[1]} -lt 2 ]] || ( [[ ${BASH_REMATCH[1]} -eq 2 ]] && [[ ${BASH_REMATCH[2]} -lt 6 ]] ) ; then
+            mono_major_ver="$(echo $mono_version | cut -d '.' -f1)"
+            mono_minor_ver="$(echo $mono_version | cut -d '.' -f2)"
+            if [[ $mono_major_ver -lt 2 ]] || ( [[ $mono_major_ver -eq 2 ]] && [[ $mono_minor_ver -lt 6 ]] ) ; then
               echo -e "Mono 2.6 (or greater) must be installed and in your path in order to build IronRuby from the repository."
-              echo -e "Version detected: ${BASH_REMATCH[0]}"
+              echo -e "Version detected: ${mono_version}"
               return 1
             fi
           else
@@ -503,8 +505,8 @@ RubyWrapper
 
           cp -r $rvm_ruby_src_path/Merlin/Main/Bin/mono_release/* $rvm_ruby_home/bin/
           cp -r $rvm_ruby_src_path/Merlin/Main/Languages/Ruby/Scripts/bin/* $rvm_ruby_home/bin/
-          cp -r $rvm_ruby_src_path/Merlin/External.LCA_RESTRICTED/Languages/Ruby/ruby-1.8.6p*/lib/ruby/* $rvm_ruby_home/lib/ruby
-          cp -r $rvm_ruby_src_path/ruby_home/lib/IronRuby
+          cp -r $rvm_ruby_src_path/Merlin/External.LCA_RESTRICTED/Languages/Ruby/redist-libs/ruby/* $rvm_ruby_home/lib/ruby
+          cp -r $rvm_ruby_src_path/Merlin/Main/Languages/Ruby/Libs/* $rvm_ruby_home/lib/IronRuby
       else
         $rvm_scripts_path/log "info" "Retrieving IronRuby"
         $rvm_scripts_path/fetch "$rvm_url"
@@ -545,6 +547,9 @@ RubyWrapper
           echo "$ruby_wrapper" > $file_name
           if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
         done
+        if [[ "$binary_name" = "ruby" ]] ; then
+          echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_string
+        fi
         unset file_name ruby_wrapper binary_name binary_path files prefix
       done
     ;;
