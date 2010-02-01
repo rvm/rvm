@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Query the rvm key-value database for a specific key
+# Allow overrides from user specifications in $rvm_config_path/user
 __rvm_db() {
   key=$1 ; variable=$2
   if [[ -f "$rvm_config_path/user" ]] ; then
@@ -20,6 +22,7 @@ __rvm_db() {
   unset key value variable
 }
 
+# Ouput rvm environment information.
 __rvm_info() {
   if [[ ! -z "$(which ruby 2>/dev/null)" ]] ; then full_version=$(ruby -v) ; fi
 
@@ -51,10 +54,12 @@ environment:
   MY_RUBY_HOME: "$MY_RUBY_HOME"
   IRBRC:        "$IRBRC"
 Info
+if [[ ! -z "$MAGLEV_HOME" ]] ; then echo "  MAGLEV_HOME: $MAGLEV_HOME" ; fi
 
   unset full_version
 }
 
+# Output debugging information that has been found useful to help people identify and resolve issues.
 __rvm_debug() {
   $rvm_scripts_path/log "debug" "PATH:\n$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"$5}')"
   $rvm_scripts_path/log "debug" "uname -a: $(uname -a)"
@@ -90,7 +95,10 @@ __rvm_debug() {
   $rvm_scripts_path/log "debug" "gem sources:\n$(gem sources | awk '/gems/')"
 }
 
+# ZSH has 1 based array indexing, bash has 0 based.
 if [[ ! -z "$ZSH_VERSION" ]] ; then __shell_array_start=1 ; else __shell_array_start=0 ; fi
+
+# Push an item onto a given array.
 __rvm_push() {
   array=$1 ; shift ; item=$2
   # TODO: allow loop over more arguments.
@@ -99,30 +107,30 @@ __rvm_push() {
   unset array item
 }
 
+# Clean all *duplicate* items out of the path. (keep first occurrence of each)
 __rvm_clean_path() {
   PATH=$(echo $PATH | tr -s ':' '\n' | awk '!($0 in a){a[$0];print}' | tr -s '\n' ':' | sed 's#:$##')
   export PATH
 }
 
+# Clean all rvm items out of the current working path.
 __rvm_remove_rvm_from_path() {
   PATH=$(echo $PATH | tr -s ':' '\n' | grep -v "\.rvm" | tr -s '\n' ':' | sed 's#:$##')
   export PATH
 }
 
-__rvm_gi() { gem install $rvm_gem_options $* ; }
-
+# Run a specified command and log it.
 __rvm_run() {
   log_file_name="$1" ; command="$2" ; message="$3"
-  rvm_ruby_log_path="${rvm_ruby_log_path:-$rvm_log_path}"
-  mkdir -p $(dirname "$rvm_ruby_log_path/$log_file_name.log")
-
+  if [[ -z "$rvm_ruby_log_path" ]] ; then rvm_ruby_log_path="$rvm_log_path" ; fi
   if [[ ! -z "$message" ]] ; then $rvm_scripts_path/log "info" "$message" ; fi
   if [[ ! -z "$rvm_debug_flag" ]] ; then
     $rvm_scripts_path/log "debug" "Executing: $command"
   fi
 
+  mkdir -p "$(dirname "$rvm_ruby_log_path/$log_file_name.log")"
   touch "$rvm_ruby_log_path/$log_file_name.log" "$rvm_ruby_log_path/$log_file_name.error.log" # for zsh :(
-  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee "$rvm_ruby_log_path/$log_file_name.log" > "$rvm_ruby_log_path/$log_file_name.error.log"
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | tee "$rvm_ruby_log_path/$log_file_name.log" >> "$rvm_ruby_log_path/$log_file_name.error.log"
   if [[ -z "$rvm_niceness" ]] || [[ "0" = "$rvm_niceness" ]] ; then
     eval "$command" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
   else
@@ -132,6 +140,8 @@ __rvm_run() {
   unset log_file command
 }
 
+# Unset both rvm variables as well as ruby-specific variables
+# Preserve gemset if 'rvm_sticky_gems' is set (persist gemset unless clear is explicitely called).
 __rvm_cleanup_variables() {
   __rvm_unset_ruby_variables
 
@@ -140,6 +150,7 @@ __rvm_cleanup_variables() {
   unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_load_flag rvm_dump_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag rvm_ruby_bits
 }
 
+# Unset ruby-specific variables
 __rvm_unset_ruby_variables() {
   unset rvm_ruby_interpreter rvm_ruby_version rvm_url rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure rvm_ruby_mode rvm_ruby_patch rvm_ruby_package_file rvm_ruby_package_name
 }
@@ -149,6 +160,7 @@ __rvm_load_rvmrc() {
   if [[ -f "$HOME/.rvmrc" ]] ; then source "$HOME/.rvmrc" ; fi
 }
 
+# Loop over the currently installed rubies and refresh their binscripts.
 __rvm_bin_scripts() {
   for rvm_ruby_binary in $rvm_rubies_path/*/bin/ruby ; do
   if [[ -x "$rvm_ruby_binary" ]] ; then
@@ -159,6 +171,8 @@ __rvm_bin_scripts() {
   done
 }
 
+# Write the bin/ wrapper script for currently selected ruby.
+# TODO: Adjust binscript to be able to handle all rubies not just the standard interpreteres.
 __rvm_bin_script() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 ruby_wrapper=$(cat <<RubyWrapper
@@ -178,6 +192,7 @@ RubyWrapper
   chmod +x $rvm_bin_path/$rvm_ruby_package_name
 }
 
+# Load default ruby, if default is not set load system ruby.
 __rvm_load_defaults() {
   if [[ ! -s "$rvm_config_path/system" ]] ; then
     for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME ; do
@@ -217,6 +232,8 @@ __rvm_load_defaults() {
   fi
 }
 
+# Reset any rvm gathered information about the system and its state.
+# rvm will refresh the stored information the next time it is called after reset.
 __rvm_reset() {
   PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
   PATH=$rvm_bin_path:$PATH ; export PATH
@@ -238,6 +255,7 @@ __rvm_reset() {
   rm -f $rvm_bin_path/ruby $rvm_bin_path/gem $rvm_bin_path/rake $rvm_bin_path/irb $rvm_bin_path/default*
 }
 
+# Implode removes the entire rvm installation under $rvm_path.
 __rvm_implode() {
   while : ; do
     $rvm_scripts_path/log "warn" "Are you SURE you wish for rvm to implode? This will remove $rvm_path ? (type 'yes' or 'no')"
@@ -262,6 +280,7 @@ __rvm_implode() {
   done
 }
 
+# Output the current ruby's rvm source path.
 __rvm_source_dir() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
   if [[ -z "$rvm_ruby_src_path" ]] ; then
@@ -271,6 +290,15 @@ __rvm_source_dir() {
   fi
 }
 
+# List all rvm installed rubies.
+# This is meant to be used with scripting.
+__rvm_rubies() {
+  \ls $rvm_rubies_path
+}
+
+# List all rvm installed rubies, default ruby and system ruby.
+# Display the rubies, indicate their architecture and indicate which is currently used.
+# This is not meant to be used with scripting. This is for interactive mode usage only.
 __rvm_list() {
   echo
   if [[ ! -z "$rvm_all_flag" ]] ; then
@@ -344,6 +372,7 @@ __rvm_list() {
   echo
 }
 
+# Initialize rvm, ensuring that the path and directories are as expected.
 __rvm_initialize() {
   rvm_ruby_load_path="."
   rvm_ruby_require=""
@@ -357,6 +386,7 @@ __rvm_initialize() {
   mkdir -p $rvm_src_path $rvm_bin_path $rvm_archives_path $rvm_gem_path $rvm_tmp_path
 }
 
+# Update rubygems or binscripts based on CLI selection.
 __rvm_update() {
   __rvm_pushpop $rvm_path
   if [[ "head" = "$rvm_ruby_revision" ]] || [[ ! -z "$rvm_self_flag" ]] || [[ "update" = "$rvm_action" ]] || [[ ! -z "$rvm_update_flag" ]] ; then
@@ -370,6 +400,8 @@ __rvm_update() {
   __rvm_pushpop
 }
 
+# Update rvm using rubygems
+# If --head was specified, update from git repository master branch.
 __rvm_update_rvm() {
   mkdir -p "$rvm_src_path"
   __rvm_pushpop "$rvm_src_path"
@@ -424,6 +456,7 @@ __rvm_reboot() {
   fi ; unset response
 }
 
+# Perform an action using one of a selected ruby's specified binaries.
 __rvm_ruby_do() {
   __rvm_select
   __rvm_use
@@ -483,6 +516,8 @@ __rvm_ruby_do() {
   __rvm_unset_ruby_variables
 }
 
+# Loop over a set or all rvm installed rubies to perform some action.
+# Record the results and report based on CLI selections.
 __rvm_do() {
   __rvm_state
 
@@ -518,6 +553,7 @@ __rvm_do() {
   return ${#errors[*]}
 }
 
+# Output the summary in a human readable format.
 __rvm_summary() {
   export successes errors statuses
   summary="\nSummary:\n\n"
@@ -533,6 +569,7 @@ __rvm_summary() {
   return ${#errors[*]}
 }
 
+# Output the summary in a yaml format.
 __rvm_yaml() {
   export successes errors statuses
   yaml="totals:\n  rubies: ${#rubies[*]}\n  successes: ${#successes[*]}\n  errors: ${#errors[*]}\nsuccesses:"
@@ -554,6 +591,7 @@ __rvm_yaml() {
   return ${#errors[*]}
 }
 
+# Output the summary in a json format.
 __rvm_json() {
   json="{"
   json="$json\n  \"totals\": { \"rubies\": ${#rubies[*]}, \"successes\": ${#successes[*]}, \"errors\": ${#errors[*]}},"
@@ -578,6 +616,7 @@ __rvm_json() {
   return ${#errors[*]}
 }
 
+# Wrap the specified ruby code file in a Benchmark.bmbm block and execute it.
 __rvm_benchmark() {
   code="require \"benchmark\" \n Benchmark.bmbm do |benchmark| \n benchmark.report(\"${rvm_ruby_file}\") do \n"
   echo -e "$code" > "$rvm_tmp_path/$$.rb"
@@ -591,13 +630,14 @@ __rvm_benchmark() {
   __rvm_do
 }
 
+# Create the irbrc for the currently selected ruby installation.
 __rvm_irbrc() {
-  # Create the irbrc for the currently selected ruby installation.
   if [[ -d "$rvm_ruby_home" ]] && [[ ! -s "$rvm_ruby_irbrc" ]] ; then
     cp $rvm_scripts_path/irbrc $rvm_ruby_irbrc
   fi
 }
 
+# Push or Pop a directory based on zero or one directory argument provided.
 __rvm_pushpop() {
   if [[ -z "$1" ]] ; then
     popd > /dev/null 2>&1
@@ -606,6 +646,8 @@ __rvm_pushpop() {
   fi
 }
 
+# Save or restore the rvm's state. This is a toggle action.
+# Meant for use before and after an operation that might reset the currently selected ruby.
 __rvm_state() {
   if [[ -z "$rvm_state" ]] ; then
     if [[ -z "$(which ruby 2>/dev/null | awk /$(basename $rvm_rubies_path)/)" ]] ; then
@@ -621,6 +663,7 @@ __rvm_state() {
   fi
 }
 
+# Output an inspection of selected 'binary' scripts, based on CLI selection.
 __rvm_inspect() {
   for binary in $rvm_ruby_args ; do
     actual_file="$(which $binary 2>/dev/null)"
@@ -634,6 +677,8 @@ __rvm_inspect() {
   done
 }
 
+# Attempt to override the Darwin build settings for rubies
+# This should only be used in extreme edge cases that will not work via the default way.
 __rvm_make_flags() {
   # This is only an issue with Darwin :/
   if [[ "Darwin" = "$(uname)" ]] ; then
@@ -669,6 +714,8 @@ __rvm_make_flags() {
   fi
 }
 
+# Select a gems(et) based on CLI set options and environment.
+# This only sets 'rvm_ruby_gem_home'
 __rvm_gems_select() {
   if [[ -z "$(which gem 2>/dev/null)" ]] ; then return 0 ; fi
 
@@ -703,11 +750,15 @@ __rvm_gems_select() {
   fi
 }
 
+# Use a gems(et) specified by 'rvm_ruby_gem_home'
 __rvm_gems_use() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
-    mkdir -p "$rvm_ruby_gem_home"
+    if [[ ! -d "$rvm_ruby_gem_home" ]] ; then
+      mkdir -p "$rvm_ruby_gem_home"
+      gem update --system
+    fi
     GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
     GEM_PATH="$GEM_HOME" ; export GEM_PATH
     __rvm_use

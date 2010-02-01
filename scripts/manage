@@ -16,7 +16,6 @@ __rvm_install_source() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   $rvm_scripts_path/log "info" "Installing Ruby from source to: $rvm_ruby_home"
-  mkdir -p "$rvm_ruby_log_path"
   __rvm_pushpop "$rvm_src_path"
   if [[ ! -z "$rvm_force_flag" ]] ; then rm -rf "$rvm_ruby_home" "$rvm_ruby_src_path" ; fi
 
@@ -190,7 +189,6 @@ RubyWrapper
         fi
         builtin cd "$rvm_ruby_src_path"
 
-        mkdir -p "$rvm_ruby_log_path"
         mkdir -p "${rvm_ruby_home}/lib/ruby/gems/1.8/gems"
         if [[ ! -z "$rvm_ruby_configure_flags" ]] ; then
           rvm_ruby_configure_flags="$(echo $rvm_ruby_configure_flags | sed 's#--#-c --#g')"
@@ -344,7 +342,6 @@ RubyWrapper
         echo -e "java must be installed and in your path in order to install JRuby." ; return 1
       fi
 
-      mkdir -p "$rvm_ruby_log_path"
       __rvm_pushpop $rvm_src_path
       __rvm_fetch_ruby
       result=$? ; if [[ "$result" -gt 0 ]] ; then
@@ -392,7 +389,6 @@ RubyWrapper
         $rvm_scripts_path/log "error" "Prerequisite checks have failed. Aborting the installation." ; __rvm_pushpop ; return $result
       fi
 
-      mkdir -p "$rvm_ruby_log_path"
       __rvm_pushpop $rvm_src_path
 
       if [[ ! -d "$rvm_src_path/$rvm_ruby_string" ]] || [[ ! -z "$rvm_force_flag" ]] ; then
@@ -483,9 +479,11 @@ RubyWrapper
       if [[ "$rvm_head_flag" = 1 ]] ; then
           mono_version="$(mono -V | head -n 1 | cut -d ' ' -f5)"
           if $rvm_scripts_path/match "$mono_version" "([0-9]+)\.([0-9]+)\.?([0-9]+)?" ; then
-            if [[ ${BASH_REMATCH[1]} -lt 2 ]] || ( [[ ${BASH_REMATCH[1]} -eq 2 ]] && [[ ${BASH_REMATCH[2]} -lt 6 ]] ) ; then
+            mono_major_ver="$(echo $mono_version | cut -d '.' -f1)"
+            mono_minor_ver="$(echo $mono_version | cut -d '.' -f2)"
+            if [[ $mono_major_ver -lt 2 ]] || ( [[ $mono_major_ver -eq 2 ]] && [[ $mono_minor_ver -lt 6 ]] ) ; then
               echo -e "Mono 2.6 (or greater) must be installed and in your path in order to build IronRuby from the repository."
-              echo -e "Version detected: ${BASH_REMATCH[0]}"
+              echo -e "Version detected: ${mono_version}"
               return 1
             fi
           else
@@ -498,6 +496,7 @@ RubyWrapper
 
           builtin cd $rvm_ruby_src_path
 
+          # MONO_LIB=/Library/Frameworks/Mono.framework/Versions/current/lib/
           rvm_ruby_make="rake MERLIN_ROOT=\"$rvm_ruby_src_path/Merlin/Main\" compile mono=1 configuration=release --trace"
           __rvm_run "rake" "$rvm_ruby_make" "Building IronRuby..."
           if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
@@ -507,8 +506,8 @@ RubyWrapper
 
           cp -r $rvm_ruby_src_path/Merlin/Main/Bin/mono_release/* $rvm_ruby_home/bin/
           cp -r $rvm_ruby_src_path/Merlin/Main/Languages/Ruby/Scripts/bin/* $rvm_ruby_home/bin/
-          cp -r $rvm_ruby_src_path/Merlin/External.LCA_RESTRICTED/Languages/Ruby/ruby-1.8.6p*/lib/ruby/* $rvm_ruby_home/lib/ruby
-          cp -r $rvm_ruby_src_path/ruby_home/lib/IronRuby
+          cp -r $rvm_ruby_src_path/Merlin/External.LCA_RESTRICTED/Languages/Ruby/redist-libs/ruby/* $rvm_ruby_home/lib/ruby
+          cp -r $rvm_ruby_src_path/Merlin/Main/Languages/Ruby/Libs/* $rvm_ruby_home/lib/IronRuby
       else
         $rvm_scripts_path/log "info" "Retrieving IronRuby"
         $rvm_scripts_path/fetch "$rvm_url"
@@ -710,18 +709,25 @@ __rvm_fetch_ruby() {
         fi
       fi
     else
-      if [[ ! -z "$rvm_head_flag" ]] || [[  "trunk" = "$rvm_ruby_revision" ]] ; then
-        rvm_url="${rvm_url:-"$rvm_ruby_repo_url/trunk"}"
-        rvm_rev=""
-      elif [[ ! -z "$rvm_ruby_tag" ]] ; then
+      if [[ ! -z "$rvm_ruby_tag" ]] ; then
         # TODO: Check if tag v is valid
         rvm_url="${rvm_url:-"$rvm_ruby_repo_url/tags/$(echo $rvm_ruby_tag | sed 's/^t//')"}"
-        rvm_rev=""
-      elif [[ "$rvm_major_version.$rvm_minor_version" = "8.8" ]] ; then
+      elif [[ -z "$rvm_ruby_version" ]] && [[ ! -z "$rvm_head_flag" ]] ; then
+        rvm_url="${rvm_url:-"$rvm_ruby_repo_url/trunk"}"
+      elif [[  "$rvm_major_version" = "9" ]] ; then
+        if [[ -z "$rvm_minor_version" ]] || [[ "$rvm_minor_version" = 2 ]] ; then
+          rvm_url="${rvm_url:-"$rvm_ruby_repo_url/trunk"}"
+        else
+          rvm_url="${rvm_url:-"$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}"}"
+        fi
+      elif [[ -z "$rvm_minor_version" ]] || [[ "$rvm_major_version.$rvm_minor_version" = "8.8" ]] ; then
         rvm_url="${rvm_url:-"$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}"}"
-        rvm_rev="-$rvm_ruby_revision"
       else
         rvm_url="${rvm_url:-"$rvm_ruby_repo_url/branches/ruby_1_${rvm_major_version}_${rvm_minor_version}"}"
+      fi
+
+      rvm_rev=""
+      if [ ! -z "$rvm_ruby_revision" ] ; then
         rvm_rev="-$rvm_ruby_revision"
       fi
 
@@ -817,6 +823,8 @@ __rvm_post_install() {
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
     __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
   fi ; unset binary
+
+  __rvm_irbrc
 }
 
 __rvm_rubygems_setup() {
