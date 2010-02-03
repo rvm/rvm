@@ -828,6 +828,7 @@ __rvm_post_install() {
 }
 
 __rvm_rubygems_setup() {
+  set -x
   if [[ ! -z "$(echo $rvm_ruby_version | awk '/^1\.9/')" ]] || [[ ! -z "$(echo $rvm_ruby_interpreter | awk '/^mput/')" ]] ; then
     # 1.9 has it's own built-in gem command
     __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/gem"
@@ -836,16 +837,20 @@ __rvm_rubygems_setup() {
     __rvm_run "rubygems.update" "$rvm_ruby_home/bin/gem update --system" "Updating rubygems for $rvm_ruby_string"
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
     __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
-
+    ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/1.$rvm_major_version"
   elif [[ ! -z "$(echo $rvm_ruby_interpreter | awk '/^rbx|jruby/')" ]] ; then
     (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "Skipping rubygems update for $rvm_ruby_version"
+    ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/jruby"
   else
     $rvm_scripts_path/log "info" "Installing rubygems dedicated to $rvm_ruby_string..."
     rvm_gem_package_name="rubygems-1.3.5"
     rvm_gem_url="http://rubyforge.org/frs/download.php/60718/$rvm_gem_package_name.tgz"
 
     # Sanity check...
-    if [[ ! -f "$rvm_src_path/$rvm_gem_package_name/setup.rb" ]]; then rm -rf "$rvm_src_path/$rvm_gem_package_name" ; fi
+    if [[ ! -f "$rvm_src_path/$rvm_gem_package_name/setup.rb" ]]; then
+      rm -rf "$rvm_src_path/$rvm_gem_package_name"
+    fi
+
     if [[ ! -d "$rvm_src_path/$rvm_gem_package_name" ]] ; then
       $rvm_scripts_path/log "info" "Retrieving $rvm_gem_package_name"
       $rvm_scripts_path/fetch "$rvm_gem_url"
@@ -855,7 +860,9 @@ __rvm_rubygems_setup() {
       mkdir -p "$rvm_src_path/$rvm_gem_package_name"
       __rvm_run "rubygems.extract" "cat $rvm_archives_path/$rvm_gem_package_name.tgz | gunzip | tar xf - -C $rvm_src_path" "Extracting $rvm_gem_package_name ..."
     fi
+
     builtin cd "$rvm_src_path/$rvm_gem_package_name"
+
     __rvm_run "rubygems.install" "GEM_PATH=$rvm_gem_path GEM_HOME=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_src_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
     result=$?
     if [[ $result -eq 0 ]] ; then
@@ -863,8 +870,25 @@ __rvm_rubygems_setup() {
     else
       $rvm_scripts_path/log "warning" "Installation of rubygems $rvm_ruby_package_name did not complete successfully."
     fi
+
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
+
+    if [[ ! -z "$rvm_major_version" ]] ; then
+      ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/1.$rvm_major_version"
+    else
+      ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/$interpreter"
+    fi
   fi
+
+  # Add ruby's gem path to ruby's lib direcotry.
+  mkdir -p $(dirname $ruby_lib_gem_path)
+  if [[ -d "$ruby_lib_gem_path" ]] ; then
+    rm -rf "$ruby_lib_gem_path"
+  fi
+  ln -nfs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
+  unset ruby_lib_gem_path
+  set +x
+
   return $result
 }
 
