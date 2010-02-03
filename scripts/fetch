@@ -4,6 +4,15 @@ if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
 
 trap "if [[ -d $rvm_tmp_path/ ]] && [[ -f $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
 
+record_md5() {
+  if [[ "Darwin" = "$(uname)" ]] ; then
+    archive_md5="$(md5 $archive | awk '{print $NF}')"
+  else
+    archive_md5="$(md5sum $archive | awk '{print $1}')"
+  fi
+  $rvm_scripts_path/db "$rvm_config_path/md5" "$archive" "$archive_md5"
+}
+
 if ! which curl &> /dev/null; then
   $rvm_scripts_path/log "fail" "rvm requires curl, which does not seem to exist in your path :("
   exit 1
@@ -11,7 +20,7 @@ else
   fetch_command="curl -O -L --create-dirs -C - " # -s for silent
 fi
 
-pushd "$rvm_archives_path" > /dev/null 2>&1
+builtin cd "$rvm_archives_path"
 
 if [[ -z "$1" ]] ; then $rvm_scripts_path/log "fail" "BUG: $0 called without an argument :/" ; exit 1 ; fi
 
@@ -60,11 +69,13 @@ if [[ $download -gt 0 ]] ; then
       result=$?
       if [[ $result -gt 0 ]] ; then
         $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      else
+        record_md5
       fi
     fi
-
+  else
+    record_md5
   fi
-  popd > /dev/null 2>&1
 fi
 
 exit $result

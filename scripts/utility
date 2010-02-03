@@ -63,6 +63,7 @@ if [[ ! -z "$MAGLEV_HOME" ]] ; then echo "  MAGLEV_HOME: $MAGLEV_HOME" ; fi
 __rvm_debug() {
   $rvm_scripts_path/log "debug" "PATH:\n$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"$5}')"
   $rvm_scripts_path/log "debug" "uname -a: $(uname -a)"
+  $rvm_scripts_path/log "debug" "permissions: $(ls -la $rvm_path{,/rubies})"
 
   if [[ "Darwin" = "$(uname)" ]] ; then
     $rvm_scripts_path/log "debug" "uname -r: $(uname -r)"
@@ -152,7 +153,7 @@ __rvm_cleanup_variables() {
 
 # Unset ruby-specific variables
 __rvm_unset_ruby_variables() {
-  unset rvm_ruby_interpreter rvm_ruby_version rvm_url rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure rvm_ruby_mode rvm_ruby_patch rvm_ruby_package_file rvm_ruby_package_name
+  unset rvm_ruby_interpreter rvm_ruby_version rvm_url rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_string rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure rvm_ruby_mode rvm_ruby_patch rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_gem_path
 }
 
 __rvm_load_rvmrc() {
@@ -179,9 +180,9 @@ ruby_wrapper=$(cat <<RubyWrapper
 #!/bin/bash
 
 GEM_HOME=$rvm_ruby_gem_home ; export GEM_HOME
-GEM_PATH=$rvm_ruby_gem_home ; export GEM_PATH
+GEM_PATH=$rvm_ruby_gem_path ; export GEM_PATH
 MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
-PATH=$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH ; export PATH
+PATH=$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_bin_path:\$PATH ; export PATH
 
 exec "$rvm_ruby_binary" "\$@"
 RubyWrapper
@@ -235,8 +236,8 @@ __rvm_load_defaults() {
 # Reset any rvm gathered information about the system and its state.
 # rvm will refresh the stored information the next time it is called after reset.
 __rvm_reset() {
-  PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
-  PATH=$rvm_bin_path:$PATH ; export PATH
+  PATH="$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)"
+  PATH="$rvm_bin_path:$PATH" ; export PATH
 
   for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do unset $variable ; done
 
@@ -719,6 +720,8 @@ __rvm_make_flags() {
 __rvm_gems_select() {
   if [[ -z "$(which gem 2>/dev/null)" ]] ; then return 0 ; fi
 
+  rvm_ruby_global_gems_path="$rvm_gem_path/$rvm_ruby_string%global"
+
   if [[ -z "$rvm_gem_set_name" ]] ; then
     # No longer defaulting to 'sticky' gem sets.
     # Set 'rvm_sticky_gemsets=1' in ~/.rvmrc to enable.
@@ -748,6 +751,17 @@ __rvm_gems_select() {
   else
     rvm_ruby_gem_home="$rvm_gem_path/$rvm_ruby_string%$rvm_gem_set_name"
   fi
+  rvm_ruby_gem_path="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
+
+  # Global gems cache
+  mkdir -p "$rvm_ruby_gem_home"
+  if [[ ! -L "$rvm_ruby_gem_home/cache" ]] ; then
+    for file in "$rvm_ruby_gem_home"/cache/* ; do
+      mv $file "$rvm_gem_path/cache/" > /dev/null 2>&1
+    done
+    rm -rf "$rvm_ruby_gem_home/cache"
+    ln -nfs "$rvm_gem_path/cache" "$rvm_ruby_gem_home/cache"
+  fi
 }
 
 # Use a gems(et) specified by 'rvm_ruby_gem_home'
@@ -757,10 +771,14 @@ __rvm_gems_use() {
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     if [[ ! -d "$rvm_ruby_gem_home" ]] ; then
       mkdir -p "$rvm_ruby_gem_home"
-      gem update --system
     fi
+
+    if [[ "$rvm_interactive" ]] ; then
+      $rvm_scripts_path/log "info" "gems(et) : ${rvm_gem_set_name:-default}"
+    fi
+
     GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
-    GEM_PATH="$GEM_HOME" ; export GEM_PATH
+    GEM_PATH="$rvm_ruby_gem_path" ; export GEM_PATH
     __rvm_use
   fi
 }
