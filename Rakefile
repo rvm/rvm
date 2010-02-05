@@ -37,7 +37,7 @@ begin
     gemspec.summary         = "Ruby Version Manager (rvm)"
     gemspec.require_paths   = ["lib"]
     gemspec.date            = Time.now.strftime("%Y-%m-%d")
-    gemspec.description     = "Manages Ruby interpreter installations and switching between them."
+    gemspec.description     = "Manages Ruby interpreter environments and switching between them."
     gemspec.platform        = Gem::Platform::RUBY
     gemspec.files           = ["install", "README", "LICENCE", "rvm.gemspec", "bash/*", "binscripts/*", "scripts/*", "examples/*", "config/*", Dir::glob("lib/**/**")].flatten
     gemspec.executables     = Dir::glob("bin/rvm-*").map{ |script| File::basename script }
