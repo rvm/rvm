@@ -67,8 +67,8 @@ __rvm_gems_dump() {
   rvm_file_name="${rvm_file_name:-$gems_args}"
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
-    GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME ;
-    GEM_PATH="$rvm_ruby_gem_path" ; export GEM_PATH ;
+    export GEM_HOME="$rvm_ruby_gem_home"
+    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string%global/bin"
   fi
 
   if [[ -z "$rvm_file_name" ]] ; then
@@ -100,7 +100,7 @@ __rvm_gems_load() {
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
-    export GEM_PATH="$rvm_ruby_gem_path"
+    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string%global/bin"
   fi
 
   if [[ ! -z "$(echo "$gems_args" | awk '/\.gem.*$/')" ]] ; then
@@ -203,17 +203,30 @@ __rvm_gem_install() {
         gem="${gem_name/ /} -v $gem_version"
       fi
     else # cached
+        set -x
       gem_file_name="$(basename "$cache_file")"
       gem_string="$(echo "$gem_file_name" | sed 's#\.gem$##')"
 
       # TODO: Switch this to use match
       if [[ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/${gem_name/ /} \(.*$gem_version/{print}")" ]] ; then
         if [[ ! -z "$rvm_force_flag" ]] ; then
-          gem="$rvm_gems_path/cache/$gem_file_name" # install as a named local gem
+          # install as a named local gem
+          mkdir -p "$rvm_tmp_path/$$/"
+          mv "$rvm_gems_path/cache/$gem_file_name" "$rvm_tmp_path/$$/"
+          gem="$rvm_tmp_path/$$/$gem_file_name -f -l"
+          #gem="$rvm_gems_path/cache/$gem_file_name -f -l" # install as a named local gem
         fi
       else
-        gem="$cache_file"
+        if [[ -s "$cache_file" ]] ; then
+          mkdir -p "$rvm_tmp_path/$$/"
+          mv "$cache_file" "$rvm_tmp_path/$$/$gem_file_name"
+          gem="$rvm_tmp_path/$$/$gem_file_name -f -l"
+        else
+          rm -f "$cache_file"
+          gem="$cache_file"
+        fi
       fi
+      set +x
     fi
   fi
 
@@ -222,7 +235,7 @@ __rvm_gem_install() {
     if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
 
     if [[ ! -z "$rvm_ruby_gem_home" ]] && [[ "$rvm_ruby_gem_home" != "$rvm_gems_path" ]] ; then
-      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_path' $gem_prefix gem install $rvm_gem_options $gem $gem_postfix $vars"
+      command="export GEM_HOME='$GEM_HOME' ; export GEM_PATH='$GEM_PATH' ; $gem_prefix gem install $rvm_gem_options $gem $gem_postfix $vars"
     else
       command="$gem_prefix gem install $rvm_gem_options -q $gem $gem_postfix $vars"
     fi
@@ -234,6 +247,7 @@ __rvm_gem_install() {
       $rvm_scripts_path/log "error" "$color_red$gem_name $gem_version$color_none failed to install, output has been logged to:\n$rvm_path/log/$rvm_ruby_string/gem.install.error.log"
     fi
   fi ; unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string
+
   return $result
 }
 
