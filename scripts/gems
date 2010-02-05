@@ -175,8 +175,7 @@ __rvm_parse_gem_line() {
 __rvm_gem_install() {
   __rvm_parse_gem_line $*
 
-  installed_gems="$(ls ${rvm_ruby_gem_home}/specifications/ 2>/dev/null)"
-  if [[ -z "$rvm_force_flag" ]] && [[ ! -z "$(echo $installed_gems | awk '/'$(basename $gem_file_name)'spec/')" ]] ; then
+  if [[ -z "$rvm_force_flag" ]] && [[ -f "${rvm_ruby_gem_home}/specifications/$(basename $gem_file_name)'spec" ]] ; then
     unset gem
     $rvm_scripts_path/log "info" "$color_green$gem_name $gem_version$yellow exists, skipping (--force to re-install)"
   else
@@ -185,16 +184,10 @@ __rvm_gem_install() {
     elif [[ -f "$rvm_gems_path/cache/${gem_file_name}" ]] ; then
       cache_file="$rvm_gems_path/cache/${gem_file_name}"
     else
-      cache_file="${cache_file:-$(\ls ${rvm_gems_path}/*/*/cache/${gem_file_name}* 2> /dev/null | sort | head -n1)}"
-      if [[ ! -z "$cache_file" ]] && [[ -f "$cache_file" ]] ; then
-        if [[ "$(dirname $cache_file)" != "$rvm_gems_path/cache/" ]] ; then
-          cp "$cache_file" "$rvm_gems_path/cache/"
-          cache_file="$rvm_gems_path/cache/$(basename $cache_file)"
-        fi
-      fi
+      cache_file="${cache_file:-$(\ls ${rvm_gems_path}/cache/${gem_file_name} 2> /dev/null | sort | head -n1)}"
     fi
 
-    if [[ -z "$cache_file" ]] ; then
+    if [[ ! -f "$cache_file" ]] ; then
       if [[ -f "$gem_file_name" ]] ; then
         gem="$gem_file_name"
       elif [[ -z "${gem_version/ /}" ]] ; then
@@ -203,30 +196,20 @@ __rvm_gem_install() {
         gem="${gem_name/ /} -v $gem_version"
       fi
     else # cached
-        set -x
       gem_file_name="$(basename "$cache_file")"
       gem_string="$(echo "$gem_file_name" | sed 's#\.gem$##')"
 
-      # TODO: Switch this to use match
-      if [[ ! -z "$(echo "$rvm_ruby_gem_list" | awk "/${gem_name/ /} \(.*$gem_version/{print}")" ]] ; then
-        if [[ ! -z "$rvm_force_flag" ]] ; then
-          # install as a named local gem
-          mkdir -p "$rvm_tmp_path/$$/"
-          mv "$rvm_gems_path/cache/$gem_file_name" "$rvm_tmp_path/$$/"
-          gem="$rvm_tmp_path/$$/$gem_file_name -f -l"
-          #gem="$rvm_gems_path/cache/$gem_file_name -f -l" # install as a named local gem
-        fi
+      if [[ -z "$rvm_force_flag" ]] && [[ -f "${rvm_ruby_gem_home}/specifications/$(basename $gem_file_name)'spec" ]] ; then
+        : # already installed, not forcing reinstall.
       else
-        if [[ -s "$cache_file" ]] ; then
+        if [[ -s "$rvm_gems_path/cache/$(basename $gem_file_name)" ]] ; then
           mkdir -p "$rvm_tmp_path/$$/"
-          mv "$cache_file" "$rvm_tmp_path/$$/$gem_file_name"
+          mv "$rvm_gems_path/cache/$gem_file_name" "$rvm_tmp_path/$$/$gem_file_name"
           gem="$rvm_tmp_path/$$/$gem_file_name -f -l"
         else
-          rm -f "$cache_file"
           gem="$cache_file"
         fi
       fi
-      set +x
     fi
   fi
 
