@@ -12,7 +12,7 @@ if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
 rvm_ruby_gem_home="${rvm_ruby_gem_home:-$GEM_HOME}"
 if [[ -d "$rvm_ruby_gem_home" ]] && which gem &> /dev/null ; then rvm_ruby_gem_home="$(gem env home)" ; fi
 
-trap "if [[ -d $rvm_tmp_path/ ]] && [[ -f $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
+trap "if [[ -d $rvm_tmp_path/ ]] && [[ -s $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
 
 __rvm_gems_name() {
   echo "$(gem env gemdir)" | awk -F'%' '{print $2}'
@@ -47,11 +47,34 @@ __rvm_gems_delete() {
     if [[ -d "$gemdir" ]] && [[ "$gemdir" != '/' ]] && [[ ! -z "$rvm_force_flag" ]] ; then
         rm -rf  "$gemdir"
     elif [[ -d "$gemdir" ]] ; then
-      $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the installed gems '$rvm_gem_set_name' ($gemdir)?"
+      $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the entire gemset '$rvm_gem_set_name' ($gemdir)?"
       echo -n "(anything other than 'yes' will cancel) > "
       read response
       if [[ "yes" = "$response" ]] ; then
-        rm -rf  "$gemdir"
+        rm -f $gemdir/cache && rm -rf $gemdir
+      else
+        $rvm_scripts_path/log "info" "Not doing anything, phew... close call that one eh?"
+      fi
+    else
+      $rvm_scripts_path/log "info" "$gemdir already does not exist."
+    fi ; unset gemdir
+  else
+    $rvm_scripts_path/log "error" "A gems name must be specified in order to delete a gems."
+  fi
+}
+
+__rvm_gems_nuke() {
+  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
+  if [[ ! -z "$rvm_gem_set_name" ]] ; then
+    gemdir="$rvm_gems_path/$rvm_ruby_string%$rvm_gem_set_name"
+    if [[ -d "$gemdir" ]] && [[ "$gemdir" != '/' ]] && [[ ! -z "$rvm_force_flag" ]] ; then
+      cd $gemdir && rm -rf ./bin/* ./doc/* ./gems/* ./specifications/*
+    elif [[ -d "$gemdir" ]] ; then
+      $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the installed gems for gemset '%$rvm_gem_set_name' ($gemdir)?"
+      echo -n "(anything other than 'yes' will cancel) > "
+      read response
+      if [[ "yes" = "$response" ]] ; then
+        cd $gemdir && rm -rf ./bin/* ./doc/* ./gems/* ./specifications/*
       else
         $rvm_scripts_path/log "info" "Not doing anything, phew... close call that one eh?"
       fi
@@ -109,13 +132,13 @@ __rvm_gems_load() {
     rvm_gem_set_name="$gems_args"
   fi
 
-  if [[ -f "$rvm_gem_set_name.gems" ]] ; then
+  if [[ -s "$rvm_gem_set_name.gems" ]] ; then
     rvm_file_name="$rvm_gem_set_name.gems"
-  elif [[ -f "default.gems" ]] ; then
+  elif [[ -s "default.gems" ]] ; then
     rvm_file_name="default.gems"
-  elif [[ -f "system.gems" ]] ; then
+  elif [[ -s "system.gems" ]] ; then
     rvm_file_name="system.gems"
-  elif [[ -f ".gems" ]] ; then
+  elif [[ -s ".gems" ]] ; then
     rvm_file_name=".gems"
   else
     $rvm_scripts_path/log "error" "No *.gems file found."
@@ -124,7 +147,7 @@ __rvm_gems_load() {
 
   mkdir -p "$rvm_gems_path/cache" # Ensure the base cache dir is initialized.
 
-  if [[ -f "$rvm_file_name" ]] ; then
+  if [[ -s "$rvm_file_name" ]] ; then
     echo "Loading $rvm_file_name file..."
     rvm_ruby_gem_list=$(\ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's#.gems.*$##' 2> /dev/null)
 
@@ -159,7 +182,7 @@ __rvm_parse_gem_args() {
     fi
   fi
 
-  if [[ -f "$gem" ]] ; then
+  if [[ -s "$gem" ]] ; then
     gem_file_name="$gem"
   elif $rvm_scripts_path/match "$gem" ".gem$" ; then
     gem_file_name="$gem"
@@ -180,16 +203,16 @@ __rvm_gem_install() {
     unset gem
     $rvm_scripts_path/log "info" "$color_green$gem_name $gem_version$yellow exists, skipping (--force to re-install)"
   else
-    if [[ -f "$gem" ]] ; then
+    if [[ -s "$gem" ]] ; then
       cache_file="$gem"
-    elif [[ -f "$rvm_gems_path/cache/${gem_file_name}" ]] ; then
+    elif [[ -s "$rvm_gems_path/cache/${gem_file_name}" ]] ; then
       cache_file="$rvm_gems_path/cache/${gem_file_name}"
     else
       cache_file="${cache_file:-$(\ls ${rvm_gems_path}/cache/${gem_file_name} 2> /dev/null | sort | head -n1)}"
     fi
 
-    if [[ ! -f "$cache_file" ]] ; then
-      if [[ -f "$gem_file_name" ]] ; then
+    if [[ ! -s "$cache_file" ]] ; then
+      if [[ -s "$gem_file_name" ]] ; then
         gem="$gem_file_name"
       elif [[ -z "${gem_version/ /}" ]] ; then
         gem="${gem_name/ /}"
@@ -200,7 +223,7 @@ __rvm_gem_install() {
       gem_file_name="$(basename "$cache_file")"
       gem_string="$(echo "$gem_file_name" | sed 's#\.gem$##')"
 
-      if [[ -z "$rvm_force_flag" ]] && [[ -f "${rvm_ruby_gem_home}/specifications/$(basename $gem_file_name)spec" ]] ; then
+      if [[ -z "$rvm_force_flag" ]] && [[ -s "${rvm_ruby_gem_home}/specifications/$(basename $gem_file_name)spec" ]] ; then
         unset gem # already installed, not forcing reinstall.
         $rvm_scripts_path/log "info" "$color_green$gem_name $gem_version$yellow exists, skipping (--force to re-install)"
       else
@@ -266,6 +289,8 @@ if [[ "load" = "$action" ]] ; then
   __rvm_gems_load
 elif [[ "dump" = "$action" ]] ; then
   __rvm_gems_dump
+elif [[ "nuke" = "$action" ]] ; then
+  __rvm_gems_nuke
 elif [[ "delete" = "$action" ]] ; then
   __rvm_gems_delete
 elif [[ "name" = "$action" ]] ; then
