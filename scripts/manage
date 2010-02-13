@@ -93,8 +93,9 @@ __rvm_install_source() {
 
   $rvm_scripts_path/log "info" "Installation of $rvm_ruby_string is complete."
 
-  GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
-  GEM_PATH="$rvm_ruby_gem_path" ; export GEM_PATH
+  export GEM_HOME="$rvm_ruby_gem_home"
+  export GEM_PATH="$rvm_ruby_gem_path"
+  export BUNDLE_PATH="$rvm_ruby_gem_home"
 
   __rvm_rubygems_setup
   __rvm_bin_script
@@ -154,12 +155,12 @@ __rvm_install_ruby() {
         for binary_name in $(echo $binaries); do
           # if [[ $binary_name != "gem" ]] ; then prefix="-S" ; fi
           ruby_wrapper=$(cat <<RubyWrapper
-#!/bin/bash
+#!/usr/bin/env bash
 
-GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
-GEM_PATH="$rvm_ruby_gem_path" ; export GEM_PATH
-MY_RUBY_HOME="$rvm_ruby_home" ; export MY_RUBY_HOME
-PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:\$PATH" ; export PATH
+export GEM_HOME="$rvm_ruby_gem_home"
+export GEM_PATH="$rvm_ruby_gem_path"
+export MY_RUBY_HOME="$rvm_ruby_home"
+export PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:\$PATH"
 
 exec $macruby_path/mac$binary_name $prefix "\$@"
 RubyWrapper
@@ -257,7 +258,7 @@ RubyWrapper
       __rvm_unset_ruby_variables ; rvm_ruby_string="$original_string" ; __rvm_select
       unset original_string
 
-      unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
+      unset BUNDLE_PATH GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
       PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
       PATH=$rvm_bin_path:$PATH ; export PATH
 
@@ -330,10 +331,11 @@ RubyWrapper
         ruby_wrapper=$(cat <<RubyWrapper
 #!/usr/bin/env bash
 
-GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
-GEM_PATH="$rvm_ruby_gem_path" ; export GEM_PATH
-MY_RUBY_HOME="$rvm_ruby_home" ; export MY_RUBY_HOME
-PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:\$PATH" ; export PATH
+export GEM_HOME="$rvm_ruby_gem_home"
+export GEM_PATH="$rvm_ruby_gem_path"
+export BUNDLE_PATH="$rvm_ruby_gem_home"
+export MY_RUBY_HOME="$rvm_ruby_home"
+export PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:\$PATH"
 
 exec $rvm_ruby_home/bin/rbx $prefix$binary_name "\$@"
 RubyWrapper
@@ -550,10 +552,11 @@ RubyWrapper
         ruby_wrapper=$(cat <<RubyWrapper
 #!/bin/bash
 
-GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
-GEM_PATH="$rvm_ruby_gem_path" ; export GEM_PATH
-MY_RUBY_HOME="$rvm_ruby_home" ; export MY_RUBY_HOME
-PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:\$PATH" ; export PATH
+export GEM_HOME="$rvm_ruby_gem_home"
+export GEM_PATH="$rvm_ruby_gem_path"
+export BUNDLE_PATH="$rvm_ruby_gem_home"
+export MY_RUBY_HOME="$rvm_ruby_home"
+export PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:\$PATH"
 
 exec mono $rvm_ruby_home/bin/ir.exe $binary_path "\$@"
 RubyWrapper
@@ -573,7 +576,7 @@ RubyWrapper
 
     mput|shyouhei)
       if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
-      unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
+      unset BUNDLE_PATH GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
       PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
       PATH=$rvm_bin_path:$PATH ; export PATH
 
@@ -629,8 +632,9 @@ RubyWrapper
 
       $rvm_scripts_path/log "info" "Installation of $rvm_ruby_string is complete."
 
-      GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
-      GEM_PATH="$rvm_ruby_gem_path" ; export GEM_PATH
+      export GEM_HOME="$rvm_ruby_gem_home"
+      export GEM_PATH="$rvm_ruby_gem_path"
+      export BUNDLE_PATH="$rvm_ruby_gem_home"
 
       __rvm_rubygems_setup
       __rvm_bin_script
@@ -826,10 +830,12 @@ __rvm_post_install() {
   $rvm_scripts_path/log "info" "Installing gems for $rvm_ruby_string."
 
   for rvm_gem_name in rake ; do
-    home="$GEM_HOME" ; export GEM_HOME="$rvm_ruby_global_gems_path"
-    path="$GEM_PATH" ; export GEM_PATH="$rvm_ruby_global_gems_path"
+    home="$GEM_HOME" ; path="$GEM_PATH" # Save
+    export GEM_HOME="$rvm_ruby_global_gems_path"
+    export GEM_PATH="$rvm_ruby_global_gems_path"
+    export BUNDLE_PATH="$rvm_ruby_global_gems_path"
     __rvm_run "gems.install" "$rvm_ruby_home/bin/gem install $rvm_gem_name $rvm_gem_options" "Installing $rvm_gem_name"
-    export GEM_HOME="$home" ; export GEM_PATH="$path" ; unset home path
+    export GEM_HOME="$home" ; export GEM_PATH="$path" ; export BUNDLE_PATH="$home" ; unset home path
   done ; unset rvm_gem_name
 
   $rvm_scripts_path/log "info" "Installation of gems for $rvm_ruby_string is complete."
@@ -851,10 +857,12 @@ __rvm_rubygems_setup() {
     __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/gem"
     __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
     cp $rvm_ruby_src_path/bin/gem $rvm_ruby_home/bin/gem
-    home="$GEM_HOME" ; export GEM_HOME="$rvm_ruby_global_gems_path"
-    path="$GEM_PATH" ; export GEM_PATH="$rvm_ruby_global_gems_path"
+    home="$GEM_HOME" ; path="$GEM_PATH" # Save
+    export GEM_HOME="$rvm_ruby_global_gems_path"
+    export GEM_PATH="$rvm_ruby_global_gems_path"
+    export BUNDLE_PATH="$rvm_ruby_global_gems_path"
     __rvm_run "rubygems.update" "$rvm_ruby_home/bin/gem update --system" "Updating rubygems for $rvm_ruby_string"
-    export GEM_HOME="$home" ; export GEM_PATH="$path" ; unset home path
+    export GEM_HOME="$home" ; export GEM_PATH="$path" ; export BUNDLE_PATH="$home" unset home path
 
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
     __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
@@ -884,7 +892,7 @@ __rvm_rubygems_setup() {
 
     builtin cd "$rvm_src_path/$rvm_gem_package_name"
 
-    __rvm_run "rubygems.install" "GEM_PATH=$rvm_ruby_gem_path GEM_HOME=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_src_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
+    __rvm_run "rubygems.install" "GEM_PATH=$rvm_ruby_gem_path GEM_HOME=$rvm_ruby_gem_home BUNDLE_PATH=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_src_path/$rvm_gem_package_name/setup.rb" "Installing rubygems for $rvm_ruby_home/bin/ruby"
     result=$?
     if [[ $result -eq 0 ]] ; then
       $rvm_scripts_path/log "info" "Installation of rubygems $rvm_ruby_package_name completed successfully."
@@ -925,9 +933,9 @@ __rvm_inject_gem_env() {
   __rvm_actual_file $1
   if [[ -f "$actual_file" ]] ; then
     if [[ ! -z "$(head -n 1 $actual_file | awk '/[j]*ruby/')" ]] ; then
-      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_ruby_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_ruby_gem_path'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:' + ENV['PATH']"
+      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_ruby_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_ruby_gem_path'\nENV['PATH']='$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:' + ENV['PATH']\nENV['BUNDLE_PATH']=ENV['BUNDLE_PATH'] || '$rvm_ruby_gem_home'\n"
     elif [[ ! -z "$(head -n 1 $actual_file | awk '/bash/')" ]] ; then
-      string="GEM_HOME=\${GEM_HOME:-'$rvm_ruby_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_ruby_gem_path'}\nPATH=$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH"
+      string="GEM_HOME=\${GEM_HOME:-'$rvm_ruby_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_ruby_gem_path'}\nPATH=$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:\$PATH\nBUNDLE_PATH=\${BUNDLE_PATH:-'$rvm_ruby_gem_home'}\n"
     fi
     if [[ ! -z "$string" ]] ; then
       awk "NR==2 {print \"$string\"} {print}" "$actual_file" > "$actual_file.new"

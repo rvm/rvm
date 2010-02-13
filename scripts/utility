@@ -53,8 +53,10 @@ binaries:
 environment:
   GEM_HOME:     "$GEM_HOME"
   GEM_PATH:     "$GEM_PATH"
+  BUNDLE_PATH:  "$BUNDLE_PATH"
   MY_RUBY_HOME: "$MY_RUBY_HOME"
   IRBRC:        "$IRBRC"
+
 Info
 if [[ ! -z "$MAGLEV_HOME" ]] ; then echo -e "  MAGLEV_HOME: \"$MAGLEV_HOME\"" ; fi
 
@@ -187,14 +189,17 @@ __rvm_bin_scripts() {
 # Write the bin/ wrapper script for currently selected ruby.
 # TODO: Adjust binscript to be able to handle all rubies not just the standard interpreteres.
 __rvm_bin_script() {
-  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
-ruby_wrapper=$(cat <<RubyWrapper
-#!/bin/bash
 
-GEM_HOME=$rvm_ruby_gem_home ; export GEM_HOME
-GEM_PATH=$rvm_ruby_gem_path ; export GEM_PATH
-MY_RUBY_HOME=$rvm_ruby_home ; export MY_RUBY_HOME
-PATH=$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_bin_path:\$PATH ; export PATH
+  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
+
+ruby_wrapper=$(cat <<RubyWrapper
+#!/usr/bin/env bash
+
+export GEM_HOME="$rvm_ruby_gem_home"
+export GEM_PATH="$rvm_ruby_gem_path"
+export BUNDLE_PATH="$rvm_ruby_gem_home"
+export MY_RUBY_HOME="$rvm_ruby_home"
+export PATH="$rvm_ruby_home/bin:$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_bin_path:\$PATH"
 
 exec "$rvm_ruby_binary" "\$@"
 RubyWrapper
@@ -208,7 +213,7 @@ RubyWrapper
 # Load default ruby, if default is not set load system ruby.
 __rvm_load_defaults() {
   if [[ ! -s "$rvm_config_path/system" ]] ; then
-    for variable in RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME ; do
+    for variable in RUBY_VERSION GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME ; do
       eval value=\$${variable}
       if [[ -z "$value" ]] ; then
         echo "unset ${variable}" >> $rvm_config_path/system
@@ -251,7 +256,7 @@ __rvm_reset() {
   PATH="$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)"
   PATH="$rvm_bin_path:$PATH" ; export PATH
 
-  for variable in RUBY_VERSION GEM_HOME MY_RUBY_HOME ; do unset $variable ; done
+  for variable in RUBY_VERSION GEM_HOME BUNDLE_PATH MY_RUBY_HOME ; do unset $variable ; done
 
   for flag in default passenger editor ; do rm -f "$rvm_bin_path"/${flag}_* ; done
 
@@ -796,8 +801,9 @@ __rvm_gems_use() {
       $rvm_scripts_path/log "info" "gems(et) : ${rvm_gem_set_name:-default}"
     fi
 
-    GEM_HOME="$rvm_ruby_gem_home" ; export GEM_HOME
-    GEM_PATH="$rvm_ruby_gem_path" ; export GEM_PATH
+    export GEM_HOME="$rvm_ruby_gem_home"
+    export GEM_PATH="$rvm_ruby_gem_path"
+    export BUNDLE_PATH="$rvm_ruby_gem_home"
     __rvm_use
   fi
 }
