@@ -86,6 +86,33 @@ __rvm_gems_nuke() {
   fi
 }
 
+# Migrate gemsets from ruby X to ruby Y
+__rvm_gems_copy() {
+  source_ruby="$(echo $gem_args | awk '{print $1}')"
+  destination_ruby="$(echo $gem_args | awk '{print $2}')"
+  if [[ -z "$source_ruby" ]] ; then
+    $rvm_scripts_path/log "error" "Source and destination must be specified: 'rvm gems copy X Y'"
+  fi
+  if [[ -z "$destination_ruby" ]] ; then
+    $rvm_scripts_path/log "error" "Source and destination must be specified: 'rvm gems copy X Y'"
+  fi
+  source_path="$($rvm_bin_path/rvm $source_ruby gem env gemdir | tail -n 1)"
+  destination_path="$($rvm_bin_path/rvm $destination_ruby gem env gemdir | tail -n 1)"
+
+  if [[ -d "$source_path" ]] ; then
+    if [[ ! -d "$destination_path" ]] ; then mkdir -p $destination_path ; fi
+    $rvm_scripts_path/log "info" "Copying gemset from $source_ruby to $destination_ruby" ;
+    for dir in bin doc gems specifications ; do
+      cp -Rf $source_path/$dir $destination_path/
+    done
+  else
+    $rvm_scripts_path/log "error" "Gems directory does not exist for $source_path ($source_path)"
+    return 1
+  fi
+
+  unset source_ruby destination_ruby source_path destination_path
+}
+
 __rvm_gems_dump() {
   rvm_file_name="${rvm_file_name:-$gems_args}"
 
@@ -285,12 +312,14 @@ if [[ -z "$(which gem 2>/dev/null)" ]] ; then
 fi
 
 action="$(echo $* | awk '{print $1}')"
-gems_args="$(echo $* | awk '{$1="" ; print}' | sed 's/^\s*//')"
+gem_args=$(echo "$*" | awk '{$1="" ; print}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
 if [[ "load" = "$action" ]] ; then
   __rvm_gems_load
 elif [[ "dump" = "$action" ]] ; then
   __rvm_gems_dump
+elif [[ "copy" = "$action" ]] ; then
+  __rvm_gems_copy
 elif [[ "nuke" = "$action" ]] ; then
   __rvm_gems_nuke
 elif [[ "delete" = "$action" ]] ; then
