@@ -63,7 +63,7 @@ __rvm_gems_delete() {
   fi
 }
 
-__rvm_gems_nuke() {
+__rvm_gems_empty() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
   if [[ ! -z "$rvm_gem_set_name" ]] ; then
     gemdir="$rvm_gems_path/$rvm_ruby_string%$rvm_gem_set_name"
@@ -113,7 +113,7 @@ __rvm_gems_copy() {
   unset source_ruby destination_ruby source_path destination_path
 }
 
-__rvm_gems_dump() {
+__rvm_gems_export() {
   rvm_file_name="${rvm_file_name:-$gems_args}"
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
@@ -130,10 +130,10 @@ __rvm_gems_dump() {
     fi
   fi
 
-  $rvm_scripts_path/log "info" "Dumping current environments gems to $rvm_file_name"
+  $rvm_scripts_path/log "info" "Exporting current environments gems to $rvm_file_name"
 
   touch $rvm_file_name
-  echo "# $rvm_file_name generated gem dump file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_file_name
+  echo "# $rvm_file_name generated gem export file. Note that any env variable settings will be missing. Append these after using a ';' field separator" > $rvm_file_name
   for gem in $(gem list | sed 's#[\(|\)]##g' | sed 's#, #,#g' | tr ' ' ';') ; do
     name="$(echo $gem | awk -F';' '{print $1}')"
     if [[ -z "$rvm_latest_flag" ]] ; then
@@ -147,7 +147,7 @@ __rvm_gems_dump() {
   done ; unset file_name
 }
 
-__rvm_gems_load() {
+__rvm_gems_import() {
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
@@ -177,7 +177,7 @@ __rvm_gems_load() {
   mkdir -p "$rvm_gems_path/cache" # Ensure the base cache dir is initialized.
 
   if [[ -s "$rvm_file_name" ]] ; then
-    echo "Loading $rvm_file_name file..."
+    echo "Importing  $rvm_file_name file..."
     rvm_ruby_gem_list=$(\ls $rvm_ruby_gem_home/specifications/ 2> /dev/null | sed 's#.gems.*$##' 2> /dev/null)
 
     while read -r line
@@ -187,7 +187,7 @@ __rvm_gems_load() {
       fi
     done < <(awk '/^[^#]+/{print}' "${rvm_file_name}")
   else
-    $rvm_scripts_path/log "error" "${rvm_file_name} does not exist to load from."
+    $rvm_scripts_path/log "error" "${rvm_file_name} does not exist to import from."
   fi
 }
 
@@ -314,14 +314,14 @@ fi
 action="$(echo $* | awk '{print $1}')"
 gem_args=$(echo "$*" | awk '{$1="" ; print}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
-if [[ "load" = "$action" ]] ; then
-  __rvm_gems_load
-elif [[ "dump" = "$action" ]] ; then
-  __rvm_gems_dump
+if [[ "import" = "$action" ]] || [[ "load" = "$action" ]] ; then
+  __rvm_gems_import
+elif [[ "export" = "$action" ]] || [[ "dump" = "$action" ]] ; then
+  __rvm_gems_export
 elif [[ "copy" = "$action" ]] ; then
   __rvm_gems_copy
-elif [[ "nuke" = "$action" ]] ; then
-  __rvm_gems_nuke
+elif [[ "empty" = "$action" ]] ; then
+  __rvm_gems_empty
 elif [[ "delete" = "$action" ]] ; then
   __rvm_gems_delete
 elif [[ "name" = "$action" ]] ; then
@@ -338,7 +338,7 @@ elif [[ "clear" = "$action" ]] ; then
   $rvm_scripts_path/log "info" "gems(et) cleared."
   exit 0
 else
-  $rvm_scripts_path/log "error" "gems must be passed an action as the first parameter {load,dump,delete,name,list,gemdir,install}"
+  $rvm_scripts_path/log "error" "Unrecognized gems action '$action'.\ngems must be passed an action as the first parameter {import,export,copy,delete,empty,name,list,gemdir,install}"
 fi
 
 exit $?
