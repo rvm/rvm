@@ -415,16 +415,6 @@ __rvm_update_rvm() {
   mkdir -p "$rvm_src_path"
   __rvm_pushpop "$rvm_src_path"
 
-  ruby="$(which ruby 2>/dev/null)"
-  system_ruby="$(rvm system ; which ruby 2>/dev/null)"
-  if [[ ! -x "$ruby" ]] ; then
-    if [[ ! -x "$system" ]] ; then
-      unset ruby
-    else
-      ruby=$system_ruby
-    fi
-  fi
-
   if [[ "head" = "$rvm_ruby_revision" ]] || [[ -z "$system_ruby" ]] ; then
     if [[ -d "$rvm_src_path/rvm/.git" ]] ; then
       builtin cd $rvm_src_path/rvm/ && git pull origin master && ./scripts/install
@@ -432,15 +422,15 @@ __rvm_update_rvm() {
       builtin cd $rvm_src_path && git clone git://github.com/wayneeseguin/rvm.git && builtin cd rvm/ && ./install
     fi
   else
-    if [[ "true" = "$($ruby -S gem list rvm --installed)" ]]; then
-      $ruby -S gem update rvm $rvm_gem_options
-    else
-      $ruby -S gem install rvm $rvm_gem_options
-    fi
-    # TODO: Check all gem paths instead of simply assuming the last one...
-    builtin cd "$($ruby -S gem env | grep "\- $HOME" | awk '{print $NF}' | head -n 1)/gems/rvm-$(gem list rvm | sed 's/.*(//' | sed 's/).*//' | awk -F',' '{print $1 ; exit}')" && ./install
+    stable_version=$(curl -s http://rvm.beginrescueend.com/releases/stable-version.txt)
+
+    __rvm_run "fetch" "$rvm_scripts_path/fetch 'http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz'" "fetching rvm-${stable_version}.tar.gz"
+
+    __rvm_run "extract" "cat $rvm_archives_path/rvm-${stable_version}.tar.gz | gunzip | tar xf - -C $rvm_src_path" "Extracting $rvm_ruby_package_file ..."
+
+    __rvm_run "install" "builtin cd $rvm_src_path/rvm-${stable_version}/ ; ./install" "Installing rvm-${stable_version}..."
   fi
-  unset ruby system_ruby
+
   __rvm_pushpop
   $rvm_scripts_path/hook "after_update"
 }
