@@ -311,10 +311,37 @@ __rvm_source_dir() {
   fi
 }
 
-# List all rvm installed rubies.
+# Query for valid rvm ruby strings
 # This is meant to be used with scripting.
 __rvm_rubies() {
-  \ls $rvm_rubies_path
+  if [[ ! -z "$rvm_rubies_installed_flag" ]] ; then
+    echo $(\ls $rvm_rubies_path)
+    unset rvm_rubies_installed_flag
+    return
+  elif [[ ! -z "$rvm_rubies_default_flag" ]] ; then
+    ( \ls -l /opt/rvm/bin/default_ruby 2> /dev/null || echo "system" ) | sed 's/.*\///'
+    unset rvm_rubies_default_flag
+    return
+  elif [[ ! -z "$rvm_rubies_expand_string_flag" ]] ; then
+	rvm_ruby_string="$rvm_rubies_string_to_expand"
+	__rvm_ruby_string 2> /dev/null
+	if [[ "$?" != "0" ]] || [[ "$rvm_ruby_string" = "$rvm_rubies_string_to_expand" ]] ; then
+		unset rvm_expand_string_flag rvm_rubies_string_to_expand
+		return 1
+	fi
+	__rvm_select ; echo $rvm_ruby_string
+	unset rvm_rubies_expand_string_flag rvm_rubies_string_to_expand
+	return
+  else
+	echo "rvm rubies - Query for valid rvm ruby strings"
+	echo "Usage:     rvm rubies [default|installed]"
+	echo "           rvm rubies expand_string <ruby_str>"
+	echo "Examples:  $ rvm rubies installed"
+	echo "           ruby-1.8.6-p399 ree-1.8.7-2010.01"
+	echo "           $ rvm rubies expand_string rbx"
+	echo "           rbx-1.0.0-rc2"
+	return 1
+  fi
 }
 
 # List all rvm installed rubies, default ruby and system ruby.
