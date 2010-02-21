@@ -24,8 +24,18 @@ __rvm_db() {
 
 # Ouput rvm environment information.
 __rvm_info() {
-  if [[ ! -z "$(/usr/bin/which ruby 2>/dev/null)" ]] ; then full_version=$(ruby -v) ; fi
 
+  if [[ ! -z "$rvm_ruby_args" ]] ; then
+    echo $(rvm_ruby_string="$rvm_ruby_args"; __rvm_select ; __rvm_use ; __rvm_environment_info)
+    echo -e $info ; unset info
+  else
+    __rvm_environment_info
+  fi
+
+}
+
+__rvm_environment_info() {
+  if [[ ! -z "$(/usr/bin/which ruby 2>/dev/null)" ]] ; then full_version=$(ruby -v) ; fi
   echo -e "system:\n  uname:        \"$(uname -a)\""
 
   if [[ ! -z "$ZSH_VERSION" ]] ; then echo -e "  shell:         \"zsh\"\n  version:     \"$ZSH_VERSION\"" ; fi
@@ -59,14 +69,15 @@ environment:
   IRBRC:        "$IRBRC"
 
 Info
-
-  if [[ ! -z "$MAGLEV_HOME" ]] ; then echo -e "  MAGLEV_HOME: \"$MAGLEV_HOME\"" ; fi
+  if [[ ! -z "$MAGLEV_HOME" ]] ; then info="$info\n  MAGLEV_HOME: \"$MAGLEV_HOME\"" ; fi
 
   unset full_version
 }
 
 # Output debugging information that has been found useful to help people identify and resolve issues.
 __rvm_debug() {
+  __rvm_version
+  __rvm_environment_info
   $rvm_scripts_path/log "debug" "PATH:\n$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"$5}')"
   $rvm_scripts_path/log "debug" "uname -a: $(uname -a)"
   $rvm_scripts_path/log "debug" "permissions: $(ls -la $rvm_path{,/rubies})"
@@ -100,6 +111,14 @@ __rvm_debug() {
   done
 
   $rvm_scripts_path/log "debug" "gem sources:\n$(gem sources | awk '/gems/')"
+}
+
+__rvm_strings() {
+  for rvm_ruby_string in $(echo $rvm_ruby_args) ; do
+    results="$results $(__rvm_select ; echo $rvm_ruby_string)"
+  done
+  echo $results
+  unset results
 }
 
 # ZSH has 1 based array indexing, bash has 0 based.
@@ -313,100 +332,104 @@ __rvm_source_dir() {
 
 # Query for valid rvm ruby strings
 # This is meant to be used with scripting.
-__rvm_rubies() {
-  if [[ ! -z "$rvm_rubies_installed_flag" ]] ; then
-    echo $(\ls $rvm_rubies_path)
-    unset rvm_rubies_installed_flag
-    return
-  elif [[ ! -z "$rvm_rubies_default_flag" ]] ; then
-    ( \ls -l /opt/rvm/bin/default_ruby 2> /dev/null || echo "system" ) | sed 's/.*\///'
-    unset rvm_rubies_default_flag
-    return
-  elif [[ ! -z "$rvm_rubies_expand_string_flag" ]] ; then
-	rvm_ruby_string="$rvm_rubies_string_to_expand"
-	__rvm_ruby_string 2> /dev/null
-	if [[ "$?" != "0" ]] || [[ "$rvm_ruby_string" = "$rvm_rubies_string_to_expand" ]] ; then
-		unset rvm_expand_string_flag rvm_rubies_string_to_expand
-		return 1
-	fi
-	__rvm_select ; echo $rvm_ruby_string
-	unset rvm_rubies_expand_string_flag rvm_rubies_string_to_expand
-	return
-  else
-	echo "rvm rubies - Query for valid rvm ruby strings"
-	echo "Usage:     rvm rubies [default|installed]"
-	echo "           rvm rubies expand_string <ruby_str>"
-	echo "Examples:  $ rvm rubies installed"
-	echo "           ruby-1.8.6-p399 ree-1.8.7-2010.01"
-	echo "           $ rvm rubies expand_string rbx"
-	echo "           rbx-1.0.0-rc2"
-	return 1
-  fi
+__rvm_list_strings() {
+  echo $(\ls $rvm_rubies_path)
 }
 
 # List all rvm installed rubies, default ruby and system ruby.
 # Display the rubies, indicate their architecture and indicate which is currently used.
 # This is not meant to be used with scripting. This is for interactive mode usage only.
 __rvm_list() {
-  echo
-  if [[ ! -z "$rvm_all_flag" ]] ; then
-    while read -r tag
-    do
-      prefix="$(echo ${tag/\//} | sed 's#^v1_##' | awk -F'_' '{print "(ruby-)1."$1"."$2}' | sed 's#p$##')"
-      echo "${prefix}-t${tag/\//}"
-      unset prefix tag
-    done < <(svn list http://svn.ruby-lang.org/repos/ruby/tags/ | awk '/^v1_[8|9]/')
-    echo -e "(ruby-)1.8.6(-p383)\n(ruby-)1.8.6-head\n(ruby-)1.8.7(-p248)\n(ruby-)1.8.7-head\n(ruby-)1.9.1(-p243)\n(ruby-)1.9.1(-p376)\n(ruby-)1.9.1-head\n(ruby-)1.9.2-preview1"
-    echo -e "jruby-1.2.0\njruby-1.3.0\njruby-1.3.1\njruby(-1.4.0) # the default\njruby-head"
-    echo -e "rbx(-prc1) # default\nrbx-head"
-    echo -e "ree-1.8.6\nree(-1.8.7) # the default\nree-1.8.6-head\nree-1.8.7-head"
-    echo -e "maglev(-22725)"
-    echo -e "mput(-head) # shyouhei head, the default mput"
-    echo -e "ironruby-0.9.3 # (1.0 RC1)\nironruby-head"
-    if [[ "Darwin" = "$(uname)" ]] ; then
-      echo -e "macruby(-nightly) # the default macruby\nmacruby-head # Build from the macruby git repository"
-    fi
+  action="$(echo $rvm_ruby_args | awk '{print $1}')"
+  if [[ "known" = "$action" ]] ; then
+    __rvm_list_known
+  elif [[ "default" = "$action" ]] ; then
+    __rvm_list_default
+  elif [[ "rubies" = "$action" ]] ; then
+    __rvm_list_rubies
+  elif [[ "strings" = "$action" ]] ; then
+    __rvm_list_strings
   else
-    ruby=$(which ruby 2>/dev/null) ; current_ruby=""
-    if [[ ! -z "$ruby" ]] && [[ ! -z "$(echo $ruby | awk '/rvm/')" ]] ; then
-      current_ruby="$(echo $ruby | xargs dirname | xargs dirname | xargs basename 2> /dev/null)"
-    fi
+    echo -e "Usage:  rvm list {known,default,rubies,strings}"
+  fi
+}
 
-    echo -e "rvm Rubies\n"
-    for version in $(\ls $rvm_rubies_path/ 2> /dev/null | awk '/[a-z]*-.*/ {print $NF}') ; do
-      if [[ ! -z "$(echo $version | awk '/^jruby-/')" ]] ; then
-        string="[ $($rvm_rubies_path/$version/bin/ruby -v | awk '{print $NF}') ]"
-      elif [[ ! -z "$(echo $version | awk '/^maglev-|^macruby-/')" ]] ; then
-        string="[ x86_64 ]"
-      else
-        string="[ $(file $rvm_rubies_path/$version/bin/ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
-      fi
-      if [[ "$version" = "$current_ruby" ]] ; then echo -n "=> " ; else echo -n "   " ; fi
-      echo -e "$(tput setaf 2)$version$(tput sgr0) $string"
-    done ; unset version
-
+__rvm_list_default() {
+  strings="$(echo $rvm_ruby_args | awk '{print $2}')"
+  if [[ "$strings" = "string" ]] ; then
+    echo $(grep 'MY_RUBY_HOME' $rvm_config_path/default | awk -F"'" '{print $2}' | xargs basename)
+  else
     if [[ -f "$rvm_config_path/default" ]] && [[ -s $rvm_config_path/default ]] ; then
       version=$(grep 'MY_RUBY_HOME' $rvm_config_path/default | awk -F"'" '{print $2}' | xargs basename)
       if [[ ! -z "$version" ]] ; then
         echo -e "\nDefault Ruby (for new shells)\n"
         string="[ $(file $rvm_rubies_path/$version/bin/ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
-        echo -e "   $(tput setaf 2)$version$(tput sgr0) $string"
+        echo -e "   $(tput setaf 2)$version$(tput sgr0) $string\n"
       fi ; unset version
     fi
-
-    system_ruby="$(rvm system ; which ruby 2>/dev/null)"
-    if [[ ! -z "$system_ruby" ]] && [[ -x "$system_ruby" ]]; then
-      echo -e "\nSystem Ruby\n"
-      system_version=$($system_ruby -v)
-      string="[ $(file $system_ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
-      if [[ ! -z "$system_ruby" ]] && [[ "$current_ruby" = "$system_version" ]] ; then echo -n "=> " ; else echo -n "   " ; fi
-      echo -e "$(tput setaf 2)system$(tput sgr0) $string"
-    else
-      $rvm_scripts_path/log "info" "No system ruby found."
-    fi
-
-    unset current_ruby version selected system_ruby system_version string
   fi
+}
+
+__rvm_list_known() {
+  while read -r tag
+  do
+    prefix="$(echo ${tag/\//} | sed 's#^v1_##' | awk -F'_' '{print "(ruby-)1."$1"."$2}' | sed 's#p$##')"
+    echo "${prefix}-t${tag/\//}"
+    unset prefix tag
+  done < <(svn list http://svn.ruby-lang.org/repos/ruby/tags/ | awk '/^v1_[8|9]/')
+  echo -e "(ruby-)1.8.6(-p383)\n(ruby-)1.8.6-head\n(ruby-)1.8.7(-p248)\n(ruby-)1.8.7-head\n(ruby-)1.9.1(-p243)\n(ruby-)1.9.1(-p376)\n(ruby-)1.9.1-head\n(ruby-)1.9.2-preview1"
+  echo -e "jruby-1.2.0\njruby-1.3.1\njruby(-1.4.0) # the default\njruby-head"
+  echo -e "rbx(-prc1) # default\nrbx-head"
+  echo -e "ree-1.8.6\nree(-1.8.7) # the default\nree-1.8.6-head\nree-1.8.7-head"
+  echo -e "maglev(-22891)"
+  echo -e "mput(-head) # shyouhei head, the default mput"
+  echo -e "ironruby-0.9.3 # (1.0 RC1)\nironruby-head"
+  if [[ "Darwin" = "$(uname)" ]] ; then
+    echo -e "macruby(-nightly) # the default macruby\nmacruby-head # Build from the macruby git repository"
+  fi
+}
+
+__rvm_list_rubies() {
+  echo
+  ruby=$(which ruby 2>/dev/null) ; current_ruby=""
+  if [[ ! -z "$ruby" ]] && [[ ! -z "$(echo $ruby | awk '/rvm/')" ]] ; then
+    current_ruby="$(echo $ruby | xargs dirname | xargs dirname | xargs basename 2> /dev/null)"
+  fi
+
+  echo -e "rvm Rubies\n"
+  for version in $(\ls $rvm_rubies_path/ 2> /dev/null | awk '/[a-z]*-.*/ {print $NF}') ; do
+    if [[ ! -z "$(echo $version | awk '/^jruby-/')" ]] ; then
+      string="[ $($rvm_rubies_path/$version/bin/ruby -v | awk '{print $NF}') ]"
+    elif [[ ! -z "$(echo $version | awk '/^maglev-|^macruby-/')" ]] ; then
+      string="[ x86_64 ]"
+    else
+      string="[ $(file $rvm_rubies_path/$version/bin/ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
+    fi
+    if [[ "$version" = "$current_ruby" ]] ; then echo -n "=> " ; else echo -n "   " ; fi
+    echo -e "$(tput setaf 2)$version$(tput sgr0) $string"
+  done ; unset version
+
+  if [[ -f "$rvm_config_path/default" ]] && [[ -s $rvm_config_path/default ]] ; then
+    version=$(grep 'MY_RUBY_HOME' $rvm_config_path/default | awk -F"'" '{print $2}' | xargs basename)
+    if [[ ! -z "$version" ]] ; then
+      echo -e "\nDefault Ruby (for new shells)\n"
+      string="[ $(file $rvm_rubies_path/$version/bin/ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
+      echo -e "   $(tput setaf 2)$version$(tput sgr0) $string"
+    fi ; unset version
+  fi
+
+  system_ruby="$(rvm system ; which ruby 2>/dev/null)"
+  if [[ ! -z "$system_ruby" ]] && [[ -x "$system_ruby" ]]; then
+    echo -e "\nSystem Ruby\n"
+    system_version=$($system_ruby -v)
+    string="[ $(file $system_ruby | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
+    if [[ ! -z "$system_ruby" ]] && [[ "$current_ruby" = "$system_version" ]] ; then echo -n "=> " ; else echo -n "   " ; fi
+    echo -e "$(tput setaf 2)system$(tput sgr0) $string"
+  else
+    $rvm_scripts_path/log "info" "No system ruby found."
+  fi
+
+  unset current_ruby version selected system_ruby system_version string
   echo
 }
 

@@ -8,7 +8,7 @@ __rvm_parse_args() {
   while [[ $# -gt 0 ]] ; do
     rvm_token="$1" ; shift
     case "$rvm_token" in
-      fetch|info|version|srcdir|list|reset|debug|reload|implode|readline|update|iconv|curl|openssl|ncurses|zlib|monitor|notes|mono)
+      fetch|version|srcdir|reset|debug|reload|implode|readline|update|iconv|curl|openssl|ncurses|zlib|monitor|notes|mono)
         rvm_action=$rvm_token
       ;;
 
@@ -20,7 +20,7 @@ __rvm_parse_args() {
 
       inspect)
         rvm_action=$rvm_token
-        rvm_ruby_args=$*
+        export rvm_ruby_args=$*
         rvm_parse_break=1
       ;;
 
@@ -62,7 +62,7 @@ __rvm_parse_args() {
           rvm_parse_break=1
         elif [[ "delete" = "$1" ]] ; then
           export rvm_delete_flag=1
-          rvm_ruby_args="$*" ; shift
+          export rvm_ruby_args="$*" ; shift
           rvm_gem_set_name="$1"; shift
           rvm_ruby_string=$(echo $rvm_gem_set_name | sed 's/\(.*\)%.*/\1/')
           rvm_gem_set_name=$(echo $rvm_gem_set_name | sed 's/.*%\(.*\)/\1/')
@@ -79,18 +79,6 @@ __rvm_parse_args() {
         fi
       ;;
 
-      rubies)
-        rvm_action=$rvm_token
-        rvm_rubies_flag=1
-        if [[ "installed" = "$1" ]] || [[ "default" = "$1" ]] || [[ "list" = "$1" ]] ; then
-          export rvm_ruby_args="$*" ; export rvm_rubies_${1}_flag=1 ; shift
-        elif [[ "expand_string" = "$1" ]] ; then
-          export rvm_ruby_args="$*" ; export rvm_rubies_${1}_flag=1 ; shift
-          rvm_rubies_string_to_expand="$1"; shift
-          rvm_parse_break=1
-        fi
-      ;;
-
       gemdir)
         rvm_action=$rvm_token
         rvm_gemdir_flag=1
@@ -98,14 +86,21 @@ __rvm_parse_args() {
         if [[ "user" = "$1"  ]]   ; then export rvm_user_flag=1  ;  shift ; fi
       ;;
 
-      -S)
-        rvm_action="ruby"
-        rvm_ruby_args="$rvm_token $@"
+      list|info|strings)
+        rvm_action="$rvm_token"
+        export rvm_ruby_args="$@"
         rvm_parse_break=1
       ;;
+
+      -S)
+        rvm_action="ruby"
+        export rvm_ruby_args="$rvm_token $@"
+        rvm_parse_break=1
+      ;;
+
       -e)
         rvm_action="ruby"
-        rvm_ruby_args="$rvm_token \"$@\""
+        export rvm_ruby_args="$rvm_token \"$@\""
         rvm_parse_break=1
       ;;
 
@@ -389,19 +384,21 @@ rvm() {
 
   result=0
   case "$rvm_action" in
-    use)           __rvm_use                 ; result=$?  ;;
-    srcdir)        __rvm_source_dir          ; result=$?  ;;
-    list)          __rvm_list                ; result=$?  ;;
-    rubies)        __rvm_rubies              ; result=$?  ;;
-    version)       __rvm_version             ; result=$?  ;;
-    reset)         __rvm_reset               ; result=$?  ;;
-    implode)       __rvm_implode             ; result=$?  ;;
-    update)        __rvm_update              ; result=$?  ;;
-    reboot)        __rvm_reboot              ; result=$?  ;;
-    usage|help)    __rvm_usage               ; result=$?  ;;
-    benchmark)     __rvm_benchmark           ; result=$?  ;;
-    inspect)       __rvm_inspect             ; result=$?  ;;
-    ruby|gem|rake) __rvm_do                  ; result=$?  ;;
+    use)           __rvm_use                 ; result=$? ;;
+    srcdir)        __rvm_source_dir          ; result=$? ;;
+    list)          __rvm_list                ; result=$? ;;
+    strings)       __rvm_strings             ; result=$? ;;
+    info)          __rvm_info                ; result=$? ;;
+    debug)         __rvm_debug               ; result=$? ;;
+    version)       __rvm_version             ; result=$? ;;
+    reset)         __rvm_reset               ; result=$? ;;
+    implode)       __rvm_implode             ; result=$? ;;
+    update)        __rvm_update              ; result=$? ;;
+    reboot)        __rvm_reboot              ; result=$? ;;
+    usage|help)    __rvm_usage               ; result=$? ;;
+    benchmark)     __rvm_benchmark           ; result=$? ;;
+    inspect)       __rvm_inspect             ; result=$? ;;
+    ruby|gem|rake) __rvm_do                  ; result=$? ;;
     gemdir)        $rvm_scripts_path/gems gemdir ; result=$?  ;;
     gems)
       if [[ "$rvm_use_flag" -eq 1 ]] ; then
@@ -436,11 +433,6 @@ rvm() {
       result=$?
     ;;
 
-    info|debug)
-      __rvm_version
-      __rvm_info
-      if [[ "debug" = "$rvm_action" ]] ; then export rvm_debug_flag=1 ; __rvm_debug ; fi
-    ;;
 
     error)
       $rvm_scripts_path/log "fail" "$rvm_error_message ( see: 'rvm usage' )"
