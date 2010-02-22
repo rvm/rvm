@@ -114,11 +114,19 @@ __rvm_debug() {
 }
 
 __rvm_strings() {
-  for rvm_ruby_string in $(echo $rvm_ruby_args) ; do
-    results="$results $(__rvm_select ; echo $rvm_ruby_string)"
-  done
-  echo $results
   unset results
+  for rvm_ruby_string in $(echo $rvm_ruby_args) ; do
+    __rvm_ruby_string
+    if [[ $? -gt 0 ]] ; then
+      return 1
+    else
+      results="$results $(__rvm_select ; echo $rvm_ruby_string)"
+      unset rvm_ruby_string
+    fi
+  done 
+  echo $results 
+  unset results
+  return 0
 }
 
 # ZSH has 1 based array indexing, bash has 0 based.
@@ -772,7 +780,10 @@ __rvm_make_flags() {
 # Select a gems(et) based on CLI set options and environment.
 # This only sets 'rvm_ruby_gem_home'
 __rvm_gems_select() {
-  if ! which gem >/dev/null 2>&1 ; then return 0 ; fi
+  if ! which gem >/dev/null 2>&1 ; then 
+    $rvm_scripts_path/log "error" "Rubygems not found, aborting action."
+    return 0 
+  fi
 
   rvm_ruby_global_gems_path="$rvm_gems_path/$rvm_ruby_string%global"
 
@@ -806,7 +817,10 @@ __rvm_gems_select() {
     rvm_ruby_gem_home="$rvm_gems_path/$rvm_ruby_string%$rvm_gem_set_name"
   fi
 
-  if [[ ! -d "$rvm_ruby_gem_home" ]] ; then mkdir -p $rvm_ruby_gem_home ; fi
+  # TODO: Remove this 
+  if [[ ! -d "$rvm_ruby_gem_home" ]] && [[ ! -z "$rvm_gem_set_name" ]] && [[ -z "$rvm_create_flag" ]]; then 
+    $rvm_scripts_path/log "error" "Gemset '$rvm_gem_set_name' does not exist, rvm gems create '$rvm_gem_set_name' first."
+  fi
 
   rvm_ruby_gem_path="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
 
