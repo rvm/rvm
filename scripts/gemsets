@@ -14,15 +14,15 @@ if [[ ! -d "$rvm_ruby_gem_home" ]] && which gem &> /dev/null ; then rvm_ruby_gem
 
 trap "if [[ -d $rvm_tmp_path/ ]] && [[ -s $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
 
-__rvm_gems_name() {
+__rvm_gemset_name() {
   echo "$(gem env gemdir)" | awk -F'%' '{print $2}'
 }
 
-__rvm_gems_dir() {
+__rvm_gemset_dir() {
   echo "$rvm_ruby_gem_home"
 }
 
-__rvm_gems_create() {
+__rvm_gemset_create() {
   for gemset in $(echo $gems_args) ; do
     gem_home="$rvm_ruby_gem_home%${gems_args/ /}"
     mkdir -p $gem_home 
@@ -31,7 +31,7 @@ __rvm_gems_create() {
   done ; unset gem_home
 }
 
-__rvm_gems_list() {
+__rvm_gemset_list() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   $rvm_scripts_path/log "info" "gems(ets) : for $rvm_ruby_string (found in $rvm_gems_path/)"
@@ -49,14 +49,14 @@ __rvm_gems_list() {
   fi
 }
 
-__rvm_gems_delete() {
+__rvm_gemset_delete() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
-  if [[ ! -z "$rvm_gem_set_name" ]] ; then
-    gemdir="$rvm_gems_path/$rvm_ruby_string%$rvm_gem_set_name"
+  if [[ ! -z "$rvm_gemset_name" ]] ; then
+    gemdir="$rvm_gems_path/$rvm_ruby_string%$rvm_gemset_name"
     if [[ -d "$gemdir" ]] && [[ "$gemdir" != '/' ]] && [[ ! -z "$rvm_force_flag" ]] ; then
         rm -rf  "$gemdir"
     elif [[ -d "$gemdir" ]] ; then
-      $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the entire gemset directory '$rvm_gem_set_name' ($gemdir)?"
+      $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the entire gemset directory '$rvm_gemset_name' ($gemdir)?"
       echo -n "(anything other than 'yes' will cancel) > "
       read response
       if [[ "yes" = "$response" ]] ; then
@@ -72,13 +72,13 @@ __rvm_gems_delete() {
   fi
 }
 
-__rvm_gems_empty() {
+__rvm_gemset_empty() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
   gemdir="$rvm_ruby_gem_home"
   if [[ -d "$gemdir" ]] && [[ "$gemdir" != '/' ]] && [[ ! -z "$rvm_force_flag" ]] ; then
     cd $gemdir && rm -rf ./bin/* ./doc/* ./gems/* ./specifications/*
   elif [[ -d "$gemdir" ]] ; then
-    $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the installed gems for gemset '%$rvm_gem_set_name' ($gemdir)?"
+    $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the installed gems for gemset '%$rvm_gemset_name' ($gemdir)?"
     echo -n "(anything other than 'yes' will cancel) > "
     read response
     if [[ "yes" = "$response" ]] ; then
@@ -92,7 +92,7 @@ __rvm_gems_empty() {
 }
 
 # Migrate gemsets from ruby X to ruby Y
-__rvm_gems_copy() {
+__rvm_gemset_copy() {
   source_ruby="$(echo $gems_args | awk '{print $1}')"
   destination_ruby="$(echo $gems_args | awk '{print $2}')"
   if [[ -z "$source_ruby" ]] ; then
@@ -118,7 +118,7 @@ __rvm_gems_copy() {
   unset source_ruby destination_ruby source_path destination_path
 }
 
-__rvm_gems_export() {
+__rvm_gemset_export() {
   rvm_file_name="${rvm_file_name:-$gems_args}"
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
@@ -128,8 +128,8 @@ __rvm_gems_export() {
   fi
 
   if [[ -z "$rvm_file_name" ]] ; then
-    if [[ ! -z "$rvm_gem_set_name" ]] ; then
-      rvm_file_name="$rvm_gem_set_name.gems"
+    if [[ ! -z "$rvm_gemset_name" ]] ; then
+      rvm_file_name="$rvm_gemset_name.gems"
     else
       rvm_file_name="default.gems"
     fi
@@ -152,7 +152,7 @@ __rvm_gems_export() {
   done ; unset file_name
 }
 
-__rvm_gems_import() {
+__rvm_gemset_import() {
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
@@ -161,13 +161,13 @@ __rvm_gems_import() {
   fi
 
   if [[ ! -z "$(echo "$gems_args" | awk '/\.gem.*$/')" ]] ; then
-    rvm_gem_set_name="$(echo "$gems_args" | sed 's#\.gem.*##g' | sed 's# ##g')"
+    rvm_gemset_name="$(echo "$gems_args" | sed 's#\.gem.*##g' | sed 's# ##g')"
   else
-    rvm_gem_set_name="$(echo "$gems_args" | sed 's# ##g')"
+    rvm_gemset_name="$(echo "$gems_args" | sed 's# ##g')"
   fi
 
-  if [[ -s "$rvm_gem_set_name.gems" ]] ; then
-    rvm_file_name="$rvm_gem_set_name.gems"
+  if [[ -s "$rvm_gemset_name.gems" ]] ; then
+    rvm_file_name="$rvm_gemset_name.gems"
   elif [[ -s "default.gems" ]] ; then
     rvm_file_name="default.gems"
   elif [[ -s "system.gems" ]] ; then
@@ -295,7 +295,7 @@ __rvm_gem_install() {
 }
 
 # Output the user's current gem directory.
-__rvm_gems_gemdir() {
+__rvm_gemset_gemdir() {
   if [[ "$rvm_user_flag" -eq 1 ]] ; then
     echo $(rvm system ; gem env | grep "\- $HOME" | awk '{print $NF}')
   elif [[ "$rvm_system_flag" -eq 1 ]] ; then
@@ -320,29 +320,29 @@ action="$(echo $* | awk '{print $1}')"
 gems_args=$(echo "$*" | awk '{$1="" ; print}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
 if [[ "import" = "$action" ]] || [[ "load" = "$action" ]] ; then
-  __rvm_gems_import
+  __rvm_gemset_import
 elif [[ "export" = "$action" ]] || [[ "dump" = "$action" ]] ; then
-  __rvm_gems_export
+  __rvm_gemset_export
 elif [[ "create" = "$action" ]] ; then
-  __rvm_gems_create
+  __rvm_gemset_create
 elif [[ "copy" = "$action" ]] ; then
-  __rvm_gems_copy
+  __rvm_gemset_copy
 elif [[ "empty" = "$action" ]] ; then
-  __rvm_gems_empty
+  __rvm_gemset_empty
 elif [[ "delete" = "$action" ]] ; then
-  __rvm_gems_delete
+  __rvm_gemset_delete
 elif [[ "name" = "$action" ]] ; then
-  __rvm_gems_name
+  __rvm_gemset_name
 elif [[ "dir" = "$action" ]] ; then
-  __rvm_gems_dir
+  __rvm_gemset_dir
 elif [[ "list" = "$action" ]] ; then
-  __rvm_gems_list
+  __rvm_gemset_list
 elif [[ "gemdir" = "$action" ]] ; then
-  __rvm_gems_gemdir
+  __rvm_gemset_gemdir
 elif [[ "install" = "$action" ]] ; then
   __rvm_gem_install $*
 elif [[ "clear" = "$action" ]] ; then
-  $rvm_scripts_path/log "info" "gems(et) cleared."
+  $rvm_scripts_path/log "info" "gemset cleared."
   exit 0
 else
   $rvm_scripts_path/log "error" "Unrecognized gems action '$action'.\n\nValid gems actions are: {create,use,import,export,copy,delete,empty,name,list,gemdir,install}"
