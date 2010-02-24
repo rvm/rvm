@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+
+source $rvm_scripts_path/initialize
+source $rvm_scripts_path/utility
+source $rvm_scripts_path/selector
+
+action="$1" ; shift
+args="$*"
+if [[ -z "$action" ]] ; then
+  $rvm_scripts_path/log "error" "Action must be specified."
+  exit 1
+fi
+
+# Perform an action using one of a selected ruby's specified binaries.
+__rvm_ruby_do() {
+  __rvm_select
+  __rvm_use
+
+  binary="$(echo $action | sed 's#do$##')"
+  if [[ -x "$rvm_ruby_home/bin/$binary" ]] ; then
+    rm -f "$rvm_path/gems/cache"
+    ln -nfs "$HOME/.gem/cache" "$rvm_path/gems/cache"
+    binary="$rvm_ruby_home/bin/$binary"
+  elif [[ -x "$rvm_ruby_global_gems_path/bin/$binary" ]] ; then
+    binary="$rvm_ruby_global_gems_path/bin/$binary"
+  elif [[ -x "$rvm_ruby_gem_home/bin/$binary" ]] ; then
+    binary="$rvm_ruby_gem_home/bin/$binary"
+  elif [[ "system" = "$rvm_ruby_string" ]] && [[ -x "$(which $binary)" ]] ; then
+    binary="$(basename $(which $binary 2>/dev/null) 2>/dev/null)"
+  else
+    $rvm_scripts_path/log "warn" "'$binary not found for $rvm_ruby_string' either does not exist or is not executable? :("
+    __rvm_unset_ruby_variables
+    return 1
+  fi
+
+  if [[ ! -z "$rvm_ruby_mode" ]] ; then
+    rvm_ruby_string="$rvm_ruby_string-$rvm_ruby_mode"
+    rvm_ruby_mode="--$(echo $rvm_ruby_mode | sed 's/^m//')"
+  fi
+
+  load_path="$(dirname $(which $binary 2>/dev/null) 2>/dev/null):$rvm_ruby_load_path"
+  # TODO: the else case below should be run if $args =~ /\.rb$/
+  if [[ "ruby" = "$(basename $binary)" ]] && [[ "$rvm_benchmark_flag" -ne 1 ]] ; then
+    if $rvm_scripts_path/match "$args" "\.rb$" ; then
+      if [[ -z "$prefix" ]] ; then prefix="-S" ; fi
+      if ! $rvm_scripts_path/match "$args" "$prefix" ; then
+        args="$prefix $args"
+      fi
+    fi
+    rvm_command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path $args"
+  elif [[ "gem" = "$(basename $binary)" ]] && $rvm_scripts_path/match "$args" '^install' ; then
+    #$rvm_scripts_path/gem install $args
+    rvm_command="$rvm_scripts_path/gems $rvm_ruby_mode $args $rvm_gem_options"
+  else
+    rvm_command="$binary $rvm_ruby_mode $args"
+  fi
+
+  if [[ ! -z "$rvm_json_flag" ]] || [[ ! -z "$rvm_yaml_flag" ]] || [[ ! -z "$rvm_summary_flag" ]] ; then
+    mkdir -p ./log/$rvm_ruby_string/
+    touch ./log/$rvm_ruby_string/$action.log ./log/$rvm_ruby_string/$action.error.log
+    eval "$rvm_command" >> ./log/$rvm_ruby_string/$action.log 2>> ./log/$rvm_ruby_string/$action.error.log
+  else
+    $rvm_scripts_path/log "info" "$rvm_ruby_string: $($rvm_ruby_home/bin/ruby -v $rvm_ruby_mode | tr "\n" ' ')"
+    eval "$rvm_command"
+  fi
+  result=$?
+
+  string=$(basename $rvm_ruby_gem_home)
+  if [[ $result -eq 0 ]]; then
+    eval "successes=(${successes[*]} $string)"
+  else
+    eval "errors=(${errors[*]} $string)"
+  fi
+  eval "rubies=(${rubies[*]} $string)"
+  eval "statuses=(${statuses[*]} $result)"
+  unset string
+  __rvm_unset_ruby_variables
+}
+
+# Output the summary in a human readable format.
+__rvm_summary() {
+  export successes errors statuses
+  summary="\nSummary:\n\n"
+  if [[ ${#successes[*]} -gt 0 ]] ; then
+    summary="$summary \033[0;32m${#successes[*]} successful: $(echo "${successes[*]}" | sed 's# #, #g')\033[0m\n"
+  fi
+  if [[ ${#errors[*]} -gt 0 ]] ; then
+    summary="$summary \033[0;31m${#errors[*]} errors: $(echo "${errors[*]}" | sed 's# #, #g')\033[0m\n"
+  fi
+  total=${#rubies[*]}
+  if [[ ! -z "$ZSH_VERSION" ]] ; then array_start=1 ; else array_start=0 ; fi
+  echo -e "$summary" | tee -a log/summary.log
+  return ${#errors[*]}
+}
+
+# Output the summary in a yaml format.
+__rvm_yaml() {
+  export successes errors statuses
+  yaml="totals:\n  rubies: ${#rubies[*]}\n  successes: ${#successes[*]}\n  errors: ${#errors[*]}\nsuccesses:"
+  for var in ${successes[*]} ; do yaml="$yaml\n  - $var" ; done
+  yaml="$yaml\nerrors:"
+  for var in ${errors[*]} ; do yaml="$yaml\n  - $var" ; done
+  yaml="$yaml\nrubies:"
+  total=${#rubies[*]}
+  if [[ ! -z "$ZSH_VERSION" ]] ; then array_start=1 ; else array_start=0 ; fi
+  for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
+    if [[ ! -z "$rvm_debug_flag" ]] ; then
+      $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    fi
+    yaml="$yaml\n  \"${rubies[$index]}\": ${statuses[$index]}"
+  done ; unset index array_start
+  mkdir -p log
+  echo -e "$yaml" | tee -a log/summary.yaml
+
+  return ${#errors[*]}
+}
+
+# Output the summary in a json format.
+__rvm_json() {
+  json="{"
+  json="$json\n  \"totals\": { \"rubies\": ${#rubies[*]}, \"successes\": ${#successes[*]}, \"errors\": ${#errors[*]}},"
+  json="$json\n  \"successful\": [ "$(echo ${successes[*]} | sed 's# #", "#g')" ],"
+  json="$json\n  \"errors\": [ "$(echo ${errors[*]} | sed 's# #", "#g')" ],"
+  json="$json\n  \"rubies\": {"
+
+  total=${#rubies[*]}
+  if [[ ! -z "$ZSH_VERSION" ]] ; then array_start=1 ; else array_start=0 ; fi
+  for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
+    if [[ ! -z "$rvm_debug_flag" ]] ; then
+      $rvm_scripts_path/log "debug" "${rubies[$index]}: ${statuses[$index]}"
+    fi
+    json="$json\n    {\"${rubies[$index]}\": ${statuses[$index]}}"
+    if (( $index + 1 < $total + $array_start )) ; then json="$json,  " ; fi
+  done ; unset index array_start
+  json="$json\n  }\n}"
+
+  mkdir -p log
+  echo -e "$json" | tee -a log/summary.json
+
+  return ${#errors[*]}
+}
+
+# Loop over a set or all rvm installed rubies to perform some action.
+# Record the results and report based on CLI selections.
+#__rvm_do() {
+rubies=() ; successes=() ; errors=() ; statuses=()
+# TODO: Extract the common functionality out of the if below
+if [[ ! -z "$rvm_ruby_string" ]] ; then
+  unset rvm_ruby_interpreter rvm_ruby_version
+  __rvm_ruby_do
+elif [[ ! -z "$rvm_ruby_version" ]] ;then
+  for rvm_ruby_string in $(echo $rvm_ruby_version | tr ',' ' ') ; do
+    __rvm_ruby_do
+  done
+elif [[ ! -z "$rvm_ruby_interpreter" ]] ; then
+    unset rvm_ruby_string rvm_ruby_version
+    __rvm_ruby_do
+else # all
+  for full_binary in $rvm_rubies_path/*/bin/ruby ; do
+    if [[ -x "$full_binary" ]] ; then
+      rvm_ruby_string="$(dirname $full_binary | xargs dirname | xargs basename)"
+      __rvm_ruby_do
+    fi
+  done ; unset full_binary
+fi
+
+if [[ ! -z "$rvm_summary_flag" ]] ; then __rvm_summary ; fi
+if [[ ! -z "$rvm_yaml_flag" ]]    ; then __rvm_yaml    ; fi
+if [[ ! -z "$rvm_json_flag" ]]    ; then __rvm_json    ; fi
+
+$rvm_scripts_path/hook "after_do"
+
+exit ${#errors[*]}
+#}
+
