@@ -34,16 +34,10 @@ __rvm_parse_args() {
         export rvm_remove_flag=1
       ;;
 
-      system|default)
-        rvm_action=${rvm_action:-use}
-        rvm_ruby_interpreter="$rvm_token"
-        rvm_ruby_string="$rvm_token"
-      ;;
-
       # Can likely remove this due to the *) case
       jruby|ree|macruby|rbx|rubinius|mput|shyouhei|ironruby|default|maglev|all)
-        rvm_ruby_interpreter="$rvm_token"
-        rvm_ruby_string="$rvm_token"
+        export rvm_ruby_interpreter="$rvm_token"
+        export rvm_ruby_string="$rvm_token"
         rvm_action="${rvm_action:-use}"
         if $rvm_scripts_path/match "$1" "^[0-9]\.[0-9]" ; then rvm_ruby_version=$1 ; shift ; fi
       ;;
@@ -62,8 +56,8 @@ __rvm_parse_args() {
           export rvm_${1}_flag=1
           export rvm_ruby_args="$*" ; shift
           rvm_gemset_name="$1"; shift
-          rvm_ruby_string=$(echo $rvm_gemset_name | sed 's/\(.*\)%.*/\1/')
-          rvm_gemset_name=$(echo $rvm_gemset_name | sed 's/.*%\(.*\)/\1/')
+          export rvm_ruby_string=$(echo $rvm_gemset_name | sed 's/\(.*\)%.*/\1/')
+          export rvm_gemset_name=$(echo $rvm_gemset_name | sed 's/.*%\(.*\)/\1/')
           if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then export rvm_ruby_string ; fi
           if [[ ! -z "$rvm_gemset_name" ]] ; then export rvm_gemset_name ; fi
         else
@@ -110,9 +104,12 @@ __rvm_parse_args() {
               rvm_action="error"
               rvm_error_message="the '$rvm_action' actions must be followed by arguments."
             fi
-          elif [[ "-S" = "$1" ]] || [[ "-e" = "$1" ]] ; then
+          elif [[ "-S" = "$1" ]]  ; then
             export rvm_action="ruby"
-            export flag="$1" ; shift
+            export rvm_ruby_args="$flag $@"
+            rvm_parse_break=1
+          elif [[ "-e" = "$1" ]] ; then
+            export rvm_action="ruby"
             export rvm_ruby_args="$flag '$@'"
             rvm_parse_break=1
           else
@@ -187,7 +184,7 @@ __rvm_parse_args() {
       ;;
 
       --head)
-        if [[ -z "$rvm_ruby_string" ]] ; then rvm_ruby_string="head"; else rvm_ruby_string="${rvm_ruby_string}-head" ; fi
+        if [[ -z "$rvm_ruby_string" ]] ; then export rvm_ruby_string="head"; else export rvm_ruby_string="${rvm_ruby_string}-head" ; fi
         rvm_ruby_revision="head"
         export rvm_head_flag=1
         rvm_action="${rvm_action:-use}"
@@ -259,11 +256,12 @@ __rvm_parse_args() {
         shift
       ;;
 
-      default|system)
-        rvm_action="use"
-        rvm_ruby_interpreter="$rvm_token"
-        rvm_ruby_string="$rvm_token"
+      system|default)
+        rvm_action=${rvm_action:-use}
+        export rvm_ruby_interpreter="$rvm_token"
+        export rvm_ruby_string="$rvm_token"
       ;;
+
 
       -h|--help|usage|help) rvm_action=help                     ;;
       -G|--gems)            rvm_gems_path="$1"         ; shift  ;;
@@ -302,14 +300,14 @@ __rvm_parse_args() {
         if [[ ! -z "$rvm_token" ]] ; then
           if [[ "gemset" = "$rvm_action" ]] ; then
             if $rvm_scripts_path/match "$rvm_token" "^.+%.+$" ; then
-              rvm_gemset_name="$(echo "$rvm_token" | awk -F'%' '{print $2}')"
-              rvm_ruby_string="$(echo "$rvm_token" | awk -F'%' '{print $1}')"
+              export rvm_gemset_name="$(echo "$rvm_token" | awk -F'%' '{print $2}')"
+              export rvm_ruby_string="$(echo "$rvm_token" | awk -F'%' '{print $1}')"
             elif [[ ! -z "$(echo "$rvm_token" | awk '/\.gems$/')" ]] ; then
-              rvm_file_name="$(echo "$rvm_token" | sed 's#\.gems##g').gems"
+              export rvm_file_name="$(echo "$rvm_token" | sed 's#\.gems##g').gems"
               # elif [[ ! -z "$(echo "$rvm_token" | awk '/\.gems$/')" ]] ; then
             else
-              rvm_gemset_name="$(echo "$rvm_token" | sed 's#\.gems##g')"
-              rvm_file_name="$rvm_gemset_name.gems"
+              export rvm_gemset_name="$(echo "$rvm_token" | sed 's#\.gems##g')"
+              export rvm_file_name="$rvm_gemset_name.gems"
             fi
           elif [[ ! -z "$(echo "$rvm_token" | awk '/,/')" ]] ; then
             export rvm_ruby_version="$rvm_token"
@@ -317,20 +315,20 @@ __rvm_parse_args() {
               rvm_action="ruby" # Not sure if we really want to do this but we'll try it out.
             fi
           elif $rvm_scripts_path/match "$rvm_token" "^.+%.+$" ; then
-            rvm_gemset_name="$(echo "$rvm_token" | awk -F'%' '{print $2}')"
-            rvm_ruby_string="$(echo "$rvm_token" | awk -F'%' '{print $1}')"
+            export rvm_gemset_name="$(echo "$rvm_token" | awk -F'%' '{print $2}')"
+            export rvm_ruby_string="$(echo "$rvm_token" | awk -F'%' '{print $1}')"
           elif $rvm_scripts_path/match "$rvm_token" "-" ; then
-            rvm_ruby_string="$rvm_token"
+            export rvm_ruby_string="$rvm_token"
           elif $rvm_scripts_path/match "$rvm_token" "^[0-9].[0-9]" ; then
-            rvm_ruby_string="$rvm_token"
-            rvm_action="${rvm_action:-use}"
+            export rvm_ruby_string="$rvm_token"
+            export rvm_action="${rvm_action:-use}"
           elif $rvm_scripts_path/match "$rvm_token" "^ree-" ; then
-            rvm_ruby_string="$rvm_token"
-            rvm_action="${rvm_action:-use}"
+            export rvm_ruby_string="$rvm_token"
+            export rvm_action="${rvm_action:-use}"
           else
             if $rvm_scripts_path/match "$rvm_token" "\.rb$" ; then # we have a specified ruby script
-              rvm_ruby_args=$rvm_token
-              rvm_ruby_file=$rvm_token
+              export rvm_ruby_args=$rvm_token
+              export rvm_ruby_file=$rvm_token
               if [[ -z "$rvm_action" ]] ; then
                 rvm_action="ruby"
               fi
@@ -346,7 +344,6 @@ __rvm_parse_args() {
         if [[ "error" = "$rvm_action" ]] ; then
           break;
         fi
-
     esac
 
     if [[ -z "$rvm_action" ]] && [[ ! -z "$rvm_ruby_string" ]]  ; then rvm_action="use" ; fi
