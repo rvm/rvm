@@ -17,11 +17,11 @@ IUSE="mono java"
 
 RDEPEND="net-misc/curl
 	sys-devel/patch
-    java? (
-        dev-java/sun-jdk
-        dev-java/sun-jre-bin
-    )
-    mono? ( dev-lang/mono )"
+	java? (
+		dev-java/sun-jdk
+		dev-java/sun-jre-bin
+	)
+	mono? ( dev-lang/mono )"
 
 RVM_DIR="/opt/rvm"
 
@@ -29,6 +29,7 @@ src_install() {
 	for v in `env | egrep '^rvm_' | cut -d '=' -f 1`; do
 		unset $v
 	done
+	export rvm_prefix="${D}"
 	export rvm_path="${D}${RVM_DIR}"
 	export rvm_symlink_path="${D}/usr/bin"
 
