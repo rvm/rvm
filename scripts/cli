@@ -52,26 +52,32 @@ __rvm_parse_args() {
         rvm_action=$rvm_token
         if [[ "clear" = "$1" ]] ; then
           unset rvm_gemset_name ; shift
-          export rvm_ruby_gem_home="$(echo $GEM_HOME | sed 's/%.*$//')"
-          export GEM_HOME="$rvm_ruby_gem_home"
-          export BUNDLE_PATH="$rvm_ruby_gem_home"
-          export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_gem_home%global/bin"
+          rvm_ruby_gem_home="$(echo $GEM_HOME | sed 's/%.*$//')"
+          GEM_HOME="$rvm_ruby_gem_home"
+          BUNDLE_PATH="$rvm_ruby_gem_home"
+          GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_gem_home%global/bin"
+          export rvm_ruby_gem_home GEM_HOME BUNDLE_PATH GEM_PATH
           rvm_ruby_args="clear"
           rvm_parse_break=1
         elif [[ "delete" = "$1" ]] || [[ "use" = "$1" ]] ; then
-          export rvm_${1}_flag=1
-          export rvm_ruby_args="$@" ; shift
+          eval "rvm_${rvm_token}_flag=1"
+          rvm_ruby_args="$@" ; shift
           rvm_gemset_name="$1"; shift
-          export rvm_ruby_string=$(echo $rvm_gemset_name | sed 's/\(.*\)%.*/\1/')
-          export rvm_gemset_name=$(echo $rvm_gemset_name | sed 's/.*%\(.*\)/\1/')
-          if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then export rvm_ruby_string ; fi
+          rvm_ruby_string=$(echo $rvm_gemset_name | sed 's/\(.*\)%.*/\1/')
+          rvm_gemset_name=$(echo $rvm_gemset_name | sed 's/.*%\(.*\)/\1/')
+          export "rvm_${rvm_token1}_flag" rvm_ruby_args rvm_gemset_name
+          if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then export rvm_ruby_string ; else unset rvm_ruby_string ; fi
           if [[ ! -z "$rvm_gemset_name" ]] ; then export rvm_gemset_name ; fi
         else
           if [[ -z "$1" ]] ; then
             rvm_action="error"
             rvm_error_message="'gems' must be followed by a gemset action, see http://rvm.beginrescueend.com/gemsets/ for details."
           else
-            export rvm_ruby_args="$*" ; export rvm_${1}_flag=1 ; shift
+            if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then export rvm_ruby_string ; else unset rvm_ruby_string ; fi
+            rvm_ruby_args="$@"
+            eval "rvm_${rvm_token1}_flag=1"
+            eval "export rvm_ruby_args rvm_${rvm_token}_flag"
+            rvm_parse_break=1
           fi
         fi
       ;;
@@ -278,7 +284,6 @@ __rvm_parse_args() {
       --nice)               rvm_niceness="$1"          ; shift  ;;
       -l|--level)           rvm_ruby_patch_level="p$1" ; shift  ;;
       # TODO: handle this below better (if $1 is null)
-      -m|--gemset)          rvm_gemset_name="$1"       ; shift  ;;
       --sdk)                rvm_sdk="$1"               ; shift  ;;
       --archflags)          rvm_archflags="$1"         ; shift  ;;
       --symlink)            rvm_symlink_name="$1"      ; shift  ;;
@@ -408,10 +413,10 @@ rvm() {
       result=$?
     ;;
     gemset)
-      if [[ "$rvm_use_flag" -eq 1 ]] ; then
+      if $rvm_scripts_path/match $rvm_ruby_args use ; then
+        #if [[ "$rvm_use_flag" -eq 1 ]] ; then
         __rvm_gemset_select
-        result=$?
-        if [[ $result -eq 0 ]] ; then
+        result=$? ; if [[ $result -eq 0 ]] ; then
           __rvm_gemset_use
         fi
       else
