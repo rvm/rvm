@@ -50,13 +50,11 @@ __rvm_parse_args() {
 
       gemset)
         rvm_action=$rvm_token
+
+        export rvm_ruby_gem_home="$GEM_HOME"
+
         if [[ "clear" = "$1" ]] ; then
           unset rvm_gemset_name ; shift
-          rvm_ruby_gem_home="$(echo $GEM_HOME | sed 's/%.*$//')"
-          GEM_HOME="$rvm_ruby_gem_home"
-          BUNDLE_PATH="$rvm_ruby_gem_home"
-          GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_gem_home%global/bin"
-          export rvm_ruby_gem_home GEM_HOME BUNDLE_PATH GEM_PATH
           rvm_ruby_args="clear"
           rvm_parse_break=1
         elif [[ "use" = "$1" ]] ; then
@@ -64,10 +62,15 @@ __rvm_parse_args() {
           rvm_ruby_args="$@" ; shift
           export rvm_use_flag rvm_ruby_args
           rvm_gemset_name="$1"; shift
-          if [[ -z "$(echo $rvm_gemset_name | grep '%')" ]] ; then
+          if [[ ! -z "$(echo $rvm_gemset_name | grep '%')" ]] ; then
             rvm_ruby_string=$(echo $rvm_gemset_name | sed 's/\(.*\)%.*/\1/')
             rvm_gemset_name=$(echo $rvm_gemset_name | sed 's/.*%\(.*\)/\1/')
-            if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then export rvm_ruby_string ; else unset rvm_ruby_string ; fi
+            if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then
+              export rvm_ruby_string="$rvm_ruby_string%$rvm_gemset_name"
+            else
+              unset rvm_ruby_string
+            fi
+            export rvm_ruby_gem_home="$rvm_ruby_gem_home%$rvm_gemset_name"
           fi
           if [[ ! -z "$rvm_gemset_name" ]] ; then export rvm_gemset_name ; fi
         elif [[ "delete" = "$1" ]] ; then
@@ -75,10 +78,15 @@ __rvm_parse_args() {
           rvm_ruby_args="$@" ; shift
           export rvm_delete_flag rvm_ruby_args
           rvm_gemset_name="$1"; shift
-          if [[ -z "$(echo $rvm_gemset_name | grep '%')" ]] ; then
+          if [[ ! -z "$(echo $rvm_gemset_name | grep '%')" ]] ; then
             rvm_ruby_string=$(echo $rvm_gemset_name | sed 's/\(.*\)%.*/\1/')
             rvm_gemset_name=$(echo $rvm_gemset_name | sed 's/.*%\(.*\)/\1/')
-            if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then export rvm_ruby_string ; else unset rvm_ruby_string ; fi
+            if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then
+              export rvm_ruby_string="$rvm_ruby_string%$rvm_gemset_name"
+              __rvm_select
+            else
+              unset rvm_ruby_string
+            fi
           fi
           if [[ ! -z "$rvm_gemset_name" ]] ; then export rvm_gemset_name ; fi
         else
@@ -432,6 +440,18 @@ rvm() {
         fi
       else
         $rvm_scripts_path/gemsets $rvm_ruby_args
+
+        # Clear the gemset.
+        if [[ "$rvm_delete_flag" -eq 1 ]] ; then
+          gem_prefix="$(echo $GEM_HOME | sed 's/%.*$//')"
+          if [[ "$GEM_HOME" = "$gem_prefix%$rvm_gemset_name" ]] ; then
+            rvm_ruby_gem_home="$gem_prefix"
+            GEM_HOME="$rvm_ruby_gem_home"
+            BUNDLE_PATH="$rvm_ruby_gem_home"
+            GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_gem_home%global/bin"
+            export rvm_ruby_gem_home GEM_HOME BUNDLE_PATH GEM_PATH
+          fi ; unset gem_prefix
+        fi
       fi
       result=$?
     ;;

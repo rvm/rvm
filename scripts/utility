@@ -657,7 +657,7 @@ __rvm_gemset_select() {
   fi
 
   # If the gemset does not exist, then notify the user as such and abort the action.
-  if [[ ! -d "$rvm_ruby_gem_home" ]] && [[ ! -z "$rvm_gemset_name" ]] && [[ "$rvm_gemset_create_on_use_flag" -ne 1 ]] && [[ "$rvm_create_flag" -ne 1 ]]; then
+  if [[ ! -z "$rvm_gemset_name" ]] && [[ ! -d "$rvm_ruby_gem_home%$rvm_gemset_name" ]] && [[ "$rvm_gemset_create_on_use_flag" -ne 1 ]] && [[ "$rvm_create_flag" -ne 1 ]]; then
     $rvm_scripts_path/log "error" "Gemset '$rvm_gemset_name' does not exist, rvm gemset create '$rvm_gemset_name' first."
     return 1
   fi
@@ -704,8 +704,6 @@ __rvm_gemset_select() {
 
 # Use a gemset specified by 'rvm_ruby_gem_home'
 __rvm_gemset_use() {
-  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
-
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     if [[ ! -d "$rvm_ruby_gem_home" ]] ; then
       if [[ "$rvm_gemset_create_on_use_flag" -eq 1 ]] ; then
@@ -717,12 +715,13 @@ __rvm_gemset_use() {
     fi
 
     if [[ "$rvm_interactive" -eq 1 ]] || [[ "$rvm_verbose_flag" -eq 1 ]] ; then
-      $rvm_scripts_path/log "info" "gemset : ${rvm_gemset_name:-default}"
+      $rvm_scripts_path/log "info" "Now using gemset '${rvm_gemset_name:-default}'"
     fi
-
-    export GEM_HOME="$rvm_ruby_gem_home"
-    export GEM_PATH="$rvm_ruby_gem_path"
-    export BUNDLE_PATH="$rvm_ruby_gem_home"
+    rvm_ruby_gem_home="$(echo $GEM_HOME | sed 's/%.*$//')%$rvm_gemset_name"
+    GEM_HOME="$rvm_ruby_gem_home"
+    BUNDLE_PATH="$rvm_ruby_gem_home"
+    GEM_PATH="$rvm_ruby_gem_home/bin:$(echo $GEM_HOME | sed 's/%.*$//')%global/bin"
+    export rvm_ruby_gem_home GEM_HOME BUNDLE_PATH GEM_PATH
   fi
   return 0
 }
