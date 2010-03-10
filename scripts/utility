@@ -193,13 +193,20 @@ __rvm_unset_ruby_variables() {
 
 __rvm_set_rvmrc() {
   if [[ "$HOME" != "$(pwd)" ]] ; then
+    if [[ "$rvm_create_flag" -eq 1 ]] ; then flags="--create " ; fi
+    if [[ "$rvm_verbose_flag" -eq 1 ]] ; then flags="use " ; fi
+
     if [[ -s .rvmrc ]] ; then
       mv .rvmrc .rvmrc.$(date +%m.%d.%Y-%H:%M:%S)
+      $rvm_scripts_path/log "warning" ".rvmrc is not empty, moving aside to preserve."
     fi
-    echo "rvm use $(basename $rvm_ruby_gem_home)" > .rvmrc
+
+    echo "rvm $flags $(basename $rvm_ruby_gem_home)" > .rvmrc
+    unset flags
   else
-    echo -e "Not setting a project specific rvmrc file, currently in the HOME directory."
+    $rvm_scripts_path/log "error" ".rvmrc cannot be set in your home directory. \n The home .rvmrc is for global rvm settings only."
   fi
+
 }
 __rvm_load_rvmrc() {
   if [[ -f /etc/rvmrc ]] ; then source /etc/rvmrc ; fi
@@ -713,7 +720,7 @@ __rvm_gemset_select() {
 __rvm_gemset_use() {
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     if [[ ! -d "$rvm_ruby_gem_home" ]] ; then
-      if [[ "$rvm_gemset_create_on_use_flag" -eq 1 ]] ; then
+      if [[ "$rvm_gemset_create_on_use_flag" -eq 1 ]] || [[ "$rvm_create_flag" -eq 1 ]]; then
         $rvm_scripts_path/gemsets create $rvm_gemset_name
       else
         $rvm_scripts_path/log "error" "Gemset '$rvm_gemset_name' does not exist, rvm gemset create '$rvm_gemset_name' first."
@@ -724,12 +731,14 @@ __rvm_gemset_use() {
     if [[ "$rvm_interactive" -eq 1 ]] || [[ "$rvm_verbose_flag" -eq 1 ]] ; then
       $rvm_scripts_path/log "info" "Now using gemset '${rvm_gemset_name:-default}'"
     fi
+
     rvm_ruby_gem_home="$(echo $GEM_HOME | sed 's/%.*$//')%$rvm_gemset_name"
     GEM_HOME="$rvm_ruby_gem_home"
     BUNDLE_PATH="$rvm_ruby_gem_home"
     GEM_PATH="$rvm_ruby_gem_home/bin:$(echo $GEM_HOME | sed 's/%.*$//')%global/bin"
     export rvm_ruby_gem_home GEM_HOME BUNDLE_PATH GEM_PATH
-    __rvm_use
+
+    __rvm_use # Now ensure the selection takes effect for the environment.
   fi
   return 0
 }
