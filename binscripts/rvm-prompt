@@ -20,6 +20,8 @@ if [[ ! -z "$(which ruby 2>/dev/null | awk '/rvm/{print}')" ]] ; then
       p|patchlevel)   add "patchlevel"   ;;
       r|revision)     add "revision"     ;;
       a|architecture) add "architecture" ;;
+      g|gemset)       add "gemset"       ;;
+      u|unicode)      unicode_flag=1     ;;
       *) echo "Unrecognized command line option '$token' for $0" ; exit 1 ;;
     esac
   done
@@ -31,22 +33,56 @@ if [[ ! -z "$(which ruby 2>/dev/null | awk '/rvm/{print}')" ]] ; then
   fi
 
   ruby_string=$(dirname "$(which ruby 2>/dev/null)" | xargs dirname | xargs basename)
+
   if [[ ! -z "$interpreter_flag" ]] ; then
     interpreter="$(echo $ruby_string | awk -F'-' '{print $1}')"
   fi
+
   if [[ ! -z "$version_flag" ]] ; then
     version="$(echo $ruby_string | awk -F'-' '{print $2}')"
   fi
+
   if [[ ! -z "$patchlevel_flag" ]] ; then
     patchlevel=$(echo $ruby_string | awk -F'-' '{print $3}')
   fi
+
   if [[ ! -z "$architecture_flag" ]] ; then
     architecture="$(echo "$(ruby -v)" | sed 's/^.*\[//' | sed 's/\].*$//')"
   fi
 
-  command="prompt=\"$format\""
-  eval "$command"
-  echo "${prompt/-]/]}"
+  if [[ ! -z "$gemset_flag" ]] ; then
+    gemset="$(gem env gemdir | awk -F% '{print $2}')"
+    if [[ ! -z "$gemset" ]] ; then gemset="%$gemset" ; fi
+  fi
+
+  if [[ ! -z "$unicode_flag" ]] ; then
+    case "$interpreter" in
+      jruby)    unicode="☯" ;;
+      rbx)      unicode="☃" ;;
+      ree)      unicode="✈" ;;
+      macruby)  unicode="⌘" ;;
+      maglev)   unicode="㎖" ;;
+      ironruby) unicode="♭" ;;
+      mput)     unicode="⎈" ;;
+      system)   unicode="➆" ;;
+      ruby)
+        case "$version" in
+          1.8.6)  unicode="❻"  ;; 
+          1.8.7)  unicode="❼"  ;; 
+          1.9.1)  unicode="❶"  ;; 
+          1.9.2)  unicode="❷"  ;;
+          *)      unicode="♢"  ;;
+        esac ;;
+      *) unicode="♢" ;;
+    esac 
+    # TODO: Architecture
+    # TODO: gemset
+    echo $unicode
+  else
+    command="prompt=\"$format\""
+    eval "$command"
+    echo "$prompt" | sed 's#-\s*$##' | sed 's#-%#%#'
+  fi
 fi
 
 exit 0
