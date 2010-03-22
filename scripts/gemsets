@@ -10,7 +10,7 @@ if [[ ! -d "$rvm_ruby_gem_home" ]] && which gem &> /dev/null ; then rvm_ruby_gem
 trap "if [[ -d $rvm_tmp_path/ ]] && [[ -s $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
 
 __rvm_gemset_name() {
-   __rvm_gemset_gemdir |  awk -F'%' '{print $2}'
+   __rvm_gemset_gemdir |  awk -F${rvm_gemset_separator} '{print $2}'
 }
 
 __rvm_gemset_dir() {
@@ -18,9 +18,9 @@ __rvm_gemset_dir() {
 }
 
 __rvm_gemset_create() {
-  rvm_ruby_gem_prefix=$(echo $rvm_ruby_gem_home | sed 's/%.*$//')
+  rvm_ruby_gem_prefix=$(echo $rvm_ruby_gem_home | sed 's/'${rvm_gemset_separator}'.*$//')
   for gemset in $(echo $gems_args) ; do
-    gem_home="$rvm_ruby_gem_prefix%${gems_args/ /}"
+    gem_home="${rvm_ruby_gem_prefix}${rvm_gemset_separator}${gems_args/ /}"
     mkdir -p $gem_home
     ln -nfs "$HOME/.gem/cache" "$gem_home/cache"
     $rvm_scripts_path/log "info" "Gemset '$gemset' created."
@@ -34,8 +34,8 @@ __rvm_gemset_list() {
 
   if [[ ! -z "$rvm_gems_path" ]] ; then
     if [[ ! -z $rvm_ruby_string ]] ; then
-      for gemdir in $rvm_gems_path/${rvm_ruby_string}%* ; do
-        echo "$gemdir" | awk -F'%' '{print $2}'
+      for gemdir in $rvm_gems_path/${rvm_ruby_string}${rvm_gemset_separator}* ; do
+        echo "$gemdir" | awk -F${rvm_gemset_separator} '{print $2}'
       done
     else
       $rvm_scripts_path/log "error" "\$rvm_ruby_string is not set!"
@@ -48,7 +48,7 @@ __rvm_gemset_list() {
 __rvm_gemset_delete() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
   if [[ ! -z "$rvm_gemset_name" ]] ; then
-    gemdir="$rvm_gems_path/$rvm_ruby_string%$rvm_gemset_name"
+    gemdir="$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator}$rvm_gemset_name"
     if [[ -d "$gemdir" ]] && [[ "$gemdir" != '/' ]] && [[ ! -z "$rvm_force_flag" ]] ; then
         rm -rf  "$gemdir"
     elif [[ -d "$gemdir" ]] ; then
@@ -74,7 +74,7 @@ __rvm_gemset_empty() {
   if [[ -d "$gemdir" ]] && [[ "$gemdir" != '/' ]] && [[ ! -z "$rvm_force_flag" ]] ; then
     cd $gemdir && rm -rf ./bin/* ./doc/* ./gems/* ./specifications/*
   elif [[ -d "$gemdir" ]] ; then
-    $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the installed gemset for gemset '%$rvm_gemset_name' ($gemdir)?"
+    $rvm_scripts_path/log "warn" "Are you SURE you wish to remove the installed gemset for gemset '${rvm_gemset_separator}$rvm_gemset_name' ($gemdir)?"
     echo -n "(anything other than 'yes' will cancel) > "
     read response
     if [[ "yes" = "$response" ]] ; then
@@ -119,7 +119,7 @@ __rvm_gemset_export() {
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
-    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string%global/bin"
+    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator}global/bin"
     export BUNDLE_PATH="$rvm_ruby_gem_home"
   fi
 
@@ -152,7 +152,7 @@ __rvm_gemset_import() {
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
-    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string%global/bin"
+    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator}global/bin"
     export BUNDLE_PATH="$rvm_ruby_gem_home"
   fi
 
@@ -274,7 +274,7 @@ __rvm_gem_install() {
     if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
 
     if [[ ! -z "$rvm_ruby_gem_home" ]] && [[ "$rvm_ruby_gem_home" != "$rvm_gems_path" ]] ; then
-      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string%global/bin' BUNDLE_PATH='$rvm_ruby_gem_home' $gem_prefix gem install $gems_args $rvm_gem_options $gem_postfix $vars"
+      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home/bin:$rvm_gems_path/${rvm_ruby_string}${rvm_gemset_separator}global/bin' BUNDLE_PATH='${rvm_ruby_gem_home}' ${gem_prefix} gem install $gems_args $rvm_gem_options $gem_postfix $vars"
     else
       command="$gem_prefix gem install $gems_args $rvm_gem_options -q $gem $gem_postfix $vars"
     fi
