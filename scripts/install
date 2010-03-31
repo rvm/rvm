@@ -23,6 +23,15 @@ usage() {
   "
 }
 
+spinner_counter=0
+spinner() {
+  array=('/' '-' '\\' '|' '/' '-' '\\' '|')
+  index=$((($spinner_counter % 8)))
+  echo -e -n "\r${array[$index]}"
+  let "spinner_counter=spinner_counter+1"
+  which perl > /dev/null 2>&1 && perl -e 'sleep 0.5'
+}
+
 if echo "$*" | grep -q 'trace' ; then echo "$*" ; env | grep '^rvm_' ; set -x ; fi
 
 while [[ $# -gt 0 ]] ; do
@@ -47,18 +56,25 @@ fi
 if [[ -z "$rvm_path" ]] ; then rvm_path="${rvm_prefix}rvm" ; fi
 
 source scripts/initialize
+if grep -q 'scripts/rvm' $HOME/.bash* || grep -q 'scripts/rvm' $HOME/.zsh*; then
+  if [[ -d "$rvm_path" ]] && [[ -s "${rvm_path}/scripts/rvm" ]] ; then
+    export upgrade_flag=1
+  else
+    export upgrade_flag=0
+  fi
+else
+  export upgrade_flag=0
+fi
+
 __rvm_initialize
 
 #
-# Setup
+# Setup & Configuration
 #
 item="$(tput setaf 2)* $(tput sgr0)"
 question="\n$(tput setaf 2)<?>$(tput sgr0)"
 cwd=$(pwd)
 source_path="${source_path:-$cwd}"
-
-# State what is required to use rvm
-echo -e "\nInstalling rvm to $rvm_path/ ..."
 rvm_archives_path="${rvm_archives_path:-"$rvm_path/archives"}"
 rvm_src_path="${rvm_src_path:-"$rvm_path/src"}"
 rvm_log_path="${rvm_log_path:-"$rvm_path/log"}"
@@ -73,9 +89,23 @@ rvm_symlink_path="${rvm_symlink_path:-$rvm_prefix/bin}"
 
 export rvm_gemset_separator="@" # TODO: Remove this after a while.
 
+echo -e "\n$(tput setaf 2)RVM$(tput sgr0) - shell scripts which allow management of multiple ruby interpreters and environments."
+echo -e "\n    $(tput setaf 2)RTFM: $(tput sgr0) http://rvm.beginrescueend.com/"
+echo -e "\n    $(tput setaf 2)HELP: $(tput sgr0) http://webchat.freenode.net/?channels=rvm (#rvm on irc.freenode.net)"
+
+echo -e "\n********************************************************************************"
+if [[ "$upgrade_flag" -eq 1 ]] ;then
+  echo -e -n "  Upgrading the RVM installation in $rvm_path/"
+else
+  echo -e -n "  Installing rvm to $rvm_path/"
+fi
+
+spinner
+
 mkdir -p $rvm_archives_path $rvm_src_path $rvm_log_path $rvm_bin_path $rvm_gems_path $rvm_rubies_path $rvm_config_path $rvm_hooks_path $rvm_tmp_path $rvm_symlink_path $HOME/.gem/cache
 
 for file in README LICENCE ; do
+  spinner
   cp -f "$source_path/$file" "$rvm_path/"
 done
 
@@ -83,19 +113,22 @@ done
 # Scripts
 #
 for dir_name in config scripts examples lib hooks ; do
+  spinner
   mkdir -p "$rvm_path/$dir_name"
   if [[ -d "$source_path/$dir_name" ]] ; then
     cp -Rf "$source_path/$dir_name" "$rvm_path"
   fi
 done ; unset dir_name
 
+spinner
 if [[ ! -s "$rvm_config_path/user" ]] ; then
   mkdir -p "$rvm_config_path/"
   echo '# Users settings file, overrides db file settings and persists across installs.' >> $rvm_config_path/user
 fi
 
-scripts="monitor match log install color db fetch log set package"
-for script_name in $(echo $scripts) ; do
+scripts=("monitor" "match" "log" "install" "color" "db" "fetch" "log" "set" "package")
+for script_name in $scripts ; do
+  spinner
   chmod +x $rvm_scripts_path/$script_name
 done
 
@@ -104,14 +137,17 @@ done
 #
 # Cleanse and purge...
 for file in rvm-prompt rvm rvmsudo ; do
+  spinner && perl -e 'sleep 0.2'
   rm -f "$rvm_bin_path/$file"
   cp -f "$source_path/binscripts/$file" $rvm_bin_path/
 done
+spinner
 chmod +x $rvm_bin_path/*
 
 #
 # RC Files
 #
+spinner
 if [[ ! -z "$rvm_auto_flag" ]] ; then
   echo -e "Checking rc files... ($rvm_rc_files)"
   if [[ "$rvm_loaded_flag" != "1" ]] ; then
@@ -136,11 +172,13 @@ fi
 #
 rvm_rubies_path="${rvm_rubies_path:-"$rvm_path/rubies"}"
 mkdir -p "$rvm_rubies_path/"
+spinner
 for ruby in $rvm_path/ruby-* $rvm_path/jruby-* $rvm_path/mput-* $rvm_path/rbx-* $rvm_path/maglev-* $rvm_path/ree-* ; do
   if [[ -d "$ruby" ]] ; then
     mv "$ruby" "$rvm_rubies_path/"
     new_path="$rvm_rubies_path/$(basename $ruby)"
     for file in gem rake ; do
+      spinner
       if [[ -s "$new_path/bin/$file" ]] ; then
         sed -i.orig -e '1,1s=.*=#!'"$new_path/bin/ruby=" "$new_path/bin/$file"
         rm -f "$new_path/bin/$file.orig"
@@ -156,6 +194,8 @@ done
 #
 # Migrate old gemset directories to new gemset pattern.
 #
+spinner
+echo -e -n "\r*"
 for gemset in $rvm_path/gems/*\%* ; do
   new_path=${gemset/\%/${rvm_gemset_separator}}
   if [[ -d "$gemset" ]] && [[ ! -d "$new_path" ]] ; then
@@ -190,11 +230,12 @@ if [[ "root" = "$(whoami)" ]] ; then
   chmod +x $rvm_symlink_path/rvmsudo
 fi
 
-echo -e "\n$(tput setaf 2)rvm$(tput sgr0) - shell scripts that allows a user to manage multiple ruby versions in their own account."
-./scripts/notes
 
-echo -e "$(tput setaf 2)RTFM: $(tput sgr0) http://rvm.beginrescueend.com/"
-echo -e "\n$(tput setaf 2)HELP: $(tput sgr0) http://webchat.freenode.net/?channels=rvm "
+if [[ "$upgrade_flag" -eq 0 ]] ; then
+  echo -e "\n********************************************************************************"
+  ./scripts/notes
+fi
+
 echo -e "\n********************************************************************************"
 name="$(awk -F= '/^[[:space:]]*name/{print $2}' ~/.gitconfig 2>/dev/null)"
 echo -e "\n${name:-"$(whoami)"},\n"
@@ -207,20 +248,28 @@ echo -e "\n  w$(tput setaf 2)⦿‿⦿$(tput sgr0)t!"
 echo -e "\n    ~ Wayne"
 echo -e "\n********************************************************************************"
 
-if [[ "root" != "$(whoami)" ]] ; then
-  echo -e "\n$(tput setaf 1)You must now finish the install manually:$(tput sgr0)"
-  echo -e "\n1) Place the folowing line at the end of your shell's loading files(.bashrc and then .bash_profile for bash and .zshrc for zsh), after all path/variable settings:"
-  echo -e "\n     if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
-  echo -e "\n2) Ensure that there is no 'return' from inside the .bashrc file. (otherwise rvm will be prevented from working properly)."
-  echo -e "\n   This means that if you see '[ -z "$PS1" ] && return' then you must remove it and split your .bashrc"
-  echo -e "\n   Put everything *except the return code line(s)* into your .bash_profile, and everything above that code in your .bashrc."
-  echo -e "\n   Be *sure* to REMOVE the '&& return' statement line."
-  echo -e "\n   If you wish to DRY up your config you can 'source ~/.bashrc' at the top of your .bash_profile."
-  echo -e "\n4) Then $(tput setaf 1)CLOSE THIS SHELL$(tput sgr0) and open a new one in order to use rvm.\n"
-fi
-
-if [[ -s $HOME/.bashrc ]] && grep '&& return' $HOME/.bashrc ; then
-  echo -e "\n\nWARNING:  you have a 'return' statement in your .bashrc, likely this will cause untold havoc. Please remove it and refactor your profiles to be correct. If you have questions about this please visit #rvm on irc.freenode.net.\n\n"
+if [[ "$upgrade_flag" -eq 1 ]] ; then
+  echo -e "\n$(tput setaf 6)**** NOTICE *************************************************************************************"
+  echo -e "*  Gemset separator has changed, it is now @ and will remain unless any rubies error using it.  *"
+  echo -e "*  If you encounter any issues with a ruby your best bet is to 'rvm remove X ; rvm install X'   *"
+  echo -e "*************************************************************************************************$(tput sgr0)\n"
+  echo -e "Upgrade of RVM in $rvm_path/ is complete.\n"
+else
+  if [[ "root" != "$(whoami)" ]] ; then
+    echo -e "\n$(tput setaf 1)You must now finish the install manually:$(tput sgr0)"
+    echo -e "\n1) Place the folowing line at the end of your shell's loading files(.bashrc and then .bash_profile for bash and .zshrc for zsh), after all path/variable settings:"
+    echo -e "\n     if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi"
+    echo -e "\n2) Ensure that there is no 'return' from inside the .bashrc file. (otherwise rvm will be prevented from working properly)."
+    echo -e "\n   This means that if you see '[ -z "$PS1" ] && return' then you must remove it and split your .bashrc"
+    echo -e "\n   Put everything *except the return code line(s)* into your .bash_profile, and everything above that code in your .bashrc."
+    echo -e "\n   Be *sure* to REMOVE the '&& return' statement line."
+    echo -e "\n   If you wish to DRY up your config you can 'source ~/.bashrc' at the top of your .bash_profile."
+    echo -e "\n4) Then $(tput setaf 1)CLOSE THIS SHELL$(tput sgr0) and open a new one in order to use rvm.\n"
+  fi
+  if [[ -s $HOME/.bashrc ]] && grep '&& return' $HOME/.bashrc ; then
+    echo -e "\n\nWARNING:  you have a 'return' statement in your .bashrc, likely this will cause untold havoc. Please remove it and refactor your profiles to be correct. If you have questions about this please visit #rvm on irc.freenode.net.\n"
+  fi
+  echo -e "Installation of RVM to $rvm_path/ is complete.\n\n"
 fi
 
 exit 0
