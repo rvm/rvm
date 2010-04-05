@@ -850,23 +850,24 @@ __rvm_post_install() {
 
   for rvm_gem_name in rdoc rake ; do
     home="$GEM_HOME" ; path="$GEM_PATH" # Save
-    export GEM_HOME="$rvm_ruby_global_gems_path"
-    export GEM_PATH="$rvm_ruby_global_gems_path"
-    export BUNDLE_PATH="$rvm_ruby_global_gems_path"
-    __rvm_run "gems.install" "$rvm_ruby_home/bin/gem install --no-rdoc --no-ri $rvm_gem_name $rvm_gem_options" "Installing $rvm_gem_name"
-    export GEM_HOME="$home" ; export GEM_PATH="$path" ; export BUNDLE_PATH="$home" ; unset home path
-  done ; unset rvm_gem_name
+    for dir in $rvm_ruby_global_gems_path $rvm_ruby_gem_home ; do
+      GEM_HOME="$dir" ; GEM_PATH="$dir" ; BUNDLE_PATH="$dir"
+      export GEM_HOME GEM_PATH BUNDLE_PATH
+      __rvm_run "gems.install" "$rvm_ruby_home/bin/gem install --no-rdoc --no-ri $rvm_gem_name $rvm_gem_options" "Installing $rvm_gem_name"
 
+      if [[ -x $rvm_ruby_gem_home/bin/$rvm_gem_name ]] ; then
+        if [[ "$rvm_ruby_gem_home" != "$rvm_ruby_home" ]] && [[ ! -x $rvm_ruby_home/bin/$rvm_gem_name ]] ; then
+          ln -nfs $rvm_ruby_gem_home/bin/$rvm_gem_name $rvm_ruby_home/bin/$rvm_gem_name
+        fi
+        __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$rvm_gem_name"
+        __rvm_inject_gem_env "$rvm_ruby_home/bin/$rvm_gem_name"
+      fi ; unset rvm_gem_name
+    done ; unset home path dir
+    GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home"
+    export GEM_HOME GEM_PATH BUNDLE_PATH
+  done ; unset rvm_gem_name
   $rvm_scripts_path/log "info" "Installation of gems for $rvm_ruby_string is complete."
 
-  binary=rake
-  if [[ -x $rvm_ruby_gem_home/bin/$binary ]] ; then
-    if [[ "$rvm_ruby_gem_home" != "$rvm_ruby_home" ]] ; then
-      cp $rvm_ruby_gem_home/bin/$binary $rvm_ruby_home/bin/$binary
-    fi
-    __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
-    __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
-  fi ; unset binary
   __rvm_irbrc
 }
 
@@ -885,18 +886,22 @@ __rvm_rubygems_setup() {
     # 1.9.X has it's own built-in gem command
     __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/gem"
     __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
+
     cp $rvm_ruby_src_path/bin/gem $rvm_ruby_home/bin/gem
+
     home="$GEM_HOME" ; path="$GEM_PATH" # Save
-    export GEM_HOME="$rvm_ruby_global_gems_path"
-    export GEM_PATH="$rvm_ruby_global_gems_path"
-    export BUNDLE_PATH="$rvm_ruby_global_gems_path"
-    __rvm_run "rubygems.update" "$rvm_ruby_home/bin/gem update --system" "Updating rubygems for $rvm_ruby_string"
-    export GEM_HOME="$home" ; export GEM_PATH="$path" ; export BUNDLE_PATH="$home" unset home path
+    for dir in $rvm_ruby_global_gems_path $rvm_ruby_gem_home ; do
+      export GEM_HOME="$dir" ; export GEM_PATH="$dir" ; export BUNDLE_PATH="$dir"
+      __rvm_run "rubygems.update" "$rvm_ruby_home/bin/gem update --system" "Updating rubygems for $dir"
+    done ; unset home path dir
+    GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home"
+    export GEM_HOME GEM_PATH BUNDLE_PATH
 
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
     __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
     ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/1.$rvm_major_version"
   elif [[ ! -z "$(echo $rvm_ruby_interpreter | awk '/^rbx|jruby/')" ]] ; then
+    # Hands off rubygems for rbx & jruby
     if [[ ! -z "$rvm_debug_flag" ]] ; then $rvm_scripts_path/log "debug" "Skipping rubygems update for $rvm_ruby_version" ; fi
     ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/jruby"
   else
@@ -906,7 +911,8 @@ __rvm_rubygems_setup() {
     rvm_gem_package_name="rubygems-$rvm_rubygems_version"
     rvm_gem_url="$rvm_rubygems_url/$rvm_gem_package_name.tgz"
 
-    # Sanity check...
+    # Sanity check... If setup.rb is missing from the rubygems source path,
+    # something went wrong. Cleanup, aisle 3!
     if [[ ! -f "$rvm_src_path/$rvm_gem_package_name/setup.rb" ]]; then
       rm -rf "$rvm_src_path/$rvm_gem_package_name"
     fi
@@ -942,15 +948,17 @@ __rvm_rubygems_setup() {
 
   # Add ruby's gem path to ruby's lib direcotry.
   mkdir -p $(dirname $ruby_lib_gem_path)
-  if [[ -d "$ruby_lib_gem_path" ]] ; then
-    rm -rf "$ruby_lib_gem_path"
-  fi
+
+  if [[ -d "$ruby_lib_gem_path" ]] ; then rm -rf "$ruby_lib_gem_path" ; fi
+
   ln -nfs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
+
   unset ruby_lib_gem_path
 
   if [[ -s "$rvm_ruby_src_path/bin/rdoc" ]] ; then
     __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/rdoc"
   fi
+
   if [[ -s "$rvm_ruby_src_path/bin/rake" ]] ; then
     __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/rake"
   fi
