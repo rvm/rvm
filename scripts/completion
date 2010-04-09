@@ -1,0 +1,114 @@
+# bash completion for Ruby Version Manager (RVM)
+
+__rvm_comp() 
+{
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  COMPREPLY=($(compgen -W "$1" -- "$cur"))
+  return 0
+}
+
+__rvm_subcommand()
+{
+  local word subcommand c=1
+
+  while [ $c -lt $COMP_CWORD ]; do
+    word="${COMP_WORDS[c]}"
+    for subcommand in $1; do
+      if [ "$subcommand" = "$word" ]; then
+        echo "$subcommand"
+        return
+      fi
+    done
+    c=$((++c))
+  done
+}
+
+__rvm_rubies ()
+{
+  echo "$(rvm list strings)"
+}
+
+__rvm_gemsets ()
+{
+  echo "$(rvm gemset list | grep -v gemset 2>/dev/null)"
+}
+
+_rvm_commands ()
+{
+  local cur=${COMP_WORDS[COMP_CWORD]}
+
+  COMMANDS='use info list reload impload update reset debug\
+        install uninstall remove\
+        ruby gem gemset rake tests spects\
+        gemdir srcdir'
+
+  RVM_OPTS='\
+    -v --version\
+    -h --help\
+    -l --level\
+    --tag\
+    --rev\
+    --prefix\
+    --bin\
+    --source\
+    --archives\
+    -S --script\
+    -G --gems\
+    -C --configure\
+    --reconfigure\
+    --make\
+    --make-install\
+    --nice\
+    -m --gem-set\
+    --rm-gem-set'
+
+  case "${cur}" in
+  -*)       _rvm_opts ;;
+  *)        __rvm_comp "$COMMANDS $(__rvm_rubies)" ;;
+  esac
+}
+
+_rvm_opts ()
+{
+  local rvm_opts='\
+	-v --version\
+	-h --help'
+
+  __rvm_comp "$rvm_opts"
+}
+
+_rvm_use ()
+{
+  local command="${COMP_WORDS[COMP_CWORD-2]}"
+
+  case "${command}" in
+  gemset) __rvm_comp "$(__rvm_gemsets)" ;;
+  *)      __rvm_comp "$(__rvm_rubies)" ;;
+  esac
+}
+
+_rvm_gemset ()
+{
+  local subcommands="use create"
+  local subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [ -z "$subcommand" ]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm ()
+{
+  local prev=${COMP_WORDS[COMP_CWORD-1]}
+
+  case "${prev}" in
+  use)      _rvm_use ;;
+  gemset)   _rvm_gemset ;;
+  *)        _rvm_commands ;;
+  esac
+
+  return 0
+}
+
+complete -o default -o nospace -F _rvm rvm
