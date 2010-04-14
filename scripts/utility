@@ -26,64 +26,55 @@ is_a_function() { type $1 | head -n 1 | grep -q "function" ; }
 
 # Ouput rvm environment information.
 __rvm_info() {
-
   if [[ ! -z "$rvm_ruby_args" ]] ; then
-    echo $(rvm_ruby_string="$rvm_ruby_args"; __rvm_select ; __rvm_use ; __rvm_environment_info)
-    echo -e $info ; unset info
+    cat < <(rvm_ruby_string="$rvm_ruby_args"; __rvm_select ; __rvm_use ; __rvm_environment_info; echo -e "$environment_info")
   else
     __rvm_environment_info
+    echo -e "$environment_info"
   fi
-
 }
 
 __rvm_environment_info() {
-  if [[ ! -z "$(/usr/bin/which ruby 2>/dev/null)" ]] ; then full_version=$(ruby -v) ; fi
-  echo -e "system:\n  uname:        \"$(uname -a)\""
+  environment_info="" ; full_version=""
+  ruby=$(/usr/bin/which ruby 2>/dev/null)
+  if [[ ! -z "$ruby" ]] && [[ -x "$ruby" ]] ; then full_version="$($ruby -v)" ; fi
 
-  if [[ ! -z "$ZSH_VERSION" ]] ; then echo -e "  shell:         \"zsh\"\n  version:     \"$ZSH_VERSION\"" ; fi
-  if [[ ! -z "$BASH_VERSION" ]] ; then echo -e "  shell:        \"bash\"\n  version:      \"$BASH_VERSION\"" ; fi
+  environment_info="$environment_info\nsystem:\n  uname:        \"$(uname -a)\""
 
-  cat <<Ruby
-
-ruby:
-  interpreter:  "$(echo $full_version | awk '{print $1}')"
-  version:      "$(echo $full_version | awk '{print $2}')"
-  date:         "$(echo $full_version | sed 's/^.*(\([0-9]\{4\}\(-[0-9][0-9]\)\{2\}\).*$/\1/')"
-  platform:     "$(echo $full_version | sed 's/^.*\[//' | sed 's/\].*$//')"
-  patchlevel:   "$(echo $full_version | sed 's/^.*(//' | sed 's/).*$//')"
-  full_version: "$full_version"
-
-Ruby
-
-  cat <<Homes
-homes:
-  gem:          "${GEM_HOME:-'not set'}"
-  ruby:         "${MY_RUBY_HOME:-'not set'}"
-Homes
-
-  cat <<Binaries
-binaries:
-  ruby:         "$(which ruby 2>/dev/null)"
-  irb:          "$(which irb 2>/dev/null)"
-  gem:          "$(which gem 2>/dev/null)"
-  rake:         "$(which rake 2>/dev/null)"
-Binaries
-
-  cat <<Environment
-
-environment:
-  GEM_HOME:     "$GEM_HOME"
-  GEM_PATH:     "$GEM_PATH"
-  BUNDLE_PATH:  "$BUNDLE_PATH"
-  MY_RUBY_HOME: "$MY_RUBY_HOME"
-  IRBRC:        "$IRBRC"
-Environment
-
-  gemset="$(echo $GEM_HOME | awk -F${rvm_gemset_separator:-'@'} '{print $2}')"
-  echo -e "  gemset:       \"$gemset\"\n"
-
-  if [[ ! -z "$MAGLEV_HOME" ]] ; then info="$info\n  MAGLEV_HOME: \"$MAGLEV_HOME\"" ; fi
-
+  if [[ ! -z "$ZSH_VERSION" ]]  ; then
+    environment_info="$environment_info\n  shell:        \"zsh\"\n  version:     \"$ZSH_VERSION\""
+  fi
+  if [[ ! -z "$BASH_VERSION" ]] ; then
+    environment_info="$environment_info\n  shell:        \"bash\"\n  version:      \"$BASH_VERSION\""
+  fi
+  environment_info="$environment_info\n\nrvm:"
+  environment_info="$environment_info\n  type:         \"$(head -n 1 < <(type rvm))\""
+  environment_info="$environment_info\n  version:      \"$(__rvm_version | tr "\n" ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')\""
+  environment_info="$environment_info\n\nruby:"
+  environment_info="$environment_info\n  interpreter:  \"$(echo "${full_version}" | awk '{print $1}')\""
+  environment_info="$environment_info\n  version:      \"$(echo "${full_version}" | awk '{print $2}')\""
+  environment_info="$environment_info\n  date:         \"$(echo "${full_version}" | sed 's/^.*(\([0-9]\{4\}\(-[0-9][0-9]\)\{2\}\).*$/\1/')\""
+  environment_info="$environment_info\n  platform:     \"$(echo "${full_version}" | sed 's/^.*\[//' | sed 's/\].*$//')\""
+  environment_info="$environment_info\n  patchlevel:   \"$(echo "${full_version}" | sed 's/^.*(//' | sed 's/).*$//')\""
+  environment_info="$environment_info\n  full_version: \"${full_version}\""
+  environment_info="$environment_info\n\nhomes:"
+  environment_info="$environment_info\n  gem:          \"${GEM_HOME:-'not set'}\""
+  environment_info="$environment_info\n  ruby:         \"${MY_RUBY_HOME:-'not set'}\""
+  environment_info="$environment_info\n\nbinaries:"
+  environment_info="$environment_info\n  ruby:         \"$(which ruby 2>/dev/null)\""
+  environment_info="$environment_info\n  irb:          \"$(which irb 2>/dev/null)\""
+  environment_info="$environment_info\n  gem:          \"$(which gem 2>/dev/null)\""
+  environment_info="$environment_info\n  rake:         \"$(which rake 2>/dev/null)\""
+  environment_info="$environment_info\n\nenvironment:"
+  environment_info="$environment_info\n  GEM_HOME:     \"$GEM_HOME\""
+  environment_info="$environment_info\n  GEM_PATH:     \"$GEM_PATH\""
+  environment_info="$environment_info\n  BUNDLE_PATH:  \"$BUNDLE_PATH\""
+  environment_info="$environment_info\n  MY_RUBY_HOME: \"$MY_RUBY_HOME\""
+  environment_info="$environment_info\n  IRBRC:        \"$IRBRC\""
+  environment_info="$environment_info\n  gemset:       \"$(echo $GEM_HOME | awk -F${rvm_gemset_separator:-'@'} '{print $2}')\"\n"
+  if [[ ! -z "$MAGLEV_HOME" ]] ; then
+    environment_info="$environment_info\n  MAGLEV_HOME: \"$MAGLEV_HOME\""
+  fi
   unset full_version
 }
 
@@ -119,7 +110,7 @@ __rvm_debug() {
 
   for file_name in $(echo $debug_files); do
     if [[ -f "$file_name" ]] && [[ -s "$file_name" ]] ; then
-      $rvm_scripts_path/log "debug" "$file_name (filtered):\n$(cat $file_name | awk '!/assword|_key/')\n"
+      $rvm_scripts_path/log "debug" "$file_name \(filtered\):\n$(cat $file_name | awk '!/assword|_key/')\n"
     fi
   done
 
