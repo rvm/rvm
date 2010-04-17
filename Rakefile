@@ -1,3 +1,4 @@
+
 task :default => ["test"]
 task :test do exec "bash -l -c \"./test/suite\"" ; end
 
@@ -28,6 +29,7 @@ LOCAL_INSTALL_WARNING
 end
 
 begin
+  require "rubygems"
   require "jeweler"
   require "lib/rvm/version"
 
