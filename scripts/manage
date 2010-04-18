@@ -513,6 +513,22 @@ RubyWrapper
 
           __rvm_fetch_ruby
           if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+          builtin cd $rvm_ruby_src_path
+
+          $rvm_bin_path/rvm 1.8.7 -S gem install pathname2 --no-rdoc --no-ri
+
+          # MONO_LIB=/Library/Frameworks/Mono.framework/Versions/current/lib/
+          rvm_ruby_make="$rvm_bin_path/rvm 1.8.7 -S rake MERLIN_ROOT=\"$rvm_ruby_src_path/Merlin/Main\" compile mono=1 configuration=release --trace"
+          __rvm_run "rake" "$rvm_ruby_make" "Building IronRuby..."
+          if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
+
+          rm -rf $rvm_ruby_home/*
+          mkdir -p $rvm_ruby_home/bin $rvm_ruby_home/lib $rvm_ruby_home/lib/ruby $rvm_ruby_home/lib/IronRuby
+
+          cp -r $rvm_ruby_src_path/Merlin/Main/Bin/mono_release/* $rvm_ruby_home/bin/
+          cp -r $rvm_ruby_src_path/Merlin/Main/Languages/Ruby/Scripts/bin/* $rvm_ruby_home/bin/
+          cp -r $rvm_ruby_src_path/Merlin/External.LCA_RESTRICTED/Languages/Ruby/redist-libs/ruby/* $rvm_ruby_home/lib/ruby
+          cp -r $rvm_ruby_src_path/Merlin/Main/Languages/Ruby/Libs/* $rvm_ruby_home/lib/IronRuby
       else
         $rvm_scripts_path/log "info" "Retrieving IronRuby"
 
@@ -521,35 +537,19 @@ RubyWrapper
           $rvm_scripts_path/log "error" "There has been an error while trying to fetch the source. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
 
-        rm -rf "${rvm_src_path}/${rvm_ruby_string}/"
-        $rvm_scripts_path/log "info"  "Extracting $rvm_ruby_package_file ..."
-        unzip -o  -d ${rvm_src_path}/${rvm_ruby_string} ${rvm_archives_path}/${rvm_ruby_package_file} >> "$rvm_ruby_log_path/extract.log" 2>> "$rvm_ruby_log_path/extract.error.log"
+        #rm -rf "${rvm_ruby_src_path}/"
+        #__rvm_run "extract" "cat $rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension | gunzip | tar xf - -C $rvm_src_path" "Extracting $rvm_ruby_package_file ..."
+        #__rvm_run "extract" "unzip -o  -d ${rvm_ruby_src_path} ${rvm_archives_path}/${rvm_ruby_package_file}" "Extracting $rvm_ruby_package_file ..."
+        mkdir -p $rvm_ruby_src_path $rvm_ruby_home
+        unzip -o  -d ${rvm_ruby_src_path} ${rvm_archives_path}/${rvm_ruby_package_file} >> "$rvm_ruby_log_path/extract.log" 2>> "$rvm_ruby_log_path/extract.error.log"
         result=$? ; if [[ "$result" -gt 1 ]] ; then
-          $rvm_scripts_path/log "error" "There has been an error while trying to extract the source. Aborting the installation." ; __rvm_pushpop ; return $result
+          $rvm_scripts_path/log "error" "There has been an error while trying to extract $rvm_ruby_package_file. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
 
-        #mv $rvm_ruby_home/ironruby/* $rvm_ruby_home
-        #rm -rf $rvm_ruby_home/ironruby
-        #mv $rvm_ruby_src_path/$rvm_ruby_package_file/* $rvm_ruby_home
-        #mv $rvm_ruby_home/lib/ironruby $rvm_ruby_home/lib/IronRuby
+        for dir in bin lib silverlight ; do
+          cp -Rf $rvm_src_path/$rvm_ruby_string/$dir "$rvm_ruby_home/$dir"
+        done
       fi
-
-      builtin cd $rvm_ruby_src_path
-
-      $rvm_bin_path/rvm 1.8.7 -S gem install pathname2 --no-rdoc --no-ri
-
-      # MONO_LIB=/Library/Frameworks/Mono.framework/Versions/current/lib/
-      rvm_ruby_make="$rvm_bin_path/rvm 1.8.7 -S rake MERLIN_ROOT=\"$rvm_ruby_src_path/Merlin/Main\" compile mono=1 configuration=release --trace"
-      __rvm_run "rake" "$rvm_ruby_make" "Building IronRuby..."
-      if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
-
-      rm -rf $rvm_ruby_home/*
-      mkdir -p $rvm_ruby_home/bin $rvm_ruby_home/lib $rvm_ruby_home/lib/ruby $rvm_ruby_home/lib/IronRuby
-
-      cp -r $rvm_ruby_src_path/Merlin/Main/Bin/mono_release/* $rvm_ruby_home/bin/
-      cp -r $rvm_ruby_src_path/Merlin/Main/Languages/Ruby/Scripts/bin/* $rvm_ruby_home/bin/
-      cp -r $rvm_ruby_src_path/Merlin/External.LCA_RESTRICTED/Languages/Ruby/redist-libs/ruby/* $rvm_ruby_home/lib/ruby
-      cp -r $rvm_ruby_src_path/Merlin/Main/Languages/Ruby/Libs/* $rvm_ruby_home/lib/IronRuby
 
       binaries="gem irb rdoc rake ri ruby"
       for binary_name in $(echo $binaries); do
