@@ -36,8 +36,8 @@ __rvm_info() {
 
 __rvm_environment_info() {
   environment_info="" ; full_version=""
-  ruby=$(/usr/bin/which ruby 2>/dev/null)
-  if [[ ! -z "$ruby" ]] && [[ -x "$ruby" ]] ; then full_version="$($ruby -v)" ; fi
+  ruby=$(command -v ruby)
+  if [[ $? -eq 0 ]] && [[ -x "$ruby" ]] ; then full_version="$($ruby -v)" ; fi
 
   environment_info="$environment_info\nsystem:\n  uname:        \"$(uname -a)\""
 
@@ -61,10 +61,10 @@ __rvm_environment_info() {
   environment_info="$environment_info\n  gem:          \"${GEM_HOME:-'not set'}\""
   environment_info="$environment_info\n  ruby:         \"${MY_RUBY_HOME:-'not set'}\""
   environment_info="$environment_info\n\nbinaries:"
-  environment_info="$environment_info\n  ruby:         \"$(which ruby 2>/dev/null)\""
-  environment_info="$environment_info\n  irb:          \"$(which irb 2>/dev/null)\""
-  environment_info="$environment_info\n  gem:          \"$(which gem 2>/dev/null)\""
-  environment_info="$environment_info\n  rake:         \"$(which rake 2>/dev/null)\""
+  environment_info="$environment_info\n  ruby:         \"$(command -v ruby)\""
+  environment_info="$environment_info\n  irb:          \"$(command -v irb)\""
+  environment_info="$environment_info\n  gem:          \"$(command -v gem)\""
+  environment_info="$environment_info\n  rake:         \"$(command -v rake)\""
   environment_info="$environment_info\n\nenvironment:"
   environment_info="$environment_info\n  GEM_HOME:     \"$GEM_HOME\""
   environment_info="$environment_info\n  GEM_PATH:     \"$GEM_PATH\""
@@ -282,14 +282,13 @@ __rvm_load_defaults() {
 
   __rvm_db "system_ruby" "rvm_system_ruby"
   if [[ ! -z "$rvm_system_ruby" ]] ; then
-    rvm_system_ruby=$(which ruby 2>/dev/null)
+    rvm_system_ruby=$(command -v ruby)
     if [[ $? -ne 0 ]] ; then
       $rvm_scripts_path/log "info" "System ruby not found, no system default will be stored."
     else
       $rvm_scripts_path/db "$rvm_config_path/user" "system_ruby" "$rvm_system_ruby"
-
       # Now store system system & user gem paths
-      if [[ ! -z "$(which gem 2>/dev/null)" ]] ; then
+      if [[ ! -z "$(command -v gem)" ]] ; then
         __rvm_db "system_user_gem_path" "rvm_system_user_gem_path"
         if [[ -z "$rvm_system_user_gem_path" ]] ; then
           rvm_system_user_gem_path=$( rvm system ; gem env gemdir user; )
@@ -426,7 +425,7 @@ __rvm_list_known() {
 
 __rvm_list_rubies() {
   echo
-  ruby=$(which ruby 2>/dev/null) ; current_ruby=""
+  ruby=$(command -v ruby) ; current_ruby=""
   if [[ ! -z "$ruby" ]] && [[ ! -z "$(echo $ruby | awk '/rvm/')" ]] ; then
     current_ruby="$(echo $ruby | xargs dirname | xargs dirname | xargs basename 2> /dev/null)"
   fi
@@ -453,7 +452,7 @@ __rvm_list_rubies() {
     fi ; unset version
   fi
 
-  system_ruby="$(rvm system ; which ruby 2>/dev/null)"
+  system_ruby="$(rvm system ; command -v ruby)"
   if [[ ! -z "$system_ruby" ]] && [[ -x "$system_ruby" ]]; then
     echo -e "\nSystem Ruby\n"
     system_version=$($system_ruby -v)
@@ -562,10 +561,10 @@ __rvm_pushpop() {
 # Meant for use before and after an operation that might reset the currently selected ruby.
 __rvm_state() {
   if [[ -z "$rvm_state" ]] ; then
-    if [[ -z "$(which ruby 2>/dev/null | awk /$(basename $rvm_rubies_path)/)" ]] ; then
+    if [[ -z "$(command -v ruby | awk /$(basename $rvm_rubies_path)/)" ]] ; then
       rvm_state=system
     else
-      rvm_state="$(dirname "$(which ruby 2>/dev/null)" | xargs dirname | xargs basename)"
+      rvm_state="$(dirname "$(command -v ruby)" | xargs dirname | xargs basename)"
     fi
   else
     rvm_ruby_string="$rvm_state"
@@ -578,7 +577,7 @@ __rvm_state() {
 # Output an inspection of selected 'binary' scripts, based on CLI selection.
 __rvm_inspect() {
   for binary in $rvm_ruby_args ; do
-    actual_file="$(which $binary 2>/dev/null)"
+    actual_file="$(command -v $binary)"
     $rvm_scripts_path/log "info" "$actual_file:"
     if [[ ! -z "$rvm_shebang_flag" ]] ; then cat $actual_file | head -n 1    ; fi
     if [[ ! -z "$rvm_env_flag" ]]     ; then cat $actual_file | awk '/ENV/'  ; fi
@@ -629,7 +628,7 @@ __rvm_make_flags() {
 # Select a gemset based on CLI set options and environment.
 # This only sets 'rvm_ruby_gem_home'
 __rvm_gemset_select() {
-  which gem > /dev/null 2>&1
+  command -v gem > /dev/null
   if [[ $? -gt 0 ]] ; then return 0 ; fi # Stop if no 'gem' command is available.
 
   rvm_ruby_global_gems_path="$rvm_gems_path/${rvm_ruby_string}${rvm_gemset_separator}global"
@@ -655,7 +654,7 @@ __rvm_gemset_select() {
     else
       if [[ ! -z "$rvm_ruby_string" ]] && [[ "$rvm_ruby_interpreter" != "system" ]] ; then
         rvm_ruby_gem_home="$rvm_gems_path/$rvm_ruby_string"
-      elif [[ -z "$GEM_HOME" ]]  && [[ ! -z "$(which gem 2>/dev/null)" ]] ; then
+      elif [[ -z "$GEM_HOME" ]]  && [[ ! -z "$(command -v gem)" ]] ; then
         rvm_ruby_gem_home=$(gem env gemdir)
       elif [[ ! -z "$GEM_HOME" ]] ; then
         rvm_ruby_gem_home="$GEM_HOME"
