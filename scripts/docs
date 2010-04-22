@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
+
+trap "if [[ -d $rvm_tmp_path/ ]] && [[ -f $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
+
+source $rvm_scripts_path/initialize
+
+rvm_ruby_string="$(basename $GEM_HOME | awk -F'@' '{print $1}')"
+if [[ -z "$rvm_ruby_string" ]] && echo $GEM_HOME | grep -v 'rvm/' > /dev/null 2>&1 ; then
+  $rvm_scripts_path/log "error" "Currently 'rvm docs ...' does not work with non-rvm rubies."
+  exit 1
+fi
+
+rvm_docs_type="${rvm_docs_type:-rdoc}"
+action="$(echo $rvm_ruby_args | awk '{print $1}')"
+
+if [[ ! -d "$rvm_docs_path" ]] ; then mkdir -p "$rvm_docs_path/rdoc" "$rvm_docs_path/yard" ; fi
+
+open_docs() {
+  if [[ "Darwin" = "$(uname)" ]] ; then
+    if [[ -s "$rvm_docs_path/$rvm_ruby_string/$rvm_docs_type/index.html" ]] ; then
+      open $rvm_docs_path/$rvm_ruby_string/$rvm_docs_type/index.html
+    else
+      $rvm_scripts_path/log "error" "$rvm_docs_type docs are missing, perhaps run 'rvm docs generate' first?"
+    fi
+  else
+    $rvm_scripts_path/log "error" "Currently 'rvm docs open' can only operate in Darwin, if you know how to open in the web browser on Linux please let us know :)"
+    result=1
+  fi
+}
+
+generate_docs() {
+  cd $rvm_src_path/$rvm_ruby_string/
+  rm -rf $rvm_docs_path/$rvm_ruby_string/$rvm_docs_type/
+  $rvm_scripts_path/log "info" "Generating documentation, be aware that this could take a *long* time, and depends heavily on your system resources..."
+  $rvm_scripts_path/log "info" "( Errors will be logged to $rvm_log_path/$rvm_ruby_string/docs.error.log )"
+  if gem list | grep ^hanna >/dev/null 2>&1 ; then
+    hanna -o $rvm_docs_path/$rvm_ruby_string/$rvm_docs_type --inline-source --line-numbers --fmt=html 2> $rvm_log_path/$rvm_ruby_string/docs.error.log
+  else
+    rdoc --verbose -o $rvm_docs_path/$rvm_ruby_string/$rvm_docs_type 2> $rvm_log_path/$rvm_ruby_string/docs.error.log
+    # --format=darkfish
+  fi
+}
+
+if [[ "open" = "$action" ]] ; then
+  open_docs
+elif [[ "generate" = "$action" ]] ; then
+  generate_docs
+else
+  $rvm_scripts_path/log "error" ""
+  exit 1
+fi
+
+exit $result
