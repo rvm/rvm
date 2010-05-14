@@ -43,19 +43,19 @@ __rvm_select() {
     ;;
 
     rbx|rubinius)
+      rvm_archive_extension="tar.gz"
       rvm_ruby_interpreter="rbx"
       rvm_ruby_version=${rvm_ruby_version:-$(__rvm_db "rbx_version")}
       rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
-      __rvm_db "rbx_${rvm_ruby_version}_${rvm_ruby_patch_level}_url" "rvm_url"
       if [[ -z "$rvm_head_flag" ]] ; then
         rvm_ruby_patch_level=${rvm_ruby_patch_level:-$(__rvm_db "rbx_patch_level")}
-        rvm_ruby_string="$rvm_ruby_interpreter-$rvm_ruby_version-p$rvm_ruby_patch_level"
         rvm_ruby_string="${rvm_ruby_string/-prc/-rc}"
-        rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-pp#-p#')"
-        rvm_ruby_file="rubinius-$rvm_ruby_version-$rvm_ruby_patch_level"
+        rvm_ruby_string="$(echo "$rvm_ruby_string" | sed 's#-pp#-#')"
+        rvm_ruby_package_file="$(echo "rubinius-${rvm_ruby_version}-${rvm_ruby_patch_level}.${rvm_archive_extension}" | sed 's#-p#-#' )"
+        __rvm_db "rbx_url" "rvm_url"
+        rvm_url="$rvm_url/$rvm_ruby_package_file"
       else
-        unset rvm_ruby_patch_level
-        unset rvm_ruby_version
+        unset rvm_ruby_patch_level rvm_ruby_version
         rvm_ruby_string="$rvm_ruby_interpreter-head"
       fi
     ;;
@@ -411,6 +411,8 @@ __rvm_ruby_string() {
       if [[ "ree" = "$rvm_ruby_interpreter" ]] ; then
         rvm_ruby_patch_level="$string"
         unset rvm_ruby_revision
+      elif [[ "rbx" = "$rvm_ruby_interpreter" ]] ; then
+        rvm_ruby_patch_level="$string"
       elif [[ "maglev" = "$rvm_ruby_interpreter" ]] ; then
         rvm_ruby_version="$string"
         unset rvm_ruby_revision rvm_ruby_patch_level
@@ -484,7 +486,11 @@ __rvm_ruby_string() {
     if [[ ! -z "$rvm_ruby_patch_level" ]] ; then
       rvm_ruby_patch_level="$(echo $rvm_ruby_patch_level | sed 's#^pp#p#')"
       rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
-      rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-pp#-p#')"
+      if [[ "ree" = "$rvm_ruby_interpreter" ]] || [[ "rbx" = "$rvm_ruby_interpreter" ]] ; then
+        rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-p*#-#')"
+      else
+        rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-pp#-p#')"
+      fi
     fi
   fi
 }
