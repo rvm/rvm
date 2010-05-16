@@ -399,6 +399,8 @@ RubyWrapper
       __rvm_bin_script
       __rvm_use
 
+      __rvm_post_install
+
       for rvm_gem_name in rake jruby-openssl ; do
         __rvm_run "gems" "$rvm_ruby_home/bin/gem install $rvm_gem_name $rvm_gem_options" "Installing $rvm_gem_name"
       done ; unset rvm_gem_name
@@ -855,23 +857,26 @@ __rvm_remove_gemsets() {
 }
 
 __rvm_post_install() {
-  binaries="${binaries:-"gem irb erb ri rdoc testrb rake"}"
-  for binary in $(echo $binaries) ; do
-    if [[ -e "$rvm_ruby_home/bin/$binary" ]] || [[ -e "$rvm_ruby_src_path/bin/$binary" ]] ; then
-      if [[ "$rvm_ruby_src_path" != "$rvm_ruby_home" ]] && [[ -f "$rvm_ruby_src_path/bin/$binary" ]] ; then
-        cp -f "$rvm_ruby_src_path/bin/$binary" "$rvm_ruby_home/bin/$binary"
-      elif [[ -f "$rvm_ruby_gem_home/bin/$binary" ]] ; then
-        cp -f "$rvm_ruby_gem_home/bin/$binary" "$rvm_ruby_home/bin/$binary"
+  if [[ "$rvm_ruby_interpreter" != "jruby" ]] ; then
+    binaries="${binaries:-"gem irb erb ri rdoc testrb rake"}"
+    $rvm_scripts_path/log "info" "adjusting shebangs for $rvm_ruby_string ($binaries)."
+    for binary in $(echo $binaries) ; do
+      if [[ -e "$rvm_ruby_home/bin/$binary" ]] || [[ -e "$rvm_ruby_src_path/bin/$binary" ]] ; then
+        if [[ "$rvm_ruby_src_path" != "$rvm_ruby_home" ]] && [[ -f "$rvm_ruby_src_path/bin/$binary" ]] ; then
+          cp -f "$rvm_ruby_src_path/bin/$binary" "$rvm_ruby_home/bin/$binary"
+        elif [[ -f "$rvm_ruby_gem_home/bin/$binary" ]] ; then
+          cp -f "$rvm_ruby_gem_home/bin/$binary" "$rvm_ruby_home/bin/$binary"
+        fi
+        __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
+        __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
+        chmod +x "$rvm_ruby_home/bin/$binary"
       fi
-      __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
-      __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
-      chmod +x "$rvm_ruby_home/bin/$binary"
-    fi
-  done ; unset binary binaries
+    done ; unset binary binaries
+  fi
 
-  $rvm_scripts_path/log "info" "Installing gems for $rvm_ruby_string."
-
-  for rvm_gem_name in rdoc rake ; do
+  post_install_gems="rdoc rake"
+  $rvm_scripts_path/log "info" "Installing gems for $rvm_ruby_string ($post_install_gems)."
+  for rvm_gem_name in $(echo $post_install_gems); do
     home="$GEM_HOME" ; path="$GEM_PATH" # Save
     for dir in $rvm_ruby_global_gems_path $rvm_ruby_gem_home ; do
       GEM_HOME="$dir" ; GEM_PATH="$dir" ; BUNDLE_PATH="$dir"
@@ -888,7 +893,7 @@ __rvm_post_install() {
     done ; unset home path dir
     GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home"
     export GEM_HOME GEM_PATH BUNDLE_PATH
-  done ; unset rvm_gem_name
+  done ; unset rvm_gem_name post_install_gems
   $rvm_scripts_path/log "info" "Installation of gems for $rvm_ruby_string is complete."
 
   __rvm_irbrc
