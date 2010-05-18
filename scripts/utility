@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# ZSH has 1 based array indexing, bash has 0 based.
+if [[ ! -z "$ZSH_VERSION" ]] ; then __shell_array_start=1 ; else __shell_array_start=0 ; fi
+
 # Query the rvm key-value database for a specific key
 # Allow overrides from user specifications in $rvm_config_path/user
 __rvm_db() {
@@ -24,100 +27,6 @@ __rvm_db() {
 
 is_a_function() { type $1 | head -n 1 | grep -q "function" ; }
 
-# Ouput rvm environment information.
-__rvm_info() {
-  if [[ ! -z "$rvm_ruby_args" ]] ; then
-    cat < <(rvm_ruby_string="$rvm_ruby_args"; __rvm_select ; __rvm_use ; __rvm_environment_info; echo -e "$environment_info")
-  else
-    __rvm_environment_info
-    echo -e "$environment_info"
-  fi
-}
-
-__rvm_environment_info() {
-  environment_info="" ; full_version=""
-  ruby=$(command -v ruby)
-  if [[ $? -eq 0 ]] && [[ -x "$ruby" ]] ; then full_version="$($ruby -v)" ; fi
-
-  environment_info="$environment_info\nsystem:\n  uname:        \"$(uname -a)\""
-
-  if [[ ! -z "$ZSH_VERSION" ]]  ; then
-    environment_info="$environment_info\n  shell:        \"zsh\"\n  version:     \"$ZSH_VERSION\""
-  fi
-  if [[ ! -z "$BASH_VERSION" ]] ; then
-    environment_info="$environment_info\n  shell:        \"bash\"\n  version:      \"$BASH_VERSION\""
-  fi
-  environment_info="$environment_info\n\nrvm:"
-  environment_info="$environment_info\n  type:         \"$(head -n 1 < <(type rvm))\""
-  environment_info="$environment_info\n  version:      \"$(__rvm_version | tr "\n" ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')\""
-  environment_info="$environment_info\n\nruby:"
-  environment_info="$environment_info\n  interpreter:  \"$(echo "${full_version}" | awk '{print $1}')\""
-  environment_info="$environment_info\n  version:      \"$(echo "${full_version}" | awk '{print $2}')\""
-  environment_info="$environment_info\n  date:         \"$(echo "${full_version}" | sed 's/^.*(\([0-9]\{4\}\(-[0-9][0-9]\)\{2\}\).*$/\1/')\""
-  environment_info="$environment_info\n  platform:     \"$(echo "${full_version}" | sed 's/^.*\[//' | sed 's/\].*$//')\""
-  environment_info="$environment_info\n  patchlevel:   \"$(echo "${full_version}" | sed 's/^.*(//' | sed 's/).*$//')\""
-  environment_info="$environment_info\n  full_version: \"${full_version}\""
-  environment_info="$environment_info\n\nhomes:"
-  environment_info="$environment_info\n  gem:          \"${GEM_HOME:-'not set'}\""
-  environment_info="$environment_info\n  ruby:         \"${MY_RUBY_HOME:-'not set'}\""
-  environment_info="$environment_info\n\nbinaries:"
-  environment_info="$environment_info\n  ruby:         \"$(command -v ruby)\""
-  environment_info="$environment_info\n  irb:          \"$(command -v irb)\""
-  environment_info="$environment_info\n  gem:          \"$(command -v gem)\""
-  environment_info="$environment_info\n  rake:         \"$(command -v rake)\""
-  environment_info="$environment_info\n\nenvironment:"
-  environment_info="$environment_info\n  GEM_HOME:     \"$GEM_HOME\""
-  environment_info="$environment_info\n  GEM_PATH:     \"$GEM_PATH\""
-  environment_info="$environment_info\n  BUNDLE_PATH:  \"$BUNDLE_PATH\""
-  environment_info="$environment_info\n  MY_RUBY_HOME: \"$MY_RUBY_HOME\""
-  environment_info="$environment_info\n  IRBRC:        \"$IRBRC\""
-  environment_info="$environment_info\n  RUBYOPT:      \"$RUBYOPT\""
-  environment_info="$environment_info\n  gemset:       \"$(echo $GEM_HOME | awk -F${rvm_gemset_separator:-'@'} '{print $2}')\"\n"
-  if [[ ! -z "$MAGLEV_HOME" ]] ; then
-    environment_info="$environment_info\n  MAGLEV_HOME: \"$MAGLEV_HOME\""
-  fi
-  unset full_version
-}
-
-# Output debugging information that has been found useful to help people identify and resolve issues.
-__rvm_debug() {
-  __rvm_version
-  __rvm_environment_info
-  $rvm_scripts_path/log "debug" "PATH:\n$(echo $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"$5}')"
-  $rvm_scripts_path/log "debug" "uname -a: $(uname -a)"
-  $rvm_scripts_path/log "debug" "permissions: $(\ls -la $rvm_path{,/rubies})"
-
-  if [[ "Darwin" = "$(uname)" ]] ; then
-    $rvm_scripts_path/log "debug" "uname -r: $(uname -r)"
-    $rvm_scripts_path/log "debug" "uname -m: $(uname -m)"
-    $rvm_scripts_path/log "debug" "sw_vers: $(sw_vers | tr "\n" ',')"
-    $rvm_scripts_path/log "debug" "ARCHFLAGS: $ARCHFLAGS"
-    $rvm_scripts_path/log "debug" "LDFLAGS: $LDFLAGS"
-    $rvm_scripts_path/log "debug" "CFLAGS: $CFLAGS"
-    $rvm_scripts_path/log "debug" "/Developer/SDKs/*:$(/usr/bin/basename -a /Developer/SDKs/* | tr "\n" ',')"
-  fi
-
-  for file_name in $(echo $rc_files) ; do
-    if [[ -s "$file_name" ]] ; then
-      $rvm_scripts_path/log "debug" "$file_name:\n$(grep 'rvm' $file_name 2>/dev/null)"
-    fi
-  done
-
-  if [[ "root" = "$(whoami)" ]] ; then
-    debug_files="$rvm_config_path/default $rvm_config_path/system $rvm_config_path/db /etc/rvmrc /etc/gemrc"
-  else
-    debug_files="$rvm_config_path/default $rvm_config_path/system $rvm_config_path/db $HOME/.rvmrc $HOME/.gemrc"
-  fi
-
-  for file_name in $(echo $debug_files); do
-    if [[ -f "$file_name" ]] && [[ -s "$file_name" ]] ; then
-      $rvm_scripts_path/log "debug" "$file_name \(filtered\):\n$(cat $file_name | awk '!/assword|_key/')\n"
-    fi
-  done
-
-  $rvm_scripts_path/log "debug" "gem sources:\n$(gem sources | awk '/gems/')"
-}
-
 __rvm_strings() {
   unset results
   for rvm_ruby_string in $(echo $rvm_ruby_args) ; do
@@ -132,9 +41,6 @@ __rvm_strings() {
   unset results
   return 0
 }
-
-# ZSH has 1 based array indexing, bash has 0 based.
-if [[ ! -z "$ZSH_VERSION" ]] ; then __shell_array_start=1 ; else __shell_array_start=0 ; fi
 
 # Push an item onto a given array.
 __rvm_push() {
