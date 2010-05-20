@@ -280,6 +280,24 @@ __rvm_parse_args() {
         rvm_ruby_args="$@"
         rvm_parse_break=1
       ;;
+
+      --passenger|--editor)
+        rvm_wrapper_name="${rvm_token/--/}"
+      ;;
+
+      --symlink)
+        $rvm_scripts_path/log "warn" "--symlink has been removed, please see 'rvm wrapper'."
+        shift
+      ;;
+
+      wrapper)
+        rvm_action="$rvm_token"
+        rvm_ruby_string="$1" ; shift
+        rvm_wrapper_name="$1" ; shift
+        rvm_ruby_args="$@" # list of binaries, or none
+        rvm_parse_break=1
+      ;;
+
       -h|--help|usage)      rvm_action=help                     ;;
       -G|--gems)            rvm_gems_path="$1"         ; shift  ;;
       --source)             rvm_src_path="$1"          ; shift  ;;
@@ -291,7 +309,6 @@ __rvm_parse_args() {
       # TODO: handle this below better (if $1 is null)
       --sdk)                rvm_sdk="$1"               ; shift  ;;
       --archflags)          rvm_archflags="$1"         ; shift  ;;
-      --symlink)            rvm_symlink_name="$1"      ; shift  ;;
       --install)            rvm_install_on_use_flag=1    ;;
       --trace)              rvm_trace_flag=1    ; set -x ;;
       --proxy)              rvm_proxy="$1"      ; shift  ;;
@@ -305,7 +322,7 @@ __rvm_parse_args() {
 
       reboot|damnit|wtf|argh|BOOM|boom|wth) $rvm_action="reboot" ;;
 
-      --self|--gem|--rubygems|--reconfigure|--default|--debug|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--passenger|--editor|--sticky|--create|--rvmrc|--gems)
+      --self|--gem|--rubygems|--reconfigure|--default|--debug|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--sticky|--create|--rvmrc|--gems)
         export rvm_$(echo $rvm_token | sed 's#-##g')_flag=1
         if [[ "--debug" = "$rvm_token" ]] ; then rvm_debug_flag ; fi
       ;;
@@ -395,7 +412,7 @@ rvm() {
   __rvm_parse_args "$@"
 
   export BUNDLE_PATH GEM_HOME GEM_PATH rvm_ruby_string rvm_action rvm_bin_flag rvm_debug_flag rvm_delete_flag rvm_docs_type rvm_file_name rvm_gemset_name rvm_head_flag rvm_install_on_use_flag rvm_interactive rvm_llvm_flag rvm_make_flags rvm_proxy rvm_remove_flag rvm_ruby_args rvm_ruby_configure_flags rvm_ruby_file rvm_ruby_gem_home rvm_ruby_interpreter rvm_ruby_name rvm_ruby_patch rvm_ruby_patch_name rvm_ruby_version rvm_system_flag rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag
-  export rvm_path rvm_rubies_path rvm_scripts_path rvm_archives_path rvm_src_path rvm_log_path rvm_bin_path rvm_gems_path rvm_config_path rvm_tmp_path rvm_hooks_path rvm_gems_cache_path rvm_gemset_separator rvm_symlink_path
+  export rvm_path rvm_rubies_path rvm_scripts_path rvm_archives_path rvm_src_path rvm_log_path rvm_bin_path rvm_gems_path rvm_config_path rvm_tmp_path rvm_hooks_path rvm_gems_cache_path rvm_gemset_separator
 
   result=0
   case "$rvm_action" in
@@ -420,6 +437,12 @@ rvm() {
 
     answer) __rvm_Answer_to_the_Ultimate_Question_of_Life_the_Universe_and_Everything ; result=42 ;;
     question) __rvm_ultimate_question ; result=42 ;;
+
+    wrapper)
+      $rvm_scripts_path/wrapper "$rvm_ruby_string" "$rvm_wrapper_name" $rvm_ruby_args
+      result=$?
+      unset rvm_wrapper_name
+    ;;
 
     gemdir)
       $rvm_scripts_path/gemsets gemdir

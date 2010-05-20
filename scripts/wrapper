@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+# Recursive loops, oh my!
+unset rvm_default_flag
+
+source $rvm_scripts_path/initialize
+source $rvm_scripts_path/utility
+source $rvm_scripts_path/selector
+
+if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
+
+trap "if [[ -d $rvm_tmp_path/ ]] && [[ -s $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
+
+wrap() {
+  printf "#!/usr/bin/env sh\n" > "$file_name"
+  printf ". \"${rvm_environments_path}/$(__rvm_environment_identifier)\"\n" >> "$file_name"
+  printf "exec $binary_name \"\$@\"" >> "$file_name"
+  if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
+}
+
+usage() {
+  printf "Usage: 'rvm wrapper [ruby_string] [wrapper_prefix] [binary[ binary[ ...]]]'\n"
+  printf "        Where binary is in {ruby,gem,rake,irb,rdoc,ri,testrb}\n"
+}
+
+args="$*"
+ruby_string="$(echo "$args" | awk '{print $1}')"
+prefix="$(echo "$args" | awk '{print $2}')"
+binaries=$(echo "$args" | awk '{$1="" ; $2=""; print}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+if [[ -z "$ruby_string" ]]; then
+  usage ; exit 1
+fi
+
+if [[ -z "$binaries" ]] ; then
+  # TODO: Extract out into a rvm_ variable.
+  binaries="ruby gem irb ri rdoc rake erb testrb"
+fi
+
+rvm_ruby_string="${ruby_string}" ;  __rvm_select ; __rvm_use
+
+for binary_name in $(echo $binaries); do
+  if [[ -z "$prefix" ]] ; then
+    file_name="${rvm_bin_path}/${binary_name}"
+  else
+    file_name="${rvm_bin_path}/${prefix}_${binary_name}"
+  fi
+
+  if command -v $binary_name > /dev/null; then
+    wrap
+  else
+    $rvm_scripts_path/log "error" "Binary '$binary_name' not found in path."
+  fi
+  unset file_name
+done
+
+unset rvm_ruby_string args ruby_string prefix binaries
+__rvm_unset_ruby_variables
+
+exit $?
