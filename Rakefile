@@ -41,7 +41,7 @@ begin
     gemspec.date            = Time.now.strftime("%Y-%m-%d")
     gemspec.description     = "Manages Ruby interpreter environments and switching between them."
     gemspec.platform        = Gem::Platform::RUBY
-    gemspec.files           = ["install", "README", "sha1", "LICENCE", "rvm.gemspec", "bash/*", "binscripts/*", "scripts/*", "examples/*", "config/*", "help/**", Dir::glob("lib/**/**")].flatten
+    gemspec.files           = ["install", "README", "sha1", "LICENCE", "rvm.gemspec", "bash/*", "binscripts/*", "scripts/*", "examples/*", "config/*", "help/**", "gemsets/*", Dir::glob("lib/**/**")].flatten
     gemspec.executables     = Dir::glob("bin/rvm-*").map{ |script| File::basename script }
     gemspec.require_path    = "lib"
     gemspec.has_rdoc        = File::exist?("doc")

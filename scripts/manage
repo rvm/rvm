@@ -873,6 +873,7 @@ __rvm_post_install() {
     done ; unset binary binaries
   fi
 
+  # TODO: Merge this vvv into the default gemset loading.
   post_install_gems="rdoc rake"
   $rvm_scripts_path/log "info" "Installing gems for $rvm_ruby_string ($post_install_gems)."
   for rvm_gem_name in $(echo $post_install_gems); do
@@ -896,6 +897,34 @@ __rvm_post_install() {
   $rvm_scripts_path/log "info" "Installation of gems for $rvm_ruby_string is complete."
 
   __rvm_irbrc
+  __rvm_load_gemsets
+}
+
+__rvm_load_gemsets() {
+  # Gemset for every interpreter's global gems
+  if [[ -s "$rvm_gemsets_path/global.gems" ]] ; then
+    dir=$rvm_ruby_global_gems_path
+    GEM_HOME="$dir" ; GEM_PATH="$dir" ; BUNDLE_PATH="$dir" ; export GEM_HOME GEM_PATH BUNDLE_PATH
+
+    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/global.gems"
+
+    GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home" ; export GEM_HOME GEM_PATH BUNDLE_PATH
+  fi ; unset home path dir
+
+  # gemset for any installed ruby.
+  if [[ -s "$rvm_gemsets_path/default.gems" ]] ; then
+    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/default.gems"
+  fi
+
+  # gemset for any installation of a given interpreter.
+  if [[ -s "$rvm_gemsets_path/$rvm_ruby_interpreter.gems" ]] ; then
+    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/$rvm_ruby_interpreter.gems"
+  fi
+
+  # gemset for a specific match of the ruby string.
+  if [[ -s "$rvm_gemsets_path/$rvm_ruby_string.gems" ]] ; then
+    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/$rvm_ruby_string.gems"
+  fi
 }
 
 __rvm_rubygems_setup() {
