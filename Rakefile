@@ -1,3 +1,4 @@
+require "rubygems"
 
 task :default => ["test"]
 task :test do exec "bash -l -c \"./test/suite\"" ; end
@@ -28,7 +29,6 @@ LOCAL_INSTALL_WARNING
   end
 end
 
-require "rubygems"
 begin
   require "jeweler"
   require "lib/rvm/version"
