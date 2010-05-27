@@ -23,7 +23,6 @@ __rvm_gemset_create() {
   for gemset in $(echo $gems_args) ; do
     gem_home="${rvm_ruby_gem_prefix}${rvm_gemset_separator}${gems_args/ /}"
     mkdir -p $gem_home
-    ln -nfs "$HOME/.gem/cache" "$gem_home/cache"
     $rvm_scripts_path/log "info" "Gemset '$gemset' created."
   done ; unset gem_home
 }
@@ -55,7 +54,8 @@ __rvm_gemset_delete() {
       echo -n "(anything other than 'yes' will cancel) > "
       read response
       if [[ "yes" = "$response" ]] ; then
-        rm -f $gemdir/cache && rm -rf $gemdir
+        rm -f $gemdir/cache 2>/dev/null
+        rm -rf $gemdir
       else
         $rvm_scripts_path/log "info" "Not doing anything, phew... close call that one eh?"
       fi
@@ -237,10 +237,10 @@ __rvm_gem_install() {
   else
     if [[ -s "$gem" ]] ; then
       cache_file="$gem"
-    elif [[ -s "$rvm_gems_path/cache/${gem_file_name}" ]] ; then
-      cache_file="$rvm_gems_path/cache/${gem_file_name}"
+    elif [[ -s "$rvm_ruby_gem_home/cache/${gem_file_name}" ]] ; then
+      cache_file="$rvm_ruby_gem_home/cache/${gem_file_name}"
     else
-      cache_file="${cache_file:-$(\ls ${rvm_gems_path}/cache/${gem_file_name} 2> /dev/null | sort | head -n1)}"
+      cache_file="${cache_file:-$(\ls ${rvm_ruby_gem_home}/cache/${gem_file_name} 2> /dev/null | sort | head -n1)}"
     fi
 
     if [[ ! -s "$cache_file" ]] ; then
@@ -259,9 +259,9 @@ __rvm_gem_install() {
         unset gem # already installed, not forcing reinstall.
         $rvm_scripts_path/log "info" "$gem_name $gem_version exists, skipping (--force to re-install)"
       else
-        if [[ -s "$rvm_gems_path/cache/$(basename $gem_file_name)" ]] ; then
+        if [[ -s "$rvm_ruby_gem_home/cache/$(basename $gem_file_name)" ]] ; then
           mkdir -p "$rvm_tmp_path/$$/"
-          mv "$rvm_gems_path/cache/$gem_file_name" "$rvm_tmp_path/$$/$gem_file_name"
+          mv "$rvm_ruby_gem_home/cache/$gem_file_name" "$rvm_tmp_path/$$/$gem_file_name"
           gem="$rvm_tmp_path/$$/$gem_file_name -f -l"
         else
           gem="$cache_file"
