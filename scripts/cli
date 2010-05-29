@@ -52,6 +52,7 @@ __rvm_parse_args() {
         if [[ "rubinius" = "$rvm_token" ]] ; then rvm_token="rbx"; fi
         rvm_ruby_interpreter="$rvm_token"
         rvm_ruby_string="$rvm_token"
+        rvm_ruby_strings="$rvm_token"
         rvm_action="${rvm_action:-use}"
         if $rvm_scripts_path/match "$1" "^[0-9]\.[0-9]" ; then rvm_ruby_version=$1 ; shift ; fi
       ;;
@@ -129,7 +130,7 @@ __rvm_parse_args() {
               rvm_action="error"
               rvm_error_message="'rvm $rvm_action' must be followed by arguments."
             elif [[ "ruby" = "$rvm_action" ]] ; then
-              if [[ -z "$(echo "$rvm_ruby_version" | awk '/,/')" ]] ; then
+              if [[ -z "$(echo "$rvm_ruby_strings" | awk '/,/')" ]] ; then
                 rvm_action="ruby"
                 rvm_ruby_args=""
               else
@@ -151,16 +152,18 @@ __rvm_parse_args() {
           fi
         else
           if $rvm_scripts_path/match "$1" "^-" ; then
-            unset rvm_ruby_version
+            unset rvm_ruby_strings
           else
             if $rvm_scripts_path/match "$1" "^[0-9]" ; then
-              rvm_ruby_version=$(echo "$1" | tr ',' ' ') ; shift
+              rvm_ruby_strings=$(echo "$1" | tr ',' ' ') ; shift
               unset rvm_ruby_interpreter
             else
               if $rvm_scripts_path/match "ruby rbx jruby macruby ree rubinius maglev mput shyouhei ironruby" "$1" ; then
-                rvm_ruby_interpreter=$1 ; shift
+                rvm_ruby_strings=$1
+                rvm_ruby_interpreter=$1
+                shift
               else
-                unset rvm_ruby_interpreter rvm_ruby_version
+                unset rvm_ruby_interpreter rvm_ruby_strings
               fi
             fi
           fi
@@ -343,24 +346,28 @@ __rvm_parse_args() {
               rvm_file_name="$rvm_gemset_name.gems"
             fi
           elif [[ ! -z "$(echo "$rvm_token" | awk '/,/')" ]] ; then
-            rvm_ruby_version="$rvm_token"
-            rvm_ruby_strings="$rvm_token" # Migrating to this from rvm_ruby_version
+            rvm_ruby_strings="$rvm_token"
             if [[ -z "$rvm_action" ]] ; then
               rvm_action="ruby" # Not sure if we really want to do this but we'll try it out.
             fi
           elif $rvm_scripts_path/match "$rvm_token" "^.+${rvm_gemset_separator}.+$" ; then
             rvm_gemset_name="$(echo "$rvm_token" | awk -F${rvm_gemset_separator} '{print $2}')"
             rvm_ruby_string="$(echo "$rvm_token" | awk -F${rvm_gemset_separator} '{print $1}')"
+            rvm_ruby_strings="$rvm_token"
           elif $rvm_scripts_path/match "$rvm_token" "-" ; then
             rvm_ruby_string="$rvm_token"
+            rvm_ruby_strings="$rvm_token"
           elif $rvm_scripts_path/match "$rvm_token" "^[0-9].[0-9]" ; then
             rvm_ruby_string="$rvm_token"
+            rvm_ruby_strings="$rvm_token"
             rvm_action="${rvm_action:-use}"
           elif $rvm_scripts_path/match "$rvm_token" "^ree-" ; then
             rvm_ruby_string="$rvm_token"
+            rvm_ruby_strings="$rvm_token"
             rvm_action="${rvm_action:-use}"
           elif [[ -L "$rvm_rubies_path/$rvm_token" ]] ; then # Alias
             rvm_ruby_string=$rvm_token
+            rvm_ruby_strings="$rvm_token"
             rvm_action="${rvm_action:-use}"
           else
             if $rvm_scripts_path/match "$rvm_token" "\.rb$" ; then # we have a specified ruby script
@@ -468,7 +475,9 @@ rvm() {
     ruby|gem|rake)
       old_rvm_ruby_string=$rvm_ruby_string
       unset rvm_ruby_string
+      export rvm_ruby_strings
       $rvm_scripts_path/set $rvm_action $rvm_ruby_args
+      # Restore the state pre-sets.
       [[ -n "$old_rvm_ruby_string" ]] && rvm_ruby_string=$old_rvm_ruby_string
       unset old_rvm_ruby_string
       result=$?
@@ -500,7 +509,7 @@ rvm() {
     ;;
 
     monitor)
-      export rvm_ruby_version rvm_ruby_string
+      export rvm_ruby_strings rvm_ruby_string
       $rvm_scripts_path/monitor ; result=$?
     ;;
     notes)         $rvm_scripts_path/notes   ; result=$?  ;;
@@ -509,8 +518,8 @@ rvm() {
     fetch|install|uninstall|remove)
       if [[ ! -z "$rvm_ruby_string" ]] ; then
         $rvm_scripts_path/manage "$rvm_action" "$rvm_ruby_string"
-      elif $rvm_scripts_path/match "$rvm_ruby_version" "," ; then
-        $rvm_scripts_path/manage "$rvm_action" "$rvm_ruby_version"
+      elif $rvm_scripts_path/match "$rvm_ruby_strings" "," ; then
+        $rvm_scripts_path/manage "$rvm_action" "$rvm_ruby_strings"
       else
         $rvm_scripts_path/manage "$rvm_action"
       fi
