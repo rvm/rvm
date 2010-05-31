@@ -7,23 +7,30 @@ trap "if [[ -d $rvm_tmp_path/ ]] && [[ -f $rvm_tmp_path/$$ ]] ; then rm -f $rvm_
 source $rvm_scripts_path/initialize
 source $rvm_scripts_path/utility
 
-rvm_ruby_string="$(basename $GEM_HOME 2>/dev/null | awk -F'@' '{print $1}')"
-if [[ -z "$rvm_ruby_string" ]] && echo $GEM_HOME | grep -v 'rvm/' > /dev/null 2>&1 ; then
+rvm_docs_ruby_string="$(__rvm_environment_identifier | awk -F"$rvm_gemset_separator" '{print $1}')"
+if [[ "$rvm_docs_ruby_string" = "system" || -z "$rvm_docs_ruby_string" ]]; then
   $rvm_scripts_path/log "error" "Currently 'rvm docs ...' does not work with non-rvm rubies."
   exit 1
 fi
 
 rvm_docs_type="${rvm_docs_type:-rdoc}"
-action="$(echo $rvm_ruby_args | awk '{print $1}')"
 
-if [[ ! -d "$rvm_docs_path" ]] ; then mkdir -p "$rvm_docs_path/rdoc" "$rvm_docs_path/yard" ; fi
+# Ensure we have the doc directories.
+if [[ ! -d "$rvm_docs_path" ]] ; then
+  mkdir -p "$rvm_docs_path/rdoc" "$rvm_docs_path/yard"
+fi
+
+usage() {
+  printf "Usage: 'rvm docs {open,generate,generate-ri,generate-rdoc}'\n"
+  exit 1
+}
 
 open_docs() {
-  if [[ -s "$rvm_docs_path/$rvm_ruby_string/$rvm_docs_type/index.html" ]] ; then
+  if [[ -s "$rvm_docs_path/$rvm_docs_ruby_string/$rvm_docs_type/index.html" ]] ; then
     if command -v open >/dev/null ; then
-      open $rvm_docs_path/$rvm_ruby_string/$rvm_docs_type/index.html
+      open $rvm_docs_path/$rvm_docs_ruby_string/$rvm_docs_type/index.html
     elif command -v xdg-open >/dev/null ; then
-      xdg-open $rvm_docs_path/$rvm_ruby_string/$rvm_docs_type/index.html
+      xdg-open $rvm_docs_path/$rvm_docs_ruby_string/$rvm_docs_type/index.html
     else
       $rvm_scripts_path/log "error" "Neither open nor xdg-open were found, in order to open the docs one of these two are required. \n(OR you can let me know how else to open the html in your browser from comand line on your OS :) )"
     fi
@@ -34,40 +41,32 @@ open_docs() {
 
 generate_ri() {
   # Generate ri docs
-  __rvm_pushpop "$rvm_src_path/$rvm_ruby_string/"
+  __rvm_pushpop "$rvm_src_path/$rvm_docs_ruby_string/"
   $rvm_scripts_path/log "info" "Generating ri documentation, be aware that this could take a *long* time, and depends heavily on your system resources..."
-  $rvm_scripts_path/log "info" "( Errors will be logged to $rvm_log_path/$rvm_ruby_string/docs.error.log )"
-  rdoc -a --ri --ri-site > /dev/null 2>> $rvm_log_path/$rvm_ruby_string/docs.error.log
+  $rvm_scripts_path/log "info" "( Errors will be logged to $rvm_log_path/$rvm_docs_ruby_string/docs.error.log )"
+  rdoc -a --ri --ri-site > /dev/null 2>> $rvm_log_path/$rvm_docs_ruby_string/docs.error.log
   __rvm_pushpop
 }
 
 generate_rdoc() {
-  __rvm_pushpop "$rvm_src_path/$rvm_ruby_string/"
-  rm -rf "$rvm_docs_path/$rvm_ruby_string/$rvm_docs_type/"
+  __rvm_pushpop "$rvm_src_path/$rvm_docs_ruby_string/"
+  rm -rf "$rvm_docs_path/$rvm_docs_ruby_string/$rvm_docs_type/"
   $rvm_scripts_path/log "info" "Generating rdoc documentation, be aware that this could take a *long* time, and depends heavily on your system resources..."
-  $rvm_scripts_path/log "info" "( Errors will be logged to $rvm_log_path/$rvm_ruby_string/docs.error.log )"
-  if gem list | grep ^hanna >/dev/null 2>&1 ; then
-    hanna -o $rvm_docs_path/$rvm_ruby_string/$rvm_docs_type --inline-source --line-numbers --fmt=html > /dev/null 2>> $rvm_log_path/$rvm_ruby_string/docs.error.log
+  $rvm_scripts_path/log "info" "( Errors will be logged to $rvm_log_path/$rvm_docs_ruby_string/docs.error.log )"
+  if gem list | grep -q ^hanna ; then
+    hanna -o $rvm_docs_path/$rvm_docs_ruby_string/$rvm_docs_type --inline-source --line-numbers --fmt=html > /dev/null 2>> $rvm_log_path/$rvm_docs_ruby_string/docs.error.log
   else
-    rdoc -a -o $rvm_docs_path/$rvm_ruby_string/$rvm_docs_type > /dev/null 2>> $rvm_log_path/$rvm_ruby_string/docs.error.log
+    rdoc -a -o $rvm_docs_path/$rvm_docs_ruby_string/$rvm_docs_type > /dev/null 2>> $rvm_log_path/$rvm_docs_ruby_string/docs.error.log
   fi
   __rvm_pushpop
 }
 
-if [[ "open" = "$action" ]] ; then
-  open_docs
-elif [[ "generate" = "$action" ]] ; then
-  generate_rdoc
-  generate_ri
-elif [[ "generate-ri" = "$action" ]]; then
-  generate_ri
-elif [[ "generate-rdoc" = "$action" ]]; then
-  generate_rdoc
-else
-  $rvm_scripts_path/log "error" "No action provided."
-  exit 1
-fi
-
-printf "\n"
+case "$1" in
+  open)          open_docs ;;
+  generate)      generate_ri; generate_rdoc ;;
+  generate-ri)   generate_ri ;;
+  generate-rdoc) generate_rdoc ;;
+  *)             usage ;;
+esac
 
 exit $result
