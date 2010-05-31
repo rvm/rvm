@@ -115,7 +115,7 @@ __rvm_cleanup_variables() {
 
   if [[ "$rvm_sticky_flag" = "1" ]] ; then export rvm_gemset_name ; else unset rvm_gemset_name  ; fi
 
-  unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_import_flag rvm_export_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag rvm_ruby_bits rvm_ruby_patch rvm_sticky_flagrvm_rvmrc_flag rvm_gems_flag rvm_only_path_flag
+  unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_import_flag rvm_export_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag rvm_ruby_bits rvm_ruby_patch rvm_sticky_flagrvm_rvmrc_flag rvm_gems_flag rvm_only_path_flag rvm_docs_flag
 }
 
 # Unset ruby-specific variables
@@ -356,10 +356,12 @@ __rvm_pushpop() {
 # Meant for use before and after an operation that might reset the currently selected ruby.
 __rvm_state() {
   if [[ -z "$rvm_state" ]] ; then
-    if [[ -z "$(command -v ruby | awk /$(basename $rvm_rubies_path)/)" ]] ; then
-      rvm_state=system
-    else
-      rvm_state="$(dirname "$(command -v ruby)" | xargs dirname | xargs basename)"
+    rvm_state="$(__rvm_environment_identifier)"
+    rvm_state="${rvm_state:-"system"}"
+    if [[ -n "$1" ]]; then
+      rvm_ruby_string="$1"
+      __rvm_select
+      __rvm_use
     fi
   else
     rvm_ruby_string="$rvm_state"
@@ -549,7 +551,13 @@ __rvm_mono_env() {
 }
 
 __rvm_environment_identifier() {
-  echo "$GEM_HOME" | xargs basename
+  ruby_string="$(command -v ruby)"
+  if [ -n "$ruby_string" ] && echo "$ruby_string" | grep -q -F "$rvm_rubies_path"; then
+    echo "$GEM_HOME" | xargs basename
+  else
+    echo "system"
+  fi
+  unset ruby_string
 }
 
 __rvm_ensure_has_enviroment_files() {
