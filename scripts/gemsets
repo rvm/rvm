@@ -309,6 +309,28 @@ gemset_info() {
   fi
 }
 
+gemset_prune() {
+  temporary_cache_path="$GEM_HOME/temporary-cache"
+  live_cache_path="$GEM_HOME/cache"
+  mkdir -p "$temporary_cache_path"
+  $rvm_scripts_path/log "info" "Moving active gems into temporary cache..."
+  while read -r used_gem; do
+    gem_name="$(echo "$used_gem" | sed -e 's/ .*//')"
+    versions="$(echo "$used_gem" | sed -e 's/.* (//' -e 's/)//' | tr ', ' ' ')"
+    for version in $versions; do
+      cached_gem_name="${gem_name}-${version}.gem"
+      cached_file_path="${live_cache_path}/${cached_gem_name}"
+      if [[ -f "$cached_file_path" ]]; then
+        mv "$cached_file_path" "${temporary_cache_path}/${cached_gem_name}"
+      fi
+    done
+  done < <(gem list --versions)
+  $rvm_scripts_path/log "info" "Removing live cache and restoring temporary cache..."
+  # Switch the cache back.
+  rm -rf "$live_cache_path"
+  mv "$temporary_cache_path" "$live_cache_path"
+}
+
 gem_pristine() {
   gem pristine --all
 }
@@ -392,6 +414,8 @@ elif [[ "pristine" = "$action" ]] ; then
   gem_pristine $*
 elif [[ "initial" = "$action" ]] ; then
   gemset_initial
+elif [[ "prune" = "$action" ]] ; then
+  gemset_prune
 elif [[ "clear" = "$action" ]] ; then
   $rvm_scripts_path/log "info" "gemset cleared."
   exit 0
