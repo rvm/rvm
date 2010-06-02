@@ -151,7 +151,7 @@ __rvm_install_ruby() {
 
         binaries=(erb gem irb rake rdoc ri ruby testrb)
         for binary_name in ${binaries[@]}; do
-          # if [[ $binary_name != "gem" ]] ; then prefix="-S" ; fi
+          # TODO: This should be generated via an external script.
           ruby_wrapper=$(cat <<RubyWrapper
 #!/usr/bin/env bash
 
@@ -164,11 +164,10 @@ exec $macruby_path/mac$binary_name $prefix "\$@"
 RubyWrapper
 )
 
-          for file_name in "$rvm_ruby_home/bin/$binary_name" "$rvm_bin_path/$binary_name-$rvm_ruby_string" ; do
-            rm -f $file_name
-            echo "$ruby_wrapper" > $file_name
-            if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
-          done
+          file_name="$rvm_ruby_home/bin/$binary_name"
+          rm -f $file_name
+          echo "$ruby_wrapper" > $file_name
+          if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
           if [[ "$binary_name" = "ruby" ]] ; then
             echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_string
           fi
@@ -314,23 +313,17 @@ RubyWrapper
         $rvm_scripts_path/log "error" "There has been an error while running '$rvm_ruby_configure'. Aborting the installation." ; __rvm_pushpop ; return $result
       fi
 
-      binaries="ruby irb" # Trick to work in more shells :)
-      for binary_name in $(echo $binaries) ; do
-        ln -fs $rvm_ruby_home/bin/rbx $rvm_ruby_home/bin/$binary_name
-      done ; unset binary_name binaries
-
-      for binary_name in "gem" ; do
-        if [[ $binary_name != "gem" ]] ; then prefix="-S " ; else unset prefix; fi
-
-        ruby_wrapper=$(printf "#!/usr/bin/env bash\nexec $rvm_ruby_home/bin/rbx $prefix$binary_name \"\$@\"")
-        for file_name in "$rvm_ruby_home/bin/$binary_name" "$rvm_bin_path/$binary_name-$rvm_ruby_string"  ; do
-          rm -f $file_name
-          echo "$ruby_wrapper" > $file_name
-          if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
-        done
-
-        unset file_name binaries ruby_wrapper binary_name files prefix
-      done ; unset binary_name
+      # Symlink rubinius wrappers
+      ln -fs "$rvm_ruby_home/bin/rbx" "$rvm_ruby_home/bin/irb"
+      ln -fs "$rvm_ruby_home/bin/rbx" "$rvm_ruby_home/bin/ruby"
+      # Install a wrapper around gem.
+      file_name="$rvm_ruby_home/bin/gem"
+      if [[ ! -f "$file_name" ]]; then
+        echo "#!/usr/bin/env bash" > "$file_name"
+        echo "exec $rvm_ruby_home/bin/rbx gem \"\$@\"" >> "$file_name"
+        [[ -f "$file_name" ]] && chmod +x "$file_name"
+      fi
+      unset file_name
 
       binaries="erb ri rdoc"
       __rvm_post_install
@@ -558,36 +551,6 @@ RubyWrapper
       ln -fs $rvm_ruby_home/bin/ir $rvm_ruby_home/bin/ruby
 
       __rvm_run "gems.install" "PATH=$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:$PATH GEM_HOME=$rvm_ruby_gem_home GEM_PATH=$rvm_ruby_gem_home $rvm_ruby_home/bin/gem install --no-rdoc --no-ri rake $rvm_gem_options" "Installing $rvm_gem_name to $dir"
-
-      binaries=() # Don't wrap any longer.
-      for binary_name in ${binaries[@]} ; do
-        binary_path=""
-        if [[ "ruby" != "$binary_name" ]] ; then
-          binary_path="$rvm_ruby_home/bin/i$binary_name"
-        fi
-        ruby_wrapper=$(cat <<RubyWrapper
-#!/bin/bash
-
-export GEM_HOME="$rvm_ruby_gem_home"
-export GEM_PATH="$rvm_ruby_gem_path"
-export BUNDLE_PATH="$rvm_ruby_gem_home"
-export MY_RUBY_HOME="$rvm_ruby_home"
-export PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH"
-
-exec mono $rvm_ruby_home/bin/ir.exe $binary_path "\$@"
-RubyWrapper
-)
-        files="$rvm_ruby_home/bin/$binary_name $rvm_bin_path/$binary_name-$rvm_ruby_string"
-        for file_name in $(echo $files)  ; do
-          rm -f $file_name
-          echo "$ruby_wrapper" > $file_name
-          if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
-        done
-        if [[ "$binary_name" = "ruby" ]] ; then
-          echo "$ruby_wrapper" > $rvm_bin_path/$rvm_ruby_string
-        fi
-        unset file_name ruby_wrapper binary_name binary_path files prefix
-      done
     ;;
 
     mput|shyouhei)
@@ -676,7 +639,9 @@ RubyWrapper
 
   esac
 
-  $rvm_scripts_path/gemsets initial # Load the initial gemsets
+  
+  # Import the initial gemsets.
+  (source $rvm_scripts_path/rvm; rvm use "$rvm_ruby_string"; $rvm_scripts_path/gemsets initial)
 
   rvm_hook="after_install" ; source $rvm_scripts_path/hook
 
@@ -873,8 +838,6 @@ __rvm_post_install() {
   fi
 
   __rvm_irbrc
-  #__rvm_load_gemsets
-
   __rvm_generate_default_docs
 }
 
@@ -884,33 +847,6 @@ __rvm_generate_default_docs() {
     (source $rvm_scripts_path/rvm; rvm use "$rvm_ruby_string"; rvm docs generate-ri) > ~/rvm-install-docs 2>&1
   fi
 }
-
-#__rvm_load_gemsets() {
-#  # Gemset for every interpreter's global gems
-#  if [[ -s "$rvm_gemsets_path/global.gems" ]] ; then
-#    dir=$rvm_ruby_global_gems_path
-#    GEM_HOME="$dir" ; GEM_PATH="$dir" ; BUNDLE_PATH="$dir" ; export GEM_HOME GEM_PATH BUNDLE_PATH
-#
-#    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/global.gems"
-#
-#    GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home" ; export GEM_HOME GEM_PATH BUNDLE_PATH
-#  fi ; unset home path dir
-#
-#  # gemset for any installed ruby.
-#  if [[ -s "$rvm_gemsets_path/default.gems" ]] ; then
-#    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/default.gems"
-#  fi
-#
-#  # gemset for any installation of a given interpreter.
-#  if [[ -s "$rvm_gemsets_path/$rvm_ruby_interpreter.gems" ]] ; then
-#    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/$rvm_ruby_interpreter.gems"
-#  fi
-#
-#  # gemset for a specific match of the ruby string.
-#  if [[ -s "$rvm_gemsets_path/$rvm_ruby_string.gems" ]] ; then
-#    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/$rvm_ruby_string.gems"
-#  fi
-#}
 
 __rvm_rubygems_setup() {
   if [[ ! -z "$(echo $rvm_ruby_version | awk '/^1\.9/')" ]] || [[ ! -z "$(echo $rvm_ruby_interpreter | awk '/^mput/')" ]] ; then

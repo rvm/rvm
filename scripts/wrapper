@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# Recursive loops, oh my!
 unset rvm_default_flag
 
 source $rvm_scripts_path/initialize
@@ -11,12 +10,35 @@ if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
 
 trap "if [[ -d $rvm_tmp_path/ ]] && [[ -s $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
 
+full_binary_name() {
+  echo "$binary_name" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
 wrap() {
   mkdir -p "$(dirname "$file_name")"
+  rm -f "$file_name"
   printf "#!/usr/bin/env sh\n" > "$file_name"
-  printf ". \"${rvm_environments_path}/${environment_identifier}\"\n" >> "$file_name"
+  printf "source \"${rvm_environments_path}/${environment_identifier}\"\n" >> "$file_name"
   printf "exec $binary_name \"\$@\"\n" >> "$file_name"
+
   if [[ -f $file_name ]] ; then chmod +x $file_name ; fi
+}
+
+symlink_binary() {
+  if [[ -f "$file_name" ]]; then
+    ln -fs "$file_name" "${rvm_bin_path}/${prefix}_${binary_name}"
+  else
+    $rvm_scripts_path/log "error" "Please run 'rvm wrapper $environment_identifier $binary_name' first."
+  fi
+}
+
+wrap_binary() {
+  # Iff the command is found in the path.
+  if command -v $binary_name > /dev/null; then
+    wrap
+  else
+    $rvm_scripts_path/log "error" "Binary '$binary_name' not found in path."
+  fi
 }
 
 usage() {
@@ -25,42 +47,54 @@ usage() {
   printf "        For more information, see 'rvm help wrapper'\n"
 }
 
-args="$*"
-ruby_string="$(echo "$args" | awk '{print $1}')"
-prefix="$(echo "$args" | awk '{print $2}')"
-binaries=$(echo "$args" | awk '{$1="" ; $2=""; print}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-
-if [[ -z "$ruby_string" ]]; then
-  usage ; exit 1
+# Empty ruby string: show usage and exit.
+if [[ -z "$1" ]]; then
+  usage
+  exit 1
 fi
 
+ruby_string="$1"; shift
+
+prefix="$1"
+if [[ -z "$1" ]]; then shift; fi
+
+binaries="$(echo "$@" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+if [[ 'system' == '$ruby_string' ]]; then
+  $rvm_scripts_path/log "error" "Wrapper can't be called with system rubies - sorry!"
+  exit 1
+fi
+
+# Default the list of binaries to those we use regularily.
 if [[ -z "$binaries" ]] ; then
-  # TODO: Extract out into a rvm_ variable.
   binaries="ruby gem irb ri rdoc rake erb testrb"
 fi
 
+# Use the correct ruby.
 rvm_ruby_string="${ruby_string}"
-__rvm_select &>/dev/null
-__rvm_use &> /dev/null
+__rvm_select > /dev/null 2>&1
+__rvm_use    > /dev/null 2>&1
+
+__rvm_ensure_has_enviroment_files
 
 environment_identifier="$(__rvm_environment_identifier)"
 
-for binary_name in $(echo $binaries); do
+# For each binary, we want to generate the wrapper / symlink
+# it to the existing wrapper if needed.
+for binary_name in $binaries; do
+  file_name="${rvm_wrappers_path}/${environment_identifier}/${binary_name}"
   if [[ -z "$prefix" ]] ; then
-    file_name="${rvm_wrappers_path}/${environment_identifier}/${binary_name}"
+    wrap_binary
+    # Symlink it into place.
+    if [[ "$binary_name" == "ruby" ]]; then
+      ln -sf "$file_name" "$rvm_bin_path/$environment_identifier"
+    else
+      ln -sf "$file_name" "$rvm_bin_path/$binary_name-$environment_identifier"
+    fi
   else
-    file_name="${rvm_bin_path}/${prefix}_${binary_name}"
-  fi
-
-  if command -v $binary_name > /dev/null; then
-    wrap
-  else
-    $rvm_scripts_path/log "error" "Binary '$binary_name' not found in path."
+    symlink_binary
   fi
   unset file_name
 done
-
-unset rvm_ruby_string args ruby_string prefix binaries environment_identifier
-__rvm_unset_ruby_variables
 
 exit $?
