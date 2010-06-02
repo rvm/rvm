@@ -238,13 +238,6 @@ RubyWrapper
         chmod +x $rvm_ruby_home/bin/*
 
         __rvm_rubygems_setup
-
-        for rvm_gem_name in rdoc rake ; do
-          __rvm_run "gems" "$rvm_ruby_home/bin/gem install $rvm_gem_name $rvm_gem_options" "Installing $rvm_gem_name"
-        done
-        __rvm_inject_ruby_shebang "$rvm_ruby_gem_home/bin/rake"
-        __rvm_inject_gem_env "$rvm_ruby_gem_home/bin/rake"
-
         __rvm_irbrc
         __rvm_bin_script
         __rvm_post_install
@@ -304,10 +297,6 @@ RubyWrapper
           $rvm_scripts_path/log "error" "There has been an error while fetching the rbx git repo. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
       fi
-
-      #if [[ ! -x "$rvm_ruby_distclean" ]] ; then
-      #  __rvm_run "rake.distclean" "\$(rvm 1.8.7 ; rake distclean --trace)" "Running distclean."
-      #fi
 
       builtin cd "$rvm_ruby_src_path" ; chmod +x ./configure
       rvm_ruby_configure_flags="${rvm_ruby_configure_flags:-"--skip-system"}"
@@ -695,6 +684,8 @@ RubyWrapper
 
   esac
 
+  $rvm_scripts_path/gemsets initial # Load the initial gemsets
+
   rvm_hook="after_install" ; source $rvm_scripts_path/hook
 
   if [[ ! -z "$ruby_options" ]] ; then RUBYOPT=$ruby_options ; export RUBYOPT ; fi
@@ -886,31 +877,8 @@ __rvm_post_install() {
     done ; unset binary binaries
   fi
 
-  # TODO: Merge this vvv into the default gemset loading.
-  post_install_gems="rdoc rake"
-  $rvm_scripts_path/log "info" "Installing gems for $rvm_ruby_string ($post_install_gems)."
-  for rvm_gem_name in $(echo $post_install_gems); do
-    home="$GEM_HOME" ; path="$GEM_PATH" # Save
-    for dir in $rvm_ruby_global_gems_path $rvm_ruby_gem_home ; do
-      GEM_HOME="$dir" ; GEM_PATH="$dir" ; BUNDLE_PATH="$dir"
-      export GEM_HOME GEM_PATH BUNDLE_PATH
-      __rvm_run "gems.install" "$rvm_ruby_home/bin/gem install --no-rdoc --no-ri $rvm_gem_name $rvm_gem_options" "Installing $rvm_gem_name to $dir"
-
-      if [[ -x $rvm_ruby_gem_home/bin/$rvm_gem_name ]] ; then
-        if [[ "$rvm_ruby_gem_home" != "$rvm_ruby_home" ]] && [[ ! -x $rvm_ruby_home/bin/$rvm_gem_name ]] ; then
-          ln -nfs $rvm_ruby_gem_home/bin/$rvm_gem_name $rvm_ruby_home/bin/$rvm_gem_name
-        fi
-        __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$rvm_gem_name"
-        __rvm_inject_gem_env "$rvm_ruby_home/bin/$rvm_gem_name"
-      fi
-    done ; unset home path dir
-    GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home"
-    export GEM_HOME GEM_PATH BUNDLE_PATH
-  done ; unset rvm_gem_name post_install_gems
-  $rvm_scripts_path/log "info" "Installation of gems for $rvm_ruby_string is complete."
-
   __rvm_irbrc
-  __rvm_load_gemsets
+  #__rvm_load_gemsets
 
   __rvm_generate_default_docs
 }
@@ -922,32 +890,32 @@ __rvm_generate_default_docs() {
   fi
 }
 
-__rvm_load_gemsets() {
-  # Gemset for every interpreter's global gems
-  if [[ -s "$rvm_gemsets_path/global.gems" ]] ; then
-    dir=$rvm_ruby_global_gems_path
-    GEM_HOME="$dir" ; GEM_PATH="$dir" ; BUNDLE_PATH="$dir" ; export GEM_HOME GEM_PATH BUNDLE_PATH
-
-    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/global.gems"
-
-    GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home" ; export GEM_HOME GEM_PATH BUNDLE_PATH
-  fi ; unset home path dir
-
-  # gemset for any installed ruby.
-  if [[ -s "$rvm_gemsets_path/default.gems" ]] ; then
-    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/default.gems"
-  fi
-
-  # gemset for any installation of a given interpreter.
-  if [[ -s "$rvm_gemsets_path/$rvm_ruby_interpreter.gems" ]] ; then
-    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/$rvm_ruby_interpreter.gems"
-  fi
-
-  # gemset for a specific match of the ruby string.
-  if [[ -s "$rvm_gemsets_path/$rvm_ruby_string.gems" ]] ; then
-    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/$rvm_ruby_string.gems"
-  fi
-}
+#__rvm_load_gemsets() {
+#  # Gemset for every interpreter's global gems
+#  if [[ -s "$rvm_gemsets_path/global.gems" ]] ; then
+#    dir=$rvm_ruby_global_gems_path
+#    GEM_HOME="$dir" ; GEM_PATH="$dir" ; BUNDLE_PATH="$dir" ; export GEM_HOME GEM_PATH BUNDLE_PATH
+#
+#    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/global.gems"
+#
+#    GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home" ; export GEM_HOME GEM_PATH BUNDLE_PATH
+#  fi ; unset home path dir
+#
+#  # gemset for any installed ruby.
+#  if [[ -s "$rvm_gemsets_path/default.gems" ]] ; then
+#    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/default.gems"
+#  fi
+#
+#  # gemset for any installation of a given interpreter.
+#  if [[ -s "$rvm_gemsets_path/$rvm_ruby_interpreter.gems" ]] ; then
+#    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/$rvm_ruby_interpreter.gems"
+#  fi
+#
+#  # gemset for a specific match of the ruby string.
+#  if [[ -s "$rvm_gemsets_path/$rvm_ruby_string.gems" ]] ; then
+#    $rvm_scripts_path/gemsets "import" "$rvm_gemsets_path/$rvm_ruby_string.gems"
+#  fi
+#}
 
 __rvm_rubygems_setup() {
   if [[ ! -z "$(echo $rvm_ruby_version | awk '/^1\.9/')" ]] || [[ ! -z "$(echo $rvm_ruby_interpreter | awk '/^mput/')" ]] ; then

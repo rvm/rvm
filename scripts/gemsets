@@ -10,15 +10,15 @@ if [[ ! -d "$rvm_ruby_gem_home" ]] && command -v gem > /dev/null 2>&1; then rvm_
 
 trap "if [[ -d $rvm_tmp_path/ ]] && [[ -s $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
 
-__rvm_gemset_name() {
-   __rvm_gemset_dir |  awk -F${rvm_gemset_separator} '{print $2}'
+gemset_name() {
+  gemset_dir |  awk -F${rvm_gemset_separator} '{print $2}'
 }
 
-__rvm_gemset_dir() {
+gemset_dir() {
   echo "$rvm_ruby_gem_home"
 }
 
-__rvm_gemset_create() {
+gemset_create() {
   rvm_ruby_gem_prefix=$(echo $rvm_ruby_gem_home | sed 's/'${rvm_gemset_separator}'.*$//')
   for gemset in $(echo $gems_args) ; do
     gem_home="${rvm_ruby_gem_prefix}${rvm_gemset_separator}${gems_args/ /}"
@@ -27,7 +27,7 @@ __rvm_gemset_create() {
   done ; unset gem_home
 }
 
-__rvm_gemset_list() {
+gemset_list() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   $rvm_scripts_path/log "info" "gemsets : for $rvm_ruby_string (found in $rvm_gems_path/)"
@@ -43,7 +43,7 @@ __rvm_gemset_list() {
   fi
 }
 
-__rvm_gemset_delete() {
+gemset_delete() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
   if [[ ! -z "$rvm_gemset_name" ]] ; then
     gemdir="$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator}$rvm_gemset_name"
@@ -67,7 +67,7 @@ __rvm_gemset_delete() {
   fi
 }
 
-__rvm_gemset_empty() {
+gemset_empty() {
   if [[ -z "$rvm_ruby_gem_home" ]] ; then __rvm_select ; fi
   gemdir="$rvm_ruby_gem_home"
   if [[ -d "$gemdir" ]] && [[ "$gemdir" != '/' ]] && [[ ! -z "$rvm_force_flag" ]] ; then
@@ -87,7 +87,7 @@ __rvm_gemset_empty() {
 }
 
 # Migrate gemsets from ruby X to ruby Y
-__rvm_gemset_copy() {
+gemset_copy() {
   source_ruby="$(echo $gems_args | awk '{print $1}')"
   destination_ruby="$(echo $gems_args | awk '{print $2}')"
   if [[ -z "$source_ruby" ]] ; then
@@ -115,7 +115,7 @@ __rvm_gemset_copy() {
   unset source_ruby destination_ruby source_path destination_path
 }
 
-__rvm_gemset_export() {
+gemset_export() {
   rvm_file_name="${rvm_file_name:-$gems_args}"
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
@@ -149,7 +149,7 @@ __rvm_gemset_export() {
   done ; unset file_name
 }
 
-__rvm_gemset_import() {
+gemset_import() {
 
   if [[ ! -z "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
@@ -185,7 +185,7 @@ __rvm_gemset_import() {
     while read -r line
     do # Keep this on 2nd line :(
       if [[ ! -z "$(echo $line | sed 's/\s//g')" ]] ; then
-        gems_args="$line" ; __rvm_gem_install
+        gems_args="$line" ; gem_install
       fi
     done < <(awk '/^[^#]+/{print}' "${rvm_file_name}")
   else
@@ -225,7 +225,7 @@ __rvm_parse_gems_args() {
 }
 
 # Install a gem
-__rvm_gem_install() {
+gem_install() {
   # First we parse the gem args to pick apart the pieces.
 
   __rvm_parse_gems_args
@@ -295,7 +295,7 @@ __rvm_gem_install() {
 }
 
 # Output the user's current gem directory.
-__rvm_gemset_info() {
+gemset_info() {
   if [[ "$rvm_user_flag" -eq 1 ]] ; then
     echo $(rvm system ; gem env | grep "\- $HOME" | awk '{print $NF}')
   elif [[ "$rvm_system_flag" -eq 1 ]] ; then
@@ -309,8 +309,52 @@ __rvm_gemset_info() {
   fi
 }
 
-__rvm_gem_pristine() {
+gem_pristine() {
   gem pristine --all
+}
+
+# Loads the default gemsets for the current interpreter and gemset.
+gemset_initial() {
+  $rvm_scripts_path/log "info" "Importing initial gemsets for $(__rvm_environment_identifier)."
+  set -x
+  mkdir -p "$rvm_gemsets_path/$(echo "$rvm_ruby_string" | tr '-' '/')" 2>/dev/null
+  for gemsets_path in "$rvm_gemsets_path" "$rvm_gemsets_path/$rvm_ruby_interpreter" "$rvm_gemsets_path/$rvm_ruby_interpreter/$rvm_ruby_version" "$rvm_gemsets_path/$rvm_ruby_interpreter/$rvm_ruby_version/$rvm_ruby_patch_level" ; do
+    if [[ ! -z "$rvm_gemset_name" ]] ; then
+      if [[ -s "${gemsets_path}/${rvm_gemset_name}.gems" ]] ; then
+        $(rvm gemset import "${gemsets_path}/${rvm_gemset_name}.gems")
+      fi
+    else
+      if [[ -d "$gemsets_path" ]] && [[ -s "${gemsets_path}/default.gems" ]] ; then
+        $(rvm gemset import "$gemsets_path/default.gems")
+      fi
+      if [[ -d "$gemsets_path" ]] && [[ -s "${gemsets_path}/global.gems" ]] ; then
+        $(rvm use "$rvm_ruby_string@global" ; rvm gemset import "${gemsets_path}/global.gems")
+      fi
+    fi
+  done
+  set +x
+  $rvm_scripts_path/log "info" "Installation of gems for $(__rvm_environment_identifier) is complete."
+
+  # Original code, which swapped out the environments on the fly.
+  #post_install_gems="rdoc rake"
+  #for rvm_gem_name in $(echo $post_install_gems); do
+  #  home="$GEM_HOME" ; path="$GEM_PATH" # Save
+  #  for dir in $rvm_ruby_global_gems_path $rvm_ruby_gem_home ; do
+  #    GEM_HOME="$dir" ; GEM_PATH="$dir" ; BUNDLE_PATH="$dir"
+  #    export GEM_HOME GEM_PATH BUNDLE_PATH
+  #    __rvm_run "gems.install" "$rvm_ruby_home/bin/gem install --no-rdoc --no-ri $rvm_gem_name $rvm_gem_options" "Installing $rvm_gem_name to $dir"
+
+  #    if [[ -x $rvm_ruby_gem_home/bin/$rvm_gem_name ]] ; then
+  #      if [[ "$rvm_ruby_gem_home" != "$rvm_ruby_home" ]] && [[ ! -x $rvm_ruby_home/bin/$rvm_gem_name ]] ; then
+  #        ln -nfs $rvm_ruby_gem_home/bin/$rvm_gem_name $rvm_ruby_home/bin/$rvm_gem_name
+  #      fi
+  #      __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$rvm_gem_name"
+  #      __rvm_inject_gem_env "$rvm_ruby_home/bin/$rvm_gem_name"
+  #    fi
+  #  done ; unset home path dir
+  #  GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home"
+  #  export GEM_HOME GEM_PATH BUNDLE_PATH
+  #done ; unset rvm_gem_name post_install_gems
 }
 
 unset GEM_PATH
@@ -325,29 +369,31 @@ gems_args=$(echo "$*" | awk '{$1="" ; print}' | sed -e 's/^[[:space:]]*//' -e 's
 export rvm_gemset_name
 
 if [[ "import" = "$action" ]] || [[ "load" = "$action" ]] ; then
-  __rvm_gemset_import
+  gemset_import
 elif [[ "export" = "$action" ]] || [[ "dump" = "$action" ]] ; then
-  __rvm_gemset_export
+  gemset_export
 elif [[ "create" = "$action" ]] ; then
-  __rvm_gemset_create
+  gemset_create
 elif [[ "copy" = "$action" ]] ; then
-  __rvm_gemset_copy
+  gemset_copy
 elif [[ "empty" = "$action" ]] ; then
-  __rvm_gemset_empty
+  gemset_empty
 elif [[ "delete" = "$action" ]] ; then
-  __rvm_gemset_delete
+  gemset_delete
 elif [[ "name" = "$action" ]] || [[ "string" = "$action" ]]; then
-  __rvm_gemset_name
+  gemset_name
 elif [[ "dir" = "$action" ]] ; then
-  __rvm_gemset_dir
+  gemset_dir
 elif [[ "list" = "$action" ]] ; then
-  __rvm_gemset_list
+  gemset_list
 elif [[ "gemdir" = "$action" ]] || [[ "gempath" = "$action" ]] || [[ "gemhome" = "$action" ]] || [[ "home" = "$action" ]] || [[ "path" = "$action" ]] || [[ "version" = "$action" ]] ; then
-  __rvm_gemset_info
+  gemset_info
 elif [[ "install" = "$action" ]] ; then
-  __rvm_gem_install $*
+  gem_install $*
 elif [[ "pristine" = "$action" ]] ; then
-  __rvm_gem_pristine $*
+  gem_pristine $*
+elif [[ "initial" = "$action" ]] ; then
+  gemset_initial
 elif [[ "clear" = "$action" ]] ; then
   $rvm_scripts_path/log "info" "gemset cleared."
   exit 0
