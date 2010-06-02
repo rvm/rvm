@@ -72,10 +72,11 @@ __rvm_install_source() {
       $rvm_scripts_path/log "error" "There has been an error while configuring. Aborting the installation." ; __rvm_pushpop ; return $result
     fi
   elif [[ -s ./configure ]] ; then
-    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $rvm_ruby_configure_flags $configure_parameters" "Configuring $rvm_ruby_string, this may take a while depending on your cpu(s)..."
+    __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
+    __rvm_run "configure" "./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_ruby_configure_flags $configure_parameters" "Configuring $rvm_ruby_string, this may take a while depending on your cpu(s)..."
     result=$? ; if [[ "$result" -gt 0 ]] ; then
       $rvm_scripts_path/log "error" "There has been an error while running configure. Aborting the installation." ; __rvm_pushpop ; return $result
-    fi ; unset configure_parameters
+    fi ; unset configure_parameters db_configure_flags
   else
     $rvm_scripts_path/log "error" "Skipping configure step, 'configure' does not exist, did autoconf not run successfully?"
   fi
@@ -230,7 +231,9 @@ RubyWrapper
           rvm_ree_options="${rvm_ree_options} --no-tcmalloc"
         fi
 
-        __rvm_run "install" "./installer -a $rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level $rvm_ree_options --dont-install-useful-gems $rvm_ruby_configure_flags" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..."
+        __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
+
+        __rvm_run "install" "./installer -a $rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level $rvm_ree_options $db_configure_flags $rvm_ruby_configure_flags" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..."
           result=$? ; if [[ "$result" -gt 0 ]] ; then
             $rvm_scripts_path/log "error" "There has been an error while trying to run the ree installer. Aborting the installation." ; __rvm_pushpop ; return $result
           fi
@@ -243,9 +246,9 @@ RubyWrapper
         __rvm_post_install
         __rvm_pushpop
       else
-        __rvm_db "ree_${rvm_ruby_version}_repo_url" "rvm_url"
+        __rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_repo_url" "rvm_url"
         if [[ -z "$rvm_url" ]] ; then
-          $rvm_scripts_path/log "fail" "rvm does not know the rvm repo url for 'ree_${rvm_ruby_version}'"
+          $rvm_scripts_path/log "fail" "rvm does not know the rvm repo url for '${rvm_ruby_interpreter}_${rvm_ruby_version}'"
           result=1
         else
           rvm_ruby_repo_url=$rvm_url
@@ -299,8 +302,11 @@ RubyWrapper
       fi
 
       builtin cd "$rvm_ruby_src_path" ; chmod +x ./configure
+
+      __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
+
       rvm_ruby_configure_flags="${rvm_ruby_configure_flags:-"--skip-system"}"
-      rvm_ruby_configure="ruby configure --prefix=$rvm_ruby_home $rvm_ruby_configure_flags" ; message="Configuring rbx"
+      rvm_ruby_configure="ruby configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_ruby_configure_flags" ; message="Configuring rbx"
       if [[ "$rvm_llvm_flag" = "0" ]] ; then
         rvm_ruby_configure="$rvm_ruby_configure --disable-llvm"
       else
