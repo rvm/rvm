@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+
 
 original_ruby_version=$rvm_ruby_version
 original_ruby_string=$rvm_ruby_string
@@ -49,23 +49,6 @@ __rvm_install_source() {
     fi
   fi
 
-  #if [[ "1.8.5" = "$rvm_ruby_version" ]] ; then
-  #  # How to install ruby 1.8.5... "sneaky sneaky, sir"
-  #  src_dir="ruby-1.8.7-p$(__rvm_db "ruby_1.8.7_patch_level")"
-  #  if [[ ! -d "$HOME/.rvm/src/$src_dir/ext/openssl/" ]] ; then $rvm_path/bin/rvm fetch 1.8.6-p248 > /dev/null ; fi
-  #  cp ~/.rvm/src/$src_dir/ext/openssl/extconf.rb ~/.rvm/src/ruby-1.8.5-p231/ext/openssl/
-  #  cp ~/.rvm/src/$src_dir/ext/openssl/openssl_missing.* ~/.rvm/src/ruby-1.8.5-p231/ext/openssl/
-  #  cp ~/.rvm/src/$src_dir/ext/openssl/ossl_hmac.c ~/.rvm/src/ruby-1.8.5-p231/ext/openssl/
-  #  src_dir="ruby-1.8.6-p$(__rvm_db "ruby_1.8.6_patch_level")"
-  #  if [[ ! -d "$HOME/.rvm/src/$src_dir/ext/openssl/" ]] ; then $rvm_path/bin/rvm fetch 1.8.6-p383 > /dev/null ; fi
-  #  cp ~/.rvm/src/$src_dir/ext/readline/* ~/.rvm/src/ruby-1.8.5-p231/ext/readline/
-  #  unset src_dir
-  #fi
-
-  #
-  #if [[ -s ./Makefile ]] && [[ -z "$rvm_reconfigure_flag" ]] ; then
-  #  (($rvm_debug_flag)) && $rvm_scripts_path/log "debug" "Skipping configure step, Makefile exists so configure must have already been run."
-  #el
   if [[ ! -z "$rvm_ruby_configure" ]] ; then
     __rvm_run "configure" "$rvm_ruby_configure"
     result=$? ; if [[ "$result" -gt 0 ]] ; then
@@ -288,9 +271,11 @@ RubyWrapper
       else
         __rvm_db "rubinius_repo_url" "rvm_ruby_repo_url"
         #rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version"
-        if [[ ! -d "$rvm_ruby_src_path" ]] || [[ ! -d "$rvm_ruby_src_path/.git" ]] ; then
-          rm -rf "$rvm_ruby_src_path" ; builtin cd "$rvm_home"
-          __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path" "Cloning $rvm_ruby_repo_url"
+        if [[ ! -d "$rvm_ruby_repo_path" ]] || [[ ! -d "$rvm_ruby_repo_path/.git" ]] ; then
+          rm -rf "$rvm_ruby_repo_path" "$rvm_ruby_src_path"
+          builtin cd "$rvm_home"
+          __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_url"
+          __rvm_run "rbx.copy" "cp -R \"$rvm_ruby_repo_path\" \"$rvm_ruby_src_path\"" "Copying from repo to source..."
           builtin cd "$rvm_ruby_src_path"
         else
           builtin cd "$rvm_ruby_src_path"
@@ -616,8 +601,9 @@ RubyWrapper
       builtin cd $rvm_src_path
 
       if [[ ! -d "$rvm_ruby_src_path" ]] || [[ ! -d "$rvm_ruby_src_path/.git" ]] ; then
-        rm -rf $rvm_ruby_src_path
-        __rvm_run "mput.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path" "Cloning $rvm_ruby_repo_url"
+        rm -rf $rvm_ruby_src_path $rvm_ruby_repo_path
+        __rvm_run "mput.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_url"
+        __rvm_run "mput.copy" "cp -R \"$rvm_ruby_repo_path\" \"$rvm_ruby_src_path\"" "Copying from repo to source..."
         builtin cd $rvm_ruby_src_path
       else
         builtin cd $rvm_ruby_src_path
@@ -740,9 +726,10 @@ __rvm_fetch_ruby() {
       $rvm_scripts_path/log "info" "$rvm_ruby_src_path has already been extracted." ; __rvm_pushpop ; return 0
     fi
   else
+    mkdir -p "$rvm_repo_path"
     if [[ ! -z "$(echo $rvm_url | awk '/^git/')" ]] ; then
-      if [[ -d "$rvm_ruby_src_path/.git" ]] ; then
-        builtin cd $rvm_ruby_src_path
+      if [[ -d "$rvm_ruby_repo_path/.git" ]] ; then
+        builtin cd $rvm_ruby_repo_path
         if [[ -z "$rvm_ruby_revision" ]] ; then
           $rvm_scripts_path/log "info" "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
           git pull origin master
@@ -761,7 +748,7 @@ __rvm_fetch_ruby() {
         fi
       else
         $rvm_scripts_path/log "info" "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
-        git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_src_path
+        git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path
         result=$? ; if [[ "$result" -gt 0 ]] ; then
           $rvm_scripts_path/log "error" "There has been an error while trying to fetch the repository. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
@@ -789,8 +776,8 @@ __rvm_fetch_ruby() {
         rvm_rev="-$rvm_ruby_revision"
       fi
 
-      if [[ -d "$rvm_ruby_src_path/.svn" ]] ; then
-        builtin cd $rvm_ruby_src_path
+      if [[ -d "$rvm_ruby_repo_path/.svn" ]] ; then
+        builtin cd $rvm_ruby_repo_path
         $rvm_scripts_path/log "info" "Updating ruby from $rvm_url"
         __rvm_run "svn.switch" "svn switch $rvm_url"
         __rvm_run "svn.update" "svn update"
@@ -799,14 +786,16 @@ __rvm_fetch_ruby() {
           __rvm_run "svn.checkout" "svn update -q ${rvm_rev/-r/-r }"
         fi
       else
-        rm -rf $rvm_ruby_src_path
-        __rvm_run "svn.checkout" "svn checkout -q ${rvm_rev/-r/-r } $rvm_url $rvm_ruby_src_path" "Downloading source from ${rvm_url}."
+        rm -rf $rvm_ruby_repo_path
+        __rvm_run "svn.checkout" "svn checkout -q ${rvm_rev/-r/-r } $rvm_url $rvm_ruby_repo_path" "Downloading source from ${rvm_url}."
       fi
       result=$? ; if [[ "$result" -gt 0 ]] ; then
         $rvm_scripts_path/log "error" "There has been an error while trying to fetch / update the source. Aborting the installation." ; __rvm_pushpop ; return $result
       fi
 
     fi
+    $rvm_scripts_path/log "info" "Copying from repo to src path..."
+    cp -r "$rvm_ruby_repo_path" "$rvm_ruby_src_path"
   fi
 }
 
