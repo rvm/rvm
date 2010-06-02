@@ -764,6 +764,16 @@ __rvm_fetch_ruby() {
   fi
 }
 
+__rvm_check_default() {
+  default_ruby_interpreter="$(rvm alias show default 2>/dev/null | awk -F"${rvm_gemset_seperator:-"@"}" '{print $1}')"
+  current_ruby_interpreter="$(echo "$rvm_ruby_string" | awk -F"${rvm_gemset_seperator:-"@"}" '{print $1}')"
+  if [[ -n "$current_ruby_interpreter" && "$current_ruby_interpreter" == "$default_ruby_interpreter" ]]; then
+    # In a new subshell, set the default interpeter to system.
+    (source $rvm_scripts_path/rvm; rvm use system --default)
+  fi
+  unset default_ruby_interpreter current_ruby_interpreter
+}
+
 __rvm_uninstall_ruby() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
@@ -780,6 +790,9 @@ __rvm_uninstall_ruby() {
       fi
     done ; unset dir
     __rvm_remove_gemsets
+
+    __rvm_check_default
+
   else
     $rvm_scripts_path/log "fail" "Cannot uninstall unknown package '$rvm_ruby_string'"
   fi ; unset rvm_uninstall_flag
@@ -801,9 +814,8 @@ __rvm_remove_ruby() {
         rm -f $rvm_bin_path/$rvm_ruby_string
       fi
 
-      if grep -q "$rvm_ruby_string" "$rvm_config_path/default" 2>/dev/null ; then
-        rm -f "$rvm_config_path/default"
-      fi
+      __rvm_check_default
+
     done ; unset dir
     __rvm_remove_gemsets
   else
