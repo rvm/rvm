@@ -293,12 +293,19 @@ __rvm_use() {
     new_path="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:$MY_RUBY_HOME/bin:$rvm_bin_path:$new_path"
   fi
 
+  if [[ ! -z "$rvm_rvmrc_flag" ]]   ; then __rvm_set_rvmrc ; fi
+  # Export ruby string and gem set me for extrenal scripts to take advantage of them.
+  if [[ ! -z "$rvm_ruby_string" ]]  ; then export rvm_ruby_string  ; fi
+  if [[ ! -z "$rvm_gemset_name" ]]  ; then export rvm_gemset_name ; fi
+  if [[ ! -z "$new_path" ]]         ; then export PATH="$new_path" ; unset new_path ; fi
+
+  environment_id="$(__rvm_environment_identifier)"
+
   if [[ ! -z "$rvm_default_flag" ]] && [[ "default" != "$rvm_ruby_interpreter" ]] ; then
     if [[ "root" = "$(whoami)" ]] ; then
       # By not providing the name it uses the base ruby binary names.
       $rvm_scripts_path/wrapper $rvm_ruby_string
     fi
-    local environment_id="$(__rvm_environment_identifier)"
     if [[ "system" = "$rvm_ruby_interpreter" ]] ; then
       $rvm_scripts_path/alias delete default &> /dev/null
       rm -f $rvm_config_path/default
@@ -308,7 +315,6 @@ __rvm_use() {
     else
       RUBY_VERSION="$($rvm_ruby_home/bin/ruby -v | sed 's#^\(.*\) (.*$#\1#')"
       export GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME RUBY_VERSION
-      # Delete + then create the default alias.
       $rvm_scripts_path/alias delete default &> /dev/null
       $rvm_scripts_path/alias create default "$environment_id" >& /dev/null
       ln -nfs $rvm_environments_path/$environment_id $rvm_environments_path/default
@@ -317,15 +323,11 @@ __rvm_use() {
   fi ; unset rvm_default_flag
 
   if [[ ! -z "$rvm_wrapper_name" ]] ; then
-    $rvm_scripts_path/wrapper "$rvm_ruby_string" "$rvm_wrapper_name" > /dev/null 2>&1
+    $rvm_scripts_path/wrapper "$environment_id" "$rvm_wrapper_name" > /dev/null 2>&1
     unset rvm_wrapper_name
   fi
 
-  if [[ ! -z "$rvm_rvmrc_flag" ]]   ; then __rvm_set_rvmrc ; fi
-  # Export ruby string and gem set me for extrenal scripts to take advantage of them.
-  if [[ ! -z "$rvm_ruby_string" ]]  ; then export rvm_ruby_string  ; fi
-  if [[ ! -z "$rvm_gemset_name" ]]  ; then export rvm_gemset_name ; fi
-  if [[ ! -z "$new_path" ]]         ; then export PATH="$new_path" ; unset new_path ; fi
+  unset environment_id
 
   if [[ "maglev" = "$rvm_ruby_interpreter" ]] ; then
     export MAGLEV_HOME="$rvm_ruby_home"
