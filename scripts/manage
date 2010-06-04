@@ -271,16 +271,7 @@ RubyWrapper
       else
         __rvm_db "rubinius_repo_url" "rvm_ruby_repo_url"
         #rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version"
-        if [[ ! -d "$rvm_ruby_repo_path" ]] || [[ ! -d "$rvm_ruby_repo_path/.git" ]] ; then
-          rm -rf "$rvm_ruby_repo_path" "$rvm_ruby_src_path"
-          builtin cd "$rvm_home"
-          __rvm_run "rbx.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_url"
-          __rvm_run "rbx.copy" "cp -R \"$rvm_ruby_repo_path\" \"$rvm_ruby_src_path\"" "Copying from repo to source..."
-          builtin cd "$rvm_ruby_src_path"
-        else
-          builtin cd "$rvm_ruby_src_path"
-          __rvm_run "rbx.repo" "git pull origin master" "Pulling from origin master"
-        fi
+        __rvm_fetch_from_github "rbx"
         result=$? ; if [[ "$result" -gt 0 ]] ; then
           $rvm_scripts_path/log "error" "There has been an error while fetching the rbx git repo. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
@@ -562,17 +553,7 @@ RubyWrapper
 
       rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version"
 
-      builtin cd $rvm_src_path
-
-      if [[ ! -d "$rvm_ruby_src_path" ]] || [[ ! -d "$rvm_ruby_src_path/.git" ]] ; then
-        rm -rf $rvm_ruby_src_path $rvm_ruby_repo_path
-        __rvm_run "mput.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_url"
-        __rvm_run "mput.copy" "cp -R \"$rvm_ruby_repo_path\" \"$rvm_ruby_src_path\"" "Copying from repo to source..."
-        builtin cd $rvm_ruby_src_path
-      else
-        builtin cd $rvm_ruby_src_path
-        __rvm_run "mput.repo" "git pull origin trunk" "Pulling from origin trunk"
-      fi
+      __rvm_fetch_from_github "mput" "trunk"
 
       if [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
         if command -v autoconf &> /dev/null ; then
@@ -648,6 +629,21 @@ RubyWrapper
   if [[ ! -z "$ruby_options" ]] ; then RUBYOPT=$ruby_options ; export RUBYOPT ; fi
 }
 
+__rvm_fetch_from_github() {
+  rm -rf "$rvm_ruby_src_path"
+  if [[ ! -d "$rvm_ruby_repo_path/.git" ]] ; then
+    rm -rf "$rvm_ruby_repo_path" 
+    builtin cd "$rvm_home"
+    __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_url"
+  else
+    local branch="${2:-"master"}"
+    builtin cd "$rvm_ruby_repo_path"
+    __rvm_run "$1.repo" "git pull origin $branch" "Pulling from origin $branch"
+  fi
+  __rvm_run "$1.copy" "cp -R \"$rvm_ruby_repo_path\" \"$rvm_ruby_src_path\"" "Copying from repo to source..."
+  builtin cd "$rvm_ruby_src_path"
+}
+
 __rvm_fetch_ruby() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
@@ -697,7 +693,7 @@ __rvm_fetch_ruby() {
         builtin cd $rvm_ruby_repo_path
         if [[ -z "$rvm_ruby_revision" ]] ; then
           $rvm_scripts_path/log "info" "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
-          git pull origin master
+          git pull origin master --force
           result=$? ; if [[ "$result" -gt 0 ]] ; then
             $rvm_scripts_path/log "error" "There has been an error while trying to update the source from the remote repository. Aborting the installation." ; __rvm_pushpop ; return $result
           fi
@@ -712,8 +708,9 @@ __rvm_fetch_ruby() {
           fi
         fi
       else
+        rm -rf "$rvm_ruby_repo_path"
         $rvm_scripts_path/log "info" "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
-        git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path
+        git clone --depth 1 "$rvm_ruby_repo_url" "$rvm_ruby_repo_path"
         result=$? ; if [[ "$result" -gt 0 ]] ; then
           $rvm_scripts_path/log "error" "There has been an error while trying to fetch the repository. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
@@ -760,7 +757,8 @@ __rvm_fetch_ruby() {
 
     fi
     $rvm_scripts_path/log "info" "Copying from repo to src path..."
-    cp -r "$rvm_ruby_repo_path" "$rvm_ruby_src_path"
+    rm -rf "$rvm_ruby_src_path"
+    cp -R "$rvm_ruby_repo_path" "$rvm_ruby_src_path"
   fi
 }
 
