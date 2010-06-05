@@ -108,6 +108,28 @@ __rvm_run() {
   unset log_file command
 }
 
+# Runs a command in a given env.
+__rvm_run_with_env() {
+  log_file_name="$1" ; env_name="$2" ; command="$3" ; message="$4"
+  if [[ -z "$env_name" ]]; then env_name="$(__rvm_environment_identifier)"; fi
+  if [[ -z "$rvm_ruby_log_path" ]] ; then rvm_ruby_log_path="$rvm_log_path" ; fi
+  if [[ ! -z "$message" ]] ; then $rvm_scripts_path/log "info" "$message" ; fi
+  if [[ ! -z "$rvm_debug_flag" ]] ; then
+    $rvm_scripts_path/log "debug" "Executing: $command in environment "$env_name""
+  fi
+
+  mkdir -p "$(dirname "$rvm_ruby_log_path/$log_file_name.log")"
+  touch "$rvm_ruby_log_path/$log_file_name.log" "$rvm_ruby_log_path/$log_file_name.error.log" # for zsh :(
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command # under $env_name" | tee "$rvm_ruby_log_path/$log_file_name.log" >> "$rvm_ruby_log_path/$log_file_name.error.log"
+  if [[ -z "$rvm_niceness" ]] || [[ "0" = "$rvm_niceness" ]] ; then
+    eval "__rvm_with_env '$env_name' '$command'" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
+  else
+    eval "nice -n $rvm_niceness __rvm_with_env '$env_name' '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
+  fi
+  if [[ $? -gt 0 ]] ; then $rvm_scripts_path/log "error" "Error running '$command' under $env_name, please check $rvm_ruby_log_path/$log_file_name*.log" ; __rvm_pushpop ; return 1 ; fi
+  unset log_file command env_name
+}
+
 # Unset both rvm variables as well as ruby-specific variables
 # Preserve gemset if 'rvm_sticky' is set (persist gemset unless clear is explicitely called).
 __rvm_cleanup_variables() {
@@ -121,6 +143,11 @@ __rvm_cleanup_variables() {
 # Unset ruby-specific variables
 __rvm_unset_ruby_variables() {
   unset rvm_ruby_interpreter rvm_ruby_version rvm_url rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_release_version rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure rvm_ruby_mode rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_gem_path rvm_ruby_name rvm_ruby_alias rvm_ruby_strings rvm_ruby_repo_path
+}
+
+# Usage: __rvm_with_env 'env-name' 'command'
+__rvm_with_env() {
+  ( source $rvm_scripts_path/rvm; rvm use $1 && eval "$2" )
 }
 
 __rvm_set_rvmrc() {
