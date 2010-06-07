@@ -101,7 +101,7 @@ __rvm_install_source() {
 }
 
 __rvm_install_ruby() {
-  
+
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   if [[ ! -z "$RUBYOPT" ]] ; then ruby_options="$RUBYOPT" ; unset RUBYOPT ; fi
@@ -629,7 +629,7 @@ RubyWrapper
 __rvm_fetch_from_github() {
   rm -rf "$rvm_ruby_src_path"
   if [[ ! -d "$rvm_ruby_repo_path/.git" ]] ; then
-    rm -rf "$rvm_ruby_repo_path" 
+    rm -rf "$rvm_ruby_repo_path"
     builtin cd "$rvm_home"
     __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_url"
   else
@@ -812,16 +812,56 @@ __rvm_remove_ruby() {
 
     done ; unset dir
     __rvm_remove_gemsets
+    __rvm_remove_archives
+    __rvm_remove_aliases
+    __rvm_remove_wrappers
+    __rvm_remove_environments
   else
-    $rvm_scripts_path/log "fail" "Cannot uninstall unknown package '$rvm_ruby_string'"
+    $rvm_scripts_path/log "fail" "Cannot remove unknown package '$rvm_ruby_string'"
   fi ; unset rvm_remove_flag
 }
 
 __rvm_remove_gemsets() {
+  $rvm_scripts_path/log "info" "Removing $rvm_ruby_string gemsets..."
   if [[ ! -z "$rvm_gems_flag" ]] ; then
-    if [[ -d "$rvm_gems_path/${rvm_ruby_string}${rvm_gemset_separator}${rvm_gemset_name}" ]] ; then
-      rm -rf $rvm_gems_path/${rvm_ruby_string}*
-    fi
+    gemsets="$rvm_gems_path/$rvm_ruby_string $(ls -d "${rvm_gems_path}"/* | awk '/'$rvm_ruby_string'@/')"
+    for gemset in $gemsets ; do
+      if [[ -d "$gemset" ]] ; then
+        rm -rf "$gemset"
+      fi
+    done ; unset gemset gemsets
+  fi
+}
+
+__rvm_remove_wrappers() {
+  $rvm_scripts_path/log "info" "Removing $rvm_ruby_string wrappers..."
+  wrappers="$rvm_wrappers_path/$rvm_ruby_string $(ls -d "$rvm_wrappers_path"/* | awk '/'$rvm_ruby_string'@/')"
+  for wrapper in $wrappers ; do
+    rm -rf "$wrapper"
+  done ; unset wrapper wrappers
+}
+__rvm_remove_environments() {
+  $rvm_scripts_path/log "info" "Removing $rvm_ruby_string environments..."
+  environments="$rvm_environments_path/$rvm_ruby_string $(ls -d "$rvm_environments_path"/* | awk '/'$rvm_ruby_string'@/')"
+  for environment in $environments ; do
+    rm -rf "$environment"
+  done ; unset environment environments
+}
+__rvm_remove_aliases() {
+  $rvm_scripts_path/log "info" "Removing $rvm_ruby_string aliases..."
+  aliases=$(awk '/'$rvm_ruby_string'/' $rvm_config_path/alias)
+  for alias_name in $aliases ; do
+    # Remove from alias key-value store
+    $rvm_scripts_path/db $rvm_config_path/alias $alias_name delete
+    # Remove the place holding symlink
+    rm -f $rvm_rubies_path/$alias_name
+  done ; unset alias_name aliases
+}
+
+__rvm_remove_archives() {
+  $rvm_scripts_path/log "info" "Removing $rvm_ruby_string archives..."
+  if [[ ! -z "$rvm_archive_flag" ]] ; then
+    rm -f $rvm_archives_path/${rvm_ruby_package_file}.${rvm_archive_extension}
   fi
 }
 
