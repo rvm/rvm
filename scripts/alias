@@ -10,6 +10,23 @@ source $rvm_scripts_path/initialize
 source $rvm_scripts_path/utility
 source $rvm_scripts_path/selector
 
+alias_conflicts_with_ruby() {
+  # Open for suggestions to a better way of doing this...
+  alias_check_result="$(
+    . $rvm_scripts_path/initialize
+    . $rvm_scripts_path/selector
+    export rvm_ruby_string="$1"
+    __rvm_ruby_string > /dev/null 2>&1
+    echo "$?"
+  )"
+  if [[ "0" == "$alias_check_result" ]]; then
+    $rvm_scripts_path/log "error" "You are attempted to create an alias called '$1', which is recognized as a rvm ruby."
+    return 0
+  fi
+  return 1
+  unset alias_check_result
+}
+
 show_alias() {
   if [[ -z "$alias_name" ]]; then
     $rvm_scripts_path/log "error" "usage: 'rvm alias show [alias_name]'"
@@ -36,6 +53,10 @@ delete_alias() {
 }
 
 create_alias() {
+  if alias_conflicts_with_ruby "$alias_name"; then
+    # Force it to an empty alias name to trigger the usage.
+    alias_name=""
+  fi
   if [[ -z "$rvm_environment_identifier" ]] || [[ -z "$alias_name" ]] ; then
     $rvm_scripts_path/log "error" "usage: 'rvm alias [alias_name] [ruby_string]'"
     result=1
