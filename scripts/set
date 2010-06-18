@@ -8,50 +8,63 @@ if [[ ! -z "$rvm_trace_flag" ]] ; then set -x ; export rvm_trace_flag ; fi
 
 trap "if [[ -d $rvm_tmp_path/ ]] && [[ -s $rvm_tmp_path/$$ ]] ; then rm -f $rvm_tmp_path/$$ > /dev/null 2>&1 ; fi ; exit" 0 1 2 3 15
 
-action="$1" ; shift
-args="$*"
-if [[ -z "$action" ]] ; then
+if [[ -z "$1" ]] ; then
   $rvm_scripts_path/log "error" "Action must be specified."
   exit 1
 fi
+
+action="$1" ; shift
+args="$*"
+
+__rvm_attempt_single_exec() {
+  # Return if we have multiple rubies. or we're not running exec.
+  if [[ "$action" != "exec" ]] || $rvm_scripts_path/match "$rvm_ruby_strings" ' '; then
+    return 1
+  fi
+  exec $args
+}
 
 # Perform an action using one of a selected ruby's specified binaries.
 __rvm_ruby_do() {
   # Return on invalid rubies.
   __rvm_become || return 1
-
-  binary="$(echo $action | sed 's#do$##')"
-  if [[ -x "$rvm_ruby_home/bin/$binary" ]] ; then
-    binary="$rvm_ruby_home/bin/$binary"
-  elif [[ -x "$rvm_ruby_global_gems_path/bin/$binary" ]] ; then
-    binary="$rvm_ruby_global_gems_path/bin/$binary"
-  elif [[ -x "$rvm_ruby_gem_home/bin/$binary" ]] ; then
-    binary="$rvm_ruby_gem_home/bin/$binary"
-  elif [[ "system" = "$rvm_ruby_string" ]] && [[ -x "$(command -v $binary)" ]] ; then
-    binary="$(basename $(command -v $binary) 2>/dev/null)"
+  if [[ "$action" = "exec" ]]; then
+    # Exec is a special case.
+    rvm_command="$args"
   else
-    $rvm_scripts_path/log "warn" "'$binary not found for $rvm_ruby_string' either does not exist or is not executable? :("
-    __rvm_unset_ruby_variables
-    return 1
-  fi
-
-  if [[ ! -z "$rvm_ruby_mode" ]] ; then
-    rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_mode}"
-    rvm_ruby_mode="--$(echo "$rvm_ruby_mode" | sed 's/^m//')"
-  fi
-
-  load_path="$(dirname $(command -v $binary) 2>/dev/null):$rvm_ruby_load_path"
-  # TODO: the else case below should be run if $args =~ /\.rb$/
-  if [[ "ruby" = "$(basename $binary)" ]] && [[ "$rvm_benchmark_flag" -ne 1 ]] ; then
-    if $rvm_scripts_path/match "$args" "\.rb$" ; then
-      if [[ -z "$prefix" ]] ; then prefix="-S" ; fi
-      if ! $rvm_scripts_path/match "$args" "$prefix" ; then
-        args="$prefix $args"
-      fi
+    binary="$(echo $action | sed 's#do$##')"
+    if [[ -x "$rvm_ruby_home/bin/$binary" ]] ; then
+      binary="$rvm_ruby_home/bin/$binary"
+    elif [[ -x "$rvm_ruby_global_gems_path/bin/$binary" ]] ; then
+      binary="$rvm_ruby_global_gems_path/bin/$binary"
+    elif [[ -x "$rvm_ruby_gem_home/bin/$binary" ]] ; then
+      binary="$rvm_ruby_gem_home/bin/$binary"
+    elif [[ "system" = "$rvm_ruby_string" ]] && [[ -x "$(command -v $binary)" ]] ; then
+      binary="$(basename $(command -v $binary) 2>/dev/null)"
+    else
+      $rvm_scripts_path/log "warn" "'$binary not found for $rvm_ruby_string' either does not exist or is not executable? :("
+      __rvm_unset_ruby_variables
+      return 1
     fi
-    rvm_command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path $args"
-  else
-    rvm_command="$binary $rvm_ruby_mode $args"
+
+    if [[ ! -z "$rvm_ruby_mode" ]] ; then
+      rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_mode}"
+      rvm_ruby_mode="--$(echo "$rvm_ruby_mode" | sed 's/^m//')"
+    fi
+
+    load_path="$(dirname $(command -v $binary) 2>/dev/null):$rvm_ruby_load_path"
+    # TODO: the else case below should be run if $args =~ /\.rb$/
+    if [[ "ruby" = "$(basename $binary)" ]] && [[ "$rvm_benchmark_flag" -ne 1 ]] ; then
+      if $rvm_scripts_path/match "$args" "\.rb$" ; then
+        if [[ -z "$prefix" ]] ; then prefix="-S" ; fi
+        if ! $rvm_scripts_path/match "$args" "$prefix" ; then
+          args="$prefix $args"
+        fi
+      fi
+      rvm_command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path $args"
+    else
+      rvm_command="$binary $rvm_ruby_mode $args"
+    fi
   fi
 
   if [[ ! -z "$rvm_json_flag" ]] || [[ ! -z "$rvm_yaml_flag" ]] || [[ ! -z "$rvm_summary_flag" ]] ; then
@@ -147,7 +160,12 @@ __rvm_json() {
 rubies=() ; successes=() ; errors=() ; statuses=()
 
 rvm_ruby_strings="${rvm_ruby_strings:-"$($rvm_scripts_path/list strings)"}"
-for rvm_ruby_string in $(echo "$rvm_ruby_strings" | tr ',' ' ') ; do
+rvm_ruby_strings="$(echo "$rvm_ruby_strings" | tr ',' ' ')"
+
+# Check for a single ruby && exec if present.
+__rvm_attempt_single_exec
+
+for rvm_ruby_string in ${rvm_ruby_strings} ; do
   __rvm_ruby_do
 done
 
