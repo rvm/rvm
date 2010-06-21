@@ -258,13 +258,11 @@ RubyWrapper
 
     rbx|rubinius)
       $rvm_scripts_path/log "info" "Installing pre-requisites"
-      # prereqs, 1.8.6+ + rake. Yes this could all be one line... not pushing our luck.
-      original_string="$rvm_ruby_string"
-      export rvm_install_on_use_flag=1 ; $rvm_bin_path/rvm 1.8.7 --install # This should install if missing.
+
+      # Ensure we have a 1.8.7 compatible ruby installed.
+      __rvm_ensure_has_18_compat_ruby || return 1
       # TODO: use 'rvm gems load' here:
       unset CFLAGS LDFLAGS ARCHFLAGS # Important.
-      __rvm_unset_ruby_variables ; rvm_ruby_string="$original_string" ; __rvm_select
-      unset original_string
 
       unset BUNDLE_PATH GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
       PATH=$(echo $PATH | tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)
@@ -296,7 +294,7 @@ RubyWrapper
 
       __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
 
-      export ruby="$rvm_bin_path/ruby-1.8.7-p$(__rvm_db "ruby_1.8.7_patch_level")"
+      export ruby="$rvm_bin_path/$(__rvm_18_compat_ruby)"
 
       rvm_ruby_configure_flags="${rvm_ruby_configure_flags:-"--skip-system"}"
       rvm_ruby_configure="$ruby configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_ruby_configure_flags" ; message="Configuring rbx"
@@ -399,7 +397,7 @@ RubyWrapper
     ;;
 
     maglev)
-      export rvm_install_on_use_flag=1 ; $rvm_bin_path/rvm 1.8.7 --install # This should install if missing.
+      __rvm_ensure_has_18_compat_ruby
 
       $rvm_scripts_path/log "info" "Running MagLev prereqs checking script."
       $rvm_scripts_path/maglev
@@ -469,17 +467,21 @@ RubyWrapper
       fi
 
       #ln -fs "$rvm_ruby_home/$(echo $rvm_gemstone_package_file | awk -F'.' '{print $1}')" "$rvm_ruby_home/gemstone"
+      
+      compatible_ruby="$(__rvm_18_compat_ruby)"
 
       if [[ ! -e ${rvm_ruby_home}/etc/conf.d/maglev.conf ]] ; then
         $rvm_scripts_path/log "info" "Creating default 'maglev' repository."
-        $rvm_bin_path/rvm 1.8.7 rake "stone:create[maglev]" >/dev/null 2>&1
+        $rvm_bin_path/rvm "$(compatible_ruby)" rake "stone:create[maglev]" >/dev/null 2>&1
       fi
 
       $rvm_scripts_path/log "info" "Generating maglev HTML documentation"
-      $rvm_bin_path/rvm 1.8.7 rake rdoc >/dev/null 2>&1
+      $rvm_bin_path/rvm "$(compatible_ruby)" rake rdoc >/dev/null 2>&1
 
       $rvm_scripts_path/log "info" "Generating smalltalk FFI."
-      $rvm_bin_path/rvm 1.8.7 rake stwrappers >/dev/null 2>&1
+      $rvm_bin_path/rvm "$(compatible_ruby)" rake stwrappers >/dev/null 2>&1
+
+      unset compatible_ruby
 
       # TODO: Figure out if anything needs to be done with rubygems.
       #__rvm_rubygems_setup
@@ -508,15 +510,20 @@ RubyWrapper
             return 1
           fi
 
+          __rvm_ensure_has_18_compat_ruby
+
           __rvm_fetch_ruby
           if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
           builtin cd $rvm_ruby_src_path
 
-          $rvm_bin_path/rvm 1.8.7 -S gem install pathname2 --no-rdoc --no-ri
+          compatible_ruby="$(__rvm_18_compat_ruby)"
+
+          $rvm_bin_path/rvm "$(compatible_ruby)" -S gem install pathname2 --no-rdoc --no-ri
 
           # MONO_LIB=/Library/Frameworks/Mono.framework/Versions/current/lib/
-          rvm_ruby_make="$rvm_bin_path/rvm 1.8.7 -S rake MERLIN_ROOT=\"$rvm_ruby_src_path/Merlin/Main\" compile mono=1 configuration=release --trace"
+          rvm_ruby_make="$rvm_bin_path/rvm $(compatible_ruby) -S rake MERLIN_ROOT=\"$rvm_ruby_src_path/Merlin/Main\" compile mono=1 configuration=release --trace"
           __rvm_run "rake" "$rvm_ruby_make" "Building IronRuby..."
+          unset compatible_ruby
           if [[ $? -gt 0 ]] ; then result=$? ; return $result ; fi
 
           rm -rf $rvm_ruby_home/*
@@ -1064,12 +1071,12 @@ __rvm_actual_file() {
 }
 
 __rvm_manage_rubies() {
-  rubies=() ; successes=() ; errors=() ; statuses=()
-
   unset rvm_gemset_name rvm_ruby_selected_flag
 
   rvm_ruby_gem_home=$(echo $rvm_ruby_gem_home | awk -F${rvm_gemset_separator} '{print $1}')
   rvm_ruby_string=$(echo $rvm_ruby_string | awk -F${rvm_gemset_separator} '{print $1}')
+
+  local manage_result=0
 
   if [[ ! -z "$rubies_string" ]] ;then
     for rvm_ruby_string in $(echo $rubies_string | tr ',' ' ') ; do
@@ -1091,9 +1098,9 @@ __rvm_manage_rubies() {
     fi
   fi
 
-  if [[ ! -z "$rvm_summary_flag" ]] ; then __rvm_summary ; fi
-  if [[ ! -z "$rvm_yaml_flag" ]]    ; then __rvm_yaml    ; fi
-  if [[ ! -z "$rvm_json_flag" ]]    ; then __rvm_json    ; fi
+  # TODO: This should return the exit status of the command that got called.
+  return $manage_result
+
 }
 
 rvm_action="$1" ; rubies_string="$2"
