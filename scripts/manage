@@ -952,7 +952,20 @@ __rvm_rubygems_setup() {
 
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
     __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
-    ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/${rvm_release_version}.$rvm_major_version"
+
+    directory_name="$rvm_ruby_home/lib/ruby/gems"
+    version_number="${rvm_release_version}.${rvm_major_version}"
+    if [[ "$version_number" == "." ]]; then
+      version_number="$(ls "$directory_name" | grep '^[[:digit:]].[[:digit:]]\(.[[:digit:]]\)\?' | head -n1)"
+      if [[ -n "$version_number" ]]; then
+        ruby_lib_gem_path="${directory_name}/${version_number}"
+      else
+        ruby_lib_gem_path=""
+      fi
+    else
+      ruby_lib_gem_path="${directory_name}/${version_number}"
+    fi
+    unset directory_name version_number
   elif [[ ! -z "$(echo $rvm_ruby_interpreter | awk '/^rbx|jruby/')" ]] ; then
     # Hands off rubygems for rbx & jruby
     if [[ ! -z "$rvm_debug_flag" ]] ; then $rvm_scripts_path/log "debug" "Skipping rubygems update for $rvm_ruby_version" ; fi
@@ -964,7 +977,6 @@ __rvm_rubygems_setup() {
     rvm_rubygems_url=$(__rvm_db "rubygems_${rvm_rubygems_version}_url")
     rvm_gem_package_name="rubygems-$rvm_rubygems_version"
     rvm_gem_url="$rvm_rubygems_url/$rvm_gem_package_name.tgz"
-
     # Sanity check... If setup.rb is missing from the rubygems source path,
     # something went wrong. Cleanup, aisle 3!
     if [[ ! -f "$rvm_src_path/$rvm_gem_package_name/setup.rb" ]]; then
@@ -1000,14 +1012,12 @@ __rvm_rubygems_setup() {
     fi
   fi
 
-  # Add ruby's gem path to ruby's lib direcotry.
-  mkdir -p $(dirname $ruby_lib_gem_path)
-
-  if [[ -d "$ruby_lib_gem_path" ]] ; then rm -rf "$ruby_lib_gem_path" ; fi
-
-  ln -nfs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
-
-  unset ruby_lib_gem_path
+  if [[ -n "$ruby_lib_gem_path" ]]; then
+    # Add ruby's gem path to ruby's lib direcotry.
+    mkdir -p $(dirname $ruby_lib_gem_path)
+    if [[ -d "$ruby_lib_gem_path" ]] ; then rm -rf "$ruby_lib_gem_path" ; fi
+    ln -nfs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
+  fi; unset ruby_lib_gem_path
 
   if [[ -s "$rvm_ruby_src_path/bin/rdoc" ]] ; then
     __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/rdoc"
