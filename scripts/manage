@@ -841,14 +841,15 @@ __rvm_remove_ruby() {
     __rvm_remove_aliases
     __rvm_remove_wrappers
     __rvm_remove_environments
+    __rvm_remove_binaries
   else
     $rvm_scripts_path/log "fail" "Cannot remove unknown package '$rvm_ruby_string'"
   fi ; unset rvm_remove_flag
 }
 
 __rvm_remove_gemsets() {
-  $rvm_scripts_path/log "info" "Removing $rvm_ruby_string gemsets..."
   if [[ ! -z "$rvm_gems_flag" ]] ; then
+    $rvm_scripts_path/log "info" "Removing $rvm_ruby_string gemsets..."
     gemsets="$rvm_gems_path/$rvm_ruby_string $(ls -d "${rvm_gems_path}"/* | awk '/'$rvm_ruby_string'@/')"
     for gemset in $gemsets ; do
       if [[ -d "$gemset" ]] ; then
@@ -860,11 +861,12 @@ __rvm_remove_gemsets() {
 
 __rvm_remove_wrappers() {
   $rvm_scripts_path/log "info" "Removing $rvm_ruby_string wrappers..."
-  wrappers="$rvm_wrappers_path/$rvm_ruby_string $(ls -d "$rvm_wrappers_path"/* | awk '/'$rvm_ruby_string'@/')"
+  wrappers="$rvm_wrappers_path/$rvm_ruby_string $(ls -d "$rvm_wrappers_path"/* 2>/dev/null | awk '/'$rvm_ruby_string'@/')"
   for wrapper in $wrappers ; do
     rm -rf "$wrapper"
   done ; unset wrapper wrappers
 }
+
 __rvm_remove_environments() {
   $rvm_scripts_path/log "info" "Removing $rvm_ruby_string environments..."
   environments="$rvm_environments_path/$rvm_ruby_string $(ls -d "$rvm_environments_path"/* | awk '/'$rvm_ruby_string'@/')"
@@ -872,22 +874,33 @@ __rvm_remove_environments() {
     rm -rf "$environment"
   done ; unset environment environments
 }
+
 __rvm_remove_aliases() {
   $rvm_scripts_path/log "info" "Removing $rvm_ruby_string aliases..."
-  aliases=$(awk '/'$rvm_ruby_string'/' $rvm_config_path/alias)
+  aliases=$(awk '/'$rvm_ruby_string'/' $rvm_config_path/alias | sed 's/=.*//')
   for alias_name in $aliases ; do
     # Remove from alias key-value store
-    $rvm_scripts_path/db $rvm_config_path/alias $alias_name delete
-    # Remove the place holding symlink
-    rm -f $rvm_rubies_path/$alias_name
+    $rvm_scripts_path/alias delete "$alias_name" >/dev/null 2>&1
   done ; unset alias_name aliases
 }
 
 __rvm_remove_archives() {
-  $rvm_scripts_path/log "info" "Removing $rvm_ruby_string archives..."
   if [[ ! -z "$rvm_archive_flag" ]] ; then
+    $rvm_scripts_path/log "info" "Removing $rvm_ruby_string archives..."
     rm -f $rvm_archives_path/${rvm_ruby_package_file}.${rvm_archive_extension}
   fi
+}
+
+__rvm_remove_binaries() {
+  $rvm_scripts_path/log "info" "Removing $rvm_ruby_string binaries..."
+  # Iterate over all binaries and check for symlinked wrappers etc.
+  for binary_name in $(ls "$rvm_bin_path"); do
+    full_binary_path="$rvm_bin_path/$binary_name"
+    if [[ -L "$full_binary_path" ]] && $rvm_scripts_path/match "$(readlink "$full_binary_path")" "$rvm_ruby_string"; then
+      rm -f "$full_binary_path"
+    fi
+    unset full_binary_path
+  done; unset binary_name
 }
 
 __rvm_post_install() {
