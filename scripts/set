@@ -22,7 +22,7 @@ __rvm_attempt_single_exec() {
 # Perform an action using one of a selected ruby's specified binaries.
 __rvm_ruby_do() {
   # Return on invalid rubies.
-  __rvm_become || return 1
+  __rvm_become "$current_set_ruby" || return 1
   if [[ "$action" = "exec" ]]; then
     # Exec is a special case.
     rvm_command="$args"
@@ -68,7 +68,12 @@ __rvm_ruby_do() {
     eval "$rvm_command" >> ./log/$rvm_ruby_string/$action.log 2>> ./log/$rvm_ruby_string/$action.error.log
   else
     if [[ "$rvm_verbose_flag" != "0" ]] ; then
-      $rvm_scripts_path/log "info" "$rvm_ruby_string: $(ruby -v $rvm_ruby_mode | tr "\n" ' ')\n"
+      current_env="$(__rvm_environment_identifier)"
+      if [[ "$current_env" != "$current_set_ruby" ]]; then
+        current_env="$current_set_ruby ($current_env)"
+      fi
+      $rvm_scripts_path/log "info" "$current_env: $(ruby -v $rvm_ruby_mode | tr "\n" ' ')\n"
+      unset current_env
     fi
     eval "$rvm_command"
   fi
@@ -160,9 +165,9 @@ rvm_ruby_strings="$(echo "$rvm_ruby_strings" | tr ',' ' ')"
 # Check for a single ruby && exec if present.
 __rvm_attempt_single_exec
 
-for rvm_ruby_string in ${rvm_ruby_strings} ; do
+for current_set_ruby in ${rvm_ruby_strings} ; do
   __rvm_ruby_do
-done
+done; unset current_set_ruby
 
 if [[ ! -z "$rvm_summary_flag" ]] ; then __rvm_summary ; fi
 if [[ ! -z "$rvm_yaml_flag" ]]    ; then __rvm_yaml    ; fi
