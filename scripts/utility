@@ -182,7 +182,7 @@ __rvm_with_env() {
 # with things like rbx etc which require a ruby be installed.
 __rvm_18_compat_ruby() {
   rubies=""
-  for ruby_name in $(ls $rvm_rubies_path); do
+  for ruby_name in $(\ls $rvm_rubies_path); do
     if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] && $rvm_scripts_path/match "$ruby_name" '^(ruby-1.8.[[:digit:]]|rbx|ree)-'; then
       rubies="$rubies $ruby_name"
     fi
@@ -594,6 +594,14 @@ __rvm_gemset_select() {
 
   # Ensure that the ruby gem home exists.
   mkdir -p "$rvm_ruby_gem_home"
+  if [[ -n "$rvm_ruby_gem_home" ]] && echo "$rvm_ruby_gem_home" | grep -q 'rvm'; then
+    if __rvm_using_gemset_globalcache && [[ ! -L "$rvm_ruby_gem_home/cache" ]]; then
+      mv "$rvm_ruby_gem_home/cache/"*.gem "$rvm_gems_cache_path/" 2>/dev/null
+      rm -rf "$rvm_ruby_gem_home/cache"
+      ln -nfs "$rvm_gems_cache_path" "$rvm_ruby_gem_home/cache"
+    fi
+  fi
+
   export rvm_ruby_gem_path rvm_ruby_gem_home
 }
 
@@ -697,6 +705,18 @@ __rvm_ensure_has_enviroment_files() {
       $rvm_scripts_path/wrapper "$environment_identifier" &> /dev/null
     fi
     unset rvm_creating_default_wrappers directory_name
+  fi
+}
+
+__rvm_using_gemset_globalcache() {
+  $rvm_scripts_path/db "$rvm_config_path/user" "use_gemset_globalcache" | grep -q '^true$'
+}
+
+__rvm_current_gemcache_dir() {
+  if __rvm_using_gemset_globalcache; then
+    echo "$rvm_gems_cache_path"
+  else
+    echo "${rvm_ruby_gem_home:-"$GEM_HOME"}/cache"
   fi
 }
 
