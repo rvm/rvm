@@ -19,6 +19,8 @@ rvm_docs_target_man_dir=${rvm_base_dir}/man
 mkdir -p ${rvm_tmp_dir}
 mkdir -p ${rvm_docs_target_man_dir}
 
+echo "Starting doc generation run through."
+
 # processing manpages
 find ${rvm_docs_src_dir} -type f -name *.txt | while read i; do
     _manpage_file="${i}"
@@ -43,10 +45,16 @@ find ${rvm_docs_src_dir} -type f -name *.txt | while read i; do
     _manpage_dir=${rvm_docs_target_man_dir}/man${_manpage_name_part}
     mkdir -p ${_manpage_dir}
 
+    echo "Generating docbook format from source file for $_manpage_name"
     asciidoc -d manpage -b docbook -o "${rvm_tmp_dir}/${_manpage_name}.dbk" ${_manpage_file}
-    (cd ${rvm_tmp_dir}; docbook2man "${rvm_tmp_dir}/${_manpage_name}.dbk")
+    pushd "$rvm_tmp_dir" >/dev/null 2>&1
+    echo "Generating manpage from docbook file."
+    docbook2man "${rvm_tmp_dir}/${_manpage_name}.dbk"
+    popd >/dev/null 2>&1
+    echo "Moving manpage to the the correct folder"
     mv "${rvm_tmp_dir}/${_manpage_name}" "${_manpage_dir}"
     # compression is optional, but gzip check added for neatness
+    echo "If gzip is available, compressing"
     [[ `which gzip` ]] && gzip -f "${_manpage_dir}/${_manpage_name}"
 done
 
