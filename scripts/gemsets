@@ -5,6 +5,26 @@ source "$rvm_scripts_path/base"
 rvm_ruby_gem_home="${rvm_ruby_gem_home:-$GEM_HOME}"
 if [[ ! -d "$rvm_ruby_gem_home" ]] && command -v gem > /dev/null 2>&1; then rvm_ruby_gem_home="$(gem env home)" ; fi
 
+usage() {
+  printf "Usage: 'rvm gemset action'\n"
+  printf "       where action is one of: {import,export,create,copy,empty,delete,name,dir,list,gemdir,install,pristine,clear,use,update}\n"
+  printf "\n"
+  printf "       Tools for working with and manipulating gemsets within rvm.\n"
+  exit 1
+}
+
+gemset_update() {
+  if [[ -z "$rvm_ruby_strings" ]]; then
+    $rvm_scripts_path/log "info" "Running gem update for all rubies and gemsets."
+    rvm_ruby_strings="$(ls "$rvm_gems_path" | grep -v '^\(doc\|cache\|@\|system\)' | tr '\n' ',')"
+  else
+    $rvm_scripts_path/log "info" "Running gem update for the specified rubies."
+  fi
+  export rvm_ruby_strings
+  $rvm_scripts_path/set "gem" "update"
+  return $?
+}
+
 gemset_name() {
   gemset_dir |  awk -F${rvm_gemset_separator} '{print $2}'
 }
@@ -400,11 +420,13 @@ elif [[ "initial" = "$action" ]] ; then
   gemset_initial
 elif [[ "prune" = "$action" ]] ; then
   gemset_prune
+elif [[ "update" = "$action" ]]; then
+  gemset_update
 elif [[ "clear" = "$action" ]] ; then
   $rvm_scripts_path/log "info" "gemset cleared."
   exit 0
 else
-  $rvm_scripts_path/log "error" "Unrecognized gemset action '$action'.\n\nValid gems actions are: {import,export,create,copy,empty,delete,name,dir,list,gemdir,install,pristine,clear}"
+  usage
 fi
 
 exit $?
