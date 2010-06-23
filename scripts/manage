@@ -15,6 +15,54 @@ __rvm_check_for_bison() {
   fi
 }
 
+__rvm_lookup_full_patch_path() {
+  # Absolute path, pwd and then finally the rvm patches path.
+  for directory in "" "$rvm_patch_original_pwd/" "$PWD/" "$rvm_patches_path/"; do
+    for extension in "" ".patch" ".patch"; do
+      patch_path="${directory}${1}${extension}"
+      if [[ -s "$patch_path" ]]; then
+        echo "$patch_path"
+        return
+      fi
+    done; unset extension patch_path
+  done; unset directory
+  return 1
+}
+
+__rvm_current_patch_names() {
+  # TODO: Lookup default patches on rvm_ruby_string heirarchy.
+  local patches="$rvm_patch_names"
+  echo "$patches" | tr ',' ' ' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]]\{1,\}/ /'
+}
+
+__rvm_apply_patches() {
+  local patch_result=0
+  local patch_level_seperator="%"
+  local patch_fuzziness="25"
+  source_directory="${1:-"$rvm_ruby_src_path"}"
+  __rvm_pushpop "$source_directory"
+  unset source_directory
+  for patch_name in $(__rvm_current_patch_names); do
+    patch_level=0
+    # If set, extract the patch level from the patch name.
+    if echo "$patch_name" | grep -q "$patch_level_seperator"; then
+      patch_name="$(echo "$patch_name" | awk -F"$patch_level_seperator" '{print $1}')"
+      patch_level="$(echo "$patch_name" | awk -F"$patch_level_seperator" '{print $2}')"
+    fi
+    full_patch_path="$(__rvm_lookup_full_patch_path "$patch_name")"
+    if [[ -n "$full_patch_path" ]]; then
+      __rvm_run "patch.apply.$(basename "$patch_name")" "patch -F$patch_fuzziness -p$patch_level -f < '$full_patch_path'" "Applying patch '$patch_name' (located at $full_patch_path)"
+      # Detect failed patches
+      [[ "$?" -gt 0 ]] && patch_result=1
+    else
+      $rvm_scripts_path/log "warn" "Patch '$patch_name' not found."
+      patch_result=1
+    fi
+  done; unset patch_name full_patch_path patch_level
+  __rvm_pushpop
+  return $patch_result
+}
+
 __rvm_install_source() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
@@ -29,11 +77,19 @@ __rvm_install_source() {
   fi
 
   builtin cd $rvm_ruby_src_path
+
   result=$? ; if [[ "$result" -gt 0 ]] ; then
     $rvm_scripts_path/log "error" "There has been an error, source directory is missing. Did the download or extraction fail? Aborting the installation." ; __rvm_pushpop ; return $result
   fi
 
   if [[ -d "${rvm_path}/usr" ]] ; then export PATH="${rvm_path}/usr/bin:${PATH}" ; fi
+
+  __rvm_apply_patches
+  result="$?"
+  if [[ "$result" -gt 0 ]]; then
+    $rvm_scripts_path/log "fail" "There has been an error applying the specified patches. Aborting the installation."
+    return $result
+  fi
 
   if [[ -z "$rvm_ruby_configure" ]] && [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
     if command -v autoconf > /dev/null ; then
@@ -59,27 +115,6 @@ __rvm_install_source() {
     fi ; unset configure_parameters db_configure_flags
   else
     $rvm_scripts_path/log "error" "Skipping configure step, 'configure' does not exist, did autoconf not run successfully?"
-  fi
-
-  if [[ ! -z "$rvm_ruby_patch" ]] ; then
-    for patch in $(echo $rvm_ruby_patch | tr ',' ' ') ; do
-      # detecting patch prefix (see '-p' option desc for 'patch')
-      # patch prefix is separated from patch path with '%' symbol
-      patch_prefix_separator='%'
-      # default prefix is 0
-      rvm_patch_prefix=0
-      # checking, if the patch file path has a prefix separator
-      patch_has_prefix=$(echo $patch | grep -q ${patch_prefix_separator}; echo $?)
-      if [[ "x${patch_has_prefix}" = "x0"  ]]; then
-        # so, if it has...
-        rvm_patch_prefix=$(echo $patch | cut -d ${patch_prefix_separator} -f 2)
-        patch=$(echo $patch | cut -d ${patch_prefix_separator} -f 1)
-      fi
-      __rvm_run "patch" "patch -p${rvm_patch_prefix} -f < $patch" "Applying patch '$patch'..."
-      if [[ $? -gt 0 ]] ; then
-        $rvm_scripts_path/log "error" "Patch $patch did not apply cleanly... back to the patching board :(" ; exit 1
-      fi
-    done
   fi
 
   rvm_ruby_make=${rvm_ruby_make:-"make"}
@@ -225,10 +260,15 @@ RubyWrapper
 
         __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
 
+        __rvm_apply_patches "$rvm_ruby_src_path/source"
+        result=$? ; if [[ "$result" -gt 0 ]] ; then
+          $rvm_scripts_path/log "error" "There has been an error while trying to apply patches to ree. Aborting the installation." ; __rvm_pushpop ; return $result
+        fi
+
         __rvm_run "install" "./installer -a $rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version-$rvm_ruby_patch_level $rvm_ree_options $db_configure_flags $rvm_ruby_configure_flags" "Installing $rvm_ruby_string, this may take a while, depending on your cpu(s)..."
-          result=$? ; if [[ "$result" -gt 0 ]] ; then
-            $rvm_scripts_path/log "error" "There has been an error while trying to run the ree installer. Aborting the installation." ; __rvm_pushpop ; return $result
-          fi
+        result=$? ; if [[ "$result" -gt 0 ]] ; then
+          $rvm_scripts_path/log "error" "There has been an error while trying to run the ree installer. Aborting the installation." ; __rvm_pushpop ; return $result
+        fi
 
         chmod +x $rvm_ruby_home/bin/*
 
@@ -285,6 +325,11 @@ RubyWrapper
       fi
 
       builtin cd "$rvm_ruby_src_path" ; chmod +x ./configure
+
+      __rvm_apply_patches
+      result=$? ; if [[ "$result" -gt 0 ]] ; then
+        $rvm_scripts_path/log "error" "There has been an error while trying to apply patches to rubinius. Aborting the installation." ; __rvm_pushpop ; return $result
+      fi
 
       __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
 
@@ -580,11 +625,16 @@ RubyWrapper
 
       __rvm_fetch_from_github "mput" "trunk"
 
+      __rvm_apply_patches
+      result=$? ; if [[ "$result" -gt 0 ]] ; then
+        $rvm_scripts_path/log "error" "There has been an error while trying to apply patches to mput. Aborting the installation." ; return $result
+      fi
+
       if [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
         if command -v autoconf &> /dev/null ; then
           __rvm_run "autoconf" "autoconf" "Running autoconf"
         else
-          $rvm_scripts_path/log "fail" "rvm expects autoconf to install this ruby interpreter, autoconf was not found in PATH. Aborting installation." ; result=$? ; return $result
+          result=$?; $rvm_scripts_path/log "fail" "rvm expects autoconf to install this ruby interpreter, autoconf was not found in PATH. Aborting installation." ; return $result
         fi
       fi
 
