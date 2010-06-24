@@ -4,6 +4,7 @@ original_ruby_version=$rvm_ruby_version
 original_ruby_string=$rvm_ruby_string
 
 source "$rvm_scripts_path/base"
+soutce "$rvm_scripts_path/patches"
 
 # Checks for bison, returns zero iff it is found
 __rvm_check_for_bison() {
@@ -15,24 +16,15 @@ __rvm_check_for_bison() {
   fi
 }
 
-__rvm_lookup_full_patch_path() {
-  # Absolute path, pwd and then finally the rvm patches path.
-  for directory in "" "$rvm_patch_original_pwd/" "$PWD/" "$rvm_patches_path/"; do
-    for extension in "" ".patch" ".patch"; do
-      patch_path="${directory}${1}${extension}"
-      if [[ -s "$patch_path" ]]; then
-        echo "$patch_path"
-        return
-      fi
-    done; unset extension patch_path
-  done; unset directory
-  return 1
-}
-
+# Returns a number of patches, each on a new name
+# Expands patchsets etc.
 __rvm_current_patch_names() {
   # TODO: Lookup default patches on rvm_ruby_string heirarchy.
-  local patches="$rvm_patch_names"
-  echo "$patches" | tr ',' ' ' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]]\{1,\}/ /'
+  local patches="$rvm_patch_names default"
+  for patch_name in $(echo "$patches" | tr ',' ' ' | __rvm_strip); do
+    # TODO: Resolve patches.
+    echo $patch_name
+  done
 }
 
 __rvm_apply_patches() {
@@ -46,10 +38,11 @@ __rvm_apply_patches() {
     patch_level=0
     # If set, extract the patch level from the patch name.
     if echo "$patch_name" | grep -q "$patch_level_seperator"; then
-      patch_name="$(echo "$patch_name" | awk -F"$patch_level_seperator" '{print $1}')"
       patch_level="$(echo "$patch_name" | awk -F"$patch_level_seperator" '{print $2}')"
+      patch_name="$(echo "$patch_name" | awk -F"$patch_level_seperator" '{print $1}')"
     fi
     full_patch_path="$(__rvm_lookup_full_patch_path "$patch_name")"
+    # Expand paths, and for those we found we then apply the patches.
     if [[ -n "$full_patch_path" ]]; then
       __rvm_run "patch.apply.$(basename "$patch_name")" "patch -F$patch_fuzziness -p$patch_level -f < '$full_patch_path'" "Applying patch '$patch_name' (located at $full_patch_path)"
       # Detect failed patches
