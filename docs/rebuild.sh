@@ -47,16 +47,18 @@ find ${rvm_docs_src_dir} -type f -name *.txt | while read rvm_manpage_file; do
     rvm_manpage_dir="$rvm_docs_target_man_dir/man$rvm_manpage_name_part"
     mkdir -p "$rvm_manpage_dir"
 
-    echo "Generating docbook format from source file for $rvm_manpage_name"
-    asciidoc -d manpage -b docbook -o "$rvm_tmp_dir/${rvm_manpage_name}.dbk" "$rvm_manpage_file"
-
-    echo "Generating manpage from docbook"
-
-    echo "Moving manpage to the the correct folder"
-    mv "$rvm_tmp_dir/$rvm_manpage_name" "$rvm_manpage_dir"
-    # compression is optional, but gzip check added for neatness
-    echo "If gzip is available, compressing"
-    [[ `which gzip` ]] && gzip -f "$rvm_manpage_dir/$rvm_manpage_name"
+    echo "Generating manpage format from source file for $rvm_manpage_name"
+    a2x -d manpage -f manpage -D "$rvm_manpage_dir" "$rvm_manpage_file" > /dev/null 2>&1
+    if [[ "$?" -gt 0 ]]; then
+      echo "Unable to generate manpage for $rvm_manpage_name_full"
+    else
+      rm -f "$( echo "$rvm_manpage_file" | sed 's/.txt$/.xml/')"
+      # compression is optional, but gzip check added for neatness
+      if command -v gzip >/dev/null 2>&1; then
+        echo "gzip compressing the manpage"
+        gzip -f "$rvm_manpage_dir/$rvm_manpage_name"
+      fi
+    fi
 done
 
 # vim: ft=sh
