@@ -71,14 +71,38 @@ curl() {
 openssl() {
   package="openssl" ; version="0.9.8n" ; archive_format="tar.gz"
   if [[ "Darwin" = "$(uname)" ]] ; then
-    if $rvm_scripts_path/match "$rvm_archflags" "x86_64" ; then
-      export openssl_os="os/compiler darwin64-x86_64-cc"
+    if [[ ! -z "$rvm_archflags" ]]; then
+      if $rvm_scripts_path/match "$rvm_archflags" "64"; then
+        hw_cpu64bit=1
+      fi
+      if $rvm_scripts_path/match "$rvm_archflags" "ppc"; then
+        hw_machine="Power Macintosh"
+      fi
     else
-      export openssl_os="os/compiler darwin-i386-cc"
+      hw_machine=$(sysctl hw.machine | awk -F: '{print $2}' | sed 's/^ //')
+      hw_cpu64bit=$(sysctl hw.cpu64bit_capable | awk '{print $2}')
     fi
+    if [[ "Power Macintosh" = "$hw_machine" ]] ; then
+      if [[ $hw_cpu64bit = 1 ]]; then
+        openssl_os="darwin64-ppc-cc"
+      else
+        openssl_os="darwin-ppc-cc"
+      fi
+    else
+      if [[ $hw_cpu64bit = 1 ]]; then
+        openssl_os="darwin64-x86_64-cc"
+      else
+        openssl_os="darwin-i386-cc"
+      fi
+    fi
+    echo $openssl_os
+    exit
     configure_command="./Configure"
     patches="$rvm_patches_path/$package/Makefile.org.patch,$rvm_patches_path/$package/crypto-Makefile.patch"
-
+    # Don't use -j option for make OpenSSL
+    if [[ ! -z "$rvm_make_flags" ]] ; then
+      rvm_make_flags=$(echo $rvm_make_flags | sed -e "s/-j[[:space:]]*[[0-9]]*//")
+    fi
   else
     configure_command="./config"
   fi
