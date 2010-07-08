@@ -1,15 +1,19 @@
+require 'yaml'
+
 module RVM
   module Version
 
-    require "yaml"
+    # YAML of raw version info
+    VERSION_YAML = YAML.load_file(File.expand_path("../VERSION.yml", File.dirname(__FILE__)))
 
-    YAML   = YAML.load_file("#{File.expand_path(File.dirname(__FILE__))}/../VERSION.yml")
-
-    MAJOR  = YAML[:major]
-    MINOR  = YAML[:minor]
-    PATCH  = YAML[:patch]
-
-    STRING = "#{MAJOR}.#{MINOR}.#{PATCH}"
+    # Current major version of rvm
+    MAJOR  = VERSION_YAML[:major]
+    # Current minor version of rvm
+    MINOR  = VERSION_YAML[:minor]
+    # Current patch level of rvm
+    PATCH  = VERSION_YAML[:patch]
+    # A String with the current rvm version
+    STRING = [MAJOR, MINOR, PATCH].join(".").freeze
 
   end
 end
