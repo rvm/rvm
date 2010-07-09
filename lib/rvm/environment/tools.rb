@@ -8,7 +8,7 @@ module RVM
 
     # Gets the identifier after cd'ing to a path, no destructive.
     def tools_path_identifier(path)
-      normalize rvm(:tools, "path-identifier", path.to_s)
+      normalize rvm(:tools, "path-identifier", path.to_s).stdout
     end
 
     # Return the tools wrapper.
@@ -19,7 +19,7 @@ module RVM
     # Ruby like wrapper for tools
     class ToolsWrapper
 
-      def initializer(parent)
+      def initialize(parent)
         @parent = parent
       end
 

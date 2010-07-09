@@ -65,7 +65,7 @@ module RVM
 
       # Runs the gives command (with optional arguments), returning an
       # RVM::Shell::Result object, including stdout / stderr streams.
-      # Under the hood, uses run_command to actuall process it all.
+      # Under the hood, uses run_command to actually process it all.
       def run(command, *arguments)
         expanded_command = build_cli_call(command, arguments)
         status, out, err = run_command(expanded_command)

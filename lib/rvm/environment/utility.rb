@@ -152,5 +152,16 @@ module RVM
       end
     end
 
+    def use_env_from_result!(result)
+      if compatible_with_current?(result)
+        ENV['GEM_HOME']    = result[:GEM_HOME]
+        ENV['GEM_PATH']    = result[:GEM_PATH]
+        ENV['BUNDLE_PATH'] = result[:BUNDLE_PATH]
+        Gem.clear_paths if defined?(Gem)
+      else
+        raise IncompatibleRubyError, "Given ruby environment requires #{ruby_string(result)} (versus #{self.class.current_ruby_string})"
+      end
+    end
+
   end
 end

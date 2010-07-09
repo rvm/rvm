@@ -87,16 +87,7 @@ module RVM
         @environment_name = self.class.environment_with_gemset(@environment_name, gemset_name)
         @expanded_name    = nil
         self.class.reset_current!
-        if replace_env
-          if compatible_with_current?(result)
-            ENV['GEM_HOME']    = result[:GEM_HOME]
-            ENV['GEM_PATH']    = result[:GEM_PATH]
-            ENV['BUNDLE_PATH'] = result[:BUNDLE_PATH]
-            Gem.clear_paths if defined?(Gem)
-          else
-            raise IncompatibleRubyError, "Given gemset requires #{ruby_string(result)} (versus #{self.class.current_ruby_string})"
-          end
-        end
+        use_env_from_result! result if replace_env
         true
       end
     end
