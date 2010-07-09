@@ -69,7 +69,7 @@ module RVM
       def run(command, *arguments)
         expanded_command = build_cli_call(command, arguments)
         status, out, err = run_command(expanded_command)
-        Result.new(command, status, out, err)
+        Result.new(expanded_command, status, out, err)
       end
 
       # Wrapper around run_command_silently that correctly escapes arguments.

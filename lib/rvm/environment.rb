@@ -6,7 +6,7 @@ module RVM
   class Environment
     extend Forwardable
 
-    %w(configuration utility alias list gemset rubies cleanup sets env).each do |key|
+    %w(configuration utility alias list gemset rubies cleanup sets env tools).each do |key|
       require File.join("rvm", "environment", key)
     end
 
@@ -33,7 +33,7 @@ module RVM
 
     # Returns the expanded name, using the same method as used by the rvm command line.
     def expanded_name
-      @expanded_name ||= run(:__rvm_environment_identifier).stdout.strip
+      @expanded_name ||= tools_identifier.to_s
     end
 
     # Actually define methods to interact with the shell wrapper.

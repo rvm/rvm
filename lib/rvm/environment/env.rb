@@ -22,15 +22,6 @@ module RVM
     end
     alias which path_for
 
-    # Gets the identifier loaded when changing to a given path.
-    # ideally this would be used to extract a projects ruby version.
-    def environment_identifier_for_path(path)
-      full_path = File.expand_path(path)
-      command = "{ cd #{escape_argument full_path}; } >/dev/null 2>&1"
-      command << "; __rvm_environment_identifier"
-      run(command).stdout.strip
-    end
-
     # Simple ruby like wrapper for envs.
     class EnvWrapper
 

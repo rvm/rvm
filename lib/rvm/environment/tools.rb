@@ -1,0 +1,41 @@
+module RVM
+  class Environment
+
+    # Gets the full name for the current env.
+    def tools_identifier
+      normalize rvm(:tools, :identifier).stdout
+    end
+
+    # Gets the identifier after cd'ing to a path, no destructive.
+    def tools_path_identifier(path)
+      normalize rvm(:tools, "path-identifier", path.to_s)
+    end
+
+    # Return the tools wrapper.
+    def tools
+      @tools_wrapper ||= ToolsWrapper.new(self)
+    end
+
+    # Ruby like wrapper for tools
+    class ToolsWrapper
+
+      def initializer(parent)
+        @parent = parent
+      end
+
+      # Returns the current envs expanded identifier
+      def identifier
+        @parent.tools_identifier
+      end
+
+      # Returns the identifier for a path, taking into account
+      # things like an rvmrc
+      def path_identifier(path)
+        @parent.tools_path_identifier(File.expand_path(path))
+      end
+      alias identifier_for_path path_identifier
+
+    end
+
+  end
+end

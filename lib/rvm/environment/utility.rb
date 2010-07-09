@@ -56,9 +56,9 @@ module RVM
       args += hash_to_options(options)
       args.map! { |a| a.to_s }
       if silent
-        run_silently :rvm, *args
+        run_silently 'rvm', *args
       else
-        run :rvm, *args
+        run 'rvm', *args
       end
     end
 
