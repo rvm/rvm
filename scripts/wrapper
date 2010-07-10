@@ -28,18 +28,21 @@ wrap() {
 
 symlink_binary() {
   # Generate the default wrapper with the given binary name.
-  wrap_binary # Note, now forcing this every time to force clean.
-  # Then symlink it into place.
-  rm -f "${rvm_bin_path}/${prefix}_${binary_name}"
-  ln -fs "$file_name" "${rvm_bin_path}/${prefix}_${binary_name}"
+  # We first check if we can wrap the binary and if we were able to,
+  # we then symlink it into place.
+  if wrap_binary; then
+    rm -f "${rvm_bin_path}/${prefix}_${binary_name}"
+    ln -fs "$file_name" "${rvm_bin_path}/${prefix}_${binary_name}"
+  fi
 }
 
 wrap_binary() {
-  # Iff the command is found in the path.
-  if command -v $binary_name > /dev/null; then
+  # We wrap when the given binary is in the path or override_check is set to one.
+  if [[ "$override_check" = "1" ]] || command -v $binary_name > /dev/null; then
     wrap
   else
     $rvm_scripts_path/log "error" "Binary '$binary_name' not found in path."
+    return 1
   fi
 }
 
@@ -58,8 +61,13 @@ fi
 
 ruby_string="$1"; shift
 
+override_check=0
 prefix="$1"
-if [[ -n "$1" ]]; then shift; fi
+if [[ -n "$1" ]]; then
+  shift
+else
+  override_check=1
+fi
 
 binaries="$(echo "$@" | __rvm_strip)"
 
