@@ -23,6 +23,6 @@ module RVM
   # is for another, incompatible ruby interpreter.
   #
   # Provides access to the output of the shell command via +#result+.
-  class IncompatibleRubyErr < ErrorWithResult; end
+  class IncompatibleRubyError < ErrorWithResult; end
 
 end

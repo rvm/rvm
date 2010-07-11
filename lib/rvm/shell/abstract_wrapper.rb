@@ -84,12 +84,12 @@ module RVM
       # - a string representing stdout.
       # - a string representing stderr.
       def run_command(full_command)
-        raise NotImplementedError, "run_command is only available in concrete implementations"
+        raise NotImplementedError.new("run_command is only available in concrete implementations")
       end
 
       # Like run_command, but doesn't care about output.
       def run_command_silently(full_command)
-        raise NotImplementedError, "run_command_silently is only available in concrete implementations"
+        raise NotImplementedError.new("run_command_silently is only available in concrete implementations")
       end
 
       # Returns a given environment variables' value.

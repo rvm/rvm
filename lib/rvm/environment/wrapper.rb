@@ -16,7 +16,7 @@ module RVM
     # the given executable. Will return ni if the wrapper
     # is unavailable.
     def wrapper_path_for(executable)
-      raise NotImplementError
+      raise NotImplementedError
     end
 
   end
