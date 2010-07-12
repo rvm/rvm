@@ -26,7 +26,18 @@ gemset_update() {
 }
 
 gemset_globalcache() {
-  if [[ "$1" == "disable" ]]; then
+  if [[ "$1" == "enabled" ]]; then
+    __rvm_using_gemset_globalcache
+    local globalcache_enabled="$?"
+    local gc_status="Unknown"
+    if [[ "$globalcache_enabled" == "0" ]]; then
+      gc_status="Enabled"
+    else
+      gc_status="Disabled"
+    fi
+    $rvm_scripts_path/log "info" "Gemset global cache is currently: $gc_status"
+    return "$globalcache_enabled"
+  elif [[ "$1" == "disable" ]]; then
     $rvm_scripts_path/log "info" "Removing the global cache (note: this will empty the caches)"
     for directory_name in $(\ls "$rvm_gems_path"); do
       current_cache_path="$rvm_gems_path/$directory_name/cache"
@@ -68,8 +79,8 @@ gemset_dir() {
 gemset_create() {
   rvm_ruby_gem_prefix=$(echo $rvm_ruby_gem_home | sed 's/'${rvm_gemset_separator}'.*$//')
   for gemset in $(echo $gems_args) ; do
-    gem_home="${rvm_ruby_gem_prefix}${rvm_gemset_separator}${gems_args/ /}"
-    mkdir -p $gem_home
+    gem_home="${rvm_ruby_gem_prefix}${rvm_gemset_separator}${gemset}"
+    mkdir -p "$gem_home"
     # When the globalcache is enabled, we need to ensure we setup the cache directory correctly.
     if __rvm_using_gemset_globalcache; then
       if [[ -d "$gem_home/cache" && ! -L "$gem_home/cache" ]]; then
@@ -462,7 +473,7 @@ elif [[ "prune" = "$action" ]] ; then
 elif [[ "update" = "$action" ]]; then
   gemset_update
 elif [[ "globalcache" = "$action" ]]; then
-  gemset_globalcache $2
+  gemset_globalcache "$2"
 elif [[ "clear" = "$action" ]] ; then
   $rvm_scripts_path/log "info" "gemset cleared."
   exit 0
