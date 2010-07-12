@@ -2,9 +2,9 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Header: $
 
-inherit git
-
 EGIT_REPO_URI="git://github.com/wayneeseguin/rvm.git"
+
+inherit git
 
 DESCRIPTION="RVM facilitates easy installation and management of multiple Ruby environments and sets of gems"
 HOMEPAGE="http://rvm.beginrescueend.com/"
