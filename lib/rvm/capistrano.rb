@@ -16,12 +16,12 @@ Capistrano::Configuration.instance(true).load do
   set :default_shell do
     shell = File.join(rvm_bin_path, "rvm-shell")
     ruby = rvm_ruby_string.to_s.strip
-    shell = "rvm_shell_ruby_string='#{ruby}' #{shell}" unless ruby.empty?
+    shell = "#{shell} '#{ruby}'" unless ruby.empty?
     shell
   end
 
   # Let users set the type of their rvm install.
-  _cset(:rvm_type, :user)
+  _cset(:rvm_type, :system)
 
   # Let users override the rvm_bin_path
   _cset(:rvm_bin_path) do
