@@ -2,6 +2,11 @@
 
 unset rvm_auto_flag
 
+install_source_path=$(dirname $0)
+if [[ -d "$install_source_path/scripts" ]] && [[ -s "$install_source_path/scripts/utility" ]] ; then
+  builtin cd $install_source_path
+fi
+
 source scripts/version
 source scripts/utility
 
@@ -77,12 +82,7 @@ __rvm_initialize
 item="$(tput setaf 2)* $(tput sgr0)"
 question="\n$(tput setaf 2)<?>$(tput sgr0)"
 cwd=$(pwd)
-install_source_path=$(dirname $0)
-if [[ -d "$install_source_path/scripts" ]] && [[ -s "$install_source_path/scripts/utility" ]] ; then
-  builtin cd $install_source_path
-else
-  install_source_path="${install_source_path:-$cwd}"
-fi
+source_path="${source_path:-$cwd}"
 rvm_archives_path="${rvm_archives_path:-"$rvm_path/archives"}"
 rvm_src_path="${rvm_src_path:-"$rvm_path/src"}"
 rvm_log_path="${rvm_log_path:-"$rvm_path/log"}"
@@ -118,17 +118,17 @@ mkdir -p $rvm_archives_path $rvm_src_path $rvm_log_path $rvm_bin_path $rvm_gems_
 
 for file in README LICENCE ; do
   spinner
-  cp -f "$install_source_path/$file" "$rvm_path/"
+  cp -f "$source_path/$file" "$rvm_path/"
 done
 
 #
 # Scripts
 #
-for dir_name in config scripts examples lib hooks help patches man ; do
+for dir_name in config scripts examples lib hooks help patches; do
   spinner
   mkdir -p "$rvm_path/$dir_name"
-  if [[ -d "$install_source_path/$dir_name" ]] ; then
-    cp -Rf "$install_source_path/$dir_name" "$rvm_path"
+  if [[ -d "$source_path/$dir_name" ]] ; then
+    cp -Rf "$source_path/$dir_name" "$rvm_path"
   fi
 done ; unset dir_name
 
@@ -151,7 +151,7 @@ done
 for file in rvm-prompt rvm rvmsudo rvm-shell ; do
   spinner && perl -e 'sleep 0.2'
   rm -f "$rvm_bin_path/$file"
-  cp -f "$install_source_path/binscripts/$file" $rvm_bin_path/
+  cp -f "$source_path/binscripts/$file" $rvm_bin_path/
 done
 spinner
 chmod +x $rvm_bin_path/*
@@ -280,8 +280,10 @@ if [[ "$rvm_prefix" ]] || [[ "root" = "$(whoami)" ]] ; then
   chmod +x $rvm_bin_path/rvm
   chmod +x $rvm_bin_path/rvmsudo
   chmod +x $rvm_bin_path/rvm-shell
-  printf "\n    Copying manpages into $rvm_man_path."
-  cp -Rf "$install_source_path/man" "$rvm_man_path"
+  printf "\n    Copying manpages into place."
+  for man_file in $(\ls "$install_source_path/man"); do
+    cp -f "$install_source_path/man/$man_file" "$rvm_man_path/$man_file"
+  done
 fi
 
 if [[ "$upgrade_flag" -eq 0 ]] ; then
