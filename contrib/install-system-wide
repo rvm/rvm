@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+# Require root to install it.
+if [[ "$(whoami)" != "root" ]]; then
+  echo "Please rerun this installer as root." >&2
+  exit 1
+fi
+
+# Check for the presence of git.
+if ! command -v git >/dev/null 2>&1 ; then
+  echo "Please ensure git is installed and available in PATH to continue." >&2
+  exit 1
+fi
+
+# Load the rvm config.
+[[ -s /etc/rvmrc ]] && source /etc/rvmrc
+[[ -s "$HOME/.rvmrc" ]] && source "$HOME/.rvmrc"
+
+rvm_path="${rvm_path:-"/usr/local/rvm"}"
+
+mkdir -p "$rvm_path/src/"
+builtin cd "$rvm_path/src"
+
+rm -rf ./rvm/
+
+git clone --depth 1 git://github.com/wayneeseguin/rvm.git
+
+builtin cd rvm
+
+"Running the install script."
+bash ./scripts/install
+
+rvm_group_name="${rvm_group_name:-"rvm"}"
+
+if cat /etc/group | cut -d: -f1 | grep -q "^${rvm_group_name}$"; then
+  echo "Group exists, proceeding with installation."
+else
+  echo "Creating the group '$rvm_group_name'"
+  groupadd -f "$rvm_group_name"
+fi
+echo "Adding root the '$rvm_group_name'"
+usermod -a -G "$rvm_group_name" "$(whoami)"
+
+echo "Setting up group permissions"
+for dir in rvm bin share/man; do
+  chown -R root:"$rvm_group_name" /usr/local/$dir
+  chmod -R g+w /usr/local/$dir
+done; unset dir
+
+echo "Generating system wide rvmrc"
+rm -f /etc/rvmrc
+touch /etc/rvmrc
+cat > /etc/rvmrc <<END_OF_RVMRC
+# Setup default configuration for rvm.
+export rvm_path="/usr/local/rvm"
+export rvm_prefix="/usr/local"
+export rvm_bin_path="\$rvm_prefix/bin"
+export rvm_man_path="\$rvm_prefix/share/man"
+END_OF_RVMRC
+
+echo "Generating /etc/load_rvm to load rvm"
+rm -f /usr/local/lib/rvm
+touch /usr/local/lib/rvm
+cat > /usr/local/lib/rvm <<END_OF_RVM_SH
+# Automatically source rvm
+if [[ -s "\$HOME/.rvm/scripts/rvm" ]]; then
+  source "\$HOME/.rvm/scripts/rvm"
+elif [[ -s "/usr/local/rvm/scripts/rvm" ]]; then
+  source "/usr/local/rvm/scripts/rvm"
+fi
+END_OF_RVM_SH
+
+echo "Correct permissions on rvmrc and load_rvm"
+# Finally, ensure the rvmrc is owned by the group.
+for file in /etc/rvmrc /usr/local/lib/rvm ; do
+  chown root:"$rvm_groop_name" "$file"
+  chmod g+w "$file"
+done; unset file
+
+echo "To use, source '/usr/local/lib/rvm' to your shell profile."
+
