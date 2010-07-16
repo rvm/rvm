@@ -44,19 +44,19 @@ if echo "$*" | grep -q 'trace' ; then echo "$*" ; env | grep '^rvm_' ; set -x ; 
 while [[ $# -gt 0 ]] ; do
   token="$1" ; shift
   case "$token" in
-    --auto)    rvm_auto_flag=1          ;;
+    --auto)    rvm_auto_flag=1 ;;
     --prefix)  rvm_prefix="$1" ; shift ;;
     --version) rvm_path="$(pwd)" ; __rvm_version ; unset rvm_path ; exit ;;
-    --help|*)  usage                    ;;
+    --help|*)  usage ;;
   esac
 done
 
 if [[ -z "$rvm_prefix" ]] ; then
   __rvm_load_rvmrc
   if [[ "root" = "$(whoami)" ]] ; then
-    rvm_prefix="/usr/local/"
+    rvm_prefix="${rvm_prefix:-"/usr/local/"}"
   else
-    rvm_prefix="$HOME/."
+    rvm_prefix="${rvm_prefix:-"$HOME/."}"
   fi
 fi
 
@@ -139,7 +139,7 @@ if [[ ! -s "$rvm_config_path/user" ]] ; then
 fi
 
 scripts=("monitor" "match" "log" "install" "color" "db" "fetch" "log" "set" "package")
-for script_name in $scripts ; do
+for script_name in "${scripts[@]}" ; do
   spinner
   chmod +x $rvm_scripts_path/$script_name
 done
@@ -160,7 +160,7 @@ chmod +x $rvm_bin_path/*
 # RC Files
 #
 spinner
-if [[ ! -z "$rvm_auto_flag" ]] ; then
+if [[ -n "$rvm_auto_flag" ]] ; then
   printf "Checking rc files... ($rvm_rc_files)"
   if [[ "$rvm_loaded_flag" != "1" ]] ; then
     for rcfile in $(echo $rvm_rc_files) ; do
@@ -274,12 +274,12 @@ fi
 # End of gemset migration.
 #
 
-if [[ "$rvm_prefix" ]] || [[ "root" = "$(whoami)" ]] ; then
-  printf "\n    Symlinking rvm to $rvm_bin_path/rvm ..."
+if [[ -z "$rvm_prefix" ]] || [[ "root" = "$(whoami)" ]] ; then
+  printf "\n    Correct permissions for base binaries in $rvm_bin_path..."
   mkdir -p $rvm_bin_path
-  chmod +x $rvm_bin_path/rvm
-  chmod +x $rvm_bin_path/rvmsudo
-  chmod +x $rvm_bin_path/rvm-shell
+  for file in rvm rvmsudo rvm-shell ; do
+    [[ -s "$rvm_bin_path/$file" ]] && chmod +x "$rvm_bin_path/$file"
+  done; unset file
   printf "\n    Copying manpages into place."
   for man_file in $(\ls "$install_source_path/man"); do
     cp -f "$install_source_path/man/$man_file" "$rvm_man_path/$man_file"
@@ -315,8 +315,8 @@ else
     printf "\n     [[ -s \$HOME/.rvm/scripts/rvm ]] && source \$HOME/.rvm/scripts/rvm"
     printf "\n   Please note that this must only occur once - so, you only need to add it the first time you install rvm."
     printf "\n2) Ensure that there is no 'return' from inside the .bashrc file. (otherwise rvm will be prevented from working properly)."
-    printf "\n   This means that if you see '[ -z "$PS1" ] && return' then you must change this line to:"
-    printf "\n   if [[ ! -z "$PS1" ]] ; then"
+    printf "\n   This means that if you see '[ -z "\$PS1" ] && return' then you must change this line to:"
+    printf "\n   if [[ -n "\$PS1" ]] ; then"
     printf "\n     ... original content that was below the && return line ..."
     printf "\n   fi # <= be sure to close the if."
     printf "\n   #EOF .bashrc"
@@ -325,7 +325,7 @@ else
     printf "\n   placing all non-interactive items in the .bashrc, including the 'source' line above"
     printf "\n3) Then $(tput setaf 1)CLOSE THIS SHELL$(tput sgr0) and open a new one in order to use rvm.\n"
   fi
-  if [[ -s $HOME/.bashrc ]] && grep '&& return' $HOME/.bashrc ; then
+  if [[ -s $HOME/.bashrc ]] && grep -q '&& return' $HOME/.bashrc ; then
     printf "\n\nWARNING:  you have a 'return' statement in your .bashrc, likely this will cause untold havoc."
     printf "\n   This means that if you see '[ -z "\$PS1" ] && return' then you must change this line to:"
     printf "\n   if [[ -n "\$PS1" ]] ; then"
