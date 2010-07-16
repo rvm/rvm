@@ -56,7 +56,7 @@ find ${rvm_docs_src_dir} -type f -name *.txt | while read rvm_manpage_file; do
       # compression is optional, but gzip check added for neatness
       if command -v gzip >/dev/null 2>&1; then
         echo "gzip compressing the manpage"
-        gzip -f "$rvm_manpage_dir/$rvm_manpage_name"
+        gzip < "$rvm_manpage_dir/$rvm_manpage_name" > "$rvm_manpage_dir/$rvm_manpage_name.gz"
       fi
     fi
 done
