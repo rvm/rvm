@@ -6,13 +6,9 @@ original_ruby_string=$rvm_ruby_string
 source "$rvm_scripts_path/base"
 source "$rvm_scripts_path/patches"
 
-__rvm_clang_configure_prefix() {
-  [[ -n "$rvm_clang_flag" ]] && printf "%s" "CC=clang "
-}
-
 __rvm_check_for_clang() {
   if [[ -n "$rvm_clang_flag" ]] && ! command -v clang >/dev/null ; then
-    $rvm_scripts_path/log "fatal" "You passed the --clang option and clang isn't in your path. Please try again / don't use --clang"
+    $rvm_scripts_path/log "fail" "You passed the --clang option and clang isn't in your path. Please try again / don't use --clang"
     return 1
   fi
 }
@@ -113,11 +109,7 @@ __rvm_install_source() {
       __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
     fi
 
-    __rvm_check_for_clang
-    result=$?
-    [[ "$result" -gt 0 ]] && return $result
-
-    local configure_command="$(__rvm_clang_configure_prefix)./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_ruby_configure_flags $configure_parameters"
+    local configure_command="./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_ruby_configure_flags $configure_parameters"
     __rvm_run "configure" "$configure_command" "Configuring $rvm_ruby_string, this may take a while depending on your cpu(s)..."
     result=$? ; if [[ "$result" -gt 0 ]] ; then
       $rvm_scripts_path/log "error" "There has been an error while running configure. Aborting the installation." ; __rvm_pushpop ; return $result
@@ -158,6 +150,11 @@ __rvm_install_ruby() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   if [[ -n "$RUBYOPT" ]] ; then ruby_options="$RUBYOPT" ; unset RUBYOPT ; fi
+  
+  # Check for clang if the flag is set  
+  __rvm_check_for_clang
+  local result="$?"
+  [[ "$result" -gt 0 ]] && return $result
 
   case "$rvm_ruby_interpreter" in
     macruby)
@@ -658,10 +655,7 @@ RubyWrapper
           fi
 
       elif [[ -s ./configure ]] ; then
-          __rvm_check_for_clang
-          result=$?
-          [[ "$result" -gt 0 ]] && return $result
-          local configure_command="$(__rvm_clang_configure_prefix)./configure --prefix=$rvm_ruby_home $rvm_ruby_configure_flags"
+          local configure_command="./configure --prefix=$rvm_ruby_home $rvm_ruby_configure_flags"
           __rvm_run "configure" "" "Configuring $rvm_ruby_string using $rvm_ruby_configure_flags, this may take a while depending on your cpu(s)..."
           result=$? ; if [[ "$result" -gt 0 ]] ; then
             $rvm_scripts_path/log "error" "There has been an error while trying to configure the source. Aborting the installation." ; __rvm_pushpop ; return $result
