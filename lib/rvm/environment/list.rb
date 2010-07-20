@@ -8,7 +8,7 @@ module RVM
 
     # Returns a raw array list of installed ruby strings, including aliases.
     def list_strings
-      normalize_listing_output rvm(:list, :strings).stdout
+      normalize_listing_output rvm(:list, :strings).stdout.tr(' ', "\n")
     end
 
     # Lists the default ruby (minus gemset)

@@ -6,7 +6,7 @@ module RVM
   class Environment
     extend Forwardable
 
-    %w(configuration utility alias list gemset rubies cleanup sets env tools).each do |key|
+    %w(configuration utility alias list gemset rubies cleanup sets env tools info).each do |key|
       require File.join("rvm", "environment", key)
     end
 
