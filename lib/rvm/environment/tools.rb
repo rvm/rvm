@@ -11,6 +11,19 @@ module RVM
       normalize rvm(:tools, "path-identifier", path.to_s).stdout
     end
 
+    def tools_strings(*rubies)
+      rubies = rubies.flatten.join(",").split(",").uniq
+      names = {}
+      value = rvm(:tools, :strings, *rubies)
+      if value.successful?
+        parts = value.stdout.split("\n").map { |l| l.split }
+        rubies.each_with_index do |key, index|
+          names[key] = normalize(parts[index])
+        end
+      end
+      names
+    end
+
     # Return the tools wrapper.
     def tools
       @tools_wrapper ||= ToolsWrapper.new(self)
@@ -34,6 +47,14 @@ module RVM
         @parent.tools_path_identifier(File.expand_path(path))
       end
       alias identifier_for_path path_identifier
+
+      def strings(*rubies)
+        @parent.tools_strings(*rubies)
+      end
+
+      def expand_string(ruby)
+        strings(ruby)[ruby]
+      end
 
     end
 
