@@ -57,19 +57,25 @@ snapshot_save() {
   local snapshot_ruby_name_file="$rvm_tmp_path/$$-rubies"
   local snapshot_alias_name_file="$rvm_tmp_path/$$-aliases"
   local snapshot_installable_file="$rvm_tmp_path/$$-installable"
-  
+
   $rvm_scripts_path/alias list | awk -F ' => ' '{print $1}' | sort | uniq 2>/dev/null > "$snapshot_alias_name_file"
   $rvm_scripts_path/list strings | tr ' ' '\n' | sort | uniq > "$snapshot_ruby_name_file"  
   comm -2 -3 "$snapshot_ruby_name_file" "$snapshot_alias_name_file" > "$snapshot_installable_file"
   rm -rf "$snapshot_ruby_name_file" "$snapshot_alias_name_file"
-  
+
   local snapshot_primary_ruby="$(cat "$snapshot_installable_file" | grep '^\(ree\|ruby-1.8.7\)' | grep -v '-head$' | sort -r | head -n1)"
   local snapshot_ruby_order="$snapshot_primary_ruby $(cat "$snapshot_installable_file" | grep -v "$snapshot_primary_ruby")"
   for snapshot_ruby_name in $snapshot_ruby_order ; do
-    __rvm_become "$snapshot_ruby_name"
-    ruby "$rvm_path/lib/rvm/install_command_dumper.rb" >> "$snapshot_temp_path/install-rubies.sh"
+    snapshot_install_command="$(__rvm_recorded_install_command "$snapshot_ruby_name")"
+    if [[ -n "$snapshot_install_command" ]]; then
+      echo "rvm install $snapshot_install_command" | sed "s#$rvm_path#'\\\"\$rvm_path\\\"'#" >> "$snapshot_temp_path/install-rubies.sh"
+    else
+      __rvm_become "$snapshot_ruby_name"
+      ruby "$rvm_path/lib/rvm/install_command_dumper.rb" >> "$snapshot_temp_path/install-rubies.sh"
+    fi
+    unset snapshot_install_command
   done; unset snapshot_ruby_name snapshot_primary_ruby
-  
+
   rm -rf "$snapshot_installable_file"
 
   $rvm_scripts_path/log "info" "Compressing snapshotting"

@@ -85,6 +85,12 @@ __rvm_quote_args() {
   echo "$quoted_string" | sed -e 's/^ *//g' -e 's/ *$//g'
 }
 
+__rvm_quote_args_with_shift() {
+  local shift_value="$1"; shift
+  local program_args=( "$@" )
+  __rvm_quote_args "${program_args[@]:$shift_value}"
+}
+
 __rvm_warn_on_rubyopt() {
   if [[ -n "$RUBYOPT" ]]; then
     $rvm_scripts_path/log "warn" "Please note: You have the RUBYOPT environment variable set and this may interfere with normal rvm operations. We sugges unsetting it."
@@ -180,7 +186,7 @@ __rvm_cleanup_variables() {
 
   if [[ "$rvm_sticky_flag" = "1" ]] ; then export rvm_gemset_name ; else unset rvm_gemset_name  ; fi
 
-  unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_import_flag rvm_export_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag rvm_ruby_bits rvm_sticky_flag rvm_rvmrc_flag rvm_gems_flag rvm_only_path_flag rvm_docs_flag rvm_ruby_aliases rvm_ruby_aliases rvm_patch_names rvm_clang_flag
+  unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_import_flag rvm_export_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag rvm_ruby_bits rvm_sticky_flag rvm_rvmrc_flag rvm_gems_flag rvm_only_path_flag rvm_docs_flag rvm_ruby_aliases rvm_ruby_aliases rvm_patch_names rvm_clang_flag rvm_install_arguments
 }
 
 # Unset ruby-specific variables
@@ -785,4 +791,38 @@ __rvm_project_rvmrc() {
       fi
     fi
   done
+}
+
+__rvm_record_install() {
+  [[ -z "$1" ]] && return
+  local recorded_ruby_name="$($rvm_scripts_path/tools strings "$1")"
+  local rvm_install_record_file="$rvm_config_path/installs"
+  local rvm_install_command="$(echo "$recorded_ruby_name $rvm_install_arguments" | __rvm_strip)"
+  touch "$rvm_install_record_file"
+  rm -f "$rvm_install_record_file.tmp"
+  cat "$rvm_install_record_file" | grep -v "^$recorded_ruby_name " > "$rvm_install_record_file.tmp"
+  echo "$rvm_install_command" >> "$rvm_install_record_file.tmp"
+  rm -f "$rvm_install_record_file"
+  mv "$rvm_install_record_file.tmp" "$rvm_install_record_file"
+}
+
+__rvm_remove_install_record() {
+  local recorded_ruby_name="$($rvm_scripts_path/tools strings "$1")"
+  local rvm_install_record_file="$rvm_config_path/installs"
+  if [[ -s "$rvm_install_record_file" ]]; then
+    mv "$rvm_install_record_file" "$rvm_install_record_file.tmp"
+    cat "$rvm_install_record_file.tmp" | grep -v "^$recorded_ruby_name " > "$rvm_install_record_file"
+    rm -f "$rvm_install_record_file.tmp"
+  fi
+}
+
+__rvm_recorded_install_command() {
+  local recorded_ruby_name="$($rvm_scripts_path/tools strings "$1" | awk -F"$rvm_gemset_separator" '{print $1}')"
+  [[ -z "$recorded_ruby_name" ]] && return 1
+  local recorded_ruby_match="^$recorded_ruby_name "
+  if [[ -s "$rvm_config_path/installs" ]] && grep -q "$recorded_ruby_match" "$rvm_config_path/installs" ; then
+    cat "$rvm_config_path/installs" | grep "$recorded_ruby_match" | head -n1
+  else
+    return 1
+  fi
 }
