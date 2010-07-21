@@ -5,17 +5,19 @@ if [[ "$rvm_trace_flag" -eq 2 ]] ; then set -x ; export rvm_trace_flag ; fi
 source "$rvm_scripts_path/utility"
 
 list_gemsets() {
-  if [[ "$(echo $rvm_ruby_args | awk '{print $2}')" = "strings" ]]; then
+  if [[ "$1" = "strings" ]]; then
     list_gemset_strings
     return 0
   fi
   echo
 
   current_ruby="$(__rvm_environment_identifier)"
+  local all_rubies="$(list_strings)"
 
   printf "rvm gemsets\n"
   for version in $(\ls $rvm_gems_path/ 2> /dev/null | awk '/[a-z]*-.*/ {print $NF}') ; do
     ruby_version_name="$(echo "$version" | awk -F"$rvm_gemset_separator" '{print $1}')"
+    [[ "$all_rubies" != *"$ruby_version_name"* ]] && continue
     if [[ -n "$(echo $version | awk '/^jruby-/')" ]] ; then
       string="[ $($rvm_rubies_path/$ruby_version_name/bin/ruby -v | awk '{print $NF}' | sed -e 's/\[//' -e 's/\]//') ]"
     elif [[ -n "$(echo $version | awk '/^maglev-|^macruby-/')" ]] ; then
@@ -48,8 +50,7 @@ list_gemsets() {
 }
 
 list_default() {
-  strings="$(echo $rvm_ruby_args | awk '{print $2}')"
-  if [[ "$strings" = "string" ]] ; then
+  if [[ "$1" = "string" ]] ; then
     $rvm_scripts_path/alias show default 2>/dev/null | awk -F"$rvm_gemset_separator" '{print $1}' | xargs basename
   else
     if [[ -L "$rvm_rubies_path/default" ]]; then
@@ -80,7 +81,12 @@ list_strings() {
 
 # This is meant to be used with scripting.
 list_gemset_strings() {
-  \ls $rvm_gems_path/ 2>/dev/null | xargs -- basename | grep -v '^\(@\|doc$\|cache$\|system$\)' | sort
+  local all_rubies="$(list_strings)"
+  for gemset in $(\ls $rvm_gems_path/ 2>/dev/null | xargs -- basename | grep -v '^\(@\|doc$\|cache$\|system$\)' | sort); do
+    local ruby_name="$(echo "$gemset" | awk -F$rvm_gemset_separator '{print $1}')"
+    [[ "$all_rubies" != *"$ruby_name"* ]] && continue
+    echo "$gemset"
+  done
 }
 
 # This is meant to be used with scripting.
@@ -137,18 +143,19 @@ list_rubies() {
 # List all rvm installed rubies, default ruby and system ruby.
 # Display the rubies, indicate their architecture and indicate which is currently used.
 # This is not meant to be used with scripting. This is for interactive mode usage only.
-action="$(echo "$1" | awk '{print $1}')"
+action="$1"
+[[ $# -gt 0 ]] && shift
 
 if [[ "known" = "$action" ]] ; then
   list_known
 elif [[ "known_strings" = "$action" ]] ; then
   list_known_strings
 elif [[ "gemsets" = "$action" ]] ; then
-  list_gemsets
+  list_gemsets "$@"
 elif [[ "default" = "$action" ]] ; then
   list_default
 elif [[ -z "$action" ]] || [[ "rubies" = "$action" ]] ; then
-  list_rubies
+  list_rubies "$@"
 elif [[ "strings" = "$action" ]] ; then
   list_strings
 elif [[ "ruby_svn_tags" = "$action" ]] ; then

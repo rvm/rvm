@@ -10,6 +10,12 @@ __rvm_usage() { cat "${rvm_path:-$HOME/.rvm}/README" | ${PAGER:-less} ; }
   #fi
 #}
 
+__rvm_run_script() {
+  local rvm_script_name="${1:-"$rvm_action"}"
+  eval "$rvm_scripts_path/$rvm_script_name $rvm_ruby_args"
+  return $?
+}
+
 __rvm_parse_args() {
 
   # TODO:
@@ -125,7 +131,7 @@ __rvm_parse_args() {
         rvm_parse_break=1
       ;;
 
-      exec|cleanup|tools|disk-usage)
+      exec|cleanup|tools|disk-usage|snapshot)
         rvm_action="$rvm_token"
         rvm_ruby_args="$(__rvm_quote_args "$@")"
         rvm_parse_break=1
@@ -530,18 +536,8 @@ rvm() {
       unset old_rvm_ruby_string
     ;;
 
-    cleanup)
-      eval "$rvm_scripts_path/cleanup $rvm_ruby_args"
-      result=$?
-    ;;
-
-    tools)
-      eval "$rvm_scripts_path/tools $rvm_ruby_args"
-      result=$?
-    ;;
-
-    disk-usage)
-      eval "$rvm_scripts_path/disk-usage $rvm_ruby_args"
+    cleanup|tools|snapshot|disk-usage)
+      __rvm_run_script "$rvm_action"
       result=$?
     ;;
 
@@ -620,7 +616,7 @@ rvm() {
   if [[ ! -z "$rvm_reload_flag" ]] ; then
     source "$rvm_scripts_path/rvm"
     # Note: Not using builtin on purpose. Done so we can trigger a reload the rvmrc.
-    cd .
+    __rvm_project_rvmrc
   fi
 
   if [[ ! -z "$rvm_trace_flag" ]] ; then set +x ; unset rvm_trace_flag ; fi
