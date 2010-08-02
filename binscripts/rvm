@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-for rvmrc in /etc/rvmrc $HOME/.rvmrc ; do
+for rvmrc in /etc/rvmrc "$HOME/.rvmrc" ; do
   if [[ -f "$rvmrc" ]] ; then
-    if grep -q '^\s*rvm .*$' $rvmrc ; then
+    if grep -q '^\s*rvm .*$' "$rvmrc" ; then
       printf "\nError: $rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
       exit 1
     else
@@ -11,11 +11,20 @@ for rvmrc in /etc/rvmrc $HOME/.rvmrc ; do
   fi
 done
 
-if [[ -z "$rvm_prefix" ]] ; then unset rvm_prefix ; fi
-if [[ -z "$rvm_path" ]] ; then unset rvm_path ; fi
+[[ -z "$rvm_prefix" ]] && unset rvm_prefix
+[[ -z "$rvm_path" ]]   && unset rvm_path
+
+# Setup default sandbox value. See scripts/rvm for origin.
+if [[ -z "$rvm_sandboxed" ]]; then
+  if [[ "root" = "$(whoami)" ]] || [[ -n "$rvm_prefix" && "$rvm_prefix" != "$HOME"/* ]]; then
+    rvm_sandboxed=0
+  else
+    rvm_sandboxed=1
+  fi
+fi
 
 if [[ -z "$rvm_prefix" ]] ; then
-  if [[ "root" = "$(whoami)" ]] ; then
+  if [[ "$rvm_sandboxed" = "0" ]] ; then
     rvm_prefix="/usr/local"
   else
     rvm_prefix="$HOME/."
@@ -24,7 +33,7 @@ fi
 
 if [[ -z "$rvm_path" ]] ; then
   unset rvm_path
-  if [[ "root" = "$(whoami)" ]] ; then
+  if  [[ "$rvm_sandboxed" = "0" ]] ; then
     rvm_path="$rvm_prefix/rvm"
   else
     if [[ -d "$HOME/.rvm" ]] && [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
@@ -38,7 +47,7 @@ if [[ -z "$rvm_path" ]] ; then
 fi
 
 rvm_scripts_path="${rvm_scripts_path:-"$rvm_path/scripts"}"
-source $rvm_scripts_path/rvm
+source "$rvm_scripts_path/rvm"
 
 unset rvm_interactive
 
