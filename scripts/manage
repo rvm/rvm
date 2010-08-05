@@ -690,7 +690,7 @@ RubyWrapper
     ;;
 
     ruby)
-      __rvm_check_for_bison
+      __rvm_check_for_bison # Run like hell
       result=$? ; if [[ "$result" -gt 0 ]] ; then return $result ; fi
 
       if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
@@ -732,42 +732,55 @@ __rvm_fetch_ruby() {
     rvm_ruby_package_name="${rvm_ruby_package_name:-"$rvm_ruby_string"}"
     rvm_ruby_package_file="${rvm_ruby_package_file:-"$rvm_ruby_package_name"}"
     rvm_archive_extension="${rvm_archive_extension:-tar.gz}"
+
     if [[ ! -s "$rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension" ]] ; then
       if [[ "ruby" = "$rvm_ruby_interpreter" ]] ; then
         rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_release_version}.${rvm_major_version}_url")/$rvm_ruby_package_file.$rvm_archive_extension"
       elif [[ "ree" = "$rvm_ruby_interpreter" ]] ; then
-        rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")/$rvm_ruby_package_file.$rvm_archive_extension"
+        rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")/${rvm_ruby_package_file}.${rvm_archive_extension}"
       elif [[ "jruby" = "$rvm_ruby_interpreter" ]] ; then
-        rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/$rvm_ruby_version/$rvm_ruby_package_file.$rvm_archive_extension"
+        rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/${rvm_ruby_version}/${rvm_ruby_package_file}.${rvm_archive_extension}"
       elif [[ "maglev" = "$rvm_ruby_interpreter" ]] ; then
         : # Should already be set from selector
       else
-        rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/$rvm_ruby_package_file.$rvm_archive_extension"
+        rvm_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/${rvm_ruby_package_file}.${rvm_archive_extension}"
       fi
-      $rvm_scripts_path/log "info" "Downloading $rvm_ruby_package_file, this may take a while depending on your connection..."
-      $rvm_scripts_path/fetch "$rvm_url"
+      "$rvm_scripts_path/log" "info" "Downloading ${rvm_ruby_package_file}, this may take a while depending on your connection..."
+      "$rvm_scripts_path/fetch" "${rvm_url}"
       result=$? ; if [[ "$result" -gt 0 ]] ; then
-        $rvm_scripts_path/log "error" "There has been an error while trying to fetch the source. Aborting the installation." ; __rvm_pushpop ; return $result
+        "$rvm_scripts_path/log" "error" "There has been an error while trying to fetch the source. Aborting the installation." ; __rvm_pushpop ; return $result
       fi
     fi
 
-    # Only re-extract if forced.
-    if [[ ! -d "$rvm_src_path/$rvm_ruby_string" ]] || [[ -n "$rvm_force_flag" ]] ; then
+    if [[ ! -d "$rvm_ruby_src_path" ]] || [[ -n "$rvm_force_flag" ]] ; then
+      rm -rf "$rvm_ruby_src_path" # Especially when forced, we want to ensure the destination is missing.
+
+      mkdir -p "/tmp/rvm_src_$$"
+
       if [[ "tar.gz" = "$rvm_archive_extension" ]] || [[ "tgz" = "$rvm_archive_extension" ]] ; then
-        __rvm_run "extract" "cat $rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension | gunzip | tar xf - -C $rvm_src_path" "Extracting $rvm_ruby_package_file ..."
+        __rvm_run "extract" "cat $rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension | gunzip | tar xf - -C /tmp/rvm_src_$$" "Extracting $rvm_ruby_package_file ..."
         result=$? ; if [[ "$result" -gt 0 ]] ; then
           $rvm_scripts_path/log "error" "There has been an error while trying to extract the source. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
       elif [[ "zip" = "$rvm_archive_extension" ]] ; then
-        __rvm_run "extract" "unzip -q -o $rvm_archives_path/$rvm_ruby_package_file -d $rvm_src_path"
+        __rvm_run "extract" "unzip -q -o $rvm_archives_path/$rvm_ruby_package_file -d /tmp/rvm_src_$$"
         result=$? ; if [[ "$result" -gt 0 ]] ; then
           $rvm_scripts_path/log "error" "There has been an error while trying to extract $rvm_ruby_package_file. Aborting the installation." ; __rvm_pushpop ; return $result
         fi
       fi
+
+      mv "/tmp/rvm_src_$$/$(\cd /tmp/rvm_src_$$ ; \ls)" "$rvm_ruby_src_path" ; rm -rf "/tmp/rvm_src_$$"
+
+      if [[ -n "$rvm_ruby_name" ]] && [[ -d "$rvm_src_path/$(echo $rvm_ruby_string | sed -e 's/-n.*//')" ]] ; then
+        mv "$rvm_src_path/$(echo $rvm_ruby_string | sed -e 's/-n.*//')" "$rvm_ruby_src_path"
+      fi
+
     else
       $rvm_scripts_path/log "info" "$rvm_ruby_src_path has already been extracted." ; __rvm_pushpop ; return 0
     fi
+
   else
+
     mkdir -p "$rvm_repo_path"
     if [[ -n "$(echo $rvm_url | awk '/^git/')" ]] ; then
       if [[ -d "$rvm_ruby_repo_path/.git" ]] ; then
