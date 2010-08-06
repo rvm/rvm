@@ -10,7 +10,7 @@ DESCRIPTION="RVM facilitates easy installation and management of multiple Ruby e
 HOMEPAGE="http://rvm.beginrescueend.com/"
 
 # This should be the first 7 characters of the tagged version's commit.
-VERSION_SHORT_SHA1="3c98ad955f0072a0218eb7991334f4d581a47467"
+VERSION_SHORT_SHA1="82522f5cbdaa73f03df2b70bb518cb639d3172ed"
 
 SRC_URI="http://github.com/wayneeseguin/rvm/tarball/${PV} -> ${P}.tar.gz"
 LICENSE="MIT"
