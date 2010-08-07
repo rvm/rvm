@@ -61,14 +61,20 @@ else
   download=1
 fi
 
+# try to convert the ftp url to a http url
+http_url="$(echo $url | sed -e 's/ftp:/http:/')"
+
+
 if [[ $download -gt 0 ]] ; then
   rm -f $archive
   eval $fetch_command "$url"
   result=$?
   if [[ $result -gt 0 ]] ; then
     retry=0
+		try_http=0
     if [[ $result -eq 78 ]] ; then
       $rvm_scripts_path/log "error" "The requested url does not exist: '$url'"
+			try_http=1
     elif [[ $result -eq 18 ]] ; then
       $rvm_scripts_path/log "error" "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
       rm -f "$archive"
@@ -78,7 +84,8 @@ if [[ $download -gt 0 ]] ; then
       rm -f "$archive"
       retry=1
     else
-      $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log. Next we'll try to fetch via http."
+			try_http=1
     fi
 
     if [[ $retry -eq 1 ]] ; then
@@ -90,6 +97,17 @@ if [[ $download -gt 0 ]] ; then
         record_md5
       fi
     fi
+
+    if [[ $try_http -eq 1 ]] ; then
+      eval $fetch_command "$http_url"
+      result=$?
+      if [[ $result -gt 0 ]] ; then
+        $rvm_scripts_path/log "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+      else
+        record_md5
+      fi
+    fi
+
   else
     record_md5
   fi

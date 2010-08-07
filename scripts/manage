@@ -716,6 +716,11 @@ __rvm_fetch_from_github() {
     rm -rf "$rvm_ruby_repo_path"
     builtin cd "$rvm_home"
     __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_url"
+		result=$? ; if [[ "$result" -gt 0 ]] ; then
+			rvm_ruby_repo_http_url="$(echo $rvm_ruby_repo_url | sed -e 's/git:/http:/')"
+			$rvm_scripts_path/log "info" "Could not fetch $rvm_ruby_repo_url - trying $rvm_ruby_repo_http_url"
+			__rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_http_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_http_url"			
+		fi
   else
     local branch="${2:-"master"}"
     builtin cd "$rvm_ruby_repo_path"
@@ -803,10 +808,15 @@ __rvm_fetch_ruby() {
         fi
       else
         rm -rf "$rvm_ruby_repo_path"
+				rvm_ruby_repo_http_url="$(echo $rvm_ruby_repo_url | sed -e 's/git:/http:/')"
         $rvm_scripts_path/log "info" "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
         git clone --depth 1 "$rvm_ruby_repo_url" "$rvm_ruby_repo_path"
         result=$? ; if [[ "$result" -gt 0 ]] ; then
-          $rvm_scripts_path/log "error" "There has been an error while trying to fetch the repository. Aborting the installation." ; __rvm_pushpop ; return $result
+					$rvm_scripts_path/log "info" "Cloning from $rvm_ruby_repo_http_url, this may take a while depending on your connection..."
+					git clone --depth 1 "$rvm_ruby_repo_http_url" "$rvm_ruby_repo_path"
+					result=$? ; if [[ "$result" -gt 0 ]] ; then
+						$rvm_scripts_path/log "error" "There has been an error while trying to fetch the repository. Aborting the installation." ; __rvm_pushpop ; return $result
+					fi
         fi
       fi
     else
