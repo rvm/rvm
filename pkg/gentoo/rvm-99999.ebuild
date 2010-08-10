@@ -31,11 +31,11 @@ src_install() {
 	done
 	export rvm_prefix="${D}"
 	export rvm_path="${D}${RVM_DIR}"
-	export rvm_sandboxed=1
+	export rvm_selfcontained=1
 
 	./install || die "Installation failed."
 
-	echo "rvm_sandboxed=1" > "${T}"/rvmrc
+	echo "rvm_selfcontained=1" > "${T}"/rvmrc
 	echo "rvm_prefix=\"$(dirname $RVM_DIR)\""
 	echo "rvm_path=\"${RVM_DIR}\"" >> "${T}"/rvmrc
 
