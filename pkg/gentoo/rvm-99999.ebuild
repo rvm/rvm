@@ -47,11 +47,6 @@ src_install() {
 	elog "A default /etc/rvmrc has been installed.  Feel free to modify it."
 	elog
 
-	insinto ${RVM_DIR}/environments
-	doins "${T}"/system || die "Failed to install ${RVM_DIR}/environments/system."
-	elog "You may also wish to review ${RVM_DIR}/environments/system ."
-	elog
-
 	elog "Before any user (including root) can use rvm, the following line must be appended"
 	elog "to the end of the user's shell's loading files (.bashrc and then .bash_profile"
 	elog "for bash; or .zshrc for zsh), after all path/variable settings:"
