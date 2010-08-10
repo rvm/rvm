@@ -29,12 +29,15 @@ src_install() {
 	for v in `env | egrep '^rvm_' | cut -d '=' -f 1`; do
 		unset $v
 	done
+
+	# Set variables for installation (only!)
 	export rvm_prefix="${D}"
 	export rvm_path="${D}${RVM_DIR}"
 	export rvm_selfcontained=1
 
 	./install || die "Installation failed."
 
+	# Set variables for actual operation in a default rvmrc
 	echo "rvm_selfcontained=1" > "${T}"/rvmrc
 	echo "rvm_prefix=\"$(dirname $RVM_DIR)\""
 	echo "rvm_path=\"${RVM_DIR}\"" >> "${T}"/rvmrc
