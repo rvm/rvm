@@ -6,10 +6,10 @@ EGIT_REPO_URI="git://github.com/wayneeseguin/rvm.git"
 
 inherit git
 
+SRC_URI=""
+
 DESCRIPTION="RVM facilitates easy installation and management of multiple Ruby environments and sets of gems"
 HOMEPAGE="http://rvm.beginrescueend.com/"
-
-SRC_URI=""
 LICENSE="MIT"
 SLOT="0"
 KEYWORDS="~x86"
