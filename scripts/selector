@@ -219,7 +219,8 @@ __rvm_select() {
 }
 
 __rvm_use() {
-  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select $* ; fi
+  
+  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select "$@" ; fi
   if [[ -z "$rvm_ruby_interpreter" ]] ; then rvm_ruby_interpreter="system" ; fi
 
   if [[ "system" = "$rvm_ruby_interpreter" ]] ; then
@@ -284,10 +285,10 @@ __rvm_use() {
   fi
 
   # Export ruby string and gem set me for extrenal scripts to take advantage of them.
-  if [[ ! -z "$rvm_ruby_string" ]]  ; then export rvm_ruby_string  ; fi
-  if [[ ! -z "$rvm_gemset_name" ]]  ; then export rvm_gemset_name ; fi
-  if [[ ! -z "$new_path" ]]         ; then export PATH="$new_path" ; unset new_path ; fi
-  if [[ ! -z "$rvm_rvmrc_flag" ]]   ; then __rvm_set_rvmrc ; fi
+  if [[ -n "$rvm_ruby_string" ]]  ; then export rvm_ruby_string  ; fi
+  if [[ -n "$rvm_gemset_name" ]]  ; then export rvm_gemset_name ; fi
+  if [[ -n "$new_path" ]]         ; then export PATH="$new_path" ; unset new_path ; fi
+  if [[ -n "$rvm_rvmrc_flag" ]]   ; then __rvm_set_rvmrc ; fi
 
   environment_id="$(__rvm_environment_identifier)"
 
@@ -312,9 +313,16 @@ __rvm_use() {
     fi
   fi ; unset rvm_default_flag
 
-  if [[ ! -z "$rvm_wrapper_name" ]] ; then
+  if [[ -n "$rvm_wrapper_name" ]] ; then
     $rvm_scripts_path/wrapper "$environment_id" "$rvm_wrapper_name" > /dev/null 2>&1
     unset rvm_wrapper_name
+  fi
+
+  if [[ -n "$rvm_ruby_alias" ]]; then
+    $rvm_scripts_path/log "info" "Attempting to alias $environment_id to $rvm_ruby_alias"
+    $rvm_scripts_path/alias delete "$rvm_ruby_alias" > /dev/null 2>&1
+    rvm_alias_expanded=1 $rvm_scripts_path/alias create "$rvm_ruby_alias" "$environment_id" > /dev/null 2>&1
+    unset ruby_alias rvm_ruby_alias
   fi
 
   unset environment_id
@@ -351,10 +359,6 @@ __rvm_ruby_string() {
       rvm_ruby_string="system"
     fi
   fi
-
-  # Preparation for alias tags
-  rvm_ruby_alias=$(echo "$rvm_ruby_string" | awk -F+ '{print $2}')
-  rvm_ruby_string=$(echo "$rvm_ruby_string" | awk -F+ '{print $1}')
 
   set_name=$(echo "$rvm_ruby_string" | awk -F${rvm_gemset_separator} '{print $2}')
   if [[ ! -z "$set_name" ]] ; then rvm_gemset_name="$set_name" ; fi
@@ -490,10 +494,6 @@ __rvm_gemset_select() {
 
   rvm_ruby_global_gems_path="$rvm_gems_path/${rvm_ruby_string}${rvm_gemset_separator}global"
 
-  #if [[ -z "$(echo $rvm_ruby_gem_home | grep "$rvm_path")" ]] ; then
-  #  $rvm_scripts_path/log "warn" "Gemsets cannot be used with system ruby installs (yet)."
-  #fi
-
   if [[ -z "$rvm_gemset_name" ]] ; then
     # No longer defaulting to 'sticky' gem sets.
     # Set 'rvm_sticky_flag=1' in ~/.rvmrc to enable.
@@ -570,9 +570,6 @@ __rvm_gemset_select() {
 
 # Use a gemset specified by 'rvm_ruby_gem_home'
 __rvm_gemset_use() {
-  #if [[ -z "$(echo $rvm_ruby_gem_home | grep "rvm")" ]] ; then
-  #  $rvm_scripts_path/log "warn" "Gemsets cannot be used with system ruby installs (yet)."
-  #fi
   if [[ -n "$rvm_ruby_gem_home" ]] ; then
     if [[ ! -d "$rvm_ruby_gem_home" ]] ; then
       if [[ "$rvm_gemset_create_on_use_flag" -eq 1 ]] || [[ "$rvm_create_flag" -eq 1 ]]; then

@@ -42,7 +42,7 @@ __rvm_parse_args() {
       ;;
 
       use)
-        rvm_action=$rvm_token
+        rvm_action="$rvm_token"
         rvm_verbose_flag=1
         if [[ "ruby" = "$1" ]] ; then shift ; fi
       ;;
@@ -285,7 +285,7 @@ __rvm_parse_args() {
 
       --alias)
         if [[ -n "$1" ]]; then
-          export rvm_ruby_aliases="$(echo "$1" | \tr ',' ' ')"
+          export rvm_ruby_aliases="$(echo "$rvm_ruby_aliases $1" | \tr ',' ' ' | __rvm_strip)"
           shift
         fi
       ;;
@@ -390,7 +390,7 @@ __rvm_parse_args() {
       --) rvm_ruby_args="$*" ; rvm_parse_break=1                ;;
 
       *)
-        if [[ ! -z "$rvm_token" ]] ; then
+        if [[ -n "$rvm_token" ]] ; then
           if [[ "gemset" = "$rvm_action" ]] ; then
             if $rvm_scripts_path/match "$rvm_token" "^.+${rvm_gemset_separator}.+$" ; then
               rvm_gemset_name="$(echo "$rvm_token" | awk -F${rvm_gemset_separator} '{print $2}')"
@@ -416,6 +416,10 @@ __rvm_parse_args() {
             rvm_gemset_name="$(echo "$rvm_token" | awk -F${rvm_gemset_separator} '{print $2}')"
             rvm_ruby_string="$(echo "$rvm_token" | awk -F${rvm_gemset_separator} '{print $1}')"
             rvm_ruby_strings="$rvm_token"
+          elif $rvm_scripts_path/match "$rvm_token" "^.+\\+.+$" ; then
+            rvm_ruby_alias="$(echo "$rvm_token" | awk -F+ '{print $2}')"
+            rvm_ruby_string="$(echo "$rvm_token" | awk -F+ '{print $1}')"
+            rvm_ruby_strings="$rvm_ruby_string"
           elif $rvm_scripts_path/match "$rvm_token" "-" ; then
             rvm_ruby_string="$rvm_token"
             rvm_ruby_strings="$rvm_token"
@@ -481,11 +485,11 @@ rvm() {
   __rvm_load_rvmrc
   __rvm_initialize
   __rvm_parse_args "$@"
-
   export BUNDLE_PATH GEM_HOME GEM_PATH rvm_ruby_string rvm_action rvm_bin_flag rvm_debug_flag rvm_delete_flag rvm_docs_type rvm_file_name rvm_gemset_name rvm_head_flag rvm_install_on_use_flag rvm_interactive rvm_llvm_flag rvm_make_flags rvm_proxy rvm_remove_flag rvm_ruby_args rvm_ruby_configure_flags rvm_ruby_file rvm_ruby_gem_home rvm_ruby_interpreter rvm_ruby_name rvm_ruby_version rvm_system_flag rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_patch_names rvm_patch_original_pwd rvm_clang_flag rvm_install_arguments
   export rvm_path rvm_rubies_path rvm_scripts_path rvm_archives_path rvm_src_path rvm_patches_path rvm_patches_path rvm_patchsets_path rvm_log_path rvm_bin_path rvm_gems_path rvm_config_path rvm_tmp_path rvm_hooks_path rvm_gems_cache_path rvm_gemset_separator
 
   result=0
+  
   case "$rvm_action" in
     use)             __rvm_use               ; result=$? ;;
     srcdir)          __rvm_source_dir        ; result=$? ;;
