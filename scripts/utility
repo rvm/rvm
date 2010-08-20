@@ -591,14 +591,6 @@ __rvm_ensure_has_environment_files() {
   local environment_identifier="$(__rvm_environment_identifier)"
   file_name="${rvm_environments_path}/$environment_identifier"
 
-  # Ensure system is a blank file.
-  if [[ "$environment_identifier" == "system" ]]; then
-    \rm -f "$file_name" 2>&1 | grep -v 'rm: cannot remove .* Permission denied'
-    \mkdir -p "$(dirname "$file_name")"
-    \touch "$file_name" 2>&1 | grep -v 'touch: cannot touch .* Permission denied'
-    return
-  fi
-
   if [[ ! -s "$file_name" ]] ; then
     \mkdir -p "${rvm_environments_path}"
     echo "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"" > $file_name
@@ -656,6 +648,16 @@ __rvm_ultimate_question() {
   printf "\nUltimate Question."
 }
 
+__rvm_load_env_file() {
+  if [[ -f "$rvm_environments_path/$1" ]]; then
+    # Restore the path to it's state minus rvm
+    PATH="$(echo $PATH | \tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)"
+    . "$rvm_environments_path/$1"
+  else
+    rvm use "$1" >/dev/null 2>&1
+  fi
+}
+
 # Checks the rvmrc for the given directory. Note that if
 # argument is passed, it will be used instead of pwd.
 __rvm_project_rvmrc() {
@@ -663,23 +665,19 @@ __rvm_project_rvmrc() {
   # Get the first argument or the pwd.
   cwd="${1:-"$(pwd)"}"
   while : ; do
-    if [[ -z "$cwd" ]] || [[ "$HOME" = "$cwd" ]] || [[ "/" = "$cwd" ]] ; then
+    if [[ -z "$cwd" || "$HOME" = "$cwd" || "/" = "$cwd" ]] ; then
       if [[ -n "$rvm_rvmrc_cwd" ]] ; then
-        if [[ -f "$rvm_environments_path/$rvm_previous_environment" ]] ; then
-          . "$rvm_environments_path/$rvm_previous_environment"
-        else
-          if [[ -f "$rvm_environments_path/default" ]] ; then
-            . "$rvm_environments_path/default"
-          fi
+        if [[ "$rvm_project_rvmrc_default" = "1" ]]; then
+          __rvm_load_env_file "default"
+        elif [[ -n "$rvm_previous_environment" ]] ; then
+          __rvm_load_env_file "$rvm_previous_environment"
         fi ; unset rvm_rvmrc_cwd rvm_previous_environment
       fi
       break
     else
       if [[ -f "$cwd/.rvmrc" ]] ; then
         if [[ "$rvm_rvmrc_cwd" != "$cwd" ]] ; then
-          if [[ -z "$rvm_previous_environment" ]] ; then
-            rvm_previous_environment="$(__rvm_environment_identifier)"
-          fi
+          rvm_previous_environment="$(__rvm_environment_identifier)"
           rvm_rvmrc_cwd="$cwd"
           source "$cwd/.rvmrc"
         fi
