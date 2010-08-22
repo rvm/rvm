@@ -63,7 +63,12 @@ __rvm_apply_patches() {
 }
 
 __rvm_install_source() {
-  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
+  [[ -z "$rvm_ruby_selected_flag" ]] && __rvm_select
+  
+  if [[ "$rvm_ruby_string" = "ruby-1.9.2-head" ]] ; then
+    # Ensure we have a base ruby.
+    __rvm_ensure_has_18_compat_ruby || return 1
+  fi
 
   $rvm_scripts_path/log "info" "Installing Ruby from source to: $rvm_ruby_home"
   __rvm_pushpop "$rvm_src_path"
@@ -109,11 +114,21 @@ __rvm_install_source() {
       __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
     fi
 
+    # On 1.9.2, we manually set the --with-baseruby option
+    # to point to an expanded path.
+    if [[ "$rvm_ruby_string" = "ruby-1.9.2-head" ]] ; then
+      local compatible_baseruby="$rvm_wrappers_path/$(__rvm_18_compat_ruby)/ruby"
+      if [[ -x "$compatible_baseruby" ]] ; then
+        configure_parameters="--with-baseruby=$compatible_baseruby"
+      fi
+    fi
+
     local configure_command="./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_ruby_configure_flags $configure_parameters"
     __rvm_run "configure" "$configure_command" "Configuring $rvm_ruby_string, this may take a while depending on your cpu(s)..."
+    unset configure_parameters db_configure_flags
     result=$? ; if [[ "$result" -gt 0 ]] ; then
       $rvm_scripts_path/log "error" "There has been an error while running configure. Aborting the installation." ; __rvm_pushpop ; return $result
-    fi ; unset configure_parameters db_configure_flags
+    fi
   else
     $rvm_scripts_path/log "error" "Skipping configure step, 'configure' does not exist, did autoconf not run successfully?"
   fi
