@@ -354,11 +354,19 @@ __rvm_bin_script() {
   $rvm_scripts_path/wrapper "$rvm_ruby_string"
 }
 
+# Add bin path if not present
+__rvm_conditionally_add_bin_path() {
+  if echo "$PATH" | \tr ':' ' ' | \grep -vqF "$rvm_bin_path " ; then
+    PATH="$rvm_bin_path:$PATH"
+  fi
+}
+
 # Reset any rvm gathered information about the system and its state.
 # rvm will refresh the stored information the next time it is called after reset.
 __rvm_reset() {
   PATH="$(echo $PATH | \tr ':' '\n' | awk '$0 !~ /rvm/' | paste -sd : -)"
-  PATH="$rvm_bin_path:$PATH" ; export PATH
+  __rvm_conditionally_add_bin_path
+  export PATH
 
   for flag in default passenger editor ; do \rm -f "$rvm_bin_path"/${flag}_* ; done
   unset flag
@@ -422,10 +430,8 @@ __rvm_initialize() {
 
   __rvm_clean_path
 
-  if echo "$PATH" | \grep -q 'rvm\/bin:' ; then
-    PATH="${rvm_bin_path}:$PATH"
-    export PATH
-  fi
+  __rvm_conditionally_add_bin_path
+  export PATH
 
   \mkdir -p "$rvm_src_path" "$rvm_bin_path" "$rvm_archives_path" "$rvm_gems_path" "$rvm_tmp_path" "$rvm_repo_path"
 }
