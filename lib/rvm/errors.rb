@@ -24,5 +24,8 @@ module RVM
   #
   # Provides access to the output of the shell command via +#result+.
   class IncompatibleRubyError < ErrorWithResult; end
+  
+  # Called when tools.path_identifier is called on a dir with an untrusted rvmrc.
+  class ErrorLoadingRVMRC < Error; end
 
 end

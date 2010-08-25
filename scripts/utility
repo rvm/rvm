@@ -743,7 +743,7 @@ __rvm_rvmrc_tools() {
 
 __rvm_check_rvmrc_trustworthiness() {
   # Trust when they have the flag... of doom!
-  [[ -z "$1" || "$rvm_trust_rvmrcs" = "1" ]] && return
+  [[ -z "$1" || "$rvm_trust_rvmrcs" = "1" ]] && return 0
   value="$(__rvm_rvmrc_stored_trust "$1")"
   if [[ -z "$value" ]] ; then
     __rvm_ask_to_trust "$1"
@@ -753,6 +753,7 @@ __rvm_check_rvmrc_trustworthiness() {
 }
 
 __rvm_ask_to_trust() {
+  [[ -n "$rvm_promptless" ]] && return 2
   echo "Changing into a directory with an untrusted .rvmrc"
   echo "Do you wish to trust the rvmrc in this directory? It contains:"
   echo "---"
@@ -801,10 +802,15 @@ __rvm_project_rvmrc() {
     else
       if [[ -f "$cwd/.rvmrc" ]] ; then
         if [[ "$rvm_rvmrc_cwd" != "$cwd" ]] ; then
-          if __rvm_check_rvmrc_trustworthiness "$cwd/.rvmrc" ; then
+          __rvm_check_rvmrc_trustworthiness "$cwd/.rvmrc"
+          local rvm_trustworthiness_result="$?"
+          if  [[ "$rvm_trustworthiness_result" = 0 ]]; then
             rvm_previous_environment="$(__rvm_environment_identifier)"
             rvm_rvmrc_cwd="$cwd"
             source "$cwd/.rvmrc"
+            return 0
+          else
+            return "$rvm_trustworthiness_result"
           fi
         fi
         break
