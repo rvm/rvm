@@ -472,7 +472,7 @@ __rvm_update_rvm() {
 
     __rvm_run "fetch" "$rvm_scripts_path/fetch 'http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz'" "fetching rvm-${stable_version}.tar.gz"
 
-    __rvm_run "extract" "cat $rvm_archives_path/rvm-${stable_version}.tar.gz | gunzip | tar xf - -C $rvm_src_path" "Extracting rvm-${stable_version}.tar.gz ..."
+    __rvm_run "extract" "gunzip \"$rvm_archives_path/rvm-${stable_version}.tar.gz\" | tar xf - -C $rvm_src_path" "Extracting rvm-${stable_version}.tar.gz ..."
 
     __rvm_run "install" "builtin cd $rvm_src_path/rvm-${stable_version}/ ; ./install" "Installing rvm-${stable_version}..."
   fi
@@ -541,12 +541,12 @@ __rvm_inspect() {
   for binary in $rvm_ruby_args ; do
     actual_file="$(command -v $binary)"
     $rvm_scripts_path/log "info" "$actual_file:"
-    if [[ -n "$rvm_shebang_flag" ]] ; then cat $actual_file | head -n 1    ; fi
-    if [[ -n "$rvm_env_flag" ]]     ; then cat $actual_file | awk '/ENV/'  ; fi
-    if [[ -n "$rvm_path_flag" ]]    ; then cat $actual_file | awk '/PATH/' ; fi
-    if [[ -n "$rvm_head_flag" ]]    ; then cat $actual_file | head -n 5    ; fi
-    if [[ -n "$rvm_tail_flag" ]]    ; then cat $actual_file | tail -n 5    ; fi
-    if [[ -n "$rvm_all_flag" ]]     ; then cat $actual_file                ; fi
+    if [[ -n "$rvm_shebang_flag" ]] ; then head -n 1    < "$actual_file" ; fi
+    if [[ -n "$rvm_env_flag" ]]     ; then awk '/ENV/'  < "$actual_file" ; fi
+    if [[ -n "$rvm_path_flag" ]]    ; then awk '/PATH/' < "$actual_file" ; fi
+    if [[ -n "$rvm_head_flag" ]]    ; then head -n 5    < "$actual_file" ; fi
+    if [[ -n "$rvm_tail_flag" ]]    ; then tail -n 5    < "$actual_file" ; fi
+    if [[ -n "$rvm_all_flag" ]]     ; then cat $actual_file              ; fi
   done
 }
 
@@ -828,7 +828,7 @@ __rvm_record_install() {
   local rvm_install_command="$(echo "$recorded_ruby_name $rvm_install_arguments" | __rvm_strip)"
   \touch "$rvm_install_record_file"
   \rm -f "$rvm_install_record_file.tmp"
-  cat "$rvm_install_record_file" | \grep -v "^$recorded_ruby_name " > "$rvm_install_record_file.tmp"
+  \grep -v "^$recorded_ruby_name " < "$rvm_install_record_file" > "$rvm_install_record_file.tmp"
   echo "$rvm_install_command" >> "$rvm_install_record_file.tmp"
   \rm -f "$rvm_install_record_file"
   mv "$rvm_install_record_file.tmp" "$rvm_install_record_file"
@@ -839,7 +839,7 @@ __rvm_remove_install_record() {
   local rvm_install_record_file="$rvm_config_path/installs"
   if [[ -s "$rvm_install_record_file" ]]; then
     mv "$rvm_install_record_file" "$rvm_install_record_file.tmp"
-    cat "$rvm_install_record_file.tmp" | \grep -v "^$recorded_ruby_name " > "$rvm_install_record_file"
+    \grep -v "^$recorded_ruby_name " < "$rvm_install_record_file.tmp" > "$rvm_install_record_file"
     \rm -f "$rvm_install_record_file.tmp"
   fi
 }
@@ -849,7 +849,7 @@ __rvm_recorded_install_command() {
   [[ -z "$recorded_ruby_name" ]] && return 1
   local recorded_ruby_match="^$recorded_ruby_name "
   if [[ -s "$rvm_config_path/installs" ]] && \grep -q "$recorded_ruby_match" "$rvm_config_path/installs" ; then
-    cat "$rvm_config_path/installs" | \grep "$recorded_ruby_match" | head -n1
+    \grep "$recorded_ruby_match" < "$rvm_config_path/installs" | head -n1
   else
     return 1
   fi
@@ -880,7 +880,7 @@ __rvm_expand_ruby_string() {
   elif [[ "$1" = "current" ]]; then
     __rvm_environment_identifier
   elif [[ "$1" = "aliases" ]]; then
-    cat "$rvm_config_path/alias" | awk -F= '{print $1}' | __rvm_strip
+    awk -F= '{print $1}' < "$rvm_config_path/alias" | __rvm_strip
   else
     echo "$1" | tr "," "\n" | __rvm_strip
   fi

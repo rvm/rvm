@@ -32,7 +32,7 @@ find ${rvm_docs_src_dir} -type f -name *.txt | while read rvm_manpage_file; do
     # of the source file.
 
     # it should be something like 'RVM(1)'
-    rvm_manpage_name_full="$(cat ${rvm_manpage_file} | head -n 3 | \grep -o '^[^(]*[(][^)]*[)]$')"
+    rvm_manpage_name_full="$(head -n 3 < "$rvm_manpage_file" | \grep -o '^[^(]*[(][^)]*[)]$')"
 
     if [[ -z "${rvm_manpage_name_full}" ]]; then
       echo "Unable to detect manpage name, stopping build process..." 1>&2
