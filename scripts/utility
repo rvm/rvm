@@ -48,11 +48,10 @@ __rvm_dump_environment() {
     if [[ "$dump_environment_type" == "atheis"* ]]; then
       \rm -rf "$dump_environment_file" && ln -s /dev/null "$dump_environment_file" >/dev/null 2>&1
     else
-      $rvm_scripts_path/environment-convertor "$dump_environment_type" "$(__rvm_environment_identifier)" > "$dump_environment_file"
+      "$rvm_scripts_path/environment-convertor" "$dump_environment_type" "$(__rvm_environment_identifier)" > "$dump_environment_file"
       [[ "$?" -gt 0 ]] && \rm -rf "$dump_environment_file"
     fi
-  fi
-  unset rvm_dump_environment_flag
+  fi ; unset rvm_dump_environment_flag
 }
 
 # Return a list of directories under a given base path.
@@ -148,7 +147,7 @@ __rvm_set_path_variable() {
   if [[ -d "$1" ]] ; then
     eval "${path_variable}=${1}"
   else
-    $rvm_scripts_path/log "error" "'$1' is not a valid path."
+    "$rvm_scripts_path/log" "error" "'$1' is not a valid path."
   fi ; unset path_variable
 }
 
@@ -170,9 +169,9 @@ __rvm_remove_rvm_from_path() {
 __rvm_run() {
   log_file_name="$1" ; command="$2" ; message="$3"
   if [[ -z "$rvm_ruby_log_path" ]] ; then rvm_ruby_log_path="$rvm_log_path" ; fi
-  if [[ -n "$message" ]] ; then $rvm_scripts_path/log "info" "$message" ; fi
+  if [[ -n "$message" ]] ; then "$rvm_scripts_path/log" "info" "$message" ; fi
   if [[ -n "$rvm_debug_flag" ]] ; then
-    $rvm_scripts_path/log "debug" "Executing: $command"
+    "$rvm_scripts_path/log" "debug" "Executing: $command"
   fi
 
   \mkdir -p "$(dirname "$rvm_ruby_log_path/$log_file_name.log")"
@@ -183,7 +182,7 @@ __rvm_run() {
   else
     eval "nice -n $rvm_niceness $command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
   fi
-  if [[ $? -gt 0 ]] ; then $rvm_scripts_path/log "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name*.log" ; __rvm_pushpop ; return 1 ; fi
+  if [[ $? -gt 0 ]] ; then "$rvm_scripts_path/log" "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name*.log" ; __rvm_pushpop ; return 1 ; fi
   unset log_file command
 }
 
@@ -192,9 +191,9 @@ __rvm_run_with_env() {
   log_file_name="$1" ; env_name="$2" ; command="$3" ; message="$4"
   if [[ -z "$env_name" ]]; then env_name="$(__rvm_environment_identifier)"; fi
   if [[ -z "$rvm_ruby_log_path" ]] ; then rvm_ruby_log_path="$rvm_log_path" ; fi
-  if [[ -n "$message" ]] ; then $rvm_scripts_path/log "info" "$message" ; fi
+  if [[ -n "$message" ]] ; then "$rvm_scripts_path/log" "info" "$message" ; fi
   if [[ -n "$rvm_debug_flag" ]] ; then
-    $rvm_scripts_path/log "debug" "Executing: $command in environment "$env_name""
+    "$rvm_scripts_path/log" "debug" "Executing: $command in environment "$env_name""
   fi
 
   \mkdir -p "$(dirname "$rvm_ruby_log_path/$log_file_name.log")"
@@ -205,13 +204,13 @@ __rvm_run_with_env() {
   else
     eval "nice -n $rvm_niceness __rvm_with_env '$env_name' '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
   fi
-  if [[ $? -gt 0 ]] ; then $rvm_scripts_path/log "error" "Error running '$command' under $env_name, please check $rvm_ruby_log_path/$log_file_name*.log" ; __rvm_pushpop ; return 1 ; fi
+  if [[ $? -gt 0 ]] ; then "$rvm_scripts_path/log" "error" "Error running '$command' under $env_name, please check $rvm_ruby_log_path/$log_file_name*.log" ; __rvm_pushpop ; return 1 ; fi
   unset log_file command env_name
 }
 
 # Unset both rvm variables as well as ruby-specific variables
 # Preserve gemset if 'rvm_sticky' is set (persist gemset unless clear is explicitely called).
-__rvm_cleanup_variables() {
+__rvm_cleanse_variables() {
   __rvm_unset_ruby_variables
 
   if [[ "$rvm_sticky_flag" = "1" ]] ; then export rvm_gemset_name ; else unset rvm_gemset_name  ; fi
@@ -230,8 +229,8 @@ __rvm_with_env() {
   rvm_env_command="$(echo "$2" | sed "s/rvm /rvm $rvm_env_args /")"
   # Subshells!
   (
-    source $rvm_scripts_path/rvm
-    rvm $rvm_env_args use $1 && eval "$rvm_env_command"
+    source "$rvm_scripts_path/rvm"
+    rvm "$rvm_env_args" use $1 && eval "$rvm_env_command"
   )
   unset rvm_env_args rvm_env_command
 }
@@ -241,7 +240,7 @@ __rvm_with_env() {
 __rvm_18_compat_ruby() {
   rubies=""
   for ruby_name in $(\ls $rvm_rubies_path); do
-    if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] && $rvm_scripts_path/match "$ruby_name" '^(ruby-1.8.[[:digit:]]|rbx|ree)-'; then
+    if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] && "$rvm_scripts_path/match" "$ruby_name" '^(ruby-1.8.[[:digit:]]|rbx|ree)-'; then
       rubies="$rubies $ruby_name"
     fi
   done; unset ruby_name
@@ -253,20 +252,18 @@ __rvm_ensure_has_18_compat_ruby() {
   if [[ -z "$(__rvm_18_compat_ruby)" ]]; then
     # TODO: install currently doesn't return the correct status.
     local compat_result=0
-    if ! ( $rvm_scripts_path/manage install 1.8.7 ); then
-      $rvm_scripts_path/log "fail" "To proceed rvm requires a 1.8-compatible ruby is installed. We attempted to install 1.8.7 automatically but it failed."
-      $rvm_scripts_path/log "fail" "Please install it manually (or a compatible alternative) to proceed."
+    if ! ( "$rvm_scripts_path/manage" install 1.8.7 ); then
+      "$rvm_scripts_path/log" "fail" "To proceed rvm requires a 1.8-compatible ruby is installed. We attempted to install 1.8.7 automatically but it failed."
+      "$rvm_scripts_path/log" "fail" "Please install it manually (or a compatible alternative) to proceed."
       compat_result=1
-    fi
-    unset original_ruby
+    fi ; unset original_ruby
     return $compat_result
   fi
 }
 
 __rvm_inherit_trace_flag() {
   if [[ -n "$rvm_trace_flag" ]]; then
-    set -x
-    export rvm_trace_flag
+    set -x ; export rvm_trace_flag
   fi
 }
 
@@ -290,7 +287,7 @@ __rvm_set_rvmrc() {
 
     if [[ -s .rvmrc ]] ; then
       mv .rvmrc .rvmrc.$(date +%m.%d.%Y-%H:%M:%S)
-      $rvm_scripts_path/log "warning" ".rvmrc is not empty, moving aside to preserve."
+      "$rvm_scripts_path/log" "warning" ".rvmrc is not empty, moving aside to preserve."
     fi
 
     local identifier=$(__rvm_environment_identifier)
@@ -299,7 +296,7 @@ __rvm_set_rvmrc() {
 
     unset flags
   else
-    $rvm_scripts_path/log "error" ".rvmrc cannot be set in your home directory. \n The home .rvmrc is for global rvm settings only."
+    "$rvm_scripts_path/log" "error" ".rvmrc cannot be set in your home directory. \n The home .rvmrc is for global rvm settings only."
   fi
 
 }
@@ -308,7 +305,7 @@ __rvm_load_rvmrc() {
   for rvmrc in /etc/rvmrc $HOME/.rvmrc ; do
     if [[ -f "$rvmrc" ]] ; then
       if \grep -q '^\s*rvm .*$' $rvmrc ; then
-        $rvm_scripts_path/log "error" "$rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
+        "$rvm_scripts_path/log" "error" "$rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
         return 1
       else
         source "$rvmrc"
@@ -332,7 +329,7 @@ __rvm_benchmark() {
   old_rvm_ruby_string=$rvm_ruby_string
   unset rvm_ruby_string
   export rvm_ruby_strings
-  $rvm_scripts_path/set $rvm_action $rvm_ruby_args
+  "$rvm_scripts_path/set" "$rvm_action" $rvm_ruby_args
   result=$?
   # Restore the state pre-sets.
   [[ -n "$old_rvm_ruby_string" ]] && rvm_ruby_string=$old_rvm_ruby_string
@@ -341,19 +338,19 @@ __rvm_benchmark() {
 
 # Loop over the currently installed rubies and refresh their binscripts.
 __rvm_bin_scripts() {
-  for rvm_ruby_binary in $rvm_rubies_path/*/bin/ruby ; do
-  if [[ -x "$rvm_ruby_binary" ]] ; then
-    rvm_ruby_string=$(dirname "$rvm_ruby_binary" | xargs dirname | xargs basename)
-    __rvm_select
-    __rvm_bin_script
-  fi
+  for rvm_ruby_binary in "$rvm_rubies_path"/*/bin/ruby ; do
+    if [[ -x "$rvm_ruby_binary" ]] ; then
+      rvm_ruby_string=$(dirname "$rvm_ruby_binary" | xargs dirname | xargs basename)
+      __rvm_select
+      __rvm_bin_script
+    fi
   done
 }
 
 # Write the bin/ wrapper script for currently selected ruby.
 # TODO: Adjust binscript to be able to handle all rubies not just the standard interpreteres.
 __rvm_bin_script() {
-  $rvm_scripts_path/wrapper "$rvm_ruby_string"
+  "$rvm_scripts_path/wrapper" "$rvm_ruby_string"
 }
 
 # Add bin path if not present
@@ -386,7 +383,7 @@ __rvm_reset() {
   __rvm_unset_ruby_variables
 
   for system_config in system_ruby system_gem_path system_user_gem_path ; do
-    $rvm_scripts_path/db "$rvm_config_path/user" "$system_config" "delete"
+    "$rvm_scripts_path/db" "$rvm_config_path/user" "$system_config" "delete"
   done ; unset system_config variable
 
   \rm -f $rvm_bin_path/ruby $rvm_bin_path/gem $rvm_bin_path/rake $rvm_bin_path/irb $rvm_bin_path/default*
@@ -395,23 +392,23 @@ __rvm_reset() {
 # Implode removes the entire rvm installation under $rvm_path.
 __rvm_implode() {
   while : ; do
-    $rvm_scripts_path/log "warn" "Are you SURE you wish for rvm to implode? This will remove $rvm_path ? (type 'yes' or 'no')"
+    "$rvm_scripts_path/log" "warn" "Are you SURE you wish for rvm to implode? This will remove $rvm_path ? (type 'yes' or 'no')"
     read response
     if [[ "yes" = "$response" ]] ; then
       if [[ "/" = "$rvm_path" ]] ; then
-        $rvm_scripts_path/log "error" "remove '/' ?!... NO!"
+        "$rvm_scripts_path/log" "error" "remove '/' ?!... NO!"
       else
         if [[ -d "$rvm_path" ]] ; then
-          $rvm_scripts_path/log "info" "Hai! Removing $rvm_path"
+          "$rvm_scripts_path/log" "info" "Hai! Removing $rvm_path"
           \rm -rf $rvm_path/
           echo "$rvm_path has been removed."
         else
-          $rvm_scripts_path/log "info" "It appears that $rvm_path is already non existant."
+          "$rvm_scripts_path/log" "info" "It appears that $rvm_path is already non existant."
         fi
       fi
       break
     elif [[ "no" = "$response" ]] ; then
-      $rvm_scripts_path/log "info" "Cancelling implosion, no harm done :)"
+      "$rvm_scripts_path/log" "info" "Cancelling implosion, no harm done :)"
       break
     fi
   done
@@ -421,7 +418,7 @@ __rvm_implode() {
 __rvm_source_dir() {
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
   if [[ -z "$rvm_ruby_src_path" ]] ; then
-    $rvm_scripts_path/log "fail" "No source directory exists for the default implementation."
+    "$rvm_scripts_path/log" "fail" "No source directory exists for the default implementation."
   else
     echo "$rvm_ruby_src_path"
   fi
@@ -449,7 +446,7 @@ __rvm_update() {
   fi
   [[ -n "$rvm_bin_flag" ]] && __rvm_bin_scripts
   # Update to the latest rubygems.
-  [[ -n "$rvm_rubygems_flag" ]] && $rvm_scripts_path/rubygems current
+  [[ -n "$rvm_rubygems_flag" ]] && "$rvm_scripts_path/rubygems" current
 
   unset rvm_update_flag rvm_action rvm_self_flag rvm_ruby_revision rvm_bin_flag rvm_rubygems_flag
   __rvm_pushpop
@@ -482,14 +479,14 @@ __rvm_update_rvm() {
 }
 
 __rvm_reboot() {
-  $rvm_scripts_path/log "warn" "Do you wish to reboot rvm? ('yes', or 'no')"
+  "$rvm_scripts_path/log" "warn" "Do you wish to reboot rvm? ('yes', or 'no')"
   read response
   if [[ "yes" = "$response" ]] ; then
     builtin cd $rvm_path
     __rvm_reset
-    mv $rvm_path/archives ~/.archives
+    mv "$rvm_path/archives" "$HOME/.archives"
     if [[ "/" = "$rvm_path" ]] ; then
-      $rvm_scripts_path/log "error" "remove '/' ?!... NO!"
+      "$rvm_scripts_path/log" "error" "remove '/' ?!... NO!"
     else
       if [[ -d "$rvm_path" ]] ; then \rm -rf "$rvm_path/" ; fi
     fi
@@ -497,14 +494,14 @@ __rvm_reboot() {
     __rvm_update_rvm
     source $rvm_path/scripts/rvm
   else
-    $rvm_scripts_path/log "info" "Carry on then..."
+    "$rvm_scripts_path/log" "info" "Carry on then..."
   fi ; unset response
 }
 
 # Create the irbrc for the currently selected ruby installation.
 __rvm_irbrc() {
   if [[ -d "$rvm_ruby_home" ]] && [[ ! -s "$rvm_ruby_irbrc" ]] ; then
-    \cp $rvm_scripts_path/irbrc $rvm_ruby_irbrc
+    \cp "$rvm_scripts_path/irbrc" "$rvm_ruby_irbrc"
   fi
 }
 
@@ -540,7 +537,7 @@ __rvm_state() {
 __rvm_inspect() {
   for binary in $rvm_ruby_args ; do
     actual_file="$(command -v $binary)"
-    $rvm_scripts_path/log "info" "$actual_file:"
+    "$rvm_scripts_path/log" "info" "$actual_file:"
     if [[ -n "$rvm_shebang_flag" ]] ; then head -n 1    < "$actual_file" ; fi
     if [[ -n "$rvm_env_flag" ]]     ; then awk '/ENV/'  < "$actual_file" ; fi
     if [[ -n "$rvm_path_flag" ]]    ; then awk '/PATH/' < "$actual_file" ; fi
@@ -624,7 +621,7 @@ __rvm_ensure_has_environment_files() {
     directory_name="$rvm_wrappers_path/$wrapper_identifier"
     if [[ ! -L "$directory_name" && ! -d "$directory_name" ]]; then
       \mkdir -p "$directory_name"
-      $rvm_scripts_path/wrapper "$wrapper_identifier" &> /dev/null
+      "$rvm_scripts_path/wrapper" "$wrapper_identifier" &> /dev/null
     fi
     unset rvm_creating_default_wrappers directory_name
     done; unset wrapper_identifier
@@ -637,7 +634,7 @@ __rvm_strip() {
 }
 
 __rvm_using_gemset_globalcache() {
-  $rvm_scripts_path/db "$rvm_config_path/user" "use_gemset_globalcache" | \grep -q '^true$'
+  "$rvm_scripts_path/db" "$rvm_config_path/user" "use_gemset_globalcache" | \grep -q '^true$'
 }
 
 __rvm_current_gemcache_dir() {
@@ -684,24 +681,24 @@ __rvm_rvmrc_key() {
 
 __rvm_reset_rvmrc_trust() {
   touch "$rvm_config_path/rvmrcs"
-  $rvm_scripts_path/db "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
+  "$rvm_scripts_path/db" "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
 }
 
 __rvm_trust_rvmrc() {
   touch "$rvm_config_path/rvmrcs"
   __rvm_reset_rvmrc_trust "$1"
-  $rvm_scripts_path/db "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "1" >/dev/null 2>&1
+  "$rvm_scripts_path/db" "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "1" >/dev/null 2>&1
 }
 
 __rvm_untrust_rvmrc() {
   touch "$rvm_config_path/rvmrcs"
   __rvm_reset_rvmrc_trust "$1"
-  $rvm_scripts_path/db "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "0" >/dev/null 2>&1
+  "$rvm_scripts_path/db" "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "0" >/dev/null 2>&1
 }
 
 __rvm_rvmrc_stored_trust() {
   touch "$rvm_config_path/rvmrcs"
-  $rvm_scripts_path/db "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")"
+  "$rvm_scripts_path/db" "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")"
 }
 
 __rvm_rvmrc_tools() {
@@ -867,16 +864,16 @@ __rvm_environment_identifier() {
 
 __rvm_expand_ruby_string() {
   if [[ -z "$1" || "$1" = "all" ]]; then
-    $rvm_scripts_path/list strings | tr ' ' "\n" | __rvm_strip
+    "$rvm_scripts_path/list" strings | tr ' ' "\n" | __rvm_strip
   elif [[ "$1" = "all-gemsets" ]]; then
-    $rvm_scripts_path/list gemsets strings | __rvm_strip
+    "$rvm_scripts_path/list" gemsets strings | __rvm_strip
   elif [[ "$1" = "default-with-rvmrc" || "$1" = "rvmrc" ]]; then
-    $rvm_scripts_path/tools path-identifier "$PWD"
+    "$rvm_scripts_path/tools" path-identifier "$PWD"
   elif [[ "$1" == "all-rubies" || "$1" = "rubies" ]]; then
-    $rvm_scripts_path/list rubies strings | __rvm_strip
+    "$rvm_scripts_path/list" rubies strings | __rvm_strip
   elif [[ "$1" == "current-ruby" || "$1" = "gemsets" ]]; then
     local current_ruby="$(__rvm_environment_identifier | awk -F"$rvm_gemset_separator" '{print $1}')"
-    rvm_silence_logging=1 $rvm_scripts_path/gemsets list | sed "s/^/$current_ruby$rvm_gemset_separator/"  | __rvm_strip
+    rvm_silence_logging=1 "$rvm_scripts_path/gemsets" list | sed "s/^/$current_ruby$rvm_gemset_separator/"  | __rvm_strip
   elif [[ "$1" = "current" ]]; then
     __rvm_environment_identifier
   elif [[ "$1" = "aliases" ]]; then
