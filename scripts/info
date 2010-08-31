@@ -76,7 +76,7 @@ info_environment() {
 
 info_debug() {
   rvm_info=$(__rvm_version)
-  rvm_info="$rvm_info\n$($rvm_scripts_path/info "$rvm_ruby_string" "" )"
+  rvm_info="$rvm_info\n$("$rvm_scripts_path/info" "$rvm_ruby_string" "" )"
   rvm_info="$rvm_info\nPATH:\n$(printf $PATH | awk -F":" '{print $1":"$2":"$3":"$4":"$5}' )"
   rvm_info="$rvm_info\nuname -a: $(uname -a)"
   rvm_info="$rvm_info\npermissions: $(\ls -la $rvm_path{,/rubies})"
@@ -113,14 +113,16 @@ info_debug() {
 }
 
 info_sections() {
-  for section in $(echo $sections | \tr ',' ' ') ; do
+  for section in ${sections//,/ } ; do
     unset rvm_info ; "info_${section}" ; printf "$rvm_info"
   done
 }
 
 args="$*"
-ruby_strings="$(echo "$args" | awk '{print $1}')"
-sections=$(echo "$args" | awk '{$1="" ; print}' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+ruby_strings="${args/ */}"
+sections="${args#* }"
+sections="${sections#"${sections%%[![:space:]]*}"}" # strip leading whitespace
+sections="${sections%"${sections##*[![:space:]]}"}" # strip trailing whitespace
 all_sections="system rvm ruby homes binaries environment"
 
 if "$rvm_scripts_path/match" "$all_sections debug" "${ruby_strings/,*/}" ; then
@@ -134,7 +136,7 @@ if [[ -z "$ruby_strings" ]] ; then
   printf "$(__rvm_environment_identifier):\n"
   info_sections
 else
-  for ruby_string in $(printf $ruby_strings | \tr ',' ' ') ; do
+  for ruby_string in ${ruby_strings//,/ } ; do
     __rvm_become "$ruby_string"
     printf "$(__rvm_environment_identifier):\n"
     info_sections
