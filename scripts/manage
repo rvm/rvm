@@ -27,9 +27,10 @@ __rvm_check_for_bison() {
 # Expands patchsets etc.
 __rvm_current_patch_names() {
   # TODO: Lookup default patches on rvm_ruby_string heirarchy.
+  local patch_level_seperator="%"
   local patches="$rvm_patch_names default"
-  for patch_name in $(echo "${patches//,/ }" | __rvm_strip); do
-    __rvm_expand_patch_name "$patch_name"
+  for patch_name in $(printf "$patches" | sed -e "s/,/ /g" -e "s#$patch_level_seperator#\\$patch_level_seperator#g" | __rvm_strip); do
+    __rvm_expand_patch_name "${patch_name//${patch_level_seperator}*/}"
   done
 }
 
@@ -50,7 +51,7 @@ __rvm_apply_patches() {
     full_patch_path="$(__rvm_lookup_full_patch_path "$patch_name")"
     # Expand paths, and for those we found we then apply the patches.
     if [[ -n "$full_patch_path" ]]; then
-      __rvm_run "patch.apply.$(basename "$patch_name")" "patch -F$patch_fuzziness -p$patch_level -f < '$full_patch_path'" "Applying patch '$patch_name' (located at $full_patch_path)"
+      __rvm_run "patch.apply.${patch_name/*\/}" "patch -F$patch_fuzziness -p$patch_level -f <\"$full_patch_path\"" "Applying patch '$patch_name' (located at $full_patch_path)"
       # Detect failed patches
       [[ "$?" -gt 0 ]] && patch_result=1
     else
