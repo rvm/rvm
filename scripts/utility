@@ -161,7 +161,7 @@ __rvm_clean_path() {
 
 # Clean all rvm items out of the current working path.
 __rvm_remove_rvm_from_path() {
-  PATH="$(echo $PATH | \tr -s ':' '\n' | \grep -v "rvm" | \tr -s '\n' ':' | sed 's#:$##')"
+  PATH="$(echo $PATH | \tr -s ':' '\n' | \grep -v "$rvm_path" | \tr -s '\n' ':' | sed 's#:$##')"
   export PATH
   builtin hash -r
 }
@@ -241,7 +241,8 @@ __rvm_with_env() {
 __rvm_18_compat_ruby() {
   rubies=""
   for ruby_name in $(\ls "$rvm_rubies_path"); do
-    if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] && "$rvm_scripts_path/match" "$ruby_name" '^(ruby-1.8.[[:digit:]]|rbx|ree)-'; then
+    if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] && "$rvm_scripts_path/match" "$ruby_name" '^(1.8.[[:digit:]]|rbx|ree)-'; then
+    if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] && [[ "$ruby_name" =~ 1.8. || "$ruby_name" =~ rbx- || "$ruby_name" =~ ree- ]] ; then
       rubies="$rubies $ruby_name"
     fi
   done; unset ruby_name
@@ -298,7 +299,6 @@ __rvm_set_rvmrc() {
   else
     "$rvm_scripts_path/log" "error" ".rvmrc cannot be set in your home directory. \n The home .rvmrc is for global rvm settings only."
   fi
-
 }
 __rvm_load_rvmrc() {
   [[ -z "$rvm_ignore_rvmrc" ]] && return
@@ -597,18 +597,18 @@ __rvm_become() {
 
 __rvm_ensure_has_environment_files() {
   local environment_identifier="$(__rvm_environment_identifier)"
-  file_name="${rvm_environments_path}/$environment_identifier"
+  local file_name="${rvm_environments_path}/$environment_identifier"
 
   if [[ ! -s "$file_name" ]] ; then
     \mkdir -p "${rvm_environments_path}"
-    echo "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"" > $file_name
+    echo "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"" > "$file_name"
     for variable in RUBY_VERSION GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gemset_name MAGLEV_HOME ; do
       eval "export $variable"
-      eval value=\$${variable}
+      eval "value=\$${variable}"
       if [[ -n "$value" ]] ; then
-        printf "${variable}='$value'\nexport ${variable}\n" >> $file_name
+        printf "${variable}='$value'\nexport ${variable}\n" >> "$file_name"
       else
-        printf "unset ${variable}\n" >> $file_name
+        printf "unset ${variable}\n" >> "$file_name"
       fi
     done ; unset variable value
   fi ; unset file_name
@@ -861,12 +861,12 @@ __rvm_recorded_install_command() {
 
 __rvm_environment_identifier() {
   ruby_string="$(command -v ruby)"
+
   if [ -n "$ruby_string" ] && echo "$ruby_string" | \grep -q -F "$rvm_rubies_path"; then
     echo "$GEM_HOME" | xargs basename
   else
     echo "system"
-  fi
-  unset ruby_string
+  fi ; unset ruby_string
 }
 
 __rvm_expand_ruby_string() {
