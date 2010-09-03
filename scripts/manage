@@ -1210,44 +1210,47 @@ __rvm_manage_rubies() {
   if [[ -n "$rubies_string" ]] ;then
     for rvm_ruby_string in $(echo "$rubies_string" | \tr ',' ' ') ; do
       current_manage_ruby_string="$rvm_ruby_string"
-      eval "__rvm_${rvm_action}_ruby"
+      eval "__rvm_${action}_ruby"
       result="$?"
       if [[ "$result" -gt 0 && "$manage_result" = 0 ]]; then
         manage_result="$result"
       fi
-      [[ "$result" = 0 && "$rvm_action" = "install" ]] && __rvm_record_install "$current_manage_ruby_string"
+      [[ "$result" = 0 && "$action" = "install" ]] && __rvm_record_install "$current_manage_ruby_string"
       unset current_manage_ruby_string
       __rvm_unset_ruby_variables
     done
   else # all
-    if [[ "$rvm_action" != "install" && "$rvm_action" != "remove" && "$rvm_action" != "uninstall" ]] ; then
+    if [[ "$action" != "install" && "$action" != "remove" && "$action" != "uninstall" ]] ; then
       while read -r bin_line
       do # Keep this on second line damnit!
         if [[ -x "$bin_line" ]] ; then
           current_manage_ruby_string="$(dirname "$bin_line" | xargs dirname | xargs basename)"
           rvm_ruby_string="$current_manage_ruby_string"
-          eval "__rvm_${rvm_action}_ruby"
+          eval "__rvm_${action}_ruby"
           result="$?"
           if [[ "$result" -gt 0 && "$manage_result" = 0 ]]; then
             manage_result="$result"
           fi
           # record as current_manage_string to prevent it being overridden.
-          [[ "$result" = 0 && "$rvm_action" = "install" ]] && __rvm_record_install "$current_manage_ruby_string"
+          [[ "$result" = 0 && "$action" = "install" ]] && __rvm_record_install "$current_manage_ruby_string"
           unset current_manage_ruby_string
           __rvm_unset_ruby_variables
         fi
       done < <(\ls "$rvm_rubies_path"/*/bin/ruby 2> /dev/null)
     else
-      "$rvm_scripts_path/log" "warn" 'Really? '"$rvm_action"' all? See "rvm list known" and limit the selection to something more sane please :)'
+      "$rvm_scripts_path/log" "warn" 'Really? '"$action"' all? See "rvm list known" and limit the selection to something more sane please :)'
     fi
   fi
 
   # TODO: This should return the exit status of the command that got called.
   return $manage_result
-
 }
 
-rvm_action="$1"
-rubies_string="$2"
+args=($*)
+action="${args[0]}"
+rubies_string="${args[1]}"
+args="$(echo ${args[@]:2}) " # Strip trailing / leading / extra spacing.
+
 __rvm_manage_rubies
+
 exit $?
