@@ -23,30 +23,39 @@ __rvm_check_for_bison() {
   fi
 }
 
-# Returns a number of patches, each on a new name
+# Emits a number of patches to STDOUT, each on a new name
 # Expands patchsets etc.
 __rvm_current_patch_names() {
   # TODO: Lookup default patches on rvm_ruby_string heirarchy.
-  local patch_level_seperator="%"
+  local separator="%"
   local patches="$rvm_patch_names default"
-  for patch_name in $(printf "$patches" | sed -e "s/,/ /g" -e "s#$patch_level_seperator#\\$patch_level_seperator#g" | __rvm_strip); do
-    __rvm_expand_patch_name "${patch_name//${patch_level_seperator}*/}"
+  for patch_name in $(echo "$patches" | \tr ',' ' ' | __rvm_strip); do
+    local level=1
+    local name="$patch_name"
+    if echo "$name" | \grep -q "$separator"; then
+      level="${name/*${separator}/}"
+      name="${name//${separator}*/}"
+    fi
+    local expanded_name="$(__rvm_expand_patch_name "$name")"
+    echo "${expanded_name}${separator}${level}"
   done
 }
 
 __rvm_apply_patches() {
   local patch_result=0
-  local patch_level_seperator="%"
+  local patch_level_separator="%"
   local patch_fuzziness="25"
+  local patch_level=1
   source_directory="${1:-"$rvm_ruby_src_path"}"
   __rvm_pushpop "$source_directory"
   unset source_directory
-  for patch_name in $(__rvm_current_patch_names | __rvm_strip); do
-    patch_level="1"
+  patches="$(__rvm_current_patch_names | __rvm_strip)"
+  for patch_name in $(echo $patches); do
     # If set, extract the patch level from the patch name.
-    if echo "$patch_name" | \grep -q "$patch_level_seperator"; then
-      patch_level="${patch_name/*${patch_level_seperator}/}"
-      patch_name="${patch_name/${patch_level_seperator}*/}"
+    patch_level=1
+    if echo "$patch_name" | \grep -q "$patch_level_separator"; then
+      patch_level="${patch_name//*${patch_level_separator}/}"
+      patch_name="${patch_name//${patch_level_separator}*/}"
     fi
     full_patch_path="$(__rvm_lookup_full_patch_path "$patch_name")"
     # Expand paths, and for those we found we then apply the patches.
