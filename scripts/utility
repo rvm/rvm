@@ -752,7 +752,8 @@ __rvm_ask_to_trust() {
   [[ -n "$rvm_promptless" ]] && return 2
   printf "
   ============================================================
-  RVM has encountered a new untrusted .rvmrc file containing:
+  RVM has encountered a not yet trusted .rvmrc file in the
+  current working directory which contains the following code:
   ============================================================
 
 $(cat $1)
@@ -834,14 +835,14 @@ __rvm_record_install() {
   \grep -v "^$recorded_ruby_name " < "$rvm_install_record_file" > "$rvm_install_record_file.tmp"
   echo "$rvm_install_command" >> "$rvm_install_record_file.tmp"
   \rm -f "$rvm_install_record_file"
-  mv "$rvm_install_record_file.tmp" "$rvm_install_record_file"
+  \mv "$rvm_install_record_file.tmp" "$rvm_install_record_file"
 }
 
 __rvm_remove_install_record() {
   local recorded_ruby_name="$($rvm_scripts_path/tools strings "$1")"
   local rvm_install_record_file="$rvm_config_path/installs"
   if [[ -s "$rvm_install_record_file" ]]; then
-    mv "$rvm_install_record_file" "$rvm_install_record_file.tmp"
+    \mv "$rvm_install_record_file" "$rvm_install_record_file.tmp"
     \grep -v "^$recorded_ruby_name " < "$rvm_install_record_file.tmp" > "$rvm_install_record_file"
     \rm -f "$rvm_install_record_file.tmp"
   fi
@@ -860,28 +861,32 @@ __rvm_recorded_install_command() {
 
 __rvm_environment_identifier() {
   local path="$(command -v ruby)"
-  local string="${path//*rubies\//}" # | awk -F'/' '{print $1}')"
+  local string="${path//*rubies\//}"
   string="${string//\/*/}"
   echo "${string:-system}"
+  return $?
 }
 
 __rvm_expand_ruby_string() {
-  if [[ -z "$1" || "$1" = "all" ]]; then
+  local string="$1"
+  if [[ -z "$string" || "$string" = "all" ]]; then
     "$rvm_scripts_path/list" strings | tr ' ' "\n" | __rvm_strip
-  elif [[ "$1" = "all-gemsets" ]]; then
+  elif [[ "$string" = "all-gemsets" ]]; then
     "$rvm_scripts_path/list" gemsets strings | __rvm_strip
-  elif [[ "$1" = "default-with-rvmrc" || "$1" = "rvmrc" ]]; then
+  elif [[ "$string" = "default-with-rvmrc" || "$string" = "rvmrc" ]]; then
     "$rvm_scripts_path/tools" path-identifier "$PWD"
-  elif [[ "$1" == "all-rubies" || "$1" = "rubies" ]]; then
+  elif [[ "$string" == "all-rubies" || "$string" = "rubies" ]]; then
     "$rvm_scripts_path/list" rubies strings | __rvm_strip
-  elif [[ "$1" == "current-ruby" || "$1" = "gemsets" ]]; then
-    local current_ruby="$(__rvm_environment_identifier | awk -F"$rvm_gemset_separator" '{print $1}')"
+  elif [[ "$string" == "current-ruby" || "$string" = "gemsets" ]]; then
+    local current_ruby="$(__rvm_environment_identifier | awk -F"$rvm_gemset_separator" '{print $string}')"
     rvm_silence_logging=1 "$rvm_scripts_path/gemsets" list | sed "s/^/$current_ruby$rvm_gemset_separator/"  | __rvm_strip
-  elif [[ "$1" = "current" ]]; then
+  elif [[ "$string" = "current" ]]; then
     __rvm_environment_identifier
-  elif [[ "$1" = "aliases" ]]; then
-    awk -F= '{print $1}' < "$rvm_config_path/alias" | __rvm_strip
+  elif [[ "$string" = "aliases" ]]; then
+    awk -F= '{print $string}' < "$rvm_config_path/alias" | __rvm_strip
   else
-    echo "$1" | tr "," "\n" | __rvm_strip
+    echo "$string" | tr "," "\n" | __rvm_strip
   fi
+  return $?
 }
+
