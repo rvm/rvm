@@ -9,7 +9,7 @@ __rvm_setup() {
     rvm_zsh_clobber=$?
     setopt clobber
   else
-    __shell_array_start=0
+    __shell_array_start=0 # bash array indexes are 0 based.
   fi ; export __shell_array_start
 }
 
@@ -19,7 +19,7 @@ __rvm_teardown() {
       setopt noclobber
     fi ; unset rvm_zsh_clobber
   else
-    :
+    : # currently we are not doing any option setting for bash.
   fi
   # Ruby strings are scoped to their action.
   # Hence, we ensure we remove them at in
@@ -39,37 +39,48 @@ __rvm_teardown() {
 
   [[ -n "$rvm_dump_environment_flag" ]] && __rvm_dump_environment
 
+  return 0
 }
 
+# Dump the current environment to a file.
 __rvm_dump_environment() {
   # Note: This assumes that there is a ','
   local dump_environment_file="${rvm_dump_environment_flag/,*/}"
   local dump_environment_type="${rvm_dump_environment_flag/*,/}"
   if [[ -n "$dump_environment_file" && -n "$dump_environment_type" ]]; then
-    if [[ "$dump_environment_type" == "atheis"* ]]; then
-      \rm -rf "$dump_environment_file" && ln -s /dev/null "$dump_environment_file" >/dev/null 2>&1
+    if [[ "$dump_environment_type" == "atheis"* ]] && [[ -f "$dump_environment_file" ]] ; then
+      # TODO: Query Darcy about the ln.
+      \rm -f "$dump_environment_file" && ln -s /dev/null "$dump_environment_file" >/dev/null 2>&1
     else
       "$rvm_scripts_path/environment-convertor" "$dump_environment_type" "$(__rvm_environment_identifier)" > "$dump_environment_file"
-      [[ "$?" -gt 0 ]] && \rm -rf "$dump_environment_file"
+      if [[ "$?" -gt 0 ]] && [[ -f "$dump_environment_file" ]] ; then
+        \rm -f "$dump_environment_file"
+      fi
     fi
   fi ; unset rvm_dump_environment_flag
+  return 0
 }
 
 # Return a list of directories under a given base path.
 # Derived from rvm_ruby_string.
 __rvm_ruby_string_paths_under() {
-  local patch_parts="$(echo "$rvm_ruby_string" | \tr '-' ' ' | __rvm_strip)"
-  while true; do
-    echo "$1/$patch_parts" | \tr ' ' '/' | sed 's#\/$##'
+  local path="$1"
+  local patch_parts="$(echo ${rvm_ruby_string//-/ })"
+
+  while true ; do
+    echo "$path/$patch_parts" | \tr ' ' '/' | sed 's#\/$##'
     [[ -z "$patch_parts" ]] && break
     patch_parts="$(echo "$patch_parts" | awk '{$NF=""; print}' | __rvm_strip)"
   done
+  return 0
 }
 
 # Query the rvm key-value database for a specific key
 # Allow overrides from user specifications in $rvm_config_path/user
 __rvm_db() {
-  key=$1 ; variable=$2
+  local key=$1
+  local variable=$2
+
   if [[ -f "$rvm_config_path/user" ]] ; then
     value="$($rvm_scripts_path/db "$rvm_config_path/user" "$key")"
   fi
@@ -84,8 +95,8 @@ __rvm_db() {
     else
       eval "$variable='$value'"
     fi
-  fi
-  unset key value variable
+  fi ; unset key value variable
+  return 0
 }
 
 is_a_function() { type $1 | head -n 1 | \grep -q "function" ; }
@@ -100,15 +111,16 @@ __rvm_quote_args() {
     fi
   done
   echo "$quoted_string" | sed -e 's/^ *//g' -e 's/ *$//g'
+  return 0
 }
 
 __rvm_quote_args_with_shift() {
   local shift_value="$1"; shift
   while [[ "$shift_value" -gt 0 && "$#" -gt 0 ]]; do
-    shift
-    let shift_value=shift_value-1
+    shift ; ((shift_value--))
   done
   __rvm_quote_args "$@"
+  return 0
 }
 
 __rvm_warn_on_rubyopt() {
@@ -121,17 +133,13 @@ __rvm_warn_on_rubyopt() {
 }
 
 __rvm_strings() {
-  unset results
-  for rvm_ruby_string in $(echo $rvm_ruby_args) ; do
+  local strings=""
+  for rvm_ruby_string in $(echo ${rvm_ruby_args:-$rvm_ruby_string}) ; do
     #__rvm_ruby_string
-    if [[ $? -gt 0 ]] ; then
-      return 1
-    else
-      results="$results $(__rvm_select ; echo $rvm_ruby_string)"
-    fi
+    strings="$strings $(__rvm_select ; echo $rvm_ruby_string)"
+    # [[ $? -gt 0 ]] && return 1
   done
-  echo $results
-  unset results
+  echo $strings
   return 0
 }
 
