@@ -2,7 +2,7 @@
 
 __rvm_setup() {
   # ZSH has 1 based array indexing, bash has 0 based.
-  if [[ -n "$ZSH_VERSION" ]] ; then
+  if  ( set -u ; : $ZSH_VERSION ) 2> /dev/null && [[ -n "$ZSH_VERSION" ]] ; then
     __shell_array_start=1
     # Set clobber for zsh users, for compatibility with bash's append operator ( >> file ) behavior
     setopt | \grep -qs '^noclobber$'
@@ -14,7 +14,11 @@ __rvm_setup() {
 }
 
 __rvm_teardown() {
-  if [[ -n "$ZSH_VERSION" ]] ; then
+  declare rvm_dump_environment_flag=${rvm_dump_environment_flag:-0}
+  declare rvm_clang_flag=${rvm_clang_flag:-0}
+  declare rvm_prior_cc=${rvm_prior_cc:-""}
+
+  if  ( set -u ; : $ZSH_VERSION ) 2> /dev/null && [[ -n "$ZSH_VERSION" ]] ; then
     if [[ "$rvm_zsh_clobber" -eq 0 ]] ; then
       setopt noclobber
     fi ; unset rvm_zsh_clobber
@@ -37,7 +41,7 @@ __rvm_teardown() {
 
   unset rvm_ruby_strings
 
-  [[ -n "$rvm_dump_environment_flag" ]] && __rvm_dump_environment
+  [[ $rvm_dump_environment_flag -eq 1 ]] && __rvm_dump_environment
 
   return 0
 }
@@ -78,8 +82,10 @@ __rvm_ruby_string_paths_under() {
 # Query the rvm key-value database for a specific key
 # Allow overrides from user specifications in $rvm_config_path/user
 __rvm_db() {
-  local key=$1
-  local variable=$2
+  local value="" key="" variable=""
+
+  if  ( set -u ; : $1 ) 2> /dev/null ; then key=$1      ; fi
+  if  ( set -u ; : $2 ) 2> /dev/null ; then variable=$2 ; fi
 
   if [[ -f "$rvm_config_path/user" ]] ; then
     value="$($rvm_scripts_path/db "$rvm_config_path/user" "$key")"
@@ -95,7 +101,8 @@ __rvm_db() {
     else
       eval "$variable='$value'"
     fi
-  fi ; unset key value variable
+  fi
+
   return 0
 }
 
@@ -246,7 +253,8 @@ __rvm_run_with_env() {
 __rvm_cleanse_variables() {
   __rvm_unset_ruby_variables
 
-  if [[ "$rvm_sticky_flag" = "1" ]] ; then export rvm_gemset_name ; else unset rvm_gemset_name  ; fi
+  rvm_sticky_flag=${rvm_sticky_flag:-0}
+  if [[ $rvm_sticky_flag -eq 1 ]] ; then export rvm_gemset_name ; else unset rvm_gemset_name  ; fi
 
   unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_import_flag rvm_export_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag rvm_ruby_bits rvm_sticky_flag rvm_rvmrc_flag rvm_gems_flag rvm_only_path_flag rvm_docs_flag rvm_ruby_aliases rvm_patch_names rvm_clang_flag rvm_install_arguments rvm_dump_environment_flag rvm_ruby_alias
 }
@@ -254,6 +262,13 @@ __rvm_cleanse_variables() {
 # Unset ruby-specific variables
 __rvm_unset_ruby_variables() {
   unset rvm_ruby_interpreter rvm_ruby_version rvm_url rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_release_version rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure rvm_ruby_mode rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_gem_path rvm_ruby_name rvm_ruby_strings rvm_ruby_repo_path
+}
+
+# Clear ruby-specific variables
+__rvm_clear_ruby_variables() {
+  unset rvm_ruby_interpreter rvm_ruby_version rvm_url rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_release_version rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure rvm_ruby_mode rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_gem_path rvm_ruby_name rvm_ruby_strings rvm_ruby_repo_path
+
+  declare rvm_ruby_interpreter rvm_ruby_version rvm_url rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_release_version rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure rvm_ruby_mode rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_gem_path rvm_ruby_name rvm_ruby_strings rvm_ruby_repo_path
 }
 
 # Usage: __rvm_with_env 'env-name' 'command'
@@ -344,7 +359,8 @@ __rvm_set_rvmrc() {
   fi
 }
 __rvm_load_rvmrc() {
-  [[ -z "$rvm_ignore_rvmrc" ]] && return 0
+  rvm_ignore_rvmrc=${rvm_ignore_rvmrc:-0}
+  [[ $rvm_ignore_rvmrc -eq 1 ]] && return 0
 
   for rvmrc in /etc/rvmrc $HOME/.rvmrc ; do
     if [[ -f "$rvmrc" ]] ; then
@@ -624,19 +640,24 @@ __rvm_state() {
 
 # Output an inspection of selected 'binary' scripts, based on CLI selection.
 __rvm_inspect() {
+  rvm_shebang_flag=${rvm_shebang_flag:-0}
+  rvm_env_flag=${rvm_env_flag:-0}
+  rvm_path_flag=${rvm_path_flag:-0}
+  rvm_head_flag=${rvm_head_flag:-0}
+  rvm_tail_flag=${rvm_tail_flag:-0}
+  rvm_all_flag=${rvm_all_flag:-0}
 
   for binary in $rvm_ruby_args ; do
-
     actual_file="$(command -v $binary)"
 
     "$rvm_scripts_path/log" "info" "$actual_file:"
 
-    if [[ -n "$rvm_shebang_flag" ]] ; then head -n 1    < "$actual_file" ; fi
-    if [[ -n "$rvm_env_flag" ]]     ; then awk '/ENV/'  < "$actual_file" ; fi
-    if [[ -n "$rvm_path_flag" ]]    ; then awk '/PATH/' < "$actual_file" ; fi
-    if [[ -n "$rvm_head_flag" ]]    ; then head -n 5    < "$actual_file" ; fi
-    if [[ -n "$rvm_tail_flag" ]]    ; then tail -n 5    < "$actual_file" ; fi
-    if [[ -n "$rvm_all_flag" ]]     ; then cat $actual_file              ; fi
+    if [[ $rvm_shebang_flag -eq 1 ]] ; then head -n 1    < "$actual_file" ; fi
+    if [[ $rvm_env_flag -eq 1 ]]     ; then awk '/ENV/'  < "$actual_file" ; fi
+    if [[ $rvm_path_flag -eq 1 ]]    ; then awk '/PATH/' < "$actual_file" ; fi
+    if [[ $rvm_head_flag -eq 1 ]]    ; then head -n 5    < "$actual_file" ; fi
+    if [[ $rvm_tail_flag -eq 1 ]]    ; then tail -n 5    < "$actual_file" ; fi
+    if [[ $rvm_all_flag -eq 1 ]]     ; then cat $actual_file              ; fi
   done
 
   return 0
@@ -869,7 +890,7 @@ __rvm_rvmrc_tools() {
       fi
     ;;
     load)
-      rvm_rvmrc_cwd="" rvm_trust_rvmrcs=1 __rvm_project_rvmrc "$(dirname "$rvmrc_path")"
+      rvm_rvmrc_cwd="" rvm_trust_rvmrcs=1  __rvm_project_rvmrc "$(dirname "$rvmrc_path")"
     ;;
     *)
       echo "Usage: rvm rvmrc {trust,untrust,trusted,load,reset}"
@@ -933,17 +954,24 @@ $(cat $1)
 # Checks the rvmrc for the given directory. Note that if
 # argument is passed, it will be used instead of pwd.
 __rvm_project_rvmrc() {
+  declare -i rvm_project_rvmrc_default=${rvm_project_rvmrc_default:-0}
+  declare rvm_rvmrc_cwd="${rvm_rvmrc_cwd:-""}"
+  declare rvm_previous_environment="${rvm_previous_environment:-""}"
+
   local cwd
+
   # Get the first argument or the pwd.
   cwd="${1:-"$PWD"}"
   while : ; do
     if [[ -z "$cwd" || "$HOME" = "$cwd" || "/" = "$cwd" ]] ; then
       if [[ -n "$rvm_rvmrc_cwd" ]] ; then
-        if [[ "$rvm_project_rvmrc_default" = "1" ]]; then
+        if [[ $rvm_project_rvmrc_default -eq 1 ]]; then
           __rvm_load_env_file "default"
         elif [[ -n "$rvm_previous_environment" ]] ; then
           __rvm_load_env_file "$rvm_previous_environment"
-        fi ; unset rvm_rvmrc_cwd rvm_previous_environment
+        fi
+        rvm_rvmrc_cwd=""
+        rvm_previous_environment=""
       fi
       break
     else

@@ -261,7 +261,7 @@ RubyWrapper
     ;;
 
     ree)
-      if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.8/')" ]] && [[ -z "$rvm_head_flag" ]] ; then
+      if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.8/')" ]] && [[ $rvm_head_flag -eq 0 ]] ; then
         rvm_url="$(__rvm_db "ree_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
         "$rvm_scripts_path/log" "info" "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
         __rvm_pushpop "$rvm_src_path"
@@ -339,7 +339,7 @@ RubyWrapper
       __rvm_conditionally_add_bin_path ; export PATH
       builtin hash -r
 
-      if [[ -n "$(echo $rvm_ruby_version | awk '/^1\.0/')" ]] && [[ -z "$rvm_head_flag" ]] ; then
+      if [[ -n "$(echo $rvm_ruby_version | awk '/^1\.0/')" ]] && [[ $rvm_head_flag -eq 0 ]] ; then
         "$rvm_scripts_path/log" "info" "Downloading $rvm_ruby_package_file, this may take a while depending on your connection..."
         "$rvm_scripts_path/fetch" "$rvm_url"
         result=$? ; if [[ "$result" -gt 0 ]] ; then
@@ -433,7 +433,7 @@ RubyWrapper
       fi
 
       builtin cd "$rvm_ruby_src_path"
-      if [[ -n "$rvm_head_flag" ]] ; then __rvm_run "ant.dist" "ant dist" "Running 'ant dist' (this could take a few minutes) ..." ; fi
+      if [[ $rvm_head_flag -eq 1 ]] ; then __rvm_run "ant.dist" "ant dist" "Running 'ant dist' (this could take a few minutes) ..." ; fi
 
       \mkdir -p "$rvm_ruby_home/bin/"
       if "$rvm_scripts_path/match" "$rvm_ruby_version" "1\.3" || "$rvm_scripts_path/match" "$rvm_ruby_version" "1\.2" ; then
@@ -500,7 +500,7 @@ RubyWrapper
         fi
       fi
 
-      if [[ -n "$rvm_head_flag" ]] ; then
+      if [[ $rvm_head_flag -eq 1 ]] ; then
         builtin cd "$rvm_ruby_src_path"
         rvm_gemstone_package_file="GemStone-$(\grep ^GEMSTONE version.txt | cut -f2 -d-).$(uname -sm | \tr ' ' '-')"
         rvm_gemstone_url="${rvm_gemstone_url:-"$maglev_url/${rvm_gemstone_package_file}.${rvm_archive_extension}"}"
@@ -545,7 +545,7 @@ RubyWrapper
       done ; unset binary
 
       builtin cd "$rvm_ruby_home"
-      if [[ -n "$rvm_head_flag" ]] ; then
+      if [[ $rvm_head_flag -eq 1 ]] ; then
         git submodule update --init
         "$rvm_ruby_home/bin/maglev" force-reload
         ln -sf maglev.demo.key-$(uname -sm | \tr ' ' '-') etc/maglev.demo.key
@@ -580,7 +580,7 @@ RubyWrapper
         printf "mono must be installed and in your path in order to install IronRuby." ; return 1
       fi
 
-      if [[ "$rvm_head_flag" = 1 ]] ; then
+      if [[ $rvm_head_flag -eq 1 ]] ; then
           mono_version="$(mono -V | head -n 1 | cut -d ' ' -f5)"
           if "$rvm_scripts_path/match" "$mono_version" "([0-9]+)\.([0-9]+)\.?([0-9]+)?" ; then
             mono_major_ver="$(echo "$mono_version" | cut -d '.' -f1)"
@@ -766,7 +766,7 @@ __rvm_fetch_from_github() {
 __rvm_fetch_ruby() {
   [[ -z "$rvm_ruby_selected_flag" ]] && __rvm_select
 
-  if [[ -z "$rvm_head_flag" && -z "$rvm_ruby_tag" && -z "$rvm_ruby_revision" ]] ; then
+  if [[ $rvm_head_flag -eq 0 && -z "$rvm_ruby_tag" && -z "$rvm_ruby_revision" ]] ; then
     rvm_ruby_package_name="${rvm_ruby_package_name:-"$rvm_ruby_string"}"
     rvm_ruby_package_file="${rvm_ruby_package_file:-"$rvm_ruby_package_name"}"
     if [[ "ruby" = "$rvm_ruby_interpreter" ]]; then
@@ -816,7 +816,7 @@ __rvm_fetch_ruby() {
         fi
       fi
 
-      mv "/tmp/rvm_src_$$/$(\cd /tmp/rvm_src_$$ ; \ls)" "$rvm_ruby_src_path" ; \rm -rf "/tmp/rvm_src_$$"
+      mv "/tmp/rvm_src_$$/$(builtin cd /tmp/rvm_src_$$ ; \ls)" "$rvm_ruby_src_path" ; \rm -rf "/tmp/rvm_src_$$"
 
       if [[ -n "$rvm_ruby_name" ]] && [[ -d "$rvm_src_path/$(echo $rvm_ruby_string | sed -e 's/-n.*//')" ]] ; then
         mv "$rvm_src_path/$(echo "$rvm_ruby_string" | sed -e 's/-n.*//')" "$rvm_ruby_src_path"
@@ -865,10 +865,10 @@ __rvm_fetch_ruby() {
       if [[ -n "$rvm_ruby_tag" ]] ; then
         # TODO: Check if tag v is valid
         rvm_url="${rvm_url:-"$rvm_ruby_repo_url/tags/$(echo "$rvm_ruby_tag" | sed 's/^t//')"}"
-      elif [[ -z "$rvm_ruby_version" ]] && [[ -n "$rvm_head_flag" ]] ; then
+      elif [[ -z "$rvm_ruby_version" && $rvm_head_flag -eq 1 ]] ; then
         rvm_url="${rvm_url:-"$rvm_ruby_repo_url/trunk"}"
       elif [[  "$rvm_major_version" = "9" ]] ; then
-        if [[ -z "$rvm_minor_version" ]] || [[ "$rvm_minor_version" = 3 ]] ; then
+        if [[ -z "$rvm_minor_version" || "$rvm_minor_version" = 3 ]] ; then
           rvm_url="${rvm_url:-"$rvm_ruby_repo_url/trunk"}"
         else
           rvm_url="${rvm_url:-"$rvm_ruby_repo_url/branches/ruby_${rvm_release_version}_${rvm_major_version}_${rvm_minor_version}"}"
