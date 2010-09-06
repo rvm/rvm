@@ -154,15 +154,15 @@ __rvm_parse_args() {
       ;;
 
       do|ruby|rake|gem|rubydo|rakedo|gemdo)
-        if [[ "do" = "$rvm_action" ]] ; then rvm_action="ruby" ; fi
+        if [[ "do" = "${rvm_action:-""}" ]] ; then rvm_action="ruby" ; fi
         rvm_action=$(echo $rvm_token | sed 's#do##g')
-        if [[ "rake" = "$rvm_action" ]] || [[ "gem" = "$rvm_action" ]] || [[ "ruby" = "$rvm_action" ]] ; then
+        if [[ "rake" = "${rvm_action:-""}" || "gem" = "${rvm_action:-""}" || "ruby" = "${rvm_action:-""}" ]] ; then
           if [[ -z "$next_token" ]] ; then
-            if [[ "gem" = "$rvm_action" ]]  ; then
+            if [[ "gem" = "${rvm_action:-""}" ]]  ; then
               rvm_action="error"
               rvm_error_message="'rvm $rvm_action' must be followed by arguments."
-            elif [[ "ruby" = "$rvm_action" ]] ; then
-              if echo "$rvm_ruby_strings" | \grep -q ',' ; then
+            elif [[ "ruby" = "${rvm_action:-""}" ]] ; then
+              if echo "$rvm_ruby_strings":-""} | \grep -q ',' ; then
                 rvm_action="ruby"
                 rvm_ruby_args=""
               else
@@ -241,7 +241,7 @@ __rvm_parse_args() {
       --head) rvm_head_flag=1 ;;
 
       --bin)
-        if [[ "update" = "$rvm_action" ]] ; then
+        if [[ "update" = "${rvm_action:-""}" ]] ; then
           rvm_bin_flag=1
         else
           rvm_bin_path="$next_token" ; shift
@@ -420,15 +420,14 @@ __rvm_parse_args() {
 
           elif echo "$rvm_token" | \grep -q ',' ; then
             rvm_ruby_strings="$rvm_token"
-            if [[ -z "$rvm_action" ]] ; then
+            if [[ -z "${rvm_action:-""}" ]] ; then
               rvm_action="ruby" # Not sure if we really want to do this but we'll try it out.
             fi
 
           elif "$rvm_scripts_path/match" "$rvm_token" "^${rvm_gemset_separator}" ; then
-            rvm_action="use"
-            rvm_gemset_name="$(echo "$rvm_token" | awk -F${rvm_gemset_separator} '{print $2}')"
+            rvm_action="${rvm_action:-use}"
             rvm_gemset_name="${rvm_token/*${rvm_gemset_separator}/}"
-            rvm_ruby_string="$(__rvm_environment_identifier | awk -F${rvm_gemset_separator} '{print $1}')"
+            rvm_ruby_string="${rvm_ruby_string:-""}"
             rvm_ruby_strings="${rvm_ruby_string}${rvm_gemset_separator}${rvm_gemset_name}"
 
           elif "$rvm_scripts_path/match" "$rvm_token" "^.+${rvm_gemset_separator}.+$" ; then
@@ -464,7 +463,7 @@ __rvm_parse_args() {
             if "$rvm_scripts_path/match" "$rvm_token" ".rb$" ; then # we have a specified ruby script
               rvm_ruby_args=$rvm_token
               rvm_ruby_file=$rvm_token
-              if [[ -z "$rvm_action" ]] ; then rvm_action="ruby" ; fi
+              if [[ -z "${rvm_action:-""}" ]] ; then rvm_action="ruby" ; fi
             else
               rvm_action="error"
               rvm_error_message="Unrecognized command line argument: '$rvm_token'"
@@ -474,20 +473,21 @@ __rvm_parse_args() {
           rvm_action="error"
           rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
         fi
-        if [[ "error" = "$rvm_action" ]] ; then
+
+        if [[ "error" = "${rvm_action:-""}" ]] ; then
           break;
         fi
     esac
 
-    if [[ -z "$rvm_action" ]] && [[ ! -z "$rvm_ruby_string" ]]  ; then rvm_action="use" ; fi
+    if [[ -z "${rvm_action:-""}" && -n "${rvm_ruby_string:-""}" ]]  ; then rvm_action="use" ; fi
 
-    if [[ $rvm_parse_break -eq 1 ]] || [[ -n "$rvm_error_message" ]] ; then break ; fi
+    if [[ ${rvm_parse_break:-0} -eq 1 || -n "${rvm_error_message:-""}" ]] ; then break ; fi
   done
 
   # Empty args list.
   while [[ $# -gt 0 ]] ; do shift ; done
 
-  if [[ -n "$rvm_error_message" ]] ; then
+  if [[ -n "${rvm_error_message:-""}" ]] ; then
     __rvm_pushpop
     "$rvm_scripts_path"/log "fail" "$rvm_error_message ( see: 'rvm usage' )"
     return 1
@@ -639,7 +639,7 @@ rvm() {
     ;;
 
     *)
-      if [[ ! -z "$rvm_action" ]] ; then
+      if [[ -n "${rvm_action:-""}" ]] ; then
         "$rvm_scripts_path/log" "fail"  "unknown action '$rvm_action'"
       else
         __rvm_usage
