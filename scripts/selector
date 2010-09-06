@@ -288,7 +288,7 @@ __rvm_use() {
 
     export GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
 
-    if  ( set -u ; : $IRBRC ) 2> /dev/null && [[ -z "$IRBRC" ]] ; then unset IRBRC ; fi
+    IRBRC=${IRBRC:-""} ; if [[ -z "$IRBRC" ]] ; then unset IRBRC ; fi
 
     if [[ ! -d "$MY_RUBY_HOME" ]] ; then
       "$rvm_scripts_path/log" "warn" "$rvm_ruby_interpreter $rvm_ruby_string is not installed."
@@ -435,15 +435,14 @@ __rvm_ruby_string() {
       rvm_ruby_revision="" ; rvm_ruby_tag=""
     elif "$rvm_scripts_path/match" "$string" "^p[0-9]" ; then
       rvm_ruby_patch_level="$string"
-    elif ( set -u ; : $rvm_ruby_version ) 2> /dev/null && [[ -n "$rvm_ruby_version" ]] && "$rvm_scripts_path/match" "$string" "^[0-9][0-9]" ; then
+    elif [[ -n "$rvm_ruby_version" ]] && "$rvm_scripts_path/match" "$string" "^[0-9][0-9]" ; then
       if [[ "ree" = "$rvm_ruby_interpreter" ]] ; then
         rvm_ruby_patch_level="$string"
         rvm_ruby_revision=""
       elif [[ "rbx" = "$rvm_ruby_interpreter" ]] ; then
         rvm_ruby_patch_level="$string"
       elif [[ "maglev" = "$rvm_ruby_interpreter" ]] ; then
-        rvm_ruby_version="$string"
-        unset rvm_ruby_revision rvm_ruby_patch_level
+        rvm_ruby_version="$string" ; rvm_ruby_revision="" ; rvm_ruby_patch_level=""
       else
         rvm_ruby_revision="r$string"
       fi
@@ -552,7 +551,8 @@ __rvm_gemset_select() {
     # No longer defaulting to 'sticky' gem sets.
     # Set 'rvm_sticky_flag=1' in ~/.rvmrc to enable.
     if [[ $rvm_sticky_flag -eq 1 ]] ; then
-      if  ( set -u ; : $GEM_HOME ) 2> /dev/null && [[ -z "$GEM_HOME" ]] ; then
+      GEM_HOME=${GEM_HOME:-""}
+      if [[ -n "$GEM_HOME" ]] ; then
         rvm_gemset_name=$(echo $GEM_HOME | xargs basename | awk -F${rvm_gemset_separator} '{print $2}')
       fi
 
@@ -566,9 +566,9 @@ __rvm_gemset_select() {
     else
       if [[ -n "$rvm_ruby_string" ]] && [[ "$rvm_ruby_interpreter" != "system" ]] ; then
         rvm_ruby_gem_home="$rvm_gems_path/$rvm_ruby_string"
-      elif ( set -u ; : $GEM_HOME ) 2> /dev/null && [[ -z "$GEM_HOME" ]]  && [[ -n "$(command -v gem)" ]] ; then
+      elif [[ -z "$GEM_HOME" ]]  && [[ -n "$(command -v gem)" ]] ; then
         rvm_ruby_gem_home=$(gem env gemdir)
-      elif ( set -u ; : $GEM_HOME ) 2> /dev/null && [[ -n "$GEM_HOME" ]] ; then
+      elif [[ -n "$GEM_HOME" ]] ; then
         rvm_ruby_gem_home="$GEM_HOME"
       else
         rvm_ruby_gem_home=""
@@ -591,6 +591,8 @@ __rvm_gemset_select() {
       return 1
     fi
   fi
+
+  if [[ -z "$GEM_HOME" ]] ; then unset GEM_HOME ; fi
 
   # If the gemset does not exist, then notify the user as such and abort the action.
   if [[ -n "$rvm_gemset_name" ]] && [[ ! -d "$rvm_ruby_gem_home" ]] ; then
