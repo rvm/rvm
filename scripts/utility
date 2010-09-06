@@ -69,13 +69,14 @@ __rvm_dump_environment() {
 # Derived from rvm_ruby_string.
 __rvm_ruby_string_paths_under() {
   local path="$1"
-  local patch_parts="$(echo ${rvm_ruby_string//-/ })"
+  local path_parts="${rvm_ruby_string//-/ }"
 
   while true ; do
-    echo "$path/$patch_parts" | \tr ' ' '/' | sed 's#\/$##'
-    [[ -z "$patch_parts" ]] && break
-    patch_parts="$(echo "$patch_parts" | awk '{$NF=""; print}' | __rvm_strip)"
+    echo "$path/$path_parts" | sed -e 's# #/#g' -e 's#/$##g'
+    [[ -z "$path_parts" ]] && break
+    path_parts="$(echo "$path_parts" | awk '{$NF=""; print}' | __rvm_strip)"
   done
+
   return 0
 }
 
@@ -235,7 +236,7 @@ __rvm_run_with_env() {
 
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command # under $env_name" | tee "$rvm_ruby_log_path/$log_file_name.log" >> "$rvm_ruby_log_path/$log_file_name.error.log"
 
-  if [[ -z "$rvm_niceness" ]] || [[ "0" = "$rvm_niceness" ]] ; then
+  if [[ -z "$rvm_niceness" || "0" = "$rvm_niceness" ]] ; then
     eval "__rvm_with_env '$env_name' '$command'" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
   else
     eval "nice -n $rvm_niceness __rvm_with_env '$env_name' '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
@@ -273,14 +274,15 @@ __rvm_clear_ruby_variables() {
 
 # Usage: __rvm_with_env 'env-name' 'command'
 __rvm_with_env() {
-  [[ -n "$rvm_trace_flag" ]] && rvm_env_args="--trace"
+  if [[ $rvm_trace_flag -eq 1 ]] ; then rvm_env_args="--trace" ; else rvm_env_args="" ; fi
+  rvm_env_name="$1"
   rvm_env_command="$(echo "$2" | sed "s/rvm /rvm $rvm_env_args /")"
-  # Subshells!
   (
     source "$rvm_scripts_path/rvm"
-    rvm "$rvm_env_args" use $1 && eval "$rvm_env_command"
+    rvm "$rvm_env_args" use $rvm_env_name
+    eval "$rvm_env_command"
   )
-  unset rvm_env_args rvm_env_command
+  unset rvm_env_args rvm_env_name rvm_env_command
 }
 
 # Returns the first 1.8.7-compatible (partly) ruby for use

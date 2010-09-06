@@ -271,11 +271,12 @@ gemset_import() {
     export BUNDLE_PATH="$rvm_ruby_gem_home"
   fi
 
-  rvm_gemset_name="${gems_args//.gem*/}"
-  rvm_gemset_name="${gems_args// /}"
+  rvm_file_name="${gems_args}"
 
-  if [[ -s "$rvm_gemset_name.gems" ]] ; then
-    rvm_file_name="$rvm_gemset_name.gems"
+  if [[ -s "${rvm_file_name%.gems*}.gems" ]] ; then
+    rvm_file_name="${rvm_file_name%.gems*}.gems"
+  elif [[ -s "${rvm_gemset_name}.gems" ]] ; then
+    rvm_file_name="${rvm_gemset_name}.gems"
   elif [[ -s "default.gems" ]] ; then
     rvm_file_name="default.gems"
   elif [[ -s "system.gems" ]] ; then
@@ -399,9 +400,9 @@ gem_install() {
     __rvm_run "gem.install" "$command" "installing ${gem_name} ${gem_version}..."
     result=$?
     if [[ $result -eq 0 ]] ; then
-      "$rvm_scripts_path/log" "info" "$gem_name $gem_version installed, output logged to:\n$rvm_path/log/$rvm_ruby_string/gem.install.log"
+      "$rvm_scripts_path/log" "info" "$gem_name $gem_version installed ( output logged to: $rvm_path/log/$rvm_ruby_string/gem.install.log )"
     else
-      "$rvm_scripts_path/log" "error" "$gem_name $gem_version failed to install, output logged to:\n$rvm_path/log/$rvm_ruby_string/gem.install.error.log"
+      "$rvm_scripts_path/log" "error" "$gem_name $gem_version failed to install ( output logged to: $rvm_path/log/$rvm_ruby_string/gem.install.error.log )"
     fi
   fi ; unset gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string gem_action
 
@@ -460,19 +461,35 @@ gemset_pristine() {
 # Loads the default gemsets for the current interpreter and gemset.
 gemset_initial() {
   "$rvm_scripts_path/log" "info" "Importing initial gemsets for $(__rvm_environment_identifier)."
-  mkdir -p "$rvm_gemsets_path/$(echo "$rvm_ruby_string" | tr '-' '/')" 2>/dev/null
+
+  mkdir -p "$rvm_gemsets_path/${rvm_ruby_string//-//}" 2>/dev/null
+
   for gemsets_path in $(__rvm_ruby_string_paths_under "$rvm_gemsets_path") ; do
-    if [[ -n "$rvm_gemset_name" ]] ; then
-      if [[ -s "${gemsets_path}/${rvm_gemset_name}.gems" ]] ; then
-        (source "$rvm_scripts_path/rvm"; rvm gemset import "${gemsets_path}/${rvm_gemset_name}.gems") > /dev/null
+    # TODO: This can be condensed.
+    if [[ -d "$gemsets_path" ]] ; then
+    (
+      if [[ -n "$rvm_gemset_name" && -s "${gemsets_path}/${rvm_gemset_name}.gems" ]] ; then
+        source "$rvm_scripts_path/rvm"
+        rvm --create use "$rvm_ruby_string"
+        rvm gemset import "${gemsets_path}/${rvm_gemset_name}.gems"
       fi
-    else
-      if [[ -d "$gemsets_path" ]] && [[ -s "${gemsets_path}/default.gems" ]] ; then
-        (source "$rvm_scripts_path/rvm"; rvm gemset import "$gemsets_path/default.gems") > /dev/null
+    )
+
+    (
+      if [[ -s "${gemsets_path}/default.gems" ]] ; then
+        source "$rvm_scripts_path/rvm"
+        rvm --create use "$rvm_ruby_string"
+        rvm gemset import "$gemsets_path/default.gems"
       fi
-      if [[ -d "$gemsets_path" ]] && [[ -s "${gemsets_path}/global.gems" ]] ; then
-        (source "$rvm_scripts_path/rvm"; rvm use "$rvm_ruby_string@global" --create ; rvm gemset import "${gemsets_path}/global.gems") > /dev/null
+    )
+
+    (
+      if [[ -s "${gemsets_path}/global.gems" ]] ; then
+        source "$rvm_scripts_path/rvm"
+        rvm --create use "$rvm_ruby_string@global"
+        rvm gemset import "${gemsets_path}/global.gems"
       fi
+    )
     fi
   done
 
