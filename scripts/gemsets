@@ -96,21 +96,22 @@ gemset_dir() {
 
 gemset_create() {
   local gem_home=""
-
-  rvm_ruby_gem_prefix=$(echo $rvm_ruby_gem_home | sed 's/'${rvm_gemset_separator}'.*$//')
+  local gemset=""
+  local prefix=$(echo $rvm_ruby_gem_home | sed 's/'${rvm_gemset_separator}'.*$//')
 
   for gemset in $(echo $gems_args) ; do
+
     if [[ "$gemset" == *"${rvm_gemset_separator}"* ]]; then
       "$rvm_scripts_path/log" "error" "Can't do that, it contains a \"${rvm_gemset_separator}\"."
       continue
     fi
 
-    gem_home="${rvm_ruby_gem_prefix}${rvm_gemset_separator}${gemset}"
+    gem_home="${prefix}${rvm_gemset_separator}${gemset}"
 
-    mkdir -p "$gem_home"
+    [[ ! -d "$gem_home" ]] && mkdir -p "$gem_home"
 
     # When the globalcache is enabled, we need to ensure we setup the cache directory correctly.
-    if __rvm_using_gemset_globalcache; then
+    if __rvm_using_gemset_globalcache ; then
       if [[ -d "$gem_home/cache" && ! -L "$gem_home/cache" ]]; then
         mv "$gem_home/cache"/*.gem "$rvm_gems_cache_path/" 2>/dev/null
         rm -rf "$gem_home/cache"
@@ -118,17 +119,17 @@ gemset_create() {
       ln -nfs "$rvm_gems_cache_path" "$gem_home/cache"
     fi
 
-    "$rvm_scripts_path/log" "info" "Gemset '$gemset' created."
+    "$rvm_scripts_path/log" "info" "'$gemset' gemset created ($gem_home)."
   done
+
   return 0
 }
 
 gemset_list() {
-  rvm_ruby_selected_flag=${rvm_ruby_selected_flag:-0}
   rvm_gems_path="${rvm_gems_path:-""}"
   rvm_ruby_string="${rvm_ruby_string:-""}"
 
-  if [[ $rvm_ruby_selected_flag -eq 0 ]] ; then __rvm_select ; fi
+  if [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] ; then __rvm_select ; fi
 
   "$rvm_scripts_path/log" "info" "gemsets for $rvm_ruby_string (found in $rvm_gems_path/$rvm_ruby_string)\n"
 
@@ -144,13 +145,12 @@ gemset_list() {
     return 1
   fi
   printf "\n"
+
   return 0
 }
 
 gemset_delete() {
-  rvm_ruby_selected_flag=${rvm_ruby_selected_flag:-0}
-
-  if [[ $rvm_ruby_selected_flag -eq 0 ]] ; then __rvm_select ; fi
+  if [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] ; then __rvm_select ; fi
 
   if [[ -n "$rvm_gemset_name" ]] ; then
     gemdir="$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator}$rvm_gemset_name"
@@ -159,7 +159,9 @@ gemset_delete() {
     elif [[ -d "$gemdir" ]] ; then
       "$rvm_scripts_path/log" "warn" "Are you SURE you wish to remove the entire gemset directory '$rvm_gemset_name' ($gemdir)?"
       echo -n "(anything other than 'yes' will cancel) > "
+
       read response
+
       if [[ "yes" = "$response" ]] ; then
         rm -f $gemdir/cache 2>/dev/null
         rm -rf $gemdir
@@ -171,7 +173,9 @@ gemset_delete() {
     fi
   else
     "$rvm_scripts_path/log" "error" "A gemset name must be specified in order to delete a gems."
+    return 1
   fi
+  return 0
 }
 
 gemset_empty() {
