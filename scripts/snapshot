@@ -38,18 +38,20 @@ snapshot_save() {
 
   "$rvm_scripts_path/log" "info" "Backing up all of your gemsets"
   \mkdir -p "$snapshot_temp_path/gems"
-  __rvm_pushpop "$snapshot_temp_path/gems"
-  for snapshot_gemset in $("$rvm_scripts_path/list" gemsets strings) ; do
-    __rvm_become "$snapshot_gemset"
-    result="$?"
-    __error_on_result "$result" "Error becoming ruby $snapshot_gemset" && return "$result"
-    "$rvm_scripts_path/gemsets" export "${snapshot_gemset}.gems" >/dev/null
-    result="$?"
-    __error_on_result "$result" "Error exporting gemset contents for $snapshot_gemset" && return "$result"
-    \mkdir -p "./$snapshot_gemset/"
-    [[ -d "$GEM_HOME/cache/" ]] && \cp -R "$GEM_HOME/cache/" "./$snapshot_gemset/"
-  done; unset snapshot_gemset
-  __rvm_pushpop
+
+  (
+    builtin cd "$snapshot_temp_path/gems"
+    for snapshot_gemset in $("$rvm_scripts_path/list" gemsets strings) ; do
+      __rvm_become "$snapshot_gemset"
+      result="$?"
+      __error_on_result "$result" "Error becoming ruby $snapshot_gemset" && return "$result"
+      "$rvm_scripts_path/gemsets" export "${snapshot_gemset}.gems" >/dev/null
+      result="$?"
+      __error_on_result "$result" "Error exporting gemset contents for $snapshot_gemset" && return "$result"
+      \mkdir -p "./$snapshot_gemset/"
+      [[ -d "$GEM_HOME/cache/" ]] && \cp -R "$GEM_HOME/cache/" "./$snapshot_gemset/"
+    done; unset snapshot_gemset
+  )
 
   "$rvm_scripts_path/log" "info" "Backing up all of your installed rubies"
   echo '#!/usr/bin/env bash -e' > "$snapshot_temp_path/install-rubies.sh"
@@ -80,12 +82,13 @@ snapshot_save() {
 
   "$rvm_scripts_path/log" "info" "Compressing snapshotting"
   local destination_path="$PWD"
-  __rvm_pushpop "$snapshot_temp_path"
-  \rm -rf "$destination_path/$1.tar.gz"
-  tar czf "$destination_path/$1.tar.gz" .
-  result="$?"
-  __error_on_result "$result" "Error creating archive $destination_path/$1.tar.gz" && return "$result"
-  __rvm_pushpop
+  (
+    builtin cd "$snapshot_temp_path"
+    \rm -rf "$destination_path/$1.tar.gz"
+    tar czf "$destination_path/$1.tar.gz" .
+    result="$?"
+    __error_on_result "$result" "Error creating archive $destination_path/$1.tar.gz" && return "$result"
+  )
 
   "$rvm_scripts_path/log" "info" "Cleaning up"
   \rm -rf "$snapshot_temp_path"
@@ -113,11 +116,12 @@ snapshot_load() {
   \mkdir -p "$snapshot_temp_path"
 
   "$rvm_scripts_path/log" "info" "Extracting snapshot"
-  __rvm_pushpop "$snapshot_temp_path"
-  tar xzf "$snapshot_archive"
-  result="$?"
-  __error_on_result "$result" "Error extracting the archive '$snapshot_archive'" && return "$result"
-  __rvm_pushpop
+  (
+    builtin cd "$snapshot_temp_path"
+    tar xzf "$snapshot_archive"
+    result="$?"
+    __error_on_result "$result" "Error extracting the archive '$snapshot_archive'" && return "$result"
+  )
 
   "$rvm_scripts_path/log" "info" "Restoring user settings"
   \cp -f "$snapshot_temp_path/user" "$rvm_config_path/user"
@@ -137,20 +141,21 @@ snapshot_load() {
 
   export rvm_create_flag=1
   "$rvm_scripts_path/log" "info" "Setting up gemsets"
-  __rvm_pushpop "$snapshot_temp_path/gems"
-  for snapshot_gemset in $(\ls | \grep '\.gems$' | sed 's/.gems$//'); do
-    __rvm_become "$snapshot_gemset"
-    result="$?"
-    __error_on_result "$result" "Error becoming '$snapshot_gemset'" && return "$result"
-    \mkdir -p "$GEM_HOME/cache/"
-    \cp -Rf "$snapshot_gemset/" "$GEM_HOME/cache/"
-    result="$?"
-    __error_on_result "$result" "Error copying across cache for $snapshot_gemset" && return "$result"
-    "$rvm_scripts_path/gemsets" import "$snapshot_gemset" >/dev/null 2>&1
-    result="$?"
-    __error_on_result "$result" "Error importing gemset for $snapshot_gemset" && return "$result"
-  done; unset snapshot_gemset
-  __rvm_pushpop
+  (
+    builtin cd "$snapshot_temp_path/gems"
+    for snapshot_gemset in $(\ls | \grep '\.gems$' | sed 's/.gems$//'); do
+      __rvm_become "$snapshot_gemset"
+      result="$?"
+      __error_on_result "$result" "Error becoming '$snapshot_gemset'" && return "$result"
+      \mkdir -p "$GEM_HOME/cache/"
+      \cp -Rf "$snapshot_gemset/" "$GEM_HOME/cache/"
+      result="$?"
+      __error_on_result "$result" "Error copying across cache for $snapshot_gemset" && return "$result"
+      "$rvm_scripts_path/gemsets" import "$snapshot_gemset" >/dev/null 2>&1
+      result="$?"
+      __error_on_result "$result" "Error importing gemset for $snapshot_gemset" && return "$result"
+    done
+  )
 
   "$rvm_scripts_path/log" "info" "Restoring aliases"
   while read -r package_info; do

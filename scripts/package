@@ -17,40 +17,44 @@ install_package() {
 
   if [[ ! -z "$rvm_make_flags_flag" ]] ; then __rvm_make_flags ; fi
 
-  __rvm_pushpop "$rvm_src_path"
+  (
+    builtin cd "$rvm_src_path"
 
-  "$rvm_scripts_path/log" "info" "Fetching $package-$version.$archive_format to $rvm_archives_path"
+    "$rvm_scripts_path/log" "info" "Fetching $package-$version.$archive_format to $rvm_archives_path"
 
-  if [[ "$archive_format" = "tar.gz" ]] || [[ "$archive_format" = "tgz" ]] ; then
-    "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
-    __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format to $rvm_src_path"
-  elif [[ "$archive_format" = "tar.bz2" ]] ; then
-    "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
-    __rvm_run "$package/extract" "tar jxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format to $rvm_src_path"
-  elif [[ "$archive_format" = "zip" ]] ; then
-    "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
-    __rvm_run "$package/extract" "unzip -q -o $rvm_archives_path/$package-$version.$archive_format -d $rvm_src_path/$package-$version" "Extracting $package-$version.$archive_format to $rvm_src_path"
-  else
-    printf "\nUnrecognized archive format '$archive_format'" ; return 1
-  fi
+    if [[ "$archive_format" = "tar.gz" ]] || [[ "$archive_format" = "tgz" ]] ; then
+      "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+      __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format to $rvm_src_path"
 
-  builtin cd "$rvm_src_path/$package-$version"
+    elif [[ "$archive_format" = "tar.bz2" ]] ; then
+      "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+      __rvm_run "$package/extract" "tar jxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format to $rvm_src_path"
 
-  __rvm_run "$package/configure" "${configure:-"./configure --prefix=${prefix_path:-"$rvm_usr_path"}"} $configure_flags" "Configuring $package in $rvm_src_path/$package-$version."
+    elif [[ "$archive_format" = "zip" ]] ; then
+      "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+      __rvm_run "$package/extract" "unzip -q -o $rvm_archives_path/$package-$version.$archive_format -d $rvm_src_path/$package-$version" "Extracting $package-$version.$archive_format to $rvm_src_path"
 
-  unset configure_flags
+    else
+      printf "\nUnrecognized archive format '$archive_format'" ; return 1
+    fi
 
-  if [[ "$action" = "uninstall" ]] ; then
-    __rvm_run "$package/make.uninstall" "/usr/bin/make uninstall" "Uninstalling $package from $rvm_usr_path"
-  else
-    __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package in $rvm_src_path/$package-$version."
-    __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_usr_path"
-  fi
+    builtin cd "$rvm_src_path/$package-$version"
 
-  \touch "$rvm_config_path/packages"
-  "$rvm_scripts_path/db" "$rvm_config_path/packages" "${package}" "${version}"
+    __rvm_run "$package/configure" "${configure:-"./configure --prefix=${prefix_path:-"$rvm_usr_path"}"} $configure_flags" "Configuring $package in $rvm_src_path/$package-$version."
 
-  __rvm_pushpop
+    unset configure_flags
+
+    if [[ "$action" = "uninstall" ]] ; then
+      __rvm_run "$package/make.uninstall" "/usr/bin/make uninstall" "Uninstalling $package from $rvm_usr_path"
+
+    else
+      __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package in $rvm_src_path/$package-$version."
+      __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to $rvm_usr_path"
+    fi
+
+    \touch "$rvm_config_path/packages"
+    "$rvm_scripts_path/db" "$rvm_config_path/packages" "${package}" "${version}"
+  )
 }
 
 readline() {
@@ -74,10 +78,13 @@ curl() {
 openssl() {
   package="openssl" ; version="0.9.8n" ; archive_format="tar.gz"
   if [[ "Darwin" = "$(uname)" ]] ; then
+
     if [[ ! -z "$rvm_archflags" ]]; then
+
       if "$rvm_scripts_path/match" "$rvm_archflags" "64"; then
         hw_cpu64bit=1
       fi
+
       if "$rvm_scripts_path/match" "$rvm_archflags" "ppc"; then
         hw_machine="Power Macintosh"
       fi
@@ -85,12 +92,15 @@ openssl() {
       hw_machine=$(sysctl hw.machine | awk -F: '{print $2}' | sed 's/^ //')
       hw_cpu64bit=$(sysctl hw.cpu64bit_capable | awk '{print $2}')
     fi
+
     if [[ "Power Macintosh" = "$hw_machine" ]] ; then
+
       if [[ $hw_cpu64bit = 1 ]]; then
         openssl_os="darwin64-ppc-cc"
       else
         openssl_os="darwin-ppc-cc"
       fi
+
     else
       if [[ $hw_cpu64bit = 1 ]]; then
         openssl_os="darwin64-x86_64-cc"
@@ -167,17 +177,18 @@ mono() {
 llvm() {
   package="llvm" ; version="89156"
   if [[ ! -z "$rvm_make_flags_flag" ]] ; then __rvm_make_flags ; fi
-  __rvm_pushpop $rvm_src_path
-  if [[ ! -d "$rvm_src_path/llvm/.svn" ]] ; then
-    __rvm_db "${package}_url" "package_url"
-    \rm -rf "$rvm_src_path/llvm"
-    svn co -r "$version" "$package_url" llvm
-    builtin cd "$rvm_src_path/llvm"
-    ./configure --enable-bindings=none
-    UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make -j2
-    sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make install
-  fi
-  __rvm_pushpop
+  (
+    builtin cd $rvm_src_path
+    if [[ ! -d "$rvm_src_path/llvm/.svn" ]] ; then
+      __rvm_db "${package}_url" "package_url"
+      \rm -rf "$rvm_src_path/llvm"
+      svn co -r "$version" "$package_url" llvm
+      builtin cd "$rvm_src_path/llvm"
+      ./configure --enable-bindings=none
+      UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make -j2
+      sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make install
+    fi
+  )
 }
 
 if [[ ! -z "$library" ]] ; then

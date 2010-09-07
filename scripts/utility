@@ -200,14 +200,15 @@ __rvm_run() {
 
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | \tee "$rvm_ruby_log_path/$log_file_name.log" >> "$rvm_ruby_log_path/$log_file_name.error.log"
 
-  if [[ -z "${rvm_niceness:-""}" || "0" = "${rvm_niceness:-""}" ]] ; then
-    eval "$command" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
-  else
-    eval "nice -n $rvm_niceness $command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
-  fi ; local result=$?
-
-  if [[ $result -gt 0 ]] ; then
-    "$rvm_scripts_path/log" "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name*.log" ; __rvm_pushpop
+  (
+    if [[ -z "${rvm_niceness:-""}" || "0" = "${rvm_niceness:-""}" ]] ; then
+      eval "$command" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
+    else
+      eval "nice -n $rvm_niceness $command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
+    fi
+  )
+  local result=$? ; if [[ $result -gt 0 ]] ; then
+    "$rvm_scripts_path/log" "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name*.log"
   fi
 
   return $result
@@ -236,14 +237,15 @@ __rvm_run_with_env() {
 
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command # under $env_name" | tee "$rvm_ruby_log_path/$log_file_name.log" >> "$rvm_ruby_log_path/$log_file_name.error.log"
 
-  if [[ -z "$rvm_niceness" || "0" = "$rvm_niceness" ]] ; then
-    eval "__rvm_with_env '$env_name' '$command'" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
-  else
-    eval "nice -n $rvm_niceness __rvm_with_env '$env_name' '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
-  fi ; result=$?
-
-  if [[ $result -gt 0 ]] ; then
-    "$rvm_scripts_path/log" "error" "Error running '$command' under $env_name, please check $rvm_ruby_log_path/$log_file_name*.log" ; __rvm_pushpop
+  (
+    if [[ -z "$rvm_niceness" || "0" = "$rvm_niceness" ]] ; then
+      eval "__rvm_with_env '$env_name' '$command'" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
+    else
+      eval "nice -n $rvm_niceness __rvm_with_env '$env_name' '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
+    fi
+  )
+  result=$? ; if [[ $result -gt 0 ]] ; then
+    "$rvm_scripts_path/log" "error" "Error running '$command' under $env_name, please check $rvm_ruby_log_path/$log_file_name*.log"
   fi
 
   return $result
@@ -528,7 +530,6 @@ __rvm_update() {
 # Update rvm using rubygems
 # If --head was specified, update from git repository master branch.
 __rvm_update_rvm() {
-
   \mkdir -p "$rvm_src_path"
   (
     builtin cd "$rvm_src_path"
@@ -591,17 +592,6 @@ __rvm_irbrc() {
   if [[ -d "$rvm_ruby_home" && ! -s "$rvm_ruby_irbrc" ]] ; then
     \cp "$rvm_scripts_path/irbrc" "$rvm_ruby_irbrc"
   fi
-  return $?
-}
-
-# Push or Pop a directory based on zero or one directory argument provided.
-__rvm_pushpop() {
-  if [[ -z "${1:-""}" ]] ; then
-    popd > /dev/null 2>&1
-  else
-    pushd "$1" > /dev/null 2>&1
-  fi
-
   return $?
 }
 
