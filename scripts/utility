@@ -941,36 +941,37 @@ $(cat $1)
 # Checks the rvmrc for the given directory. Note that if
 # argument is passed, it will be used instead of pwd.
 __rvm_project_rvmrc() {
-  declare -i rvm_project_rvmrc_default=${rvm_project_rvmrc_default:-0}
-  declare rvm_rvmrc_cwd="${rvm_rvmrc_cwd:-""}"
-  declare rvm_previous_environment="${rvm_previous_environment:-""}"
-
   local cwd
 
   # Get the first argument or the pwd.
   cwd="${1:-"$PWD"}"
+
   while : ; do
     if [[ -z "$cwd" || "$HOME" = "$cwd" || "/" = "$cwd" ]] ; then
-      if [[ -n "$rvm_rvmrc_cwd" ]] ; then
-        if [[ $rvm_project_rvmrc_default -eq 1 ]]; then
+      if [[ -n "${rvm_rvmrc_cwd:-""}" ]] ; then
+        if [[ ${rvm_project_rvmrc_default:-0} -eq 1 ]]; then
           __rvm_load_env_file "default"
-        elif [[ -n "$rvm_previous_environment" ]] ; then
+        elif [[ -n "${rvm_previous_environment:-""}" ]] ; then
           __rvm_load_env_file "$rvm_previous_environment"
         fi
-        rvm_rvmrc_cwd=""
-        rvm_previous_environment=""
+        unset rvm_rvmrc_cwd rvm_previous_environment
       fi
       break
     else
       if [[ -f "$cwd/.rvmrc" ]] ; then
-        if [[ "$rvm_rvmrc_cwd" != "$cwd" ]] ; then
+
+        if [[ "${rvm_rvmrc_cwd:-""}" != "$cwd" ]] ; then
+
           __rvm_check_rvmrc_trustworthiness "$cwd/.rvmrc"
+
           local rvm_trustworthiness_result="$?"
+
           if  [[ "$rvm_trustworthiness_result" = 0 ]]; then
             rvm_previous_environment="$(__rvm_environment_identifier)"
             rvm_rvmrc_cwd="$cwd"
             source "$cwd/.rvmrc"
             return 0
+
           else
             return "$rvm_trustworthiness_result"
           fi
@@ -1032,21 +1033,29 @@ __rvm_environment_identifier() {
 
 __rvm_expand_ruby_string() {
   local string="$1"
+
   if [[ -z "$string" || "$string" = "all" ]]; then
     "$rvm_scripts_path/list" strings | tr ' ' "\n" | __rvm_strip
+
   elif [[ "$string" = "all-gemsets" ]]; then
     "$rvm_scripts_path/list" gemsets strings | __rvm_strip
+
   elif [[ "$string" = "default-with-rvmrc" || "$string" = "rvmrc" ]]; then
     "$rvm_scripts_path/tools" path-identifier "$PWD"
+
   elif [[ "$string" == "all-rubies" || "$string" = "rubies" ]]; then
     "$rvm_scripts_path/list" rubies strings | __rvm_strip
+
   elif [[ "$string" == "current-ruby" || "$string" = "gemsets" ]]; then
     local current_ruby="$(__rvm_environment_identifier | awk -F"$rvm_gemset_separator" '{print $string}')"
     rvm_silence_logging=1 "$rvm_scripts_path/gemsets" list | sed "s/^/$current_ruby$rvm_gemset_separator/"  | __rvm_strip
+
   elif [[ "$string" = "current" ]]; then
     __rvm_environment_identifier
+
   elif [[ "$string" = "aliases" ]]; then
     awk -F= '{print $string}' < "$rvm_config_path/alias" | __rvm_strip
+
   else
     echo "$string" | tr "," "\n" | __rvm_strip
   fi
