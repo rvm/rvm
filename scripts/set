@@ -12,7 +12,7 @@ __rvm_attempt_single_exec() {
   local ruby_string_lines="$(printf "$rvm_ruby_strings" | wc -l | __rvm_strip)"
   if [[ "$action" = "exec" && -n "$rvm_ruby_strings" && "$ruby_string_lines" = "0" ]]; then
     __rvm_become "$rvm_ruby_strings"
-    eval "exec $args"
+    eval "exec ${args[@]}"
   fi
   return 1
 }
@@ -28,12 +28,16 @@ __rvm_ruby_do() {
     binary="$(echo $action | sed 's#do$##')"
     if [[ -x "$rvm_ruby_home/bin/$binary" ]] ; then
       binary="$rvm_ruby_home/bin/$binary"
+
     elif [[ -x "$rvm_ruby_global_gems_path/bin/$binary" ]] ; then
       binary="$rvm_ruby_global_gems_path/bin/$binary"
+
     elif [[ -x "$rvm_ruby_gem_home/bin/$binary" ]] ; then
       binary="$rvm_ruby_gem_home/bin/$binary"
+
     elif [[ "system" = "$rvm_ruby_string" ]] && [[ -x "$(command -v $binary)" ]] ; then
       binary="$(basename $(command -v $binary) 2>/dev/null)"
+
     else
       "$rvm_scripts_path/log" "warn" "'$binary not found for $rvm_ruby_string' either does not exist or is not executable? :("
       __rvm_unset_ruby_variables
@@ -48,15 +52,18 @@ __rvm_ruby_do() {
     load_path="$(dirname $(command -v $binary) 2>/dev/null):$rvm_ruby_load_path"
     # TODO: the else case below should be run if $args =~ /\.rb$/
     if [[ "ruby" = "$(basename $binary)" ]] && [[ "$rvm_benchmark_flag" -ne 1 ]] ; then
+
       if "$rvm_scripts_path/match" "$args" "\.rb$" ; then
+
         if [[ -z "$prefix" ]] ; then prefix="-S" ; fi
+
         if ! "$rvm_scripts_path/match" "$args" "$prefix" ; then
           args="$prefix $args"
         fi
       fi
-      rvm_command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path $args"
+      rvm_command="$(echo "$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path $args")"
     else
-      rvm_command="$binary $rvm_ruby_mode $args"
+      rvm_command="$(echo "$binary $rvm_ruby_mode $args")"
     fi
   fi
 
@@ -64,6 +71,7 @@ __rvm_ruby_do() {
     \mkdir -p ./log/$rvm_ruby_string/
     \touch ./log/$rvm_ruby_string/$action.log ./log/$rvm_ruby_string/$action.error.log
     eval "$rvm_command" >> ./log/$rvm_ruby_string/$action.log 2>> ./log/$rvm_ruby_string/$action.error.log
+
   else
     if [[ "$rvm_verbose_flag" != "0" ]] ; then
       current_env="$(__rvm_environment_identifier)"
@@ -161,7 +169,7 @@ rubies=() ; successes=() ; errors=() ; statuses=()
 
 args=($*)
 action="${args[0]}"
-args="$(echo ${args[@]:1}) " # Strip trailing / leading / extra spacing.
+args=(${args[@]:1})
 
 if [[ "$action" == "ruby" ]] && echo "$args" | \grep -q  "^'--[^[:space:]]*'$" ; then
   "$rvm_scripts_path/log" "warn" "You called rvm ruby with the arguments $args which look like use options."
