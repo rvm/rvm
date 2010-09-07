@@ -17,8 +17,6 @@ if [[ -d "$install_source_path/scripts" ]] && [[ -s "$install_source_path/script
   builtin cd "$install_source_path"
 fi
 
-sleep=0.010
-
 source scripts/version
 source scripts/utility
 
@@ -40,15 +38,6 @@ check_rubyopt_conditions() {
     printf "\n\nWARNING: You have RUBYOPT set in your current environment. This may interfere with normal rvm"
     printf "\n operation. If errors show up, please try unsetting RUBYOPT first.\n"
   fi
-}
-
-spinner_counter=0
-spinner() {
-  array=('/' '-' '\\' '|' '/' '-' '\\' '|')
-  index=$((($spinner_counter % 8)))
-  printf "\r${array[$index]}"
-  let "spinner_counter=spinner_counter+1"
-  sleep $sleep
 }
 
 if echo "$*" | \grep -q 'trace' ; then echo "$*" ; env | \grep '^rvm_' ; set -x ; fi
@@ -128,12 +117,9 @@ else
   printf "\n\n  Installing rvm to $rvm_path/"
 fi
 
-spinner
-
 \mkdir -p "$rvm_archives_path" "$rvm_src_path" "$rvm_log_path" "$rvm_bin_path" "$rvm_gems_path" "$rvm_rubies_path" "$rvm_config_path" "$rvm_hooks_path" "$rvm_tmp_path"
 
 for file in README LICENCE ; do
-  spinner
   \cp -f "$source_path/$file" "$rvm_path/"
 done
 
@@ -141,14 +127,12 @@ done
 # Scripts
 #
 for dir_name in config scripts examples lib hooks help patches; do
-  spinner
   \mkdir -p "$rvm_path/$dir_name"
   if [[ -d "$source_path/$dir_name" ]] ; then
     \cp -Rf "$source_path/$dir_name" "$rvm_path"
   fi
 done ; unset dir_name
 
-spinner
 if [[ ! -s "$rvm_config_path/user" ]] ; then
   \mkdir -p "$rvm_config_path/"
   echo '# Users settings file, overrides db file settings and persists across installs.' >> "$rvm_config_path/user"
@@ -156,7 +140,6 @@ fi
 
 scripts=("monitor" "match" "log" "install" "color" "db" "fetch" "log" "set" "package")
 for script_name in "${scripts[@]}" ; do
-  spinner
   chmod +x "$rvm_scripts_path/$script_name" 2>/dev/null # Hide errors.
 done
 
@@ -165,17 +148,14 @@ done
 #
 # Cleanse and purge...
 for file in rvm-prompt rvm rvmsudo rvm-shell rvm-auto-ruby ; do
-  spinner && sleep $sleep
   \rm -f "$rvm_bin_path/$file"
   \cp -f "$source_path/binscripts/$file" $rvm_bin_path/
 done
-spinner
 chmod +x "$rvm_bin_path"/*
 
 #
 # RC Files
 #
-spinner
 if [[ -n "$rvm_auto_flag" ]] ; then
   printf "Checking rc files... ($rvm_rc_files)"
   if [[ "$rvm_loaded_flag" != "1" ]] ; then
@@ -198,7 +178,6 @@ fi
 #
 # Initial Interpreter Gemsets.
 #
-spinner
 if [[ -d gemsets/ ]] ; then
   \mkdir -p "$rvm_gemsets_path"
   for gemset_file in $(builtin cd gemsets ; find \. -iname '*.gems' | sed 's/^\.\///') ; do
@@ -211,7 +190,6 @@ if [[ -d gemsets/ ]] ; then
   done ; unset destination destination_path gemset_file
 fi
 
-spinner
 if [[ -d patchsets/ ]] ; then
   \mkdir -p "$rvm_patchsets_path"
   for patchset_file in $(builtin cd patchsets ; find \. -iname '*' | sed 's/^\.\///') ; do
@@ -229,13 +207,11 @@ fi
 #
 rvm_rubies_path="${rvm_rubies_path:-"$rvm_path/rubies"}"
 \mkdir -p "$rvm_rubies_path/"
-spinner
 for ruby in $rvm_path/ruby-* $rvm_path/jruby-* $rvm_path/mput-* $rvm_path/rbx-* $rvm_path/maglev-* $rvm_path/ree-* ; do
   if [[ -d "$ruby" ]] ; then
     mv "$ruby" "$rvm_rubies_path/"
     new_path="$rvm_rubies_path/$(basename $ruby)"
     for file in gem rake ; do
-      spinner
       if [[ -s "$new_path/bin/$file" ]] ; then
         sed -e '1,1s=.*=#!'"${new_path}/bin/ruby=" "${new_path}/bin/${file}" > "${new_path}/bin/${file}.new"
         mv -f "$new_path/bin/$file.new" "$new_path/bin/$file"
@@ -251,9 +227,6 @@ done
 #
 # Migrate old gemset directories to new gemset pattern.
 #
-spinner
-printf "\r*" # Stop spinner.
-
 for gemset in "$rvm_path"/gems/*\%* ; do
   new_path=${gemset/\%/${rvm_gemset_separator}}
   if [[ -d "$gemset" ]] && [[ ! -d "$new_path" ]] ; then
