@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 
-if [[ "$rvm_trace_flag" -eq 2 ]] ; then set -x ; export rvm_trace_flag ; fi
+# for option in errexit noclobber nounset errtrace pipefail ; do set -o $option ; done
 
-original_ruby_version=$rvm_ruby_version
-original_ruby_string=$rvm_ruby_string
+if [[ ${rvm_trace_flag:-0} -eq 2 ]] ; then set -o xtrace ; set -o verbose; export rvm_trace_flag ; fi
+
+original_ruby_version=${rvm_ruby_version:-""}
+original_ruby_string=${rvm_ruby_string:-""}
 
 source "$rvm_scripts_path/base"
 source "$rvm_scripts_path/patches"
 
 __rvm_check_for_clang() {
-  if [[ -n "$rvm_clang_flag" ]] && ! command -v clang >/dev/null ; then
+  if [[ -n "${rvm_clang_flag:-""}" ]] && ! command -v clang >/dev/null ; then
     "$rvm_scripts_path/log" "fail" "You passed the --clang option and clang isn't in your path. Please try again / don't use --clang"
     return 1
   fi
@@ -17,7 +19,7 @@ __rvm_check_for_clang() {
 
 # Checks for bison, returns zero iff it is found
 __rvm_check_for_bison() {
-  if [[ "$rvm_head_flag" -gt 0 ]]; then
+  if [[ ${rvm_head_flag:-0} -gt 0 ]]; then
     if ! command -v bison >/dev/null ; then
       "$rvm_scripts_path/log" "fail" "bison is not available in your path. Please ensure it exists before compiling from head."
       return 1
@@ -30,11 +32,12 @@ __rvm_check_for_bison() {
 __rvm_current_patch_names() {
   # TODO: Lookup default patches on rvm_ruby_string heirarchy.
   local separator="%"
-  local patches="$rvm_patch_names default"
-  for patch_name in $(echo "$patches" | \tr ',' ' ' | __rvm_strip); do
+  local patches="${rvm_patch_names:-""} default"
+
+  for patch_name in $(echo ${patches//,/ }); do
     local level=1
     local name="$patch_name"
-    if echo "$name" | \grep -q "$separator"; then
+    if echo "$name" | grep -q "$separator"; then
       level="${name/*${separator}/}"
       name="${name//${separator}*/}"
     fi
@@ -51,7 +54,9 @@ __rvm_apply_patches() {
   source_directory="${1:-"$rvm_ruby_src_path"}"
   __rvm_pushpop "$source_directory"
   unset source_directory
+
   patches="$(__rvm_current_patch_names | __rvm_strip)"
+
   for patch_name in $(echo $patches); do
     # If set, extract the patch level from the patch name.
     patch_level=1
@@ -61,11 +66,12 @@ __rvm_apply_patches() {
     fi
     full_patch_path="$(__rvm_lookup_full_patch_path "$patch_name")"
     # Expand paths, and for those we found we then apply the patches.
-    if [[ -n "$full_patch_path" ]]; then
+    if [[ -n "${full_patch_path:-""}" ]]; then
+
       if [[ -f "$full_patch_path" ]] ; then
         __rvm_run "patch.apply.${patch_name/*\/}" "patch -F$patch_fuzziness -p$patch_level -f <\"$full_patch_path\"" "Applying patch '$patch_name' (located at $full_patch_path)"
         # Detect failed patches
-        [[ "$?" -gt 0 ]] && patch_result=1
+        [[ $? -gt 0 ]] && patch_result=1
       fi
     else
       "$rvm_scripts_path/log" "warn" "Patch '$patch_name' not found."
@@ -73,20 +79,25 @@ __rvm_apply_patches() {
     fi
   done; unset patch_name full_patch_path patch_level
   __rvm_pushpop
+
   return $patch_result
 }
 
 __rvm_install_source() {
-  [[ -z "$rvm_ruby_selected_flag" ]] && __rvm_select
+  [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] && __rvm_select
 
-  if [[ "$rvm_ruby_string" = "ruby-1.9.2-head" ]] ; then
+  if [[ "${rvm_ruby_string:-""}" =~ "-head" ]] ; then
     # Ensure we have a base ruby.
     __rvm_ensure_has_18_compat_ruby || return 1
   fi
 
   "$rvm_scripts_path/log" "info" "Installing Ruby from source to: $rvm_ruby_home"
+
   __rvm_pushpop "$rvm_src_path"
-  if [[ -n "$rvm_force_flag" ]] ; then \rm -rf "$rvm_ruby_home" "$rvm_ruby_src_path" ; fi
+
+  if [[ ${rvm_force_flag:-0} -eq 1 ]] ; then
+    rm -rf "$rvm_ruby_home" "$rvm_ruby_src_path"
+  fi
 
   result=0
   __rvm_fetch_ruby
@@ -112,7 +123,7 @@ __rvm_install_source() {
     return $result
   fi
 
-  if [[ -z "$rvm_ruby_configure" ]] && [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
+  if [[ -z "${rvm_ruby_configure:-""}" ]] && [[ ! -s "$rvm_ruby_src_path/configure" ]] ; then
     if command -v autoconf > /dev/null ; then
       __rvm_run "autoconf" "autoconf" "Running autoconf"
     else
@@ -120,7 +131,7 @@ __rvm_install_source() {
     fi
   fi
 
-  if [[ -n "$rvm_ruby_configure" ]] ; then
+  if [[ -n "${rvm_ruby_configure:-""}" ]] ; then
     __rvm_run "configure" "$rvm_ruby_configure"
     result=$? ; if [[ "$result" -gt 0 ]] ; then
       "$rvm_scripts_path/log" "error" "There has been an error while configuring. Aborting the installation." ; __rvm_pushpop ; return $result
@@ -133,14 +144,14 @@ __rvm_install_source() {
 
     # On 1.9.2, we manually set the --with-baseruby option
     # to point to an expanded path.
-    if [[ "$rvm_ruby_string" = "ruby-1.9.2-head" ]] ; then
+    if [[ "${rvm_ruby_string:-""}" = "ruby-1.9.2-head" ]] ; then
       local compatible_baseruby="$rvm_wrappers_path/$(__rvm_18_compat_ruby)/ruby"
       if [[ -x "$compatible_baseruby" ]] ; then
         configure_parameters="--with-baseruby=$compatible_baseruby"
       fi
     fi
 
-    local configure_command="./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_ruby_configure_flags $configure_parameters"
+    local configure_command="./configure --prefix=$rvm_ruby_home ${db_configure_flags:-""} ${rvm_ruby_configure_flags:-""} ${configure_parameters:-""}"
     __rvm_run "configure" "$configure_command" "Configuring $rvm_ruby_string, this may take a while depending on your cpu(s)..."
     unset configure_parameters db_configure_flags
     result=$? ; if [[ "$result" -gt 0 ]] ; then
@@ -151,7 +162,7 @@ __rvm_install_source() {
   fi
 
   rvm_ruby_make=${rvm_ruby_make:-"make"}
-  __rvm_run "make" "$rvm_ruby_make $rvm_make_flags" "Compiling $rvm_ruby_string, this may take a while depending on your cpu(s)..."
+  __rvm_run "make" "$rvm_ruby_make ${rvm_make_flags:-""}" "Compiling $rvm_ruby_string, this may take a while depending on your cpu(s)..."
   result=$? ; if [[ "$result" -gt 0 ]] ; then
     "$rvm_scripts_path/log" "error" "There has been an error while running make. Aborting the installation." ; __rvm_pushpop ; return $result
   fi
@@ -179,14 +190,15 @@ __rvm_install_source() {
 
 __rvm_install_ruby() {
 
-  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
+  if [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] ; then __rvm_select ; fi
 
-  if [[ -n "$RUBYOPT" ]] ; then ruby_options="$RUBYOPT" ; unset RUBYOPT ; fi
+  if [[ -n "${RUBYOPT:-""}" ]] ; then ruby_options="$RUBYOPT" ; fi
+  unset RUBYOPT
 
   # Check for clang if the flag is set
   __rvm_check_for_clang
   local result="$?"
-  [[ "$result" -gt 0 ]] && return $result
+  [[ $result -gt 0 ]] && return $result
 
   case "$rvm_ruby_interpreter" in
     macruby)
@@ -322,7 +334,7 @@ RubyWrapper
           result=1
         else
           rvm_ruby_repo_url="$rvm_url"
-          if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
+          if [[ ${rvm_make_flags_flag:-0} -eq 1 ]] ; then __rvm_make_flags ; fi
           __rvm_install_source $*
         fi
       fi
@@ -658,7 +670,7 @@ RubyWrapper
     ;;
 
     mput|shyouhei)
-      if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
+      if [[ ${rvm_make_flags_flag:-0} -eq 1 ]] ; then __rvm_make_flags ; fi
       unset BUNDLE_PATH GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
       __rvm_remove_rvm_from_path
       __rvm_conditionally_add_bin_path ; export PATH
@@ -728,7 +740,8 @@ RubyWrapper
       __rvm_check_for_bison # Run like hell
       result=$? ; if [[ "$result" -gt 0 ]] ; then return $result ; fi
 
-      if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
+      if [[ ${rvm_make_flags_flag:-0} -eq 1 ]] ; then __rvm_make_flags ; fi
+
       __rvm_install_source $*
     ;;
 
@@ -768,7 +781,7 @@ __rvm_fetch_from_github() {
 __rvm_fetch_ruby() {
   [[ -z "$rvm_ruby_selected_flag" ]] && __rvm_select
 
-  if [[ $rvm_head_flag -eq 0 && -z "$rvm_ruby_tag" && -z "$rvm_ruby_revision" ]] ; then
+  if [[ ${rvm_head_flag:-0} -eq 0 && -z "${rvm_ruby_tag:-""}" && -z "${rvm_ruby_revision:-""}" ]] ; then
     rvm_ruby_package_name="${rvm_ruby_package_name:-"$rvm_ruby_string"}"
     rvm_ruby_package_file="${rvm_ruby_package_file:-"$rvm_ruby_package_name"}"
     if [[ "ruby" = "$rvm_ruby_interpreter" ]]; then
@@ -796,10 +809,10 @@ __rvm_fetch_ruby() {
       fi
     fi
 
-    if [[ ! -d "$rvm_ruby_src_path" ]] || [[ -n "$rvm_force_flag" ]] ; then
-      \rm -rf "$rvm_ruby_src_path" # Especially when forced, we want to ensure the destination is missing.
+    if [[ ! -d "$rvm_ruby_src_path" || ${rvm_force_flag:-0} -eq 1 ]] ; then
+      rm -rf "$rvm_ruby_src_path" # Especially when forced, we want to ensure the destination is missing.
 
-      \mkdir -p "/tmp/rvm_src_$$"
+      mkdir -p "/tmp/rvm_src_$$"
 
       if [[ "tar.gz" = "$rvm_archive_extension" ]] || [[ "tgz" = "$rvm_archive_extension" ]] ; then
         __rvm_run "extract" "gunzip < \"$rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C /tmp/rvm_src_$$" "Extracting $rvm_ruby_package_file ..."
@@ -946,24 +959,28 @@ __rvm_uninstall_ruby() {
 }
 
 __rvm_remove_ruby() {
-  if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
+  if [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] ; then __rvm_select ; fi
 
-  if [[ -n "$rvm_ruby_string" ]] ; then
+  if [[ -n "${rvm_ruby_string:-""}" ]] ; then
+
     for dir in $rvm_src_path $rvm_rubies_path ; do
+
       if [[ -d $dir/$rvm_ruby_string ]] ; then
         "$rvm_scripts_path/log" "info" "Removing $dir/$rvm_ruby_string..."
-        \rm -rf $dir/$rvm_ruby_string
+        rm -rf $dir/$rvm_ruby_string
+
       else
         "$rvm_scripts_path/log" "info" "it seems that $dir/$rvm_ruby_string is already non existent."
       fi
 
       if [[ -e "$rvm_bin_path/$rvm_ruby_string" ]] ; then
-        \rm -f "$rvm_bin_path/$rvm_ruby_string"
+        rm -f "$rvm_bin_path/$rvm_ruby_string"
       fi
 
       __rvm_check_default
 
     done ; unset dir
+
     __rvm_remove_install_record "$rvm_ruby_string"
     __rvm_remove_gemsets
     __rvm_remove_archives
@@ -977,9 +994,11 @@ __rvm_remove_ruby() {
 }
 
 __rvm_remove_gemsets() {
-  if [[ -n "$rvm_gems_flag" ]] ; then
+  if [[ ${rvm_gems_flag:-0} -eq 1 ]] ; then
     "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string gemsets..."
-    gemsets="$rvm_gems_path/$rvm_ruby_string $(\ls -d "${rvm_gems_path}"/* | awk '/'$rvm_ruby_string'@/')"
+
+    gemsets="$rvm_gems_path/$rvm_ruby_string $(ls -d "${rvm_gems_path}"/* | awk '/'$rvm_ruby_string'@/')"
+
     for gemset in $gemsets ; do
       if [[ -d "$gemset" ]] ; then
         \rm -rf "$gemset"
@@ -990,46 +1009,65 @@ __rvm_remove_gemsets() {
 
 __rvm_remove_wrappers() {
   "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string wrappers..."
-  wrappers="$rvm_wrappers_path/$rvm_ruby_string $(\ls -d "$rvm_wrappers_path"/* 2>/dev/null | awk '/'$rvm_ruby_string'@/')"
+
+  local wrappers wrapper
+
+  wrappers="$rvm_wrappers_path/$rvm_ruby_string $(ls -d "$rvm_wrappers_path"/* 2>/dev/null | awk '/'$rvm_ruby_string'@/')"
+
   for wrapper in $wrappers ; do
-    \rm -rf "$wrapper"
-  done ; unset wrapper wrappers
+    rm -rf "$wrapper"
+  done
+
+  return 0
 }
 
 __rvm_remove_environments() {
   "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string environments..."
-  environments="$rvm_environments_path/$rvm_ruby_string $(\ls -d "$rvm_environments_path"/* | awk '/'$rvm_ruby_string'@/')"
+
+  local environments environment
+
+  environments="$rvm_environments_path/$rvm_ruby_string $(ls -d "$rvm_environments_path"/* | awk '/'$rvm_ruby_string'@/')"
+
   for environment in $environments ; do
-    \rm -rf "$environment"
-  done ; unset environment environments
+    rm -rf "$environment"
+  done
+
+  return 0
 }
 
 __rvm_remove_aliases() {
   "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string aliases..."
+
+  local alias_name aliases
+
   aliases=$(awk '/'$rvm_ruby_string'/' $rvm_config_path/alias | sed 's/=.*//')
+
   for alias_name in $aliases ; do
     # Remove from alias key-value store
     "$rvm_scripts_path/alias" delete "$alias_name" >/dev/null 2>&1
-  done ; unset alias_name aliases
+  done
 }
 
 __rvm_remove_archives() {
-  if [[ -n "$rvm_archive_flag" ]] ; then
+  if [[ ${rvm_archive_flag:-0} -eq 1 ]] ; then
     "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string archives..."
-    \rm -f "$rvm_archives_path/${rvm_ruby_package_file}.${rvm_archive_extension}"
+    rm -f "$rvm_archives_path/${rvm_ruby_package_file}.${rvm_archive_extension}"
   fi
 }
 
 __rvm_remove_binaries() {
   "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string binaries..."
+
   # Iterate over all binaries and check for symlinked wrappers etc.
-  for binary_name in $(\ls "$rvm_bin_path"); do
+  local binary_name
+  for binary_name in $(ls "$rvm_bin_path"); do
     full_binary_path="$rvm_bin_path/$binary_name"
+
     if [[ -L "$full_binary_path" ]] && "$rvm_scripts_path/match" "$(readlink "$full_binary_path")" "$rvm_ruby_string"; then
-      \rm -f "$full_binary_path"
+      rm -f "$full_binary_path"
     fi
     unset full_binary_path
-  done; unset binary_name
+  done
 }
 
 __rvm_post_install() {
@@ -1117,7 +1155,9 @@ __rvm_rubygems_setup() {
     unset directory_name version_number
   elif [[ -n "$(echo "$rvm_ruby_interpreter" | awk '/^rbx|jruby/')" ]] ; then
     # Hands off rubygems for rbx & jruby
-    if [[ -n "$rvm_debug_flag" ]] ; then "$rvm_scripts_path/log" "debug" "Skipping rubygems update for $rvm_ruby_version" ; fi
+    if [[ ${rvm_debug_flag:-0} -eq 1 ]] ; then
+      "$rvm_scripts_path/log" "debug" "Skipping rubygems update for $rvm_ruby_version"
+    fi
     ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/jruby"
   else
     "$rvm_scripts_path/log" "info" "Installing rubygems dedicated to $rvm_ruby_string..."
@@ -1215,8 +1255,8 @@ __rvm_actual_file() {
 __rvm_manage_rubies() {
   unset rvm_gemset_name rvm_ruby_selected_flag
 
-  rvm_ruby_gem_home=$(echo "$rvm_ruby_gem_home" | awk -F${rvm_gemset_separator} '{print $1}')
-  rvm_ruby_string=$(echo "$rvm_ruby_string" | awk -F${rvm_gemset_separator} '{print $1}')
+  rvm_ruby_gem_home=$(echo "${rvm_ruby_gem_home:-""}" | awk -F${rvm_gemset_separator} '{print $1}')
+  rvm_ruby_string=$(echo "${rvm_ruby_string:-""}" | awk -F${rvm_gemset_separator} '{print $1}')
 
   local manage_result=0
 

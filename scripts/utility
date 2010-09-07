@@ -190,7 +190,7 @@ __rvm_run() {
 
   if [[ -n "$message" ]] ; then "$rvm_scripts_path/log" "info" "$message" ; fi
 
-  if [[ -n "$rvm_debug_flag" ]] ; then
+  if [[ ${rvm_debug_flag:-0} -eq 1 ]] ; then
     "$rvm_scripts_path/log" "debug" "Executing: $command"
   fi
 
@@ -200,7 +200,7 @@ __rvm_run() {
 
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | \tee "$rvm_ruby_log_path/$log_file_name.log" >> "$rvm_ruby_log_path/$log_file_name.error.log"
 
-  if [[ -z "$rvm_niceness" ]] || [[ "0" = "$rvm_niceness" ]] ; then
+  if [[ -z "${rvm_niceness:-""}" || "0" = "${rvm_niceness:-""}" ]] ; then
     eval "$command" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
   else
     eval "nice -n $rvm_niceness $command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
@@ -249,6 +249,16 @@ __rvm_run_with_env() {
   return $result
 }
 
+__rvm_nuke_rvm_variables() {
+  unset $(env | awk -F= '/^rvm_/{print $1" "}')
+}
+
+# Unset ruby-specific variables
+__rvm_unset_ruby_variables() {
+  unset $(env | awk -F= '/^rvm_ruby_/{printf $1" "}')
+  unset rvm_url rvm_release_version rvm_major_version rvm_minor_version rvm_major_version rvm_minor_version rvm_head_flag
+}
+
 # Unset both rvm variables as well as ruby-specific variables
 # Preserve gemset if 'rvm_sticky' is set (persist gemset unless clear is explicitely called).
 __rvm_cleanse_variables() {
@@ -257,11 +267,6 @@ __rvm_cleanse_variables() {
   if [[ ${rvm_sticky_flag:-0} -eq 1 ]] ; then export rvm_gemset_name ; else unset rvm_gemset_name  ; fi
 
   unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_url rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_import_flag rvm_export_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_ruby_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag rvm_ruby_bits rvm_sticky_flag rvm_rvmrc_flag rvm_gems_flag rvm_only_path_flag rvm_docs_flag rvm_ruby_aliases rvm_patch_names rvm_clang_flag rvm_install_arguments rvm_dump_environment_flag rvm_ruby_alias
-}
-
-# Unset ruby-specific variables
-__rvm_unset_ruby_variables() {
-  unset rvm_ruby_interpreter rvm_ruby_version rvm_url rvm_ruby_repo_url rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_make rvm_ruby_make_install rvm_ruby_revision rvm_ruby_tag rvm_release_version rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_ruby_binary rvm_ruby_home rvm_ruby_log_path rvm_ruby_src_path rvm_ruby_irbrc rvm_ruby_selected_flag rvm_ruby_src_path rvm_ruby_repo_url rvm_major_version rvm_minor_version rvm_ruby_gem_home rvm_head_flag rvm_ruby_configure rvm_ruby_mode rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_gem_path rvm_ruby_name rvm_ruby_strings rvm_ruby_repo_path
 }
 
 # Usage: __rvm_with_env 'env-name' 'command'
@@ -302,7 +307,7 @@ __rvm_ensure_has_18_compat_ruby() {
 }
 
 __rvm_inherit_trace_flag() {
-  if [[ -n "$rvm_trace_flag" ]]; then
+  if [[ ${rvm_trace_flag:-0} -gt 0 ]]; then
     set -x ; export rvm_trace_flag
   fi
   return 0
@@ -594,7 +599,7 @@ __rvm_irbrc() {
 
 # Push or Pop a directory based on zero or one directory argument provided.
 __rvm_pushpop() {
-  if [[ -z "$1" ]] ; then
+  if [[ -z "${1:-""}" ]] ; then
     popd > /dev/null 2>&1
   else
     pushd "$1" > /dev/null 2>&1
@@ -661,9 +666,9 @@ __rvm_make_flags() {
       : # Do nothing ?
     elif [[ "$(sysctl -n hw.cpu64bit_capable)" = 1 || "$(sysctl -n hw.optional.x86_64)" = 1 ]] ; then
       #   64 bit capable
-      if [[ "-arch x86_64" = "$rvm_archflags" ]] ; then
+      if [[ "-arch x86_64" = "${rvm_archflags:-""}" ]] ; then
         rvm_ruby_configure_flags="${rvm_ruby_configure_flags} --build=x86_64-apple-darwin$(uname -r) --host=x86_64-apple-darwin$(uname -r)"
-      elif [[ "-arch i386" = "$rvm_archflags" ]] ; then
+      elif [[ "-arch i386" = "${rvm_archflags:-""}" ]] ; then
         rvm_ruby_configure_flags="${rvm_ruby_configure_flags} --build=i386-apple-darwin$(uname -r) --host=i386-apple-darwin$(uname -r)"
       else
         rvm_archflags="-arch x86_64"
@@ -671,10 +676,12 @@ __rvm_make_flags() {
       fi
     fi
 
-    if [[ -n "$rvm_archflags" ]] ; then
+    if [[ -n "${rvm_archflags:-""}" ]] ; then
       ARCHFLAGS="$rvm_archflags" ; export ARCHFLAGS
       # Use the latest sdk available.
-      if [[ -z "$rvm_sdk" ]] ; then rvm_sdk="$(/usr/bin/basename -a /Developer/SDKs/* | awk '/^M/' | sort | tail -n 1)" ; fi
+      if [[ -z "${rvm_sdk:-""}" ]] ; then
+        rvm_sdk="$(/usr/bin/basename -a /Developer/SDKs/* | awk '/^M/' | sort | tail -n 1)"
+      fi
       CFLAGS="${CFLAGS:-"-isysroot /Developer/SDKs/$rvm_sdk $rvm_archflags"}" ; export CFLAGS
       LDFLAGS="${LDFLAGS:-"-Wl,-syslibroot /Developer/SDKs/$rvm_sdk $rvm_archflags"}" ; export LDFLAGS
       # CXXFLAGS="-mmacosx-version-min="$(sw_vers -productVersion | awk -F'.' '{print $1"."$2}')" -isysroot /Developer/SDKs/$rvm_sdk " ; export CXXFLAGS
@@ -708,7 +715,6 @@ __rvm_become() {
 
 __rvm_ensure_has_environment_files() {
   local environment_identifier="$(__rvm_environment_identifier)"
-
   local file_name="${rvm_environments_path}/$environment_identifier"
 
   if [[ ! -s "$file_name" ]] ; then
@@ -717,9 +723,9 @@ __rvm_ensure_has_environment_files() {
     echo "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"" > "$file_name"
 
     for variable in RUBY_VERSION GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gemset_name MAGLEV_HOME ; do
-      eval "export $variable"
 
-      eval "value=\$${variable}"
+      eval "export $variable"
+      eval "value=\$${variable:-""}"
 
       if [[ -n "$value" ]] ; then
         printf "${variable}='$value'\nexport ${variable}\n" >> "$file_name"
