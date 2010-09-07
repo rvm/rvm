@@ -507,22 +507,19 @@ __rvm_initialize() {
 
 # Update rubygems or binscripts based on CLI selection.
 __rvm_update() {
-  __rvm_pushpop $rvm_path
+  (
+    if [[ ${rvm_head_flag:-0} -eq 1 || ${rvm_self_flag:-0} -eq 1 || "update" = "${rvm_action:-""}" || ${rvm_update_flag:-0} -eq 1 ]] ; then
+      __rvm_version
+      __rvm_update_rvm
+    fi
 
-  if [[ ${rvm_head_flag:-0} -eq 1 || ${rvm_self_flag:-0} -eq 1 || "update" = "${rvm_action:-""}" || ${rvm_update_flag:-0} -eq 1 ]] ; then
-    __rvm_version
-    __rvm_update_rvm
-  fi
+    [[ ${rvm_bin_flag:-0} -eq 1 ]] && __rvm_bin_scripts
 
-  [[ ${rvm_bin_flag:-0} -eq 1 ]] && __rvm_bin_scripts
+    # Update to the latest rubygems.
+    [[ ${rvm_rubygems_flag:-0} -eq 1 ]] && "$rvm_scripts_path/rubygems" current
 
-  # Update to the latest rubygems.
-  [[ ${rvm_rubygems_flag:-0} -eq 1 ]] && "$rvm_scripts_path/rubygems" current
-
+  )
   unset rvm_update_flag rvm_action rvm_self_flag rvm_ruby_revision rvm_bin_flag rvm_rubygems_flag
-
-  __rvm_pushpop
-
   return 0
 }
 
@@ -531,26 +528,23 @@ __rvm_update() {
 __rvm_update_rvm() {
 
   \mkdir -p "$rvm_src_path"
-
-  __rvm_pushpop "$rvm_src_path"
-
-  if [[ ${rvm_head_flag:-0} -eq 1 ]] ; then
-    if [[ -d "$rvm_src_path/rvm/.git" ]] ; then
-      builtin cd "$rvm_src_path/rvm/" && git pull origin master && ./scripts/install
+  (
+    if [[ ${rvm_head_flag:-0} -eq 1 ]] ; then
+      if [[ -d "$rvm_src_path/rvm/.git" ]] ; then
+        builtin cd "$rvm_src_path/rvm/" && git pull origin master && ./scripts/install
+      else
+        builtin cd "$rvm_src_path" && ( git clone --depth 1 git://github.com/wayneeseguin/rvm.git || git clone http://github.com/wayneeseguin/rvm.git ) && builtin cd rvm/ && ./scripts/install
+      fi
     else
-      builtin cd "$rvm_src_path" && ( git clone --depth 1 git://github.com/wayneeseguin/rvm.git || git clone http://github.com/wayneeseguin/rvm.git ) && builtin cd rvm/ && ./scripts/install
+      stable_version="$(curl -s http://rvm.beginrescueend.com/releases/stable-version.txt)"
+
+      __rvm_run "fetch" "$rvm_scripts_path/fetch 'http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz'" "fetching rvm-${stable_version}.tar.gz"
+
+      __rvm_run "extract" "gunzip < \"$rvm_archives_path/rvm-${stable_version}.tar.gz\" | tar xf - -C $rvm_src_path" "Extracting rvm-${stable_version}.tar.gz ..."
+
+      __rvm_run "install" "builtin cd $rvm_src_path/rvm-${stable_version}/ ; ./install" "Installing rvm-${stable_version}..."
     fi
-  else
-    stable_version="$(curl -s http://rvm.beginrescueend.com/releases/stable-version.txt)"
-
-    __rvm_run "fetch" "$rvm_scripts_path/fetch 'http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz'" "fetching rvm-${stable_version}.tar.gz"
-
-    __rvm_run "extract" "gunzip < \"$rvm_archives_path/rvm-${stable_version}.tar.gz\" | tar xf - -C $rvm_src_path" "Extracting rvm-${stable_version}.tar.gz ..."
-
-    __rvm_run "install" "builtin cd $rvm_src_path/rvm-${stable_version}/ ; ./install" "Installing rvm-${stable_version}..."
-  fi
-
-  __rvm_pushpop
+  )
 
   rvm_hook="after_update" ; source "$rvm_scripts_path/hook"
 
