@@ -182,15 +182,15 @@ __rvm_remove_rvm_from_path() {
 
 # Run a specified command and log it.
 __rvm_run() {
-  local log_file_name="$1"
-  local command="$2"
-  local message="$3"
+  local log_file_name="${1:-""}"
+  local command="${2:-""}"
+  local message="${3:-""}"
 
   if [[ -z "$rvm_ruby_log_path" ]] ; then rvm_ruby_log_path="$rvm_log_path" ; fi
 
   if [[ -n "$message" ]] ; then "$rvm_scripts_path/log" "info" "$message" ; fi
 
-  if [[ ${rvm_debug_flag:-0} -eq 1 ]] ; then
+  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
     "$rvm_scripts_path/log" "debug" "Executing: $command"
   fi
 
@@ -227,7 +227,7 @@ __rvm_run_with_env() {
 
   if [[ -n "$message" ]] ; then "$rvm_scripts_path/log" "info" "$message" ; fi
 
-  if [[ -n "$rvm_debug_flag" ]] ; then
+  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
     "$rvm_scripts_path/log" "debug" "Executing: $command in environment "$env_name""
   fi
 
@@ -238,7 +238,7 @@ __rvm_run_with_env() {
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command # under $env_name" | tee "$rvm_ruby_log_path/$log_file_name.log" >> "$rvm_ruby_log_path/$log_file_name.error.log"
 
   (
-    if [[ -z "$rvm_niceness" || "0" = "$rvm_niceness" ]] ; then
+    if [[ -z "${rvm_niceness:-""}" || $rvm_niceness -eq 0 ]] ; then
       eval "__rvm_with_env '$env_name' '$command'" >> "$rvm_ruby_log_path/$log_file_name.log" 2>> "$rvm_ruby_log_path/$log_file_name.error.log"
     else
       eval "nice -n $rvm_niceness __rvm_with_env '$env_name' '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
@@ -308,13 +308,6 @@ __rvm_ensure_has_18_compat_ruby() {
   return 0
 }
 
-__rvm_inherit_trace_flag() {
-  if [[ ${rvm_trace_flag:-0} -gt 0 ]]; then
-    set -x ; export rvm_trace_flag
-  fi
-  return 0
-}
-
 # Cleans up temp folders for a given prefix,
 # typically the current process id.
 __rvm_cleanup_temp_for() {
@@ -329,13 +322,10 @@ __rvm_cleanup_temp_for() {
   exit
 }
 
-__rvm_cleanup_temp_on_exit() {
-  trap "__rvm_cleanup_temp_for '$$'" 0 1 2 3 15
-}
-
 __rvm_set_rvmrc() {
   if [[ "$HOME" != "$PWD" ]] ; then
-    if [[ ${rvm_verbose_flag:-0} -eq 1 ]] ; then flags="use " ; fi
+
+    if [[ ${rvm_verbose_flag:-0} -gt 0 ]] ; then flags="use " ; fi
 
     if [[ -s .rvmrc ]] ; then
       mv .rvmrc .rvmrc.$(date +%m.%d.%Y-%H:%M:%S)
@@ -380,7 +370,7 @@ __rvm_benchmark() {
   rvm_ruby_args="$rvm_tmp_path/$$.rb"
   rvm_benchmark_flag=1
   rvm_action="ruby"
-  if [[ -n "$rvm_debug_flag" ]] ; then printf "\n$rvm_tmp_path/$$.rb:\n$(cat $rvm_tmp_path/$$.rb)" ; fi
+  if [[ ${rvm_debug_flag:0} -gt 0 ]] ; then printf "\n$rvm_tmp_path/$$.rb:\n$(cat $rvm_tmp_path/$$.rb)" ; fi
   # Override ruby string stuff, pass through.
   local old_rvm_ruby_string=$rvm_ruby_string
   # TODO: We can likely do this in a subshell in order to preserve the original environment?
@@ -712,7 +702,7 @@ __rvm_ensure_has_environment_files() {
     for variable in RUBY_VERSION GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gemset_name MAGLEV_HOME ; do
 
       eval "export $variable"
-      eval "value=\$${variable:-""}"
+      eval "value=\${${variable}:-""}"
 
       if [[ -n "$value" ]] ; then
         printf "${variable}='$value'\nexport ${variable}\n" >> "$file_name"
