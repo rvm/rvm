@@ -22,7 +22,7 @@ module RVM
       names = {}
       value = rvm(:tools, :strings, *rubies)
       if value.successful?
-        parts = value.stdout.split("\n").map { |l| l.split }.flatten
+        parts = value.stdout.split
         rubies.each_with_index do |key, index|
           names[key] = normalize(parts[index])
         end
