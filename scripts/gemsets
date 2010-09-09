@@ -26,7 +26,9 @@ usage() {
 gemset_update() {
   if [[ -z "$rvm_ruby_strings" ]]; then
     "$rvm_scripts_path/log" "info" "Running gem update for all rubies and gemsets."
-    rvm_ruby_strings="$(ls "$rvm_gems_path" | grep -v '^\(doc\|cache\|@\|system\)' | \tr '\n' ',')"
+
+    rvm_ruby_strings="$(builtin cd "$rvm_gems_path" ; find * -type d -depth 0 2>/dev/null | grep -v '^\(doc\|cache\|@\|system\)' | \tr '\n' ',')"
+    rvm_ruby_strings="${rvm_ruby_strings/%,}"
   else
     "$rvm_scripts_path/log" "info" "Running gem update for the specified rubies."
   fi
@@ -49,7 +51,7 @@ gemset_globalcache() {
     return "$globalcache_enabled"
   elif [[ "$1" == "disable" ]]; then
     "$rvm_scripts_path/log" "info" "Removing the global cache (note: this will empty the caches)"
-    for directory_name in $(ls "$rvm_gems_path"); do
+    for directory_name in $(builtin cd "$rvm_gems_path" ; find * -type d -depth 0); do
       current_cache_path="$rvm_gems_path/$directory_name/cache"
       if [[ -L "$current_cache_path" && "$(readlink "$current_cache_path")" == "$rvm_gems_cache_path" ]]; then
         "$rvm_scripts_path/log" "info" "Reverting the gem cache for $directory_name to an empty directory."
@@ -61,7 +63,7 @@ gemset_globalcache() {
   elif [[ "$1" == "enable" ]]; then
     "$rvm_scripts_path/log" "info" "Enabling global cache for gems."
     mkdir -p "$rvm_gems_cache_path"
-    for directory_name in $(ls "$rvm_gems_path"); do
+    for directory_name in $(builtin cd "$rvm_gems_path" ; find * -type d -depth 0); do
       current_cache_path="$rvm_gems_path/$directory_name/cache"
       if [[ -d "$current_cache_path" && ! -L "$current_cache_path" ]]; then
         "$rvm_scripts_path/log" "info" "Moving the gem cache for $directory_name to the global cache."
@@ -306,7 +308,8 @@ gemset_import() {
 
   if [[ -s "$rvm_file_name" ]] ; then
     echo "Importing  $rvm_file_name file..."
-    rvm_ruby_gem_list=$(ls "$rvm_ruby_gem_home/specifications/" 2> /dev/null | sed 's#.gems.*$##' 2> /dev/null)
+
+    rvm_ruby_gem_list=$(builtin cd "$rvm_ruby_gem_home/specifications/" ; find * -type f -depth 0 2> /dev/null | sed -e 's#.gems.*$##' 2> /dev/null)
 
     while read -r line
     do # Keep this on 2nd line :(
@@ -367,31 +370,43 @@ gem_install() {
   else
     if [[ -s "$gem" ]] ; then
       cache_file="$gem"
+
     elif [[ -s "$(__rvm_current_gemcache_dir)/${gem_file_name}" ]] ; then
       cache_file="$(__rvm_current_gemcache_dir)/${gem_file_name}"
+
     else
-      cache_file="${cache_file:-$(ls "$(__rvm_current_gemcache_dir)/${gem_file_name}" 2> /dev/null | sort | head -n1)}"
+      cache_file="${cache_file:-$(builtin cd "$(__rvm_current_gemcache_dir)/${gem_file_name}" ; find * -type f -depth 0 2> /dev/null | sort | head -n1)}"
     fi
 
     if [[ ! -s "$cache_file" ]] ; then
+
       if [[ -s "$gem_file_name" ]] ; then
         gem="$gem_file_name"
+
       elif [[ -z "${gem_version// /}" ]] ; then
         gem="${gem_name// /}"
+
       else
         gem="${gem_name// /} -v $gem_version"
       fi
     else # cached
+
       gem_file_name="$(basename "$cache_file")"
+
       gem_string="$(echo "$gem_file_name" | sed 's#\.gem$##')"
 
       if [[ -z "$rvm_force_flag" ]] && [[ -s "${rvm_ruby_gem_home}/specifications/$(basename $gem_file_name)spec" ]] ; then
         unset gem # already installed, not forcing reinstall.
+
         "$rvm_scripts_path/log" "info" "$gem_name $gem_version exists, skipping (--force to re-install)"
+
       else
         if [[ -s "$(__rvm_current_gemcache_dir)/$(basename $gem_file_name)" ]] ; then
+
           mkdir -p "$rvm_tmp_path/$$/"
+
           mv "$(__rvm_current_gemcache_dir)/$gem_file_name" "$rvm_tmp_path/$$/$gem_file_name"
+
           gem="$rvm_tmp_path/$$/$gem_file_name -f -l"
         else
           gem="$cache_file"

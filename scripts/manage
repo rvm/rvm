@@ -573,7 +573,7 @@ RubyWrapper
 
       unset file_name
 
-      binaries="erb ri rdoc"
+      binaries=(erb ri rdoc)
 
       __rvm_post_install
 
@@ -1363,7 +1363,7 @@ __rvm_remove_gemsets() {
   if [[ ${rvm_gems_flag:-0} -eq 1 ]] ; then
     "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string gemsets..."
 
-    gemsets="$rvm_gems_path/$rvm_ruby_string $(ls -d "${rvm_gems_path}"/* | awk '/'$rvm_ruby_string'@/')"
+    gemsets="$rvm_gems_path/$rvm_ruby_string $(builtin cd "${rvm_gems_path}"/ ; find * -type d -depth 0 | awk '/'$rvm_ruby_string'@/')"
 
     for gemset in $gemsets ; do
       if [[ -d "$gemset" ]] ; then
@@ -1378,7 +1378,7 @@ __rvm_remove_wrappers() {
 
   local wrappers wrapper
 
-  wrappers="$rvm_wrappers_path/$rvm_ruby_string $(ls -d "$rvm_wrappers_path"/* 2>/dev/null | awk '/'$rvm_ruby_string'@/')"
+  wrappers="$rvm_wrappers_path/$rvm_ruby_string $(builtin cd "$rvm_wrappers_path"/ ; find * -type f -depth 0 2>/dev/null | awk '/'$rvm_ruby_string'@/')"
 
   for wrapper in $wrappers ; do
     rm -rf "$wrapper"
@@ -1392,7 +1392,7 @@ __rvm_remove_environments() {
 
   local environments environment
 
-  environments="$rvm_environments_path/$rvm_ruby_string $(ls -d "$rvm_environments_path"/* | awk '/'$rvm_ruby_string'@/')"
+  environments="$rvm_environments_path/$rvm_ruby_string $(builtin cd "$rvm_environments_path"/ ; find * -type f -depth 0 | awk '/'$rvm_ruby_string'@/')"
 
   for environment in $environments ; do
     rm -rf "$environment"
@@ -1426,7 +1426,8 @@ __rvm_remove_binaries() {
 
   # Iterate over all binaries and check for symlinked wrappers etc.
   local binary_name
-  for binary_name in $(ls "$rvm_bin_path"); do
+
+  for binary_name in $(builtin cd "$rvm_bin_path" ; find * -type f -depth 0); do
     full_binary_path="$rvm_bin_path/$binary_name"
 
     if [[ -L "$full_binary_path" ]] && "$rvm_scripts_path/match" "$(readlink "$full_binary_path")" "$rvm_ruby_string"; then
@@ -1438,17 +1439,24 @@ __rvm_remove_binaries() {
 
 __rvm_post_install() {
   if [[ "$rvm_ruby_interpreter" != "jruby" ]] ; then
-    binaries="${binaries:-"gem irb erb ri rdoc testrb rake"}"
+    binaries=(${binaries:-"gem irb erb ri rdoc testrb rake"})
+
     "$rvm_scripts_path/log" "info" "#shebangs adjustment for $rvm_ruby_string ($binaries)."
-    for binary in $(echo $binaries) ; do
+
+    for binary in "${binaries[@]}" ; do
+
       if [[ -e "$rvm_ruby_home/bin/$binary" ]] || [[ -e "$rvm_ruby_src_path/bin/$binary" ]] ; then
+
         if [[ "$rvm_ruby_src_path" != "$rvm_ruby_home" ]] && [[ -f "$rvm_ruby_src_path/bin/$binary" ]] ; then
           cp -f "$rvm_ruby_src_path/bin/$binary" "$rvm_ruby_home/bin/$binary"
         elif [[ -f "$rvm_ruby_gem_home/bin/$binary" ]] ; then
           cp -f "$rvm_ruby_gem_home/bin/$binary" "$rvm_ruby_home/bin/$binary"
         fi
+
         __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
+
         __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
+
         chmod +x "$rvm_ruby_home/bin/$binary"
       fi
     done ; unset binary binaries
@@ -1491,40 +1499,51 @@ __rvm_rubygems_setup() {
   if [[ "$install" -eq 0 ]] ; then
     # 1.9.X has it's own built-in gem command
     __rvm_inject_ruby_shebang "$rvm_ruby_src_path/bin/gem"
+
     __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
 
     cp "$rvm_ruby_src_path/bin/gem" "$rvm_ruby_home/bin/gem"
 
     home="$GEM_HOME" ; path="$GEM_PATH" # Save
+
     for dir in $rvm_ruby_global_gems_path $rvm_ruby_gem_home ; do
       export GEM_HOME="$dir" ; export GEM_PATH="$dir" ; export BUNDLE_PATH="$dir"
       __rvm_run "rubygems.update" "$rvm_ruby_home/bin/gem update --system" "#rubygems update for $dir"
     done ; unset home path dir
+
     GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home"
     export GEM_HOME GEM_PATH BUNDLE_PATH
 
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
+
     __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
 
     directory_name="$rvm_ruby_home/lib/ruby/gems"
+
     version_number="${rvm_ruby_release_version}.${rvm_ruby_major_version}"
+
     if [[ "$version_number" == "." ]]; then
-      version_number="$(ls "$directory_name" | \grep '^[[:digit:]].[[:digit:]]\(.[[:digit:]]\)\?' | head -n1)"
+      version_number="$(builtin cd "$directory_name" ; find * -type f -depth 0 | \grep '^[[:digit:]].[[:digit:]]\(.[[:digit:]]\)\?' | head -n1)"
+
       if [[ -n "$version_number" ]]; then
         ruby_lib_gem_path="${directory_name}/${version_number}"
       else
         ruby_lib_gem_path=""
       fi
+
     else
       ruby_lib_gem_path="${directory_name}/${version_number}"
     fi
+
     unset directory_name version_number
 
   elif [[ -n "$(echo "$rvm_ruby_interpreter" | awk '/^rbx|jruby/')" ]] ; then
+
     # Hands off rubygems for rbx & jruby
     if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
       "$rvm_scripts_path/log" "debug" "Skipping rubygems update for $rvm_ruby_version"
     fi
+
     ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/jruby"
 
   else
@@ -1569,9 +1588,15 @@ __rvm_rubygems_setup() {
 
   if [[ -n "$ruby_lib_gem_path" ]]; then
     # Add ruby's gem path to ruby's lib direcotry.
-    mkdir -p $(dirname "$ruby_lib_gem_path")
-    if [[ -d "$ruby_lib_gem_path" ]] ; then \rm -rf "$ruby_lib_gem_path" ; fi
+
+    if [[ -d "$ruby_lib_gem_path" ]] ; then
+      \rm -rf "$ruby_lib_gem_path"
+    fi
+
+    mkdir -p ${ruby_lib_gem_path%\/*}
+
     ln -nfs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
+
   fi; unset ruby_lib_gem_path
 
   if [[ -s "$rvm_ruby_src_path/bin/rdoc" ]] ; then
@@ -1619,45 +1644,67 @@ __rvm_actual_file() {
 }
 
 __rvm_manage_rubies() {
-  unset rvm_gemset_name rvm_ruby_selected_flag
-
-  rvm_ruby_gem_home=$(echo "${rvm_ruby_gem_home:-""}" | awk -F${rvm_gemset_separator} '{print $1}')
-  rvm_ruby_string=$(echo "${rvm_ruby_string:-""}" | awk -F${rvm_gemset_separator} '{print $1}')
-
   local manage_result=0
+  local bin_line=""
 
-  if [[ -n "$rubies_string" ]] ;then
-    for rvm_ruby_string in $(echo "$rubies_string" | \tr ',' ' ') ; do
+  rvm_gemset_name=""
+  rvm_ruby_selected_flag=0
+
+  rvm_ruby_gem_home="${rvm_ruby_gem_home:-""//${rvm_gemset_separator}*}"
+  rvm_ruby_string="${rvm_ruby_string:-""//${rvm_gemset_separator}*}"
+
+  # Given list of ruby strings.
+  if [[ -n "${rubies_string:-""}" ]] ;then
+
+    for rvm_ruby_string in "${rubies_string//,/ }" ; do
       current_manage_ruby_string="$rvm_ruby_string"
+
       eval "__rvm_${action}_ruby"
       result="$?"
+
       if [[ "$result" -gt 0 && "$manage_result" = 0 ]]; then
         manage_result="$result"
       fi
-      [[ "$result" = 0 && "$action" = "install" ]] && __rvm_record_install "$current_manage_ruby_string"
+
+      if [[ "$result" = 0 && "$action" = "install" ]] ; then
+        __rvm_record_install "$current_manage_ruby_string"
+      fi
+
       unset current_manage_ruby_string
+
       __rvm_unset_ruby_variables
     done
+
   else # all
+
     if [[ "$action" != "install" && "$action" != "remove" && "$action" != "uninstall" ]] ; then
-      while read -r bin_line
+
+      local ruby_string
+      while read -r ruby_string
       do # Keep this on second line damnit!
-        if [[ -x "$bin_line" ]] ; then
-          current_manage_ruby_string="$(dirname "$bin_line" | xargs dirname | xargs basename)"
-          rvm_ruby_string="$current_manage_ruby_string"
+
+        if [[ -x "$ruby_string" ]] ; then
+          rvm_ruby_string="$ruby_string"
+
           eval "__rvm_${action}_ruby"
           result="$?"
+
           if [[ "$result" -gt 0 && "$manage_result" = 0 ]]; then
             manage_result="$result"
           fi
+
           # record as current_manage_string to prevent it being overridden.
-          [[ "$result" = 0 && "$action" = "install" ]] && __rvm_record_install "$current_manage_ruby_string"
-          unset current_manage_ruby_string
+          if [[ "$result" = 0 && "$action" = "install" ]] ; then
+            __rvm_record_install "$ruby_string"
+          fi
+
           __rvm_unset_ruby_variables
         fi
-      done < <(ls "$rvm_rubies_path"/*/bin/ruby 2> /dev/null)
+      done < <(builtin cd "$rvm_rubies_path" ; find * -type d -depth 0 2> /dev/null)
+
     else
-      "$rvm_scripts_path/log" "warn" 'Really? '"$action"' all? See "rvm list known" and limit the selection to something more sane please :)'
+      "$rvm_scripts_path/log" "warn" \
+        'Really? '"$action"' all? See "rvm list known" and limit the selection to something more sane please :)'
     fi
   fi
 
