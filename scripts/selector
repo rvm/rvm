@@ -217,7 +217,7 @@ __rvm_select() {
       rvm_ruby_minor_version="${rvm_ruby_version//*.}"
     fi
 
-    rvm_ruby_package_name="${rvm_ruby_package_name:-$(echo $rvm_ruby_string | sed -e 's/-n.*$//')}"
+    rvm_ruby_package_name="${rvm_ruby_package_name:-${rvm_ruby_string//-n*}}"
     rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_string"
     rvm_ruby_log_path="$rvm_log_path/$rvm_ruby_string"
     rvm_ruby_repo_path="$rvm_repo_path/$rvm_ruby_string"
@@ -248,11 +248,6 @@ __rvm_select() {
 }
 
 __rvm_use() {
-  rvm_head_flag=${rvm_head_flag:-0}
-  rvm_default_flag=${rvm_default_flag:-0}
-  rvm_rvmrc_flag=${rvm_rvmrc_flag:-0}
-  rvm_verbose_flag=${rvm_verbose_flag:-0}
-  rvm_sticky_flag=${rvm_sticky_flag:-0}
   rvm_gemset_name="${rvm_gemset_name:-""}"
   rvm_ruby_gem_home="${rvm_ruby_gem_home:-""}"
   rvm_wrapper_name="${rvm_wrapper_name:-""}"
@@ -311,7 +306,7 @@ __rvm_use() {
 
     if [[ ! -d "$MY_RUBY_HOME" ]] ; then
       "$rvm_scripts_path/log" "warn" "$rvm_ruby_interpreter $rvm_ruby_string is not installed."
-      if [[ $rvm_install_on_use_flag -eq 1 ]] ; then
+      if [[ ${rvm_install_on_use_flag:-0} -eq 1 ]] ; then
         "$rvm_scripts_path/manage" "install" "$rvm_ruby_string"
       else
         "$rvm_scripts_path/log" "info" "To install do: 'rvm install $rvm_ruby_string'"
@@ -323,7 +318,8 @@ __rvm_use() {
     __rvm_ensure_has_environment_files
 
     [[ ${rvm_verbose_flag:-0} -gt 0 ]] && \
-      "$rvm_scripts_path/log" "info" "Using $(basename $GEM_HOME | \tr '-' ' ' | sed 's/'${rvm_gemset_separator}'/ with gemset /')"
+      "$rvm_scripts_path/log" "info" \
+      "Using ${GEM_HOME/${rvm_gemset_separator:-'@'}/ with gemset }"
 
     new_path="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:$MY_RUBY_HOME/bin:$rvm_bin_path:$(__rvm_remove_rvm_from_path ; printf "$PATH")"
   fi
@@ -703,7 +699,7 @@ __rvm_gemset_use() {
       "$rvm_scripts_path/log" "info" "Now using gemset '${rvm_gemset_name:-default}'"
     fi
 
-    rvm_ruby_gem_home="$(echo "${GEM_HOME:-""}" | sed 's/'${rvm_gemset_separator}'.*$//')${rvm_gemset_separator}${rvm_gemset_name}"
+    rvm_ruby_gem_home="${GEM_HOME//${rvm_gemset_separator}*}${rvm_gemset_separator}${rvm_gemset_name}"
     GEM_HOME="$rvm_ruby_gem_home"
     BUNDLE_PATH="$rvm_ruby_gem_home"
     GEM_PATH="$rvm_ruby_gem_home/bin:$(echo "$GEM_HOME" | sed 's/'${rvm_gemset_separator}'.*$//')${rvm_gemset_separator}global/bin"
@@ -717,7 +713,7 @@ __rvm_gemset_use() {
 
 __rvm_gemset_clear() {
   rvm_gemset_name="" ; shift # TODO: Is this shift necessary???
-  rvm_ruby_gem_home="$(echo "${GEM_HOME:-""}" | sed "s#${rvm_gemset_separator:-'@'}.*\$##g")"
+  rvm_ruby_gem_home="${GEM_HOME//${rvm_gemset_separator:-'@'}*}"
   rvm_ruby_global_gems_path="$(echo "${GEM_HOME:-""}" | sed 's/'${rvm_gemset_separator}'.*$//')${rvm_gemset_separator}global"
   GEM_HOME=$rvm_ruby_gem_home
   BUNDLE_PATH="$rvm_ruby_gem_home"
