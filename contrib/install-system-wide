@@ -1,10 +1,36 @@
 #!/usr/bin/env bash
 
+usage() {
+  printf "
+
+  Usage:
+
+    rvm-install-system-wide [options]
+
+  Options:
+
+    --trace      - Run turn on bash xtrace while the script runs.
+    --debug      - Turn on bash verbose while the script runs.
+    --version X  - Install RVM version X
+    --revision X - Install RVM revision X (sha1)
+    --help       - Display this usage text.
+
+"
+return 0
+}
+
 __rvm_system_wide_permissions() {
   [[ -z "$1" ]] && return 1
+
   chown -R root:"$rvm_group_name" "$1"
+
   chmod -R g+w "$1"
-  [[ -d "$1" ]] && find "$1" -type d -print0 | xargs -n1 -0 chmod g+s
+
+  if [[ -d "$1" ]] ; then
+    find "$1" -type d -print0 | xargs -n1 -0 chmod g+s
+  fi
+
+  return 0
 }
 
 # Require root to install it.
@@ -21,6 +47,37 @@ elif [[ "$(uname)" != "Linux" ]]; then
   echo "The rvm system wide installer is currently Linux only." >&2
   exit 1
 fi
+
+while [[ $# -gt 0 ]] ; do
+  case $1 in
+    --trace)
+      rvm_trace_flag=1
+      set -o xtrace
+      ;;
+    --debug)
+      rvm_trace_flag=1
+      set -o verbose
+      ;;
+    --version|--revision)
+      if [[ -n "${1:-""}" ]] ; then
+        revision="$1"
+        shift
+      else
+        usage
+        exit 1
+      fi
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage
+      exit 1
+    ;;
+  esac
+  shift
+done
 
 # Load the rvm config.
 rvm_ignore_rvmrc=${rvm_ignore_rvmrc:-0}
@@ -55,10 +112,9 @@ git clone --depth 1 git://github.com/wayneeseguin/rvm.git || git clone http://gi
 
 builtin cd rvm
 
-rvm_revision=${rvm_revision:-""}
-if [[ "$rvm_revision" ]]; then
-  echo "Checking out revision $rvm_revision"
-  git checkout $rvm_revision
+if [[ "${revision:-""}" ]]; then
+  echo "Checking out revision $revision"
+  git checkout $revision
 fi
 
 echo "Running the install script."
