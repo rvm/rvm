@@ -253,7 +253,7 @@ __rvm_parse_args() {
 
       specs|tests)
         rvm_action="rake"
-        rvm_ruby_args="$(echo "$rvm_token" | sed -e 's/s$//')"
+        rvm_ruby_args="${rvm_token/%ss/s}"
       ;;
 
       -v|--version)
@@ -486,7 +486,7 @@ __rvm_parse_args() {
 
       -C|--configure)
         if [[ ! -z "$next_token" ]] ; then
-          rvm_configure_flags="$(echo $next_token | sed -e 's#,--# --#g')"
+          rvm_configure_flags="${next_token//,--/ --}"
           if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
 
         else
@@ -614,11 +614,12 @@ rvm() {
   fi
 
   # Check that this is the current version.
-  disk_version=$(\tail -n 3 < "${rvm_path:-$HOME/.rvm}/lib/VERSION.yml" | \sed -e 's/^.*: //g' | \tr "\n" '.' | \sed -e 's/\.$//')
+  disk_version="$(awk '/:/{printf $NF"."}' "$rvm_path/lib/VERSION.yml")"
+  disk_version="${disk_version/%.}"
 
   if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
 
-  if [[ "${rvm_version}" != "${disk_version}" ]] && [[ "reload" != "$next_token" ]]; then
+  if [[ "${rvm_version}" != "${disk_version}" && "reload" != "$next_token" ]]; then
     printf "\nA RVM version ${disk_version} is installed yet ${rvm_version} is loaded.\n Please do one of the following:\n  * 'rvm reload'\n  * open a new shell\n  * source your shell init scripts"
     return 1
   fi
