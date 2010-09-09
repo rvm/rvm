@@ -1,22 +1,39 @@
 #!/usr/bin/env bash
 
 default_flag="$rvm_default_flag"
-# Prevent it from recursing.
+# Prevent recursion
 unset rvm_default_flag rvm_wrapper_name
 
 source "$rvm_scripts_path/base"
+
+usage() {
+  printf "
+  Usage:
+
+    rvm wrapper [ruby_string] [wrapper_prefix] [binary[ binary[ ...]]]
+
+  Binaries
+
+    ruby, gem, rake, irb, rdoc, ri, testrb
+
+  For more information, see 'rvm help wrapper'
+"
+}
 
 full_binary_name() {
   echo "$binary_name" | __rvm_strip
 }
 
 wrap() {
-  mkdir -p "$(dirname "$file_name")"
-  rm -f "$file_name"
+  if [[ -n "${file_name:-""}" ]] ;then
+    mkdir -p "$(dirname "$file_name")"
 
-  printf "#!/usr/bin/env sh\n
-if [ -s \"${rvm_environments_path}/${environment_identifier}\" ] ; then
-  \\. \"${rvm_environments_path}/${environment_identifier}\"
+    rm -f "$file_name"
+
+    printf "#!/usr/bin/env bash
+
+if [[ -s \"$rvm_path/environments/${environment_identifier}\" ]] ; then
+  \\. \"$rvm_path/environments/${environment_identifier}\"
   exec $binary_name \"\$@\"
 else
   echo \"ERROR: Missing RVM environment file: '${rvm_environments_path}/${environment_identifier}'\"
@@ -24,7 +41,13 @@ else
 fi
   " > "$file_name"
 
-  if [[ -f "$file_name" ]] ; then chmod +x "$file_name" ; fi
+    if [[ -f "$file_name" ]] ; then chmod +x "$file_name" ; fi
+
+    return 0
+  else
+    "$rvm_path/scripts/log" "error" "wrap() : file_name unset variable."
+    return 1
+  fi
 }
 
 symlink_binary() {
@@ -33,6 +56,7 @@ symlink_binary() {
   # we then symlink it into place.
   if wrap_binary && [[ -f "$file_name" ]]; then
     rm -f "${rvm_bin_path}/${prefix}_${binary_name}"
+
     ln -fs "$file_name" "${rvm_bin_path}/${prefix}_${binary_name}"
   fi
 }
@@ -47,24 +71,26 @@ wrap_binary() {
   fi
 }
 
-usage() {
-  printf "Usage: 'rvm wrapper [ruby_string] [wrapper_prefix] [binary[ binary[ ...]]]'\n"
-  printf "        Where binary defaults to ruby, gem, rake, irb, rdoc, ri, testrb\n"
-  printf "        For more information, see 'rvm help wrapper'\n"
-}
-
 # Empty ruby string: show usage and exit.
-if [[ -z "$1" ]]; then usage ; exit 1 ; fi
+if [[ "$#" -eq 0 ]] ; then
+  usage
+  exit 1
+else
+  ruby_string="${1:-""}"
+  shift
+fi
 
-ruby_string="${1:-""}"; shift
+if [[ "$#" -gt 0 ]] ; then
+  prefix="${1:-""}"
+  shift
+fi
+
+binaries=($(echo "$@"))
 override_check=0
-prefix="${1:-""}"
-[[ "$#" -gt 0 ]] && shift
-binaries="$(echo "$@" | __rvm_strip)"
 
 # Default the list of binaries to those we use regularily.
-if [[ -z "$binaries" ]] ; then
-  binaries="ruby gem irb ri rdoc rake erb testrb"
+if [[ ${#binaries[@]} -eq 0 ]] ; then
+  binaries=(ruby gem irb ri rdoc rake erb testrb)
 fi
 
 # Use the correct ruby.
@@ -76,31 +102,46 @@ environment_identifier="$(__rvm_environment_identifier)"
 
 # For each binary, we want to generate the wrapper / symlink
 # it to the existing wrapper if needed.
-for binary_name in $binaries; do
+for binary_name in "${binaries[@]}"; do
+
   file_name="${rvm_wrappers_path}/${environment_identifier}/${binary_name}"
 
   if [[ -z "$prefix" ]] ; then
+
     override_check=1
+
     wrap_binary
+
     # Symlink it into place.
     if [[ -f "$file_name" ]]; then
+
       if [[ "$binary_name" == "ruby" ]] ; then
         destination="$rvm_bin_path/$environment_identifier"
       else
         destination="$rvm_bin_path/${binary_name}-${environment_identifier}"
       fi
+
       rm -rf "$destination"
+
       ln -nsf "$file_name" "$destination"
     fi; unset destination
 
   elif [[ "$prefix" == "--no-prefix" ]]; then
+
     override_check=1
+
     wrap_binary
+
     if [[ -f  "$file_name" ]]; then
+
       destination="$rvm_bin_path/$binary_name"
-      rm -rf "$destination"
+
+      if [[ -s "$destination" ]] ; then
+        rm -rf "$destination"
+      fi
+
       ln -nsf "$file_name" "$destination"
-    fi; unset destination
+    fi ; unset destination
 
   else
     symlink_binary
