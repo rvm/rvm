@@ -1420,7 +1420,8 @@ __rvm_remove_gemsets() {
   if [[ ${rvm_gems_flag:-0} -eq 1 ]] ; then
     "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string gemsets..."
 
-    gemsets="$rvm_gems_path/$rvm_ruby_string $(builtin cd "${rvm_gems_path}"/ ; find * -maxdepth 0 -type d | awk '/'$rvm_ruby_string'@/')"
+    gemsets="$rvm_gems_path/$rvm_ruby_string $(builtin cd "${rvm_gems_path}"/ ; find . -maxdepth 1 -mindepth 1 -type d | awk '/'$rvm_ruby_string'@/')"
+    gemsets="${gemsets//.\/}"
 
     for gemset in $gemsets ; do
       if [[ -d "$gemset" ]] ; then
@@ -1433,11 +1434,11 @@ __rvm_remove_gemsets() {
 __rvm_remove_wrappers() {
   "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string wrappers..."
 
-  local wrappers wrapper
+  local wrapper wrappers
 
-  wrappers="$rvm_wrappers_path/$rvm_ruby_string $(builtin cd "$rvm_wrappers_path"/ ; find * -maxdepth 0 -type f 2>/dev/null | awk '/'$rvm_ruby_string'@/')"
+  wrappers=($(find "$rvm_path/wrappers" -iname "*$rvm_ruby_string*" -maxdepth 1 -mindepth 1 -type d 2>/dev/null))
 
-  for wrapper in $wrappers ; do
+  for wrapper in "${wrappers[@]}" ; do
     rm -rf "$wrapper"
   done
 
@@ -1449,10 +1450,12 @@ __rvm_remove_environments() {
 
   local environments environment
 
-  environments="$rvm_environments_path/$rvm_ruby_string $(builtin cd "$rvm_environments_path"/ ; find * -maxdepth 0 -type f | awk '/'$rvm_ruby_string'@/')"
+  environments=($(find "$rvm_environments_path" -iname "*$rvm_ruby_string*" -maxdepth 1 -mindepth 1 -type f))
 
-  for environment in $environments ; do
-    rm -rf "$environment"
+  for environment in "${environments[@]}" ; do
+    if [[ -d "$environment" ]] ; then
+      rm -rf "$environment"
+    fi
   done
 
   return 0
@@ -1463,9 +1466,9 @@ __rvm_remove_aliases() {
 
   local alias_name aliases
 
-  aliases=$(awk '/'$rvm_ruby_string'/' $rvm_config_path/alias | sed 's/=.*//')
+  aliases=($(awk '/'$rvm_ruby_string'/' $rvm_config_path/alias | sed 's/=.*//'))
 
-  for alias_name in $aliases ; do
+  for alias_name in "${aliases[@]}" ; do
     # Remove from alias key-value store
     "$rvm_scripts_path/alias" delete "$alias_name" >/dev/null 2>&1
   done
@@ -1473,7 +1476,9 @@ __rvm_remove_aliases() {
 
 __rvm_remove_archives() {
   if [[ ${rvm_archive_flag:-0} -eq 1 ]] ; then
+
     "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string archives..."
+
     rm -f "$rvm_archives_path/${rvm_ruby_package_file}.${rvm_archive_extension}"
   fi
 }
@@ -1482,15 +1487,17 @@ __rvm_remove_binaries() {
   "$rvm_scripts_path/log" "info" "Removing $rvm_ruby_string binaries..."
 
   # Iterate over all binaries and check for symlinked wrappers etc.
-  local binary_name
+  local binary_name binaries full_patch_path
 
-  for binary_name in $(builtin cd "$rvm_bin_path" ; find * -maxdepth 0 -type f); do
+  binaries=($(find "$rvm_bin_path" -iname "*$rvm_ruby_string*" -maxdepth 1 -mindepth 1 -type f))
+
+  for binary_name in "${binaries[@]}" ; do
+
     full_binary_path="$rvm_bin_path/$binary_name"
 
     if [[ -L "$full_binary_path" ]] && "$rvm_scripts_path/match" "$(readlink "$full_binary_path")" "$rvm_ruby_string"; then
       rm -f "$full_binary_path"
     fi
-    unset full_binary_path
   done
 }
 
@@ -1580,7 +1587,9 @@ __rvm_rubygems_setup() {
     version_number="${rvm_ruby_release_version}.${rvm_ruby_major_version}"
 
     if [[ "$version_number" == "." ]]; then
-      version_number="$(builtin cd "$directory_name" ; find * -maxdepth 0 -type f | \grep '^[[:digit:]].[[:digit:]]\(.[[:digit:]]\)\?' | head -n1)"
+      # TODO: Investigate this if statement, something feels not quite right.
+      version_number="$(builtin cd "$directory_name" ; find . -maxdepth 1 -mindepth 1 -type f | \grep '^[[:digit:]].[[:digit:]]\(.[[:digit:]]\)\?' | head -n1)"
+      version_number="${version_number//.\/}"
 
       if [[ -n "$version_number" ]]; then
         ruby_lib_gem_path="${directory_name}/${version_number}"
@@ -1737,6 +1746,7 @@ __rvm_manage_rubies() {
     if [[ "$action" != "install" && "$action" != "remove" && "$action" != "uninstall" ]] ; then
 
       local ruby_string
+
       while read -r ruby_string
       do # Keep this on second line damnit!
 
@@ -1757,7 +1767,7 @@ __rvm_manage_rubies() {
 
           __rvm_unset_ruby_variables
         fi
-      done < <(builtin cd "$rvm_rubies_path" ; find * -maxdepth 0 -type d 2> /dev/null)
+      done < <(builtin cd "$rvm_rubies_path" ; find . -maxdepth 1 -mindepth 1 -type d 2> /dev/null | sed -e 's#./##g')
 
     else
       "$rvm_scripts_path/log" "warn" \
