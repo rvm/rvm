@@ -438,94 +438,120 @@ __rvm_ruby_string() {
 
     # TODO: case...
 
-    if [[ "head" = "$string" ]] ; then
+    case "$string" in
+      head)
+
       rvm_ruby_revision="head"
       rvm_ruby_patch_level="" ; rvm_ruby_revision="" ; rvm_ruby_tag=""
       export rvm_head_flag=1
+      ;;
 
-    elif [[ "system" = "$string" ]] ; then
+    system)
       rvm_ruby_interpreter="system"
       rvm_ruby_patch_level="" ; rvm_ruby_tag="" ; rvm_head_flag=0 ; rvm_ruby_revision="" ; rvm_ruby_version="" ; rvm_gemset_name=""
       return 0
+      ;;
 
-    elif [[ "nightly" = "$string" ]] ; then
+    nightly)
       rvm_ruby_version="nightly"
       rvm_nightly_flag=1
       break
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^preview" ; then
+    preview*)
       rvm_ruby_patch_level="$string"
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^rc[0-9]" ; then
+    rc[[:digit:]]*)
       rvm_ruby_patch_level="$string"
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^[0-9]\.[0-9]" ; then
+    [[:digit:]]\.[[:digit:]]*)
       rvm_ruby_version="$string"
-      rvm_ruby_revision="" ; rvm_ruby_tag=""
+      rvm_ruby_revision=""
+      rvm_ruby_tag=""
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^p[0-9]" ; then
+    p[[:digit:]]*)
       rvm_ruby_patch_level="$string"
+      ;;
 
-    elif [[ -n "${rvm_ruby_version:-""}" ]] && "$rvm_scripts_path/match" "$string" "^[0-9][0-9]" ; then
-      if [[ "ree" = "${rvm_ruby_interpreter:-""}" ]] ; then
-        rvm_ruby_patch_level="$string"
-        rvm_ruby_revision=""
+    #elif [[ -n "${rvm_ruby_version:-""}" ]] && "$rvm_scripts_path/match" "$string" "^
+    [[:digit:]][[:digit:]]*)
 
-      elif [[ "rbx" = "${rvm_ruby_interpreter:-""}" ]] ; then
-        rvm_ruby_patch_level="$string"
+      case "${rvm_ruby_interpreter:-""}" in
+        ree)
+          rvm_ruby_patch_level="$string"
+          rvm_ruby_revision=""
+          ;;
 
-      elif [[ "maglev" = "${rvm_ruby_interpreter:-""}" ]] ; then
-        rvm_ruby_version="$string" ; rvm_ruby_revision="" ; rvm_ruby_patch_level=""
+        rbx)
+          rvm_ruby_patch_level="$string"
+          ;;
 
-      else
-        rvm_ruby_revision="r$string"
-      fi
+        maglev)
+          rvm_ruby_version="$string"
+          rvm_ruby_revision=""
+          rvm_ruby_patch_level=""
+          ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^r[0-9]" ; then
+        *)
+          rvm_ruby_revision="r$string"
+          ;;
+      esac
+      ;;
+
+    r[[:digit:]]*)
       rvm_ruby_patch_level=""
       rvm_ruby_revision="$string"
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^s[0-9]" ; then
+    s[[:digit:]]*)
       rvm_ruby_revision=""
       rvm_ruby_sha="$string"
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^t[v0-9]" ; then
+    tv[[:digit:]]* | t[[:digit:]]*)
       rvm_ruby_patch_level="" ; rvm_ruby_revision=""
       rvm_ruby_tag="$string"
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^m[0-9]" ; then
+    m[[:digit:]]*)
       rvm_ruby_mode="$string"
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^u[a-z0-9]" ; then
+    u[[:alnum:]]*)
       rvm_ruby_patch_level="" ; rvm_ruby_revision="" ; rvm_ruby_tag="" ; rvm_ruby_patch=""
       rvm_ruby_user_tag="$string"
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^b[0-9][0-9]" ; then
+    b[[:digit:]][[:digit:]]*)
       rvm_ruby_bits="$string"
+      ;;
 
-    elif "$rvm_scripts_path/match" "$string" "^n" ; then
+    n*)
       rvm_ruby_name="${string/n/}"
+      ;;
 
-    elif __rvm_known_inerpreter "$string" ; then
+    ruby|rbx|jruby|macruby|ree|rubinius|maglev|mput|shyouhei|ironruby)
       rvm_ruby_interpreter="$string"
-    else
-      "$rvm_scripts_path/log" "error" "Unknown ruby string component: '$string'"
+      ;;
+
+    *)
+      "$rvm_scripts_path/log" "error" \
+        "Unknown ruby string component: '$string'"
       return 1
-    fi
+      ;;
+    esac
   done
 
-  # Unspecified interpreter
   if [[ -z "${rvm_ruby_interpreter:-""}" ]] ; then
-
-    if "$rvm_scripts_path/match" "$rvm_ruby_version" "^1\.[8-9]" ; then
-      rvm_ruby_interpreter="ruby"
-
-    elif "$rvm_scripts_path/match" "$rvm_ruby_version" "^0.5" ; then
-      rvm_ruby_interpreter="macruby"
-
-    elif "$rvm_scripts_path/match" "$rvm_ruby_version" "^1.[2-4]" ; then
-      rvm_ruby_interpreter="jruby"
-    fi
+    # Detect interpreter based on version.
+    case "$rvm_ruby_version" in
+      1.[8-9]*) rvm_ruby_interpreter="ruby"    ;;
+      0.[5-6]*) rvm_ruby_interpreter="macruby" ;;
+      1.[2-7]*) rvm_ruby_interpreter="jruby"   ;;
+    esac
   fi
 
   # Unspecified version
@@ -570,15 +596,15 @@ __rvm_ruby_string() {
 
     if [[ -n "${rvm_ruby_patch_level:-""}" ]] ; then
 
-      rvm_ruby_patch_level="$(echo $rvm_ruby_patch_level | sed 's#^pp#p#')"
+      rvm_ruby_patch_level="${rvm_ruby_patch_level/#pp/p}"
       rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
 
-      if [[ "ree" = "${rvm_ruby_interpreter:-""}" ]] || [[ "rbx" = "${rvm_ruby_interpreter:-""}" ]] ; then
-        rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-p*#-#')"
+      if [[ "ree" = "${rvm_ruby_interpreter:-""}" || "rbx" = "${rvm_ruby_interpreter:-""}" ]] ; then
+        rvm_ruby_string="${rvm_ruby_string//-p*/-}"
 
       else
-        rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-pp#-p#')"
-        rvm_ruby_string="$(echo $rvm_ruby_string | sed 's#-prc#-rc#')"
+        rvm_ruby_string="${rvm_ruby_string//-pp/-p}"
+        rvm_ruby_string="${rvm_ruby_string//-prc/-rc}"
       fi
     fi
   fi
@@ -614,14 +640,15 @@ __rvm_gemset_select() {
       fi
     fi
 
-    if [[ -n "${rvm_gemset_name:-""}" ]] && ! "$rvm_scripts_path/match" "$rvm_gemset_name" "^[0-9]\.[0-9]" ; then
+    if ! echo "${rvm_gemset_name:-""}" | grep -q "^[[:digit:]]\.[[:digit:]]" ; then
+
       rvm_ruby_gem_home="$rvm_gems_path/${rvm_ruby_string}${rvm_gemset_separator}${rvm_gemset_name}"
 
     else
-      if [[ -n "${rvm_ruby_string:-""}" ]] && [[ "${rvm_ruby_interpreter:-""}" != "system" ]] ; then
+      if [[ -n "${rvm_ruby_string:-""}" && "${rvm_ruby_interpreter:-""}" != "system" ]] ; then
         rvm_ruby_gem_home="$rvm_gems_path/$rvm_ruby_string"
 
-      elif [[ -z "${GEM_HOME:-""}" ]]  && [[ -n "$(command -v gem)" ]] ; then
+      elif [[ -z "${GEM_HOME:-""}" && -n "$(command -v gem)" ]] ; then
         rvm_ruby_gem_home=$(gem env gemdir)
 
       elif [[ -n "${GEM_HOME:-""}" ]] ; then
@@ -656,10 +683,14 @@ __rvm_gemset_select() {
 
   # If the gemset does not exist, then notify the user as such and abort the action.
   if [[ -n "${rvm_gemset_name:-""}" && ! -d "$rvm_ruby_gem_home" ]] ; then
+
     if [[ ${rvm_gemset_create_on_use_flag:-0} -ne 1 && ${rvm_create_flag:-0} -ne 1 && ${rvm_delete_flag:-0} -ne 1 ]] ; then
+
       "$rvm_scripts_path/log" "error" "Gemset '$rvm_gemset_name' does not exist, rvm gemset create '$rvm_gemset_name' first."
+
       return 1
     fi
+
   elif [[ ${rvm_delete_flag:-0} -eq 1 ]] ; then
     return 1
   fi
