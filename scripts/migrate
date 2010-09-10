@@ -10,9 +10,12 @@ usage() {
 }
 
 confirm() {
-  printf "$1 (Y/n): "
   local confirmation_response
+
+  printf "$1 (Y/n): "
+
   read -r confirmation_response
+
   [[ -z "$confirmation_response" ]] || echo "$confirmation_response" | \grep -qi '^y'
 }
 
@@ -26,68 +29,92 @@ expand_ruby_name() {
 }
 
 migrate_rubies() {
+  local origin_gemset destination_gemset gemset_name migrate_ruby_name migrate_alias_name migrate_new_alias_name binaries origin_wrappers_path full_bin_path expanded_symlink linked_binary_name new_wrapper_destination
+
   expanded_source="$(expand_ruby_name "$source_ruby")"
   expanded_destination="$(expand_ruby_name "$destination_ruby")"
 
   if [[ -z "$expanded_source" ]]; then
     die_with_error "Could not expand source ruby '$source_ruby'"
+
   elif [[ -z "$expanded_destination" ]]; then
     die_with_error "Could not expand destination ruby '$destination_ruby'"
+
   elif [[ "$expanded_destination" = "$expanded_source" ]]; then
     die_with_error "Source and Destination Ruby are the same ($expanded_destination)"
+
   elif [[ ! -d "$rvm_rubies_path/$expanded_source" ]]; then
     die_with_error "Ruby '$expanded_source' is not installed - please install it first."
+
   elif [[ ! -d "$rvm_rubies_path/$expanded_destination" ]]; then
     die_with_error "Ruby '$expanded_destination' is not installed - please install it first."
   fi
 
   echo "Are you sure you wish to MOVE gems from $expanded_source to $expanded_destination?"
+
   confirm "This will overwrite existing gems in $expanded_destination and remove them from $expanded_source" || return 1
 
   echo "Moving gemsets..."
 
   while read -r origin_gemset; do
     [[ "$origin_gemset" = "$expanded_source" || "$origin_gemset" = "$expanded_source$rvm_gemset_separator"* ]] || continue
+
     gemset_name="${origin_gemset/*${rvm_gemset_separator}/}"
+
     destination_gemset="$expanded_destination"
+
     if [[ -n "$gemset_name" ]]; then
       destination_gemset="$destination_gemset$rvm_gemset_separator$gemset_name"
     fi
+
     echo "Moving $origin_gemset to $destination_gemset"
 
-    \rm -rf "$rvm_gems_path/$destination_gemset"
+    rm -rf "$rvm_gems_path/$destination_gemset"
     result="$?"
-    [[ "$result" -gt "0" ]] && die_with_error "Unable to remove gem directory '$rvm_gems_path/$destination_gemset'" "$result"
+
+    [[ $result -gt 0 ]] && die_with_error "Unable to remove gem directory '$rvm_gems_path/$destination_gemset'" "$result"
 
     mv "$rvm_gems_path/$origin_gemset" "$rvm_gems_path/$destination_gemset"
     result="$?"
-    [[ "$result" -gt "0" ]] && die_with_error "Unable to move '$rvm_gems_path/$origin_gemset' to '$rvm_gems_path/$destination_gemset'" "$result"
+
+    [[ $result -gt 0 ]] && die_with_error "Unable to move '$rvm_gems_path/$origin_gemset' to '$rvm_gems_path/$destination_gemset'" "$result"
 
     echo "Making gemset $destination_gemset pristine."
+
     __rvm_run_with_env "gemset.pristine" "$destination_gemset" "rvm gemset pristine"
+
   done < <("$rvm_scripts_path/list" gemsets strings | \grep "^$expanded_source")
-  unset origin_gemset destination_gemset gemset_name
+
 
   if confirm 'Do you wish to move over aliases?' ; then
+
     while read -r alias_pair; do
+
       migrate_ruby_name="${alias_pair/*=/}"
+
       migrate_alias_name="${alias_pair/=*/}"
+
       if [[ "$migrate_ruby_name" = "$expanded_source" || "$migrate_ruby_name" = "$expanded_source$rvm_gemset_separator"* ]]; then
+
         migrate_new_alias_name="${migrate_ruby_name/$expanded_source/$expanded_destination}"
+
         echo "Updating alias $migrate_alias_name to point to $migrate_new_alias_name"
+
         "$rvm_scripts_path/alias" delete "$migrate_alias_name" >/dev/null 2>&1
+
         "$rvm_scripts_path/alias" create "$migrate_alias_name" "$migrate_new_alias_name" >/dev/null 2>&1
       fi
+
     done < "$rvm_config_path/alias"
-    unset migrate_ruby_name migrate_alias_name migrate_new_alias_name
+
   fi
 
   if confirm "Do you wish to move over wrappers?" ; then
+
     origin_wrappers_path="$rvm_wrappers_path/$expanded_source"
 
+    binaries=($(cd "$rvm_bin_path" ; find * -type f -maxdepth 0))
 
-    local origin_wrappers_path full_bin_path expanded_symlink linked_binary_name new_wrapper_destination
-    local binaries=($(cd "$rvm_bin_path" ; find * -type f -maxdepth 0))
     for binary_name in "${binaries[@]}" ; do
 
       full_bin_path="$rvm_bin_path/$binary_name"
@@ -109,7 +136,9 @@ migrate_rubies() {
   fi
 
   if confirm "Do you also wish to completely remove $expanded_source (inc. archive)?" ; then
+
     __rvm_run_with_env "rvm.remove" "$expanded_source" "rvm remove $expanded_source --archive --gems"
+
   fi
 
   echo "Successfully migrated $expanded_source to $expanded_destination"

@@ -48,33 +48,48 @@ __rvm_teardown() {
 
 # Dump the current environment to a file.
 __rvm_dump_environment() {
+
   # Note: This assumes that there is a ','
-  local dump_environment_file="${rvm_dump_environment_flag/,*/}"
-  local dump_environment_type="${rvm_dump_environment_flag/*,/}"
+  local dump_environment_file dump_environment_type rvm_dump_environment_flag
+
+  dump_environment_file="${rvm_dump_environment_flag/,*/}"
+
+  dump_environment_type="${rvm_dump_environment_flag/*,/}"
+
   if [[ -n "$dump_environment_file" && -n "$dump_environment_type" ]]; then
+
     if [[ "$dump_environment_type" == "atheis"* ]] && [[ -f "$dump_environment_file" ]] ; then
       # TODO: Query Darcy about the ln.
       \rm -f "$dump_environment_file" && ln -s /dev/null "$dump_environment_file" >/dev/null 2>&1
+
     else
       "$rvm_scripts_path/environment-convertor" "$dump_environment_type" "$(__rvm_environment_identifier)" > "$dump_environment_file"
-      if [[ "$?" -gt 0 ]] && [[ -f "$dump_environment_file" ]] ; then
+      if [[ "$?" -gt 0 && -f "$dump_environment_file" ]] ; then
         \rm -f "$dump_environment_file"
       fi
     fi
-  fi ; unset rvm_dump_environment_flag
+  fi
+
   return 0
 }
 
 # Return a list of directories under a given base path.
 # Derived from rvm_ruby_string.
 __rvm_ruby_string_paths_under() {
-  local path="$1"
-  local path_parts="${rvm_ruby_string//-/ }"
+  local path path_parts
+
+  path="$1"
+
+  path_parts="${rvm_ruby_string//-/ }"
 
   while true ; do
+
     echo "$path/$path_parts" | sed -e 's# #/#g' -e 's#/$##g'
+
     [[ -z "$path_parts" ]] && break
+
     path_parts="$(echo "$path_parts" | awk '{$NF=""; print}' | __rvm_strip)"
+
   done
 
   return 0
@@ -83,7 +98,7 @@ __rvm_ruby_string_paths_under() {
 # Query the rvm key-value database for a specific key
 # Allow overrides from user specifications in $rvm_config_path/user
 __rvm_db() {
-  local value="" key="" variable=""
+  local value key variable
 
   key=${1:-""}
   variable=${2:-""}
@@ -111,29 +126,45 @@ is_a_function() { type $1 | head -n 1 | \grep -q "function" ; }
 
 __rvm_quote_args() {
   local quoted_string=""
+
   for quoted_argument in "$@"; do
+
     if printf "%s" "$quoted_argument" | \grep -vq "^[[:alnum:]]$"; then
+
       quoted_string="$quoted_string '$(printf "%s" "$quoted_argument" | sed "s/'/\'\\\'\'/g")'"
+
     else
       quoted_string="$quoted_string $quoted_argument"
     fi
   done
+
   echo "$quoted_string" | sed -e 's/^ *//g' -e 's/ *$//g'
+
   return 0
 }
 
 __rvm_quote_args_with_shift() {
+
   local shift_value="$1"; shift
-  while [[ "$shift_value" -gt 0 && "$#" -gt 0 ]]; do
-    shift ; ((shift_value--))
+
+  while [[ "$shift_value" -gt 0 && $# -gt 0 ]]; do
+
+    shift
+
+    ((shift_value--))
+
   done
+
   __rvm_quote_args "$@"
+
   return 0
 }
 
 __rvm_warn_on_rubyopt() {
-  if [[ -n "$RUBYOPT" ]]; then
-    "$rvm_scripts_path"/log "warn" "Please note: You have the RUBYOPT environment variable set and this may interfere with normal rvm operations. We sugges unsetting it."
+
+  if [[ -n "${RUBYOPT:-""}" ]]; then
+    "$rvm_scripts_path"/log "warn" \
+      "Please note: You have the RUBYOPT environment variable set and this may interfere with normal rvm operations. We sugges unsetting it."
     return 1
   else
     return 0
@@ -141,51 +172,74 @@ __rvm_warn_on_rubyopt() {
 }
 
 __rvm_strings() {
-  local strings=""
-  for rvm_ruby_string in $(echo ${rvm_ruby_args:-$rvm_ruby_string}) ; do
+  local strings ruby_strings
+
+  ruby_strings=($(echo ${rvm_ruby_args:-$rvm_ruby_string}))
+
+  for rvm_ruby_string in "${ruby_strings[@]}" ; do
     strings="$strings $(__rvm_select ; echo $rvm_ruby_string)"
   done
+
   echo $strings
+
   return 0
 }
 
 # Push an item onto a given array.
 __rvm_push() {
+
+  local array item
+
   array=$1 ; shift ; item=$2
+
   # TODO: allow loop over more arguments.
   eval "index=\$((\${#${array}[*]} + $__shell_array_start))"
+
   eval "${array}[${index}]=${item}"
-  unset array item
+
+  return 0
 }
 
 __rvm_set_path_variable() {
+
   if [[ -d "$1" ]] ; then
     eval "${path_variable}=${1}"
+
   else
-    "$rvm_scripts_path/log" "error" "'$1' is not a valid path."
+    "$rvm_scripts_path/log" "error" \
+      "'$1' is not a valid path."
     unset path_variable
   fi
+
+  return 0
 }
 
 # Clean all *duplicate* items out of the path. (keep first occurrence of each)
 __rvm_clean_path() {
   PATH="$(echo $PATH | \tr -s ':' '\n' | awk '!($0 in a){a[$0];print}' | \tr -s '\n' ':' | sed 's#:$##')"
+
   export PATH
+
   builtin hash -r
 }
 
 # Clean all rvm items out of the current working path.
 __rvm_remove_rvm_from_path() {
   PATH="${PATH//${rvm_path}*rvm\/bin:}"
+
   export PATH
+
   builtin hash -r
 }
 
 # Run a specified command and log it.
 __rvm_run() {
-  local log_file_name="${1:-""}"
-  local command="${2:-""}"
-  local message="${3:-""}"
+
+  local log_file_name command message
+
+  log_file_name="${1:-""}"
+  command="${2:-""}"
+  message="${3:-""}"
 
   if [[ -z "${rvm_ruby_log_path:-""}" ]] ; then rvm_ruby_log_path="$rvm_log_path" ; fi
 
@@ -208,8 +262,11 @@ __rvm_run() {
       eval "nice -n $rvm_niceness $command" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
     fi
   )
-  local result=$? ; if [[ $result -gt 0 ]] ; then
-    "$rvm_scripts_path/log" "error" "Error running '$command', please check $rvm_ruby_log_path/$log_file_name*.log"
+  local result=$?
+
+  if [[ $result -gt 0 ]] ; then
+    "$rvm_scripts_path/log" "error" \
+      "Error running '$command', please check $rvm_ruby_log_path/$log_file_name*.log"
   fi
 
   return $result
@@ -217,10 +274,13 @@ __rvm_run() {
 
 # Runs a command in a given env.
 __rvm_run_with_env() {
-  local log_file_name="${1:-""}"
-  local env_name="${2:-""}"
-  local command="${3:-""}"
-  local message="${4:-""}"
+
+  local log_file_name env_name comand message
+
+  log_file_name="${1:-""}"
+  env_name="${2:-""}"
+  command="${3:-""}"
+  message="${4:-""}"
 
   if [[ -z "$env_name" ]]; then env_name="$(__rvm_environment_identifier)"; fi
 
@@ -245,8 +305,11 @@ __rvm_run_with_env() {
       eval "nice -n $rvm_niceness __rvm_with_env '$env_name' '$command'" >> $rvm_ruby_log_path/$log_file_name.log 2>> $rvm_ruby_log_path/$log_file_name.error.log
     fi
   )
-  result=$? ; if [[ $result -gt 0 ]] ; then
-    "$rvm_scripts_path/log" "error" "Error running '$command' under $env_name, please check $rvm_ruby_log_path/$log_file_name*.log"
+  result=$?
+
+  if [[ $result -gt 0 ]] ; then
+    "$rvm_scripts_path/log" "error" \
+      "Error running '$command' under $env_name, please check $rvm_ruby_log_path/$log_file_name*.log"
   fi
 
   return $result
@@ -274,17 +337,25 @@ __rvm_cleanse_variables() {
 
 # Usage: __rvm_with_env 'env-name' 'command'
 __rvm_with_env() {
-  local environment_id="$1" command="$2"
-  ( rvm use "$environment_id" ; eval "$command" )
+  local environment_id command
+
+  environment_id="$1"
+  command="$2"
+
+  (
+  rvm use "$environment_id"
+  eval "$command"
+  )
 }
 
 # Returns the first 1.8.7-compatible (partly) ruby for use
 # with things like rbx etc which require a ruby be installed.
 __rvm_18_compat_ruby() {
-  local rubies=""
-  local ruby_name
+  local rubies ruby_name
 
-  for ruby_name in $( cd "$rvm_rubies_path" ; find * -type d -maxdepth 0 ); do
+  rubies=($( cd "$rvm_rubies_path" ; find * -type d -maxdepth 0 ))
+
+  for ruby_name in "${rubies[@]}"; do
 
     if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] ; then
 
@@ -300,15 +371,22 @@ __rvm_18_compat_ruby() {
 }
 
 __rvm_ensure_has_18_compat_ruby() {
+
   if [[ -z "$(__rvm_18_compat_ruby)" ]]; then
     # TODO: install currently doesn't return the correct status.
     local compat_result=0
+
     if ! ( "$rvm_scripts_path/manage" install 1.8.7 ); then
-      "$rvm_scripts_path/log" "fail" "To proceed rvm requires a 1.8-compatible ruby is installed. We attempted to install 1.8.7 automatically but it failed."
-      "$rvm_scripts_path/log" "fail" "Please install it manually (or a compatible alternative) to proceed."
+
+      "$rvm_scripts_path/log" "fail" \
+        "To proceed rvm requires a 1.8-compatible ruby is installed. We attempted to install 1.8.7 automatically but it failed.\
+        Please install it manually (or a compatible alternative) to proceed."
+
       compat_result=1
-    fi ; unset original_ruby
-    # TODO: Why are we unsetting original_ruby here
+
+    fi
+    # unset original_ruby
+    # Question: Why *were* we unsetting original_ruby here
     return $compat_result
   fi
 
@@ -318,6 +396,7 @@ __rvm_ensure_has_18_compat_ruby() {
 # Cleans up temp folders for a given prefix,
 # typically the current process id.
 __rvm_cleanup_temp_for() {
+
   local prefix="$1"
 
   [[ -z "$prefix" ]] && return 1
@@ -892,7 +971,11 @@ __rvm_check_rvmrc_trustworthiness() {
 }
 
 __rvm_ask_to_trust() {
+
+  local trusted value
+
   [[ -n "$rvm_promptless" ]] && return 2
+
   printf "
   ============================================================
   RVM has encountered a not yet trusted .rvmrc file in the
@@ -908,22 +991,31 @@ $(cat $1)
   Do you wish to trust this .rvmrc from now on?
   ============================================================
   (y for yes, n for no)"
-  local trusted=""
+
   # TODO: Eliminate infinite loop possibility.
+  trusted=0
   while [[ -z "$trusted" ]] ; do
+
     printf " > "
+
     read -r response
+
     value="$(echo "$response" | tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
+
     if [[ "$response" = "y"* ]]; then
       trusted=1
+
     elif [[ "$response" = "n"* ]]; then
       trusted=0
     fi
-  done ; unset value
+  done
 
-  if [[ "$trusted" == "1" ]] ; then
+  if [[ ${trusted:-0} -gt 0 ]] ; then
+
     __rvm_trust_rvmrc "$1"
+
     return 0
+
   else
     __rvm_untrust_rvmrc "$1"
     return 1
@@ -939,17 +1031,27 @@ __rvm_project_rvmrc() {
   cwd="${1:-"$PWD"}"
 
   while : ; do
+
     if [[ -z "$cwd" || "$HOME" = "$cwd" || "/" = "$cwd" ]] ; then
+
       if [[ -n "${rvm_rvmrc_cwd:-""}" ]] ; then
+
         if [[ ${rvm_project_rvmrc_default:-0} -eq 1 ]]; then
+
           __rvm_load_env_file "default"
+
         elif [[ -n "${rvm_previous_environment:-""}" ]] ; then
+
           __rvm_load_env_file "$rvm_previous_environment"
+
         fi
+
         unset rvm_rvmrc_cwd rvm_previous_environment
+
       fi
       break
     else
+
       if [[ -f "$cwd/.rvmrc" ]] ; then
 
         if [[ "${rvm_rvmrc_cwd:-""}" != "$cwd" ]] ; then
@@ -959,54 +1061,89 @@ __rvm_project_rvmrc() {
           local rvm_trustworthiness_result="$?"
 
           if  [[ "$rvm_trustworthiness_result" = 0 ]]; then
-            rvm_previous_environment="$(__rvm_environment_identifier)"
-            rvm_rvmrc_cwd="$cwd"
-            source "$cwd/.rvmrc"
-            return 0
 
+            rvm_previous_environment="$(__rvm_environment_identifier)"
+
+            rvm_rvmrc_cwd="$cwd"
+
+            source "$cwd/.rvmrc"
+
+            return 0
           else
             return "$rvm_trustworthiness_result"
           fi
         fi
         break
+
       else
         cwd="$(dirname "$cwd")"
       fi
     fi
   done
+
   return $?
 }
 
 __rvm_record_install() {
+
+  local recorded_ruby_name rvm_install_record_file rvm_install_command
+
   [[ -z "$1" ]] && return
-  local recorded_ruby_name="$($rvm_scripts_path/tools strings "$1")"
-  local rvm_install_record_file="$rvm_config_path/installs"
-  local rvm_install_command="$(echo "$recorded_ruby_name $rvm_install_arguments" | __rvm_strip)"
+
+  recorded_ruby_name="$($rvm_scripts_path/tools strings "$1")"
+
+  rvm_install_record_file="$rvm_config_path/installs"
+
+  rvm_install_command="$(echo "$recorded_ruby_name $rvm_install_arguments" | __rvm_strip)"
+
   \touch "$rvm_install_record_file"
+
   \rm -f "$rvm_install_record_file.tmp"
+
   \grep -v "^$recorded_ruby_name " < "$rvm_install_record_file" > "$rvm_install_record_file.tmp"
+
   echo "$rvm_install_command" >> "$rvm_install_record_file.tmp"
+
   \rm -f "$rvm_install_record_file"
+
   \mv "$rvm_install_record_file.tmp" "$rvm_install_record_file"
+
+  return 0
 }
 
 __rvm_remove_install_record() {
-  local recorded_ruby_name="$($rvm_scripts_path/tools strings "$1")"
-  local rvm_install_record_file="$rvm_config_path/installs"
+  local recorded_ruby_name rvm_install_record_file
+
+  recorded_ruby_name="$($rvm_scripts_path/tools strings "$1")"
+
+  rvm_install_record_file="$rvm_config_path/installs"
+
   if [[ -s "$rvm_install_record_file" ]]; then
+
     \mv "$rvm_install_record_file" "$rvm_install_record_file.tmp"
+
     \grep -v "^$recorded_ruby_name " < "$rvm_install_record_file.tmp" > "$rvm_install_record_file"
+
     \rm -f "$rvm_install_record_file.tmp"
   fi
+
   return 0
 }
 
 __rvm_recorded_install_command() {
-  local recorded_ruby_name="$($rvm_scripts_path/tools strings "$1" | awk -F"$rvm_gemset_separator" '{print $1}')"
+
+  local recorded_ruby_name recorded_ruby_match
+
+  recorded_ruby_name="$($rvm_scripts_path/tools strings "$1" | awk -F"$rvm_gemset_separator" '{print $1}')"
+
   [[ -z "$recorded_ruby_name" ]] && return 1
-  local recorded_ruby_match="^$recorded_ruby_name "
+
+  recorded_ruby_match="^$recorded_ruby_name "
+
   if [[ -s "$rvm_config_path/installs" ]] && \grep -q "$recorded_ruby_match" "$rvm_config_path/installs" ; then
+
     \grep "$recorded_ruby_match" < "$rvm_config_path/installs" | head -n1
+
   else
     return 1
   fi
@@ -1014,16 +1151,21 @@ __rvm_recorded_install_command() {
 }
 
 __rvm_environment_identifier() {
-  local path
-  local string
+
+  local path string
+
   path="${GEM_HOME:-""}"
+
   string="${path//*gems\//}"
   string="${string//\/*/}"
+
   echo "${string:-system}"
+
   return $?
 }
 
 __rvm_expand_ruby_string() {
+
   local string="$1"
 
   if [[ -z "$string" || "$string" = "all" ]]; then
@@ -1056,8 +1198,13 @@ __rvm_expand_ruby_string() {
 }
 
 __rvm_known_inerpreter() {
+
   case ${1:-""} in
+
     ruby|rbx|jruby|macruby|ree|rubinius|maglev|mput|shyouhei|ironruby) return 0 ;;
+
     *) return 1 ;;
+
   esac
+
 }

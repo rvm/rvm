@@ -37,37 +37,57 @@ btu_init() {
 }
 
 btu_summary() {
+  local failure_count
+
   printf "\n$(scripts/color "cyan")${#__btu_runs[*]}$(scripts/color "none") commands, ${#__btu_assertions[*]} assertions, $(scripts/color "green")${#__btu_passed[*]}$(scripts/color) passed, $(scripts/color "red")${#__btu_failed[*]}$(scripts/color) failed\n"
-  local failure_count=${#__btu_failed[*]}
+
+  failure_count=${#__btu_failed[*]}
+
   [[ "$failure_count" != "0" ]] && failure_count=1
+
   unset __btu_runs __btu_assertions __btu_passed __btu_failed
+
   return $failure_count
 }
 
 heat() {
   __btu_log "run" "$*"
+
   btu_push __btu_runs "$*"
+
   eval "$*"
+
   result="$?"
 }
 
 assert() {
+  local assertion
+
   key="$1" ; first="$2" ; second="$3"
+
   assertion="__btu_assert_${key} \"$first\" \"$second\""
+
   btu_push __btu_assertions $assertion
+
   eval "$assertion"
   result=$?
+
   if [[ $result -eq 0 ]] ; then
+
     btu_push __btu_passed $assertion
+
   else
     btu_push __btu_failed $assertion
-  fi ; unset assertion
+  fi
+
+  return $result
 }
 
 #
 # Private Methods
 #
 scripts/color() {
+
   case "$1" in
     # regular colors
     black)    tput setaf 0 ;;
@@ -118,9 +138,15 @@ scripts/color() {
 }
 
 __btu_log() {
+
+  local level message
+
   result=0
+
   if [[ ! -z "$1" ]] ; then level=$1 ; shift ; else level="info" ; fi
+
   message="$*"
+
   case "$level" in
     run)  echo -n -e "\n$(tput setaf 6)run: $message $(tput sgr0)\n" ; unset message ;;
     debug) echo -n -e "  $(tput setaf 5)debug: $(tput sgr0)" ;;
@@ -129,52 +155,83 @@ __btu_log() {
     error) echo -n -e "  $(tput setaf 1)error: $(tput sgr0)" ; result=1 ;;
     fail)  echo -n -e "  $(tput setaf 1)fail:  $(tput sgr0)" ; result=1 ;;
   esac
+
   if [[ ! -z "$message" ]] ; then echo -n -e "$*\n" ; fi
-  unset level message
+
   return $result
 }
 
 __btu_db() {
+  local db_file key value
+
   db_file=$1 ; shift ; \touch $db_file
+
   key="$1" ; shift
+
   if [[ -z "$key" ]] ; then
+
     __btu_log "fail" "__btu_db must be called with at least two arguments: __btu_db file key [value]"
+
   else
     value="$*"
+
     if [[ "unset" = "$value" ]] || [[ "delete" = "$value" ]] ; then
+
       sed -i.tmp "s/^$key=.*$//" $db_file
+
     else
       if [[ -z "$value" ]] ; then # get
+
         awk -F'=' "/^$key/{\$1=NULL ; print ; exit}" $db_file
+
       else # set
         if [[ -z "$(awk -F'=' "/^$key/{print ; exit}" $db_file)" ]] ; then # append
+
           echo "$key=$value" >> $db_file
+
         else # overwrite
           sed -i.tmp "s/^$key=.*$/$key=$value/" $db_file
         fi
       fi
     fi
-  fi ; unset db_file
+  fi
+
+  return 0
 }
 
 # Assert that string 1 is found in string 2
 __btu_assert_match() {
+
   regex=$(echo ${1:-""} | sed -e 's#/#\/#g')
+
   #if [[ ! -z $(echo "$2" | awk "/$regex/") ]] ; then
   if [[ ${2:-""} =~ $regex  ]] ; then
+
     __btu_log "pass" "/$regex/ $(scripts/color "green")matches$(scripts/color "none") '$2'"
+
   else
+
     __btu_log "fail" "/$regex/ $(scripts/color "red")does not match$(scripts/color "none") '$2'"
-  fi ; return $?
+
+  fi
+
+  return $?
 }
 
 __btu_assert_no_match() {
   regex=$(echo ${1:-""} | sed -e 's#/#\/#g')
+
   if [[ ! ${2:-} =~ $regex ]] ; then
+
     __btu_log "pass" "/$regex/ $(scripts/color "green")does not match$(scripts/color "none") '$2'"
+
   else
+
     __btu_log "fail" "/$regex/ $(scripts/color "red")matches$(scripts/color "none") '$2'"
-  fi ; return $?
+
+  fi
+
+  return $?
 }
 
 __btu_assert_file_contains() {
