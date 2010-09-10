@@ -96,15 +96,15 @@ __rvm_parse_args() {
 
           if [[ -n "$next_token" ]] ; then rvm_gemset_name="$next_token" ; else rvm_gemset_name="" ; fi
 
-          if echo $rvm_gemset_name | \grep -q $rvm_gemset_separator ; then
-            rvm_ruby_string=$(echo $rvm_gemset_name | sed -e 's/\(.*\)'${rvm_gemset_separator}'.*/\1/')
-            rvm_gemset_name=$(echo $rvm_gemset_name | sed -e 's/.*'${rvm_gemset_separator}'\(.*\)/\1/')
+          if echo $rvm_gemset_name | \grep -q ${rvm_gemset_separator:-"@"} ; then
+            rvm_ruby_string=$(echo $rvm_gemset_name | sed -e 's/\(.*\)'"${rvm_gemset_separator:-"@"}"'.*/\1/')
+            rvm_gemset_name=$(echo $rvm_gemset_name | sed -e 's/.*'"${rvm_gemset_separator:-"@"}"'\(.*\)/\1/')
 
             if [[ "${rvm_ruby_string:-""}" != "${rvm_gemset_name:-""}" ]] ; then
-              rvm_ruby_string="$rvm_ruby_string${rvm_gemset_separator}$rvm_gemset_name"
+              rvm_ruby_string="$rvm_ruby_string${rvm_gemset_separator:-"@"}$rvm_gemset_name"
             fi
 
-            rvm_ruby_gem_home="$rvm_ruby_gem_home${rvm_gemset_separator}$rvm_gemset_name"
+            rvm_ruby_gem_home="$rvm_ruby_gem_home${rvm_gemset_separator:-"@"}$rvm_gemset_name"
           fi
 
         elif [[ "delete" = "$next_token" ]] ; then
@@ -114,13 +114,15 @@ __rvm_parse_args() {
           rvm_gemset_name="$next_token"
           if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
 
-          if echo "$rvm_gemset_name" | \grep -q "$rvm_gemset_separator" ; then
-            rvm_ruby_string=$(echo "$rvm_gemset_name" | sed 's/\(.*\)'${rvm_gemset_separator}'.*/\1/')
-            rvm_gemset_name=$(echo "$rvm_gemset_name" | sed 's/.*'${rvm_gemset_separator}'\(.*\)/\1/')
+          if echo "$rvm_gemset_name" | \grep -q "${rvm_gemset_separator:-"@"}" ; then
+            rvm_ruby_string=$(echo "$rvm_gemset_name" | sed 's/\(.*\)'"${rvm_gemset_separator:-"@"}"'.*/\1/')
+            rvm_gemset_name=$(echo "$rvm_gemset_name" | sed 's/.*'"${rvm_gemset_separator:-"@"}"'\(.*\)/\1/')
+
             if [[ "$rvm_ruby_string" != "$rvm_gemset_name" ]] ; then
-              rvm_ruby_string="$rvm_ruby_string${rvm_gemset_separator}$rvm_gemset_name"
+              rvm_ruby_string="$rvm_ruby_string${rvm_gemset_separator:-"@"}$rvm_gemset_name"
             fi
-            rvm_ruby_gem_home="$rvm_ruby_gem_home${rvm_gemset_separator}$rvm_gemset_name"
+
+            rvm_ruby_gem_home="$rvm_ruby_gem_home${rvm_gemset_separator:-"@"}$rvm_gemset_name"
           fi
 
         else
@@ -514,10 +516,12 @@ __rvm_parse_args() {
 
       *)
         if [[ -n "$rvm_token" ]] ; then
+
+
           if [[ "gemset" = "$rvm_action" ]] ; then
-            if "$rvm_scripts_path/match" "$rvm_token" "^.+${rvm_gemset_separator}.+$" ; then
-              rvm_gemset_name="${rvm_token/*${rvm_gemset_separator}/}"
-              rvm_ruby_string="${rvm_token/${rvm_gemset_separator}*/}"
+            if "$rvm_scripts_path/match" "$rvm_token" "^.+${rvm_gemset_separator:-"@"}.+$" ; then
+              rvm_gemset_name="${rvm_token/*${rvm_gemset_separator:-"@"}/}"
+              rvm_ruby_string="${rvm_token/${rvm_gemset_separator:-"@"}*/}"
 
             elif echo "$rvm_token" | \grep -q '.gems$' ; then
               rvm_file_name="${rvm_token/.gems/}.gems" # Account for possible .gems.gems
@@ -533,14 +537,14 @@ __rvm_parse_args() {
               rvm_action="ruby" # Not sure if we really want to do this but we'll try it out.
             fi
 
-          elif "$rvm_scripts_path/match" "$rvm_token" "^${rvm_gemset_separator}" ; then
+          elif "$rvm_scripts_path/match" "$rvm_token" "^${rvm_gemset_separator:-"@"}" ; then
             rvm_action="${rvm_action:-use}"
-            rvm_gemset_name="${rvm_token/*${rvm_gemset_separator}/}"
+            rvm_gemset_name="${rvm_token/*${rvm_gemset_separator:-"@"}/}"
             rvm_ruby_string="${rvm_ruby_string:-""}"
-            rvm_ruby_strings="${rvm_ruby_string}${rvm_gemset_separator}${rvm_gemset_name}"
+            rvm_ruby_strings="${rvm_ruby_string}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
 
-          elif "$rvm_scripts_path/match" "$rvm_token" "^.+${rvm_gemset_separator}.+$" ; then
-            gemset_name="${rvm_token/*${rvm_gemset_separator}/}"
+          elif "$rvm_scripts_path/match" "$rvm_token" "^.+${rvm_gemset_separator:-"@"}.+$" ; then
+            gemset_name="${rvm_token/*${rvm_gemset_separator:-"@"}/}"
             rvm_ruby_string="$rvm_token"
             rvm_ruby_strings="$rvm_token"
 
@@ -709,13 +713,13 @@ rvm() {
 
         # Clear the gemset.
         if [[ ${rvm_delete_flag:-0} -eq 1 ]] ; then
-          gem_prefix="$(echo "${GEM_HOME:-""}" | sed 's/'${rvm_gemset_separator}'.*$//')"
+          gem_prefix="$(echo "${GEM_HOME:-""}" | sed 's/'${rvm_gemset_separator:-"@"}'.*$//')"
 
-          if [[ "${GEM_HOME:-""}" = "${gem_prefix}${rvm_gemset_separator}${rvm_gemset_name}" ]] ; then
+          if [[ -n "${GEM_HOME:-""}" && "$GEM_HOME" = "${gem_prefix}${rvm_gemset_separator:-"@"}${rvm_gemset_name}" ]] ; then
             rvm_ruby_gem_home="$gem_prefix"
             GEM_HOME="$rvm_ruby_gem_home"
             BUNDLE_PATH="$rvm_ruby_gem_home"
-            GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_gem_home${rvm_gemset_separator}global/bin"
+            GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_gem_home${rvm_gemset_separator:-"@"}global/bin"
             export rvm_ruby_gem_home GEM_HOME BUNDLE_PATH GEM_PATH
           fi ; unset gem_prefix
         fi
