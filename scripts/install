@@ -126,7 +126,7 @@ Be sure to get head often as rvm development happens fast,
 you can do this by running 'rvm update --head' followed by 'rvm reload'
 or opening a new shell
 
-  w⦿‿⦿$
+  w⦿‿⦿t
 
     ~ Wayne
 
@@ -192,6 +192,7 @@ __rvm_initialize
 item="* "
 question="\n<?>"
 cwd="$PWD"
+
 source_path="${source_path:-$cwd}"
 rvm_archives_path="${rvm_archives_path:-"$rvm_path/archives"}"
 rvm_src_path="${rvm_src_path:-"$rvm_path/src"}"
@@ -220,35 +221,60 @@ printf "
 "
 
 if [[ ${upgrade_flag:-0} -eq 1 ]] ;then
+
   printf "\nUpgrading the RVM installation in $rvm_path/"
+
 else
-  printf "\nInstalling rvm to $rvm_path/"
+
+  printf "\nInstalling RVM to $rvm_path/"
+
 fi
 
-mkdir -p "$rvm_archives_path" "$rvm_src_path" "$rvm_log_path" "$rvm_bin_path" "$rvm_gems_path" "$rvm_rubies_path" "$rvm_config_path" "$rvm_hooks_path" "$rvm_tmp_path"
+for directory in "$rvm_archives_path" "$rvm_src_path" "$rvm_log_path" "$rvm_bin_path" "$rvm_gems_path" "$rvm_rubies_path" "$rvm_config_path" "$rvm_hooks_path" "$rvm_tmp_path" ; do
+
+  if [[ ! -d "$directory" ]] ; then
+
+    mkdir -p "$directory"
+
+  fi
+
+done
 
 for file in README LICENCE ; do
+
   cp -f "$source_path/$file" "$rvm_path/"
+
 done
 
 #
 # Scripts
 #
 for dir_name in config scripts examples lib hooks help patches; do
-  mkdir -p "$rvm_path/$dir_name"
+
   if [[ -d "$source_path/$dir_name" ]] ; then
+
+    if [[ ! -d "$rvm_path/$dir_name" ]] ; then
+
+      mkdir -p "$rvm_path/$dir_name"
+
+    fi
+
     cp -Rf "$source_path/$dir_name" "$rvm_path"
+
   fi
-done ; unset dir_name
+
+done
 
 if [[ ! -s "$rvm_config_path/user" ]] ; then
-  mkdir -p "$rvm_config_path/"
   echo '# Users settings file, overrides db file settings and persists across installs.' >> "$rvm_config_path/user"
 fi
 
-scripts=("monitor" "match" "log" "install" "color" "db" "fetch" "log" "set" "package")
+scripts=(monitor match log install color db fetch log set package)
+
 for script_name in "${scripts[@]}" ; do
+
   chmod +x "$rvm_path/scripts/$script_name" 2>/dev/null # Hide errors.
+
 done
 
 #
@@ -256,29 +282,48 @@ done
 #
 # Cleanse and purge...
 for file in rvm-prompt rvm rvmsudo rvm-shell rvm-auto-ruby ; do
+
   rm -f "$rvm_bin_path/$file"
+
   cp -f "$source_path/binscripts/$file" $rvm_bin_path/
+
 done
-chmod +x "$rvm_bin_path"/*
+
+chmod +x "$rvm_bin_path"/* # TODO: this is quite suboptimal.
 
 #
 # RC Files
 #
 if [[ -n "$rvm_auto_flag" ]] ; then
+
   printf "Checking rc files... ($rvm_rc_files)"
+
   if [[ "$rvm_loaded_flag" != "1" ]] ; then
+
     for rcfile in $(printf $rvm_rc_files) ; do
+
       if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
+
       if [[ -s "$HOME/.profile" ]] ; then
+
         if ! grep -q '.profile' "$rcfile" ; then
+
           echo "    Adding 'if [[ -s \$HOME/.profile ]] ; then source \$HOME ; fi' to $rcfile."
+
           printf "\n# rvm-install added line:\nif [[ -s \$HOME/.profile ]] ; then source \$HOME/.profile ; fi\n" >> "$rcfile"
+
         fi
+
       fi
+
       if ! grep -q "scripts\/rvm" "$rcfile" ; then
+
         echo "    Adding 'if [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi' to $rcfile."
+
         printf "\n# rvm-install added:\nif [[ -s $rvm_path/scripts/rvm ]] ; then source $rvm_path/scripts/rvm ; fi\n" >> "$rcfile"
+
       fi
+
     done
   fi
 fi
@@ -289,7 +334,9 @@ fi
 if [[ -d gemsets/ ]] ; then
 
   if [[ ! -d "$rvm_path/gemsets" ]] ; then
+
     mkdir -p "$rvm_path/gemsets"
+
   fi
 
   for gemset_file in $(builtin cd gemsets ; find \. -iname '*.gems' | sed 's/^\.\///') ; do
@@ -315,7 +362,9 @@ fi
 if [[ -d patchsets/ ]] ; then
 
   if [[ ! -d "$rvm_path/patchsets" ]] ; then
+
     mkdir -p "$rvm_path/patchsets"
+
   fi
 
   patchsets=($(builtin cd patchsets ; find \. -iname '*' | sed 's/^\.\///'))
@@ -341,19 +390,33 @@ fi
 # Migrate ~/.rvm/ruby-X,jruby-X,... to ~/.rvm/rubies/ for 0.1.0.
 #
 rvm_rubies_path="${rvm_rubies_path:-"$rvm_path/rubies"}"
+
 mkdir -p "$rvm_rubies_path/"
+
 for ruby in $rvm_path/ruby-* $rvm_path/jruby-* $rvm_path/mput-* $rvm_path/rbx-* $rvm_path/maglev-* $rvm_path/ree-* ; do
+
   if [[ -d "$ruby" ]] ; then
+
     mv "$ruby" "$rvm_rubies_path/"
+
     new_path="$rvm_rubies_path/$(basename $ruby)"
+
     for file in gem rake ; do
+
       if [[ -s "$new_path/bin/$file" ]] ; then
+
         sed -e '1,1s=.*=#!'"${new_path}/bin/ruby=" "${new_path}/bin/${file}" > "${new_path}/bin/${file}.new"
+
         mv -f "$new_path/bin/$file.new" "$new_path/bin/$file"
+
         chmod +x "$new_path/bin/$file"
+
       fi
+
     done
+
   fi
+
 done
 #
 # End of rubies migration.
@@ -363,36 +426,60 @@ done
 # Migrate old gemset directories to new gemset pattern.
 #
 for gemset in "$rvm_path"/gems/*\%* ; do
+
   new_path=${gemset/\%/${rvm_gemset_separator:-"@"}}
+
   if [[ -d "$gemset" ]] && [[ ! -d "$new_path" ]] ; then
+
     printf "\n    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+
     mv "$gemset" "$new_path"
+
   fi
+
 done
 
 for gemset in "$rvm_path"/gems/*\+* ; do
+
   new_path=${gemset/\+/${rvm_gemset_separator:-"@"}}
+
   if [[ -d "$gemset" && ! -d "$new_path" ]] ; then
+
     printf "\n    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+
     mv $gemset $new_path
+
   fi
+
 done
 
 for gemset in "$rvm_path"/gems/*\@ ; do
+
   new_path=$(echo $gemset | sed -e 's#\@$##')
+
   if [[ -d "$gemset" && ! -d "$new_path" ]] ; then
+
     printf "\n    Fixing: $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+
     mv "$gemset" "$new_path"
+
   fi
+
 done
 
 # Move from legacy defaults to the new, alias based system.
 if [[ -s "$rvm_config_path/default" ]]; then
+
   original_version="$(basename "$(grep GEM_HOME "$rvm_config_path/default" | awk -F"'" '{print $2}' | sed "s#\%#${rvm_gemset_separator:-"@"}#")")"
+
   if [[ -n "$original_version" ]]; then
+
     "$rvm_path/scripts/alias" create default "$original_version" &> /dev/null
+
   fi ; unset original_version
+
   rm -rf "$rvm_config_path/default"
+
 fi
 
 #
@@ -403,14 +490,16 @@ printf "\n    Correct permissions for base binaries in $rvm_bin_path..."
 mkdir -p "$rvm_bin_path"
 
 for file in rvm rvmsudo rvm-shell rvm-auto-ruby ; do
+
   [[ -s "$rvm_bin_path/$file" ]] && chmod +x "$rvm_bin_path/$file"
-done; unset file
+
+done
 
 printf "\n    Copying manpages into place."
 
-man_files=($(builtin cd "$install_source_path/man" ; find . -maxdepth 1 -mindepth 1 -type f -print))
+files=($(builtin cd "$install_source_path/man" ; find . -maxdepth 1 -mindepth 1 -type f -print))
 
-for man_file in "${man_file[@]//.\/}" ; do
+for file in "${files[@]//.\/}" ; do
 
   rm -rf "$rvm_man_path/$man_file"
 
@@ -429,13 +518,19 @@ if [[ ${upgrade_flag:-0} -eq 1 ]] ; then
   check_rubyopt_conditions
 
   printf "\nUpgrade of RVM in $rvm_path/ is complete.\n\n"
+
 else
+
   if [[ ${rvm_selfcontained:-0} -eq 1 ]] ; then
+
     installation_complete
+
   fi
 
   if [[ -s "$HOME/.bashrc" ]] && grep -q '&& return' "$HOME/.bashrc" ; then
+
     andand_return_warning
+
   fi
 
   check_rubyopt_conditions
