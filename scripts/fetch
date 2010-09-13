@@ -1,23 +1,34 @@
 #!/usr/bin/env bash
 
 rvm_base_except="selector"
+
 source "$rvm_path/scripts/base"
+
 result=0
 
 # Set it to cleanup the download on interruption.
 trap 'cleanup_download' 1 2 3 15
 
 cleanup_download() {
+
   [[ -f "$archive" ]] && rm -rf "$archive"
+
 }
 
 record_md5() {
+
   if [[ "Darwin" = "$(uname)" ]] || [[ "FreeBSD" = "$(uname)" ]]; then
+
     archive_md5="$(/sbin/md5 -q "${archive}")"
+
   else
+
     archive_md5="$(md5sum "${archive}" | awk '{print $1}')"
+
   fi
-  "$rvm_path/scripts/db" "$rvm_config_path/md5" "$archive" "$archive_md5"
+
+  "$rvm_path/scripts/db" "$rvm_path/config/md5" "$archive" "$archive_md5"
+
 }
 
 builtin cd "$rvm_archives_path"
@@ -29,89 +40,149 @@ if [[ -z "$1" ]] ; then "$rvm_path/scripts/log" "fail" "BUG: $0 called without a
 url="$1"; download=1 ; package_name="$2"
 
 if ! command -v curl > /dev/null ; then
+
   "$rvm_path/scripts/log" "fail" "rvm requires curl. curl was not found in your active path."
+
   exit 1
+
 elif [[ ! -z ${rvm_proxy} ]] ; then
+
   fetch_command="curl -x${rvm_proxy} -L --create-dirs -C - " # -s for silent
+
 else
+
   fetch_command="curl -L --create-dirs -C - " # -s for silent
+
 fi
 
 if [[ ! -z "$package_name" ]] ; then
+
   fetch_command="${fetch_command} -o ${package_name} "
+
   archive="$package_name"
+
 else
+
   fetch_command="${fetch_command} -O "
+
   archive=$(basename "$url")
+
 fi
 
 if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Fetching $archive" ; fi
 
 # Check first if we have the correct archive
-archive_md5="$($rvm_path/scripts/db "$rvm_config_path/md5" "$archive" | head -n1)"
+archive_md5="$($rvm_path/scripts/db "$rvm_path/config/md5" "$archive" | head -n1)"
+
 if [[ -e "$archive" ]] && [[ ! -z "$archive_md5" ]] ; then
+
   if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Found archive and its md5, testing correctness" ; fi
+
   if ! "$rvm_path/scripts"/md5 "${rvm_archives_path}/${archive}" "$archive_md5" ; then
+
     if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Archive is bad, downloading" ; fi
+
     download=1
+
   else
+
     if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Archive is good, not downloading" ; fi
+
     download=0
+
     result=0
+
   fi ; unset archive_md5
+
 else
+
   if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "No archive or no MD5, downloading" ; fi
+
   download=1
+
 fi
 
 # try to convert the ftp url to a http url
 http_url="$(echo $url | sed -e 's/ftp:/http:/' -e 's/git:/http:/')"
 
 if [[ $download -gt 0 ]] ; then
+
   rm -f $archive
-  eval $fetch_command "$url"
-  result=$?
+
+  eval $fetch_command "$url" ; result=$?
+
   if [[ $result -gt 0 ]] ; then
+
     retry=0
+
     try_http=0
+
     if [[ $result -eq 78 ]] ; then
+
       "$rvm_path/scripts/log" "error" "The requested url does not exist: '$url'"
+
       try_http=1
+
     elif [[ $result -eq 18 ]] ; then
+
       "$rvm_path/scripts/log" "error" "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
+
       rm -f "$archive"
+
       retry=1
+
     elif [[ $result -eq 33 ]] ; then
+
       if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Server does not support 'range' command, removing '$archive'" ; fi
+
       rm -f "$archive"
+
       retry=1
+
     else
+
       "$rvm_path/scripts/log" "error" "There was an error, please check $rvm_ruby_log_path/*.error.log. Next we'll try to fetch via http."
+
       try_http=1
+
     fi
 
     if [[ $retry -eq 1 ]] ; then
-      eval $fetch_command "$url"
-      result=$?
+
+      eval $fetch_command "$url" ; result=$?
+
       if [[ $result -gt 0 ]] ; then
+
         "$rvm_path/scripts/log" "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+
       else
+
         record_md5
+
       fi
+
     fi
 
     if [[ $try_http -eq 1 ]] ; then
-      eval $fetch_command "$http_url"
-      result=$?
+
+      eval $fetch_command "$http_url" ; result=$?
+
       if [[ $result -gt 0 ]] ; then
+
         "$rvm_path/scripts/log" "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+
       else
+
         record_md5
+
       fi
+
     fi
 
   else
+
     record_md5
+
   fi
 fi
 

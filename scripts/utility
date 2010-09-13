@@ -91,19 +91,19 @@ __rvm_ruby_string_paths_under() {
 }
 
 # Query the rvm key-value database for a specific key
-# Allow overrides from user specifications in $rvm_config_path/user
+# Allow overrides from user specifications in $rvm_path/config/user
 __rvm_db() {
   local value key variable
 
   key=${1:-""}
   variable=${2:-""}
 
-  if [[ -f "$rvm_config_path/user" ]] ; then
-    value="$($rvm_path/scripts/db "$rvm_config_path/user" "$key")"
+  if [[ -f "$rvm_path/config/user" ]] ; then
+    value="$($rvm_path/scripts/db "$rvm_path/config/user" "$key")"
   fi
 
   if [[ -z "$value" ]] ; then
-    value="$($rvm_path/scripts/db "$rvm_config_path/db" "$key")"
+    value="$($rvm_path/scripts/db "$rvm_path/config/db" "$key")"
   fi
 
   if [[ -n "$value" ]] ; then
@@ -335,11 +335,11 @@ __rvm_with_env() {
 __rvm_18_compat_ruby() {
   local rubies ruby_name
 
-  rubies=($( cd "$rvm_rubies_path" ; find . -maxdepth 1 -mindepth 1 -type d ))
+  rubies=($( cd "$rvm_path/rubies" ; find . -maxdepth 1 -mindepth 1 -type d ))
 
   for ruby_name in "${rubies[@]//.\/}"; do
 
-    if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] ; then
+    if [[ ! -L "$rvm_path/rubies/$ruby_name" ]] ; then
 
       case $ruby_name in
         *1.8.*|rbx-*|ree-*) rubies="$rubies $ruby_name" ;;
@@ -433,22 +433,37 @@ __rvm_load_rvmrc() {
 
 # Wrap the specified ruby code file in a Benchmark.bmbm block and execute it.
 __rvm_benchmark() {
+
   code="require \"benchmark\" \n Benchmark.bmbm do |benchmark| \n benchmark.report(\"${rvm_ruby_file}\") do \n"
+
   printf "\n$code" > "$rvm_tmp_path/$$.rb"
+
   unset code
+
   cat $rvm_ruby_file >> "$rvm_tmp_path/$$.rb"
+
   printf "\n end \nend\n" >> "$rvm_tmp_path/$$.rb"
+
   rvm_ruby_args="$rvm_tmp_path/$$.rb"
+
   rvm_benchmark_flag=1
+
   rvm_action="ruby"
+
   if [[ ${rvm_debug_flag:0} -gt 0 ]] ; then printf "\n$rvm_tmp_path/$$.rb:\n$(cat $rvm_tmp_path/$$.rb)" ; fi
+
   # Override ruby string stuff, pass through.
+
   local old_rvm_ruby_string=$rvm_ruby_string
+
   # TODO: We can likely do this in a subshell in order to preserve the original environment?
+
   unset rvm_ruby_string
+
   export rvm_ruby_strings
-  "$rvm_path/scripts/set" "$rvm_action" $rvm_ruby_args
-  result=$?
+
+  "$rvm_path/scripts/set" "$rvm_action" $rvm_ruby_args ; result=$?
+
   # Restore the state pre-sets.
   [[ -n "$old_rvm_ruby_string" ]] && rvm_ruby_string=$old_rvm_ruby_string
 
@@ -457,13 +472,21 @@ __rvm_benchmark() {
 
 # Loop over the currently installed rubies and refresh their binscripts.
 __rvm_bin_scripts() {
-  for rvm_ruby_binary in "$rvm_rubies_path"/*/bin/ruby ; do
+
+  for rvm_ruby_binary in "$rvm_path/rubies"/*/bin/ruby ; do
+
     if [[ -x "$rvm_ruby_binary" ]] ; then
+
       rvm_ruby_string=$(dirname "$rvm_ruby_binary" | xargs dirname | xargs basename)
+
       __rvm_select
+
       __rvm_bin_script
+
     fi
+
   done
+
   return 0
 }
 
@@ -497,7 +520,7 @@ __rvm_reset() {
 
   for file in system default ; do
     [[ -f "$rvm_path/${file}" ]] && \rm -f "$rvm_path/${file}"
-    [[ -f "$rvm_config_path/${file}" ]] && \rm -f "$rvm_config_path/${file}"
+    [[ -f "$rvm_path/config/${file}" ]] && \rm -f "$rvm_path/config/${file}"
     [[ -f "$rvm_path/environments/${file}" ]] && \rm -f "$rvm_path/environments/${file}"
   done; unset file
 
@@ -506,7 +529,7 @@ __rvm_reset() {
   __rvm_unset_ruby_variables
 
   for system_config in system_ruby system_gem_path system_user_gem_path ; do
-    "$rvm_path/scripts/db" "$rvm_config_path/user" "$system_config" "delete"
+    "$rvm_path/scripts/db" "$rvm_path/config/user" "$system_config" "delete"
   done ; unset system_config variable
 
   \rm -f $rvm_bin_path/ruby $rvm_bin_path/gem $rvm_bin_path/rake $rvm_bin_path/irb $rvm_bin_path/default*
@@ -736,12 +759,12 @@ __rvm_make_flags() {
 }
 
 __rvm_mono_env() {
-  export DYLD_LIBRARY_PATH="$rvm_usr_path/lib:$DYLD_LIBRARY_PATH"
-  export C_INCLUDE_PATH="$rvm_usr_path/include:$C_INCLUDE_PATH"
-  export ACLOCAL_PATH="$rvm_usr_path/share/aclocal"
+  export DYLD_LIBRARY_PATH="${rvm_usr_path:-"$rvm_path/usr"}/lib:$DYLD_LIBRARY_PATH"
+  export C_INCLUDE_PATH="${rvm_usr_path:-"$rvm_path/usr"}/include:$C_INCLUDE_PATH"
+  export ACLOCAL_PATH="${rvm_usr_path:-"$rvm_path/usr"}/share/aclocal"
   export ACLOCAL_FLAGS="-I $ACLOCAL_PATH"
-  export PKG_CONFIG_PATH="$rvm_usr_path/lib/pkgconfig:$PKG_CONFIG_PATH"
-  PATH="$rvm_usr_path/bin:$PATH"
+  export PKG_CONFIG_PATH="${rvm_usr_path:-"$rvm_path/usr"}/lib/pkgconfig:$PKG_CONFIG_PATH"
+  PATH="${rvm_usr_path:-"$rvm_path/usr"}/bin:$PATH"
   builtin hash -r
 
   return 0
@@ -808,7 +831,7 @@ __rvm_strip() {
 }
 
 __rvm_using_gemset_globalcache() {
-  "$rvm_path/scripts/db" "$rvm_config_path/user" "use_gemset_globalcache" | \grep -q '^true$'
+  "$rvm_path/scripts/db" "$rvm_path/config/user" "use_gemset_globalcache" | \grep -q '^true$'
   return $?
 }
 
@@ -874,28 +897,28 @@ __rvm_rvmrc_key() {
 }
 
 __rvm_reset_rvmrc_trust() {
-  touch "$rvm_config_path/rvmrcs"
-  "$rvm_path/scripts/db" "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
+  touch "$rvm_path/config/rvmrcs"
+  "$rvm_path/scripts/db" "$rvm_path/config/rvmrcs" "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
   return $?
 }
 
 __rvm_trust_rvmrc() {
-  touch "$rvm_config_path/rvmrcs"
+  touch "$rvm_path/config/rvmrcs"
   __rvm_reset_rvmrc_trust "$1"
-  "$rvm_path/scripts/db" "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "1" >/dev/null 2>&1
+  "$rvm_path/scripts/db" "$rvm_path/config/rvmrcs" "$(__rvm_rvmrc_key "$1")" "1" >/dev/null 2>&1
   return $?
 }
 
 __rvm_untrust_rvmrc() {
-  touch "$rvm_config_path/rvmrcs"
+  touch "$rvm_path/config/rvmrcs"
   __rvm_reset_rvmrc_trust "$1"
-  "$rvm_path/scripts/db" "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")" "0" >/dev/null 2>&1
+  "$rvm_path/scripts/db" "$rvm_path/config/rvmrcs" "$(__rvm_rvmrc_key "$1")" "0" >/dev/null 2>&1
   return $?
 }
 
 __rvm_rvmrc_stored_trust() {
-  touch "$rvm_config_path/rvmrcs"
-  "$rvm_path/scripts/db" "$rvm_config_path/rvmrcs" "$(__rvm_rvmrc_key "$1")"
+  touch "$rvm_path/config/rvmrcs"
+  "$rvm_path/scripts/db" "$rvm_path/config/rvmrcs" "$(__rvm_rvmrc_key "$1")"
   return $?
 }
 
@@ -1070,7 +1093,7 @@ __rvm_record_install() {
 
   recorded_ruby_name="$($rvm_path/scripts/tools strings "$1")"
 
-  rvm_install_record_file="$rvm_config_path/installs"
+  rvm_install_record_file="$rvm_path/config/installs"
 
   rvm_install_command="$(echo "$recorded_ruby_name $rvm_install_arguments" | __rvm_strip)"
 
@@ -1094,7 +1117,7 @@ __rvm_remove_install_record() {
 
   recorded_ruby_name="$($rvm_path/scripts/tools strings "$1")"
 
-  rvm_install_record_file="$rvm_config_path/installs"
+  rvm_install_record_file="$rvm_path/config/installs"
 
   if [[ -s "$rvm_install_record_file" ]]; then
 
@@ -1118,9 +1141,9 @@ __rvm_recorded_install_command() {
 
   recorded_ruby_match="^$recorded_ruby_name "
 
-  if [[ -s "$rvm_config_path/installs" ]] && \grep -q "$recorded_ruby_match" "$rvm_config_path/installs" ; then
+  if [[ -s "$rvm_path/config/installs" ]] && \grep -q "$recorded_ruby_match" "$rvm_path/config/installs" ; then
 
-    \grep "$recorded_ruby_match" < "$rvm_config_path/installs" | head -n1
+    \grep "$recorded_ruby_match" < "$rvm_path/config/installs" | head -n1
 
   else
     return 1
@@ -1166,7 +1189,7 @@ __rvm_expand_ruby_string() {
     __rvm_environment_identifier
 
   elif [[ "$string" = "aliases" ]]; then
-    awk -F= '{print $string}' < "$rvm_config_path/alias"
+    awk -F= '{print $string}' < "$rvm_path/config/alias"
 
   else
 
