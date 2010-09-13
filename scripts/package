@@ -20,19 +20,28 @@ install_package() {
   (
     builtin cd "$rvm_src_path"
 
-    "$rvm_path/scripts/log" "info" "Fetching $package-$version.$archive_format to $rvm_archives_path"
+    "$rvm_path/scripts/log" "info" "Fetching $package-$version.$archive_format to ${rvm_archives_path:-"$rvm_path/archives"}"
 
     if [[ "$archive_format" = "tar.gz" ]] || [[ "$archive_format" = "tgz" ]] ; then
-      "$rvm_path/scripts/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
-      __rvm_run "$package/extract" "tar zxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format to $rvm_src_path"
+      "$rvm_path/scripts/fetch" \
+        "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+
+      __rvm_run "$package/extract" \
+        "tar zxf ${rvm_archives_path:-"$rvm_path/archives"}/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format to $rvm_src_path"
 
     elif [[ "$archive_format" = "tar.bz2" ]] ; then
-      "$rvm_path/scripts/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
-      __rvm_run "$package/extract" "tar jxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format to $rvm_src_path"
+      "$rvm_path/scripts/fetch" \
+        "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+
+      __rvm_run "$package/extract" \
+        "tar jxf ${rvm_archives_path:-"$rvm_path/archives"}/$package-$version.$archive_format -C $rvm_src_path" "Extracting $package-$version.$archive_format to $rvm_src_path"
 
     elif [[ "$archive_format" = "zip" ]] ; then
-      "$rvm_path/scripts/fetch" "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
-      __rvm_run "$package/extract" "unzip -q -o $rvm_archives_path/$package-$version.$archive_format -d $rvm_src_path/$package-$version" "Extracting $package-$version.$archive_format to $rvm_src_path"
+      "$rvm_path/scripts/fetch" \
+        "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+
+      __rvm_run "$package/extract" \
+        "unzip -q -o ${rvm_archives_path:-"$rvm_path/archives"}/$package-$version.$archive_format -d $rvm_src_path/$package-$version" "Extracting $package-$version.$archive_format to $rvm_src_path"
 
     else
       printf "\nUnrecognized archive format '$archive_format'" ; return 1
@@ -40,19 +49,24 @@ install_package() {
 
     builtin cd "$rvm_src_path/$package-$version"
 
-    __rvm_run "$package/configure" "${configure:-"./configure --prefix=${prefix_path:-"${rvm_usr_path:-"$rvm_path/usr"}"}"} $configure_flags" "Configuring $package in $rvm_src_path/$package-$version."
+    __rvm_run "$package/configure" \
+      "${configure:-"./configure --prefix=${prefix_path:-"${rvm_usr_path:-"$rvm_path/usr"}"}"} $configure_flags" "Configuring $package in $rvm_src_path/$package-$version."
 
     unset configure_flags
 
     if [[ "$action" = "uninstall" ]] ; then
-      __rvm_run "$package/make.uninstall" "/usr/bin/make uninstall" "Uninstalling $package from ${rvm_usr_path:-"$rvm_path/usr"}"
+      __rvm_run "$package/make.uninstall" \
+        "/usr/bin/make uninstall" "Uninstalling $package from ${rvm_usr_path:-"$rvm_path/usr"}"
 
     else
-      __rvm_run "$package/make" "/usr/bin/make $rvm_make_flags" "Compiling $package in $rvm_src_path/$package-$version."
-      __rvm_run "$package/make.install" "/usr/bin/make install" "Installing $package to ${rvm_usr_path:-"$rvm_path/usr"}"
+      __rvm_run "$package/make" \
+        "/usr/bin/make $rvm_make_flags" "Compiling $package in $rvm_src_path/$package-$version."
+
+      __rvm_run "$package/make.install" \
+        "/usr/bin/make install" "Installing $package to ${rvm_usr_path:-"$rvm_path/usr"}"
     fi
 
-    \touch "$rvm_path/config/packages"
+    touch "$rvm_path/config/packages"
     "$rvm_path/scripts/db" "$rvm_path/config/packages" "${package}" "${version}"
   )
 }

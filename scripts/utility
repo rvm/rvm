@@ -493,27 +493,36 @@ __rvm_bin_scripts() {
 # Write the bin/ wrapper script for currently selected ruby.
 # TODO: Adjust binscript to be able to handle all rubies not just the standard interpreteres.
 __rvm_bin_script() {
+
   "$rvm_path/scripts/wrapper" "$rvm_ruby_string"
+
   return $?
 }
 
 # Add bin path if not present
 __rvm_conditionally_add_bin_path() {
+
   if echo "${PATH//:/ }" | \grep -vqF "$rvm_bin_path " ; then
+
     PATH="${rvm_bin_path}:$PATH"
+
     builtin hash -r
+
   fi
+
   return 0
 }
 
 # Reset any rvm gathered information about the system and its state.
 # rvm will refresh the stored information the next time it is called after reset.
 __rvm_reset() {
+
+  local flag file system_config variable
+
   __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path ; export PATH
 
   builtin hash -r
 
-  local flag=""
   for flag in default passenger editor ; do
     \rm -f "$rvm_bin_path"/${flag}_*
   done
@@ -522,7 +531,7 @@ __rvm_reset() {
     [[ -f "$rvm_path/${file}" ]] && \rm -f "$rvm_path/${file}"
     [[ -f "$rvm_path/config/${file}" ]] && \rm -f "$rvm_path/config/${file}"
     [[ -f "$rvm_path/environments/${file}" ]] && \rm -f "$rvm_path/environments/${file}"
-  done; unset file
+  done
 
   # Go back to a clean state.
   __rvm_become "system"
@@ -530,7 +539,7 @@ __rvm_reset() {
 
   for system_config in system_ruby system_gem_path system_user_gem_path ; do
     "$rvm_path/scripts/db" "$rvm_path/config/user" "$system_config" "delete"
-  done ; unset system_config variable
+  done
 
   \rm -f $rvm_bin_path/ruby $rvm_bin_path/gem $rvm_bin_path/rake $rvm_bin_path/irb $rvm_bin_path/default*
 
@@ -539,27 +548,47 @@ __rvm_reset() {
 
 # Implode removes the entire rvm installation under $rvm_path.
 __rvm_implode() {
+
   while : ; do
-    "$rvm_path/scripts/log" "warn" "Are you SURE you wish for rvm to implode? This will remove $rvm_path ? (type 'yes' or 'no')"
+
+    "$rvm_path/scripts/log" "warn" \
+      "Are you SURE you wish for rvm to implode? This will remove $rvm_path ? (type 'yes' or 'no')"
 
     read response
 
     if [[ "yes" = "$response" ]] ; then
+
       if [[ "/" = "$rvm_path" ]] ; then
-        "$rvm_path/scripts/log" "error" "remove '/' ?!... Ni!"
+
+        "$rvm_path/scripts/log" "error" \
+          "remove '/' ?!... Ni!"
+
       else
+
         if [[ -d "$rvm_path" ]] ; then
-          "$rvm_path/scripts/log" "info" "Hai! Removing $rvm_path"
+
+          "$rvm_path/scripts/log" "info" \
+            "Hai! Removing $rvm_path"
+
           \rm -rf "$rvm_path/"
+
           echo "$rvm_path has been removed."
+
         else
-          "$rvm_path/scripts/log" "info" "It appears that $rvm_path is already non existant."
+
+          "$rvm_path/scripts/log" "info" \
+            "It appears that $rvm_path is already non existant."
+
         fi
       fi
       break
+
     elif [[ "no" = "$response" ]] ; then
-      "$rvm_path/scripts/log" "info" "Cancelling implosion, no harm done :)"
+
+      "$rvm_path/scripts/log" "info" \
+        "Cancelling implosion, no harm done :)"
       break
+
     fi
   done
 
@@ -568,12 +597,18 @@ __rvm_implode() {
 
 # Output the current ruby's rvm source path.
 __rvm_source_dir() {
+
   if [[ -z "$rvm_ruby_selected_flag" ]] ; then __rvm_select ; fi
 
   if [[ -z "$rvm_ruby_src_path" ]] ; then
-    "$rvm_path/scripts/log" "fail" "No source directory exists for the default implementation."
+
+    "$rvm_path/scripts/log" "fail" \
+      "No source directory exists for the default implementation."
+
   else
+
     echo "$rvm_ruby_src_path"
+
   fi
 
   return 0
@@ -586,7 +621,9 @@ __rvm_initialize() {
 
   __rvm_clean_path ; __rvm_conditionally_add_bin_path ; export PATH
 
-  \mkdir -p "$rvm_src_path" "$rvm_bin_path" "$rvm_archives_path" "$rvm_gems_path" "$rvm_tmp_path" "$rvm_repo_path"
+  if [[ ! -d "${rvm_tmp_path:-"$rvm_path/tmp"}" ]] ; then
+    \mkdir -p "${rvm_tmp_path:-"$rvm_path/tmp"}"
+  fi
 
   return 0
 }
@@ -623,16 +660,25 @@ __rvm_update_rvm() {
         builtin cd "$rvm_src_path/rvm/" && git pull origin master && ./scripts/install
 
       else
-        builtin cd "$rvm_src_path" && ( git clone --depth 1 git://github.com/wayneeseguin/rvm.git || git clone http://github.com/wayneeseguin/rvm.git ) && builtin cd rvm/ && ./scripts/install
+        builtin cd "$rvm_src_path" && \
+          ( git clone --depth 1 git://github.com/wayneeseguin/rvm.git || \
+          git clone http://github.com/wayneeseguin/rvm.git ) && \
+          builtin cd rvm/ && ./scripts/install
       fi
     else
       stable_version="$(curl -s http://rvm.beginrescueend.com/releases/stable-version.txt)"
 
-      __rvm_run "fetch" "$rvm_path/scripts/fetch 'http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz'" "fetching rvm-${stable_version}.tar.gz"
+      __rvm_run "fetch" \
+        "$rvm_path/scripts/fetch 'http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz'" \
+        "fetching rvm-${stable_version}.tar.gz"
 
-      __rvm_run "extract" "gunzip < \"$rvm_archives_path/rvm-${stable_version}.tar.gz\" | tar xf - -C $rvm_src_path" "Extracting rvm-${stable_version}.tar.gz ..."
+      __rvm_run "extract" \
+        "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/rvm-${stable_version}.tar.gz\" | tar xf - -C $rvm_src_path" \
+        "Extracting rvm-${stable_version}.tar.gz ..."
 
-      __rvm_run "install" "builtin cd $rvm_src_path/rvm-${stable_version}/ ; ./install" "Installing rvm-${stable_version}..."
+      __rvm_run "install" \
+        "builtin cd $rvm_src_path/rvm-${stable_version}/ ; ./install" \
+        "Installing rvm-${stable_version}..."
     fi
   )
 

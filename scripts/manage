@@ -325,9 +325,9 @@ __rvm_install_ruby() {
             return $result
           fi
 
-          mv "$rvm_archives_path/macruby_nightly-latest.pkg" "$rvm_archives_path/macruby_nightly.pkg"
+          mv "${rvm_archives_path:-"$rvm_path/archives"}/macruby_nightly-latest.pkg" "$rvm_archives_path/macruby_nightly.pkg"
 
-          __rvm_run "macruby/extract" "sudo /usr/sbin/installer -pkg '$rvm_archives_path/macruby_nightly.pkg' -target '/'"
+          __rvm_run "macruby/extract" "sudo /usr/sbin/installer -pkg '${rvm_archives_path:-"$rvm_path/archives"}/macruby_nightly.pkg' -target '/'"
 
           mkdir -p "$rvm_ruby_home/bin"
 
@@ -349,7 +349,7 @@ __rvm_install_ruby() {
 
           mkdir -p $rvm_ruby_src_path
 
-          unzip -o -j "$rvm_archives_path/$rvm_ruby_package_file" "MacRuby ${rvm_ruby_version}/MacRuby ${rvm_ruby_version}.pkg" -d "$rvm_ruby_src_path"
+          unzip -o -j "${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file" "MacRuby ${rvm_ruby_version}/MacRuby ${rvm_ruby_version}.pkg" -d "$rvm_ruby_src_path"
 
           mv "$rvm_ruby_src_path/MacRuby ${rvm_ruby_version}.pkg" "$rvm_ruby_src_path/$rvm_ruby_string.pkg"
 
@@ -428,7 +428,7 @@ RubyWrapper
 
           rm -rf "$rvm_ruby_src_path"
 
-          __rvm_run "extract" "gunzip < \"$rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C $rvm_src_path" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to $rvm_ruby_src_path"
+          __rvm_run "extract" "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C $rvm_src_path" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to $rvm_ruby_src_path"
           result=$?
 
           if [[ "$result" -gt 0 ]] ; then
@@ -526,7 +526,7 @@ RubyWrapper
           return $result
         fi
         __rvm_run "extract" \
-          "gunzip < \"$rvm_archives_path/$(basename $rvm_ruby_package_file)\" | tar xf - -C $rvm_src_path" "Extracting $rvm_ruby_package_file ..."
+          "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/$(basename $rvm_ruby_package_file)\" | tar xf - -C $rvm_src_path" "Extracting $rvm_ruby_package_file ..."
         result=$?
 
         if [[ "$result" -gt 0 ]] ; then
@@ -783,7 +783,7 @@ RubyWrapper
 
       builtin cd "$rvm_ruby_src_path"
 
-      __rvm_run "gemstone.extract" "gunzip < \"$rvm_archives_path/${rvm_gemstone_package_file}.${rvm_archive_extension}\" | tar xf - -C $rvm_ruby_src_path"
+      __rvm_run "gemstone.extract" "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/${rvm_gemstone_package_file}.${rvm_archive_extension}\" | tar xf - -C $rvm_ruby_src_path"
       result=$?
 
       if [[ "$result" -gt 0 ]] ; then
@@ -918,7 +918,7 @@ RubyWrapper
         fi
 
         mkdir -p "$rvm_ruby_src_path" "$rvm_ruby_home"
-        unzip -o  -d "${rvm_ruby_src_path}" "${rvm_archives_path}/${rvm_ruby_package_file}" >> "$rvm_ruby_log_path/extract.log" 2>> "$rvm_ruby_log_path/extract.error.log"
+        unzip -o  -d "${rvm_ruby_src_path}" "${rvm_archives_path:-"$rvm_path/archives"}/${rvm_ruby_package_file}" >> "$rvm_ruby_log_path/extract.log" 2>> "$rvm_ruby_log_path/extract.error.log"
         result=$? ; if [[ "$result" -gt 1 ]] ; then
           "$rvm_path/scripts/log" "error" "There has been an error while trying to extract $rvm_ruby_package_file. Halting the installation." ; return $result
         fi
@@ -1100,13 +1100,13 @@ RubyWrapper
 __rvm_fetch_from_github() {
   rm -rf "$rvm_ruby_src_path"
 
-  if [[ ! -d "$rvm_ruby_repo_path/.git" ]] ; then
+  if [[ ! -d "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string/.git" ]] ; then
 
-    rm -rf "$rvm_ruby_repo_path"
+    rm -rf "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
     builtin cd "$rvm_home"
 
-    __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_url"
+    __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_url ${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" "Cloning $rvm_ruby_repo_url"
     result=$?
 
     if [[ "$result" -gt 0 ]] ; then
@@ -1114,17 +1114,17 @@ __rvm_fetch_from_github() {
 
       "$rvm_path/scripts/log" "info" "Could not fetch $rvm_ruby_repo_url - trying $rvm_ruby_repo_http_url"
 
-      __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_http_url $rvm_ruby_repo_path" "Cloning $rvm_ruby_repo_http_url"
+      __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_http_url ${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" "Cloning $rvm_ruby_repo_http_url"
     fi
   else
     local branch="${2:-"master"}"
 
-    builtin cd "$rvm_ruby_repo_path"
+    builtin cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
     __rvm_run "$1.repo" "git pull origin $branch" "Pulling from origin $branch"
   fi
 
-  __rvm_run "$1.copy" "\\cp -R \"$rvm_ruby_repo_path\" \"$rvm_ruby_src_path\"" "Copying from repo to source..."
+  __rvm_run "$1.copy" "\\cp -R \"${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string\" \"$rvm_ruby_src_path\"" "Copying from repo to source..."
 
   builtin cd "$rvm_ruby_src_path"
 }
@@ -1146,7 +1146,7 @@ __rvm_fetch_ruby() {
       rvm_archive_extension="${rvm_archive_extension:-tar.gz}"
     fi
 
-    if [[ ! -s "$rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension" ]] ; then
+    if [[ ! -s "${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file.$rvm_archive_extension" ]] ; then
 
       case "$rvm_ruby_interpreter" in
         ruby)
@@ -1189,7 +1189,7 @@ __rvm_fetch_ruby() {
 
       case "$rvm_archive_extension" in
         tar.gz|tgz)
-          __rvm_run "extract" "gunzip < \"$rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C /tmp/rvm_src_$$" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to $rvm_ruby_src_path"
+          __rvm_run "extract" "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C /tmp/rvm_src_$$" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to $rvm_ruby_src_path"
           result=$?
 
           if [[ "$result" -gt 0 ]] ; then
@@ -1199,7 +1199,7 @@ __rvm_fetch_ruby() {
           fi
           ;;
         zip)
-          __rvm_run "extract" "unzip -q -o $rvm_archives_path/$rvm_ruby_package_file -d /tmp/rvm_src_$$"
+          __rvm_run "extract" "unzip -q -o ${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file -d /tmp/rvm_src_$$"
           result=$?
 
           if [[ "$result" -gt 0 ]] ; then
@@ -1209,7 +1209,7 @@ __rvm_fetch_ruby() {
           fi
           ;;
         tar.bz2)
-          __rvm_run "extract" "bunzip2 < \"$rvm_archives_path/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C /tmp/rvm_src_$$" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to $rvm_ruby_src_path"
+          __rvm_run "extract" "bunzip2 < \"${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C /tmp/rvm_src_$$" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to $rvm_ruby_src_path"
           result=$?
 
           if [[ "$result" -gt 0 ]] ; then
@@ -1241,13 +1241,13 @@ __rvm_fetch_ruby() {
     return 0
   else
 
-    mkdir -p "$rvm_repo_path"
+    mkdir -p "${rvm_repo_path:-"$rvm_path/repos"}"
 
     if [[ -n "$(echo "$rvm_ruby_url" | awk '/^git/')" ]] ; then
 
-      if [[ -d "$rvm_ruby_repo_path/.git" ]] ; then
+      if [[ -d "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string/.git" ]] ; then
 
-        builtin cd "$rvm_ruby_repo_path"
+        builtin cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
         if [[ -z "$rvm_ruby_revision" ]] ; then
 
@@ -1280,20 +1280,20 @@ __rvm_fetch_ruby() {
         fi
 
       else
-        rm -rf "$rvm_ruby_repo_path"
+        rm -rf "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
         rvm_ruby_repo_http_url="${rvm_ruby_repo_url//git:/http:/}"
 
         "$rvm_path/scripts/log" "info" "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
 
-        git clone --depth 1 "$rvm_ruby_repo_url" "$rvm_ruby_repo_path"
+        git clone --depth 1 "$rvm_ruby_repo_url" "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
         result=$?
 
         if [[ "$result" -gt 0 ]] ; then
           "$rvm_path/scripts/log" "info" \
             "cloning from $rvm_ruby_repo_url failed, now attempting to clone from $rvm_ruby_repo_http_url, this may take a while depending on your connection..."
 
-          git clone "$rvm_ruby_repo_http_url" "$rvm_ruby_repo_path"
+          git clone "$rvm_ruby_repo_http_url" "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
           result=$?
 
           if [[ "$result" -gt 0 ]] ; then
@@ -1334,9 +1334,9 @@ __rvm_fetch_ruby() {
         rvm_rev="-$rvm_ruby_revision"
       fi
 
-      if [[ -d "$rvm_ruby_repo_path/.svn" ]] ; then
+      if [[ -d "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string/.svn" ]] ; then
 
-        builtin cd "$rvm_ruby_repo_path"
+        builtin cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
         "$rvm_path/scripts/log" "info" "Updating ruby from $rvm_ruby_url"
 
@@ -1350,9 +1350,9 @@ __rvm_fetch_ruby() {
           __rvm_run "svn.checkout" "svn update -q ${rvm_rev/-r/-r }"
         fi
       else
-        rm -rf "$rvm_ruby_repo_path"
+        rm -rf "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
-        __rvm_run "svn.checkout" "svn checkout -q ${rvm_rev/-r/-r } $rvm_ruby_url $rvm_ruby_repo_path" "Downloading source from ${rvm_ruby_url}."
+        __rvm_run "svn.checkout" "svn checkout -q ${rvm_rev/-r/-r } $rvm_ruby_url ${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" "Downloading source from ${rvm_ruby_url}."
       fi
       result=$?
 
@@ -1367,7 +1367,7 @@ __rvm_fetch_ruby() {
 
     rm -rf "$rvm_ruby_src_path"
 
-    cp -R "$rvm_ruby_repo_path" "$rvm_ruby_src_path"
+    cp -R "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" "$rvm_ruby_src_path"
   fi
 }
 
@@ -1516,7 +1516,7 @@ __rvm_remove_archives() {
 
     "$rvm_path/scripts/log" "info" "Removing $rvm_ruby_string archives..."
 
-    rm -f "$rvm_archives_path/${rvm_ruby_package_file}.${rvm_archive_extension}"
+    rm -f "${rvm_archives_path:-"$rvm_path/archives"}/${rvm_ruby_package_file}.${rvm_archive_extension}"
   fi
 }
 
@@ -1603,7 +1603,8 @@ __rvm_generate_default_docs() {
 
   if [[ "$rvm_docs_flag" = "1" && "$rvm_ruby_interpreter" != "macruby" ]]; then
 
-    __rvm_run_with_env "docs.generate" "$rvm_ruby_string" "rvm docs generate-ri" "Attempting to generate ri documentation..."
+    __rvm_run_with_env "docs.generate" "$rvm_ruby_string" \
+      "rvm docs generate-ri" "Attempting to generate ri documentation..."
   fi
 }
 
@@ -1637,7 +1638,8 @@ __rvm_rubygems_setup() {
 
       export GEM_HOME="$dir" ; export GEM_PATH="$dir" ; export BUNDLE_PATH="$dir"
 
-      __rvm_run "rubygems.update" "$rvm_ruby_home/bin/gem update --system" "$rvm_ruby_string - updating #rubygems for $dir"
+      __rvm_run "rubygems.update" \
+        "$rvm_ruby_home/bin/gem update --system" "$rvm_ruby_string - updating #rubygems for $dir"
 
     done
 
@@ -1706,15 +1708,18 @@ __rvm_rubygems_setup() {
 
       mkdir -p "$rvm_src_path/$rvm_gem_package_name"
 
-      __rvm_run "rubygems.extract" "gunzip < \"$rvm_archives_path/$rvm_gem_package_name.tgz\" | tar xf - -C $rvm_src_path" "Extracting $rvm_gem_package_name ..."
+      __rvm_run "rubygems.extract" \
+        "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/$rvm_gem_package_name.tgz\" | tar xf - -C $rvm_src_path" "Extracting $rvm_gem_package_name ..."
     fi
 
     builtin cd "$rvm_src_path/$rvm_gem_package_name"
 
-    __rvm_run "rubygems.install" "GEM_PATH=$rvm_ruby_gem_path GEM_HOME=$rvm_ruby_gem_home BUNDLE_PATH=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_src_path/$rvm_gem_package_name/setup.rb"
+    __rvm_run "rubygems.install" \
+      "GEM_PATH=$rvm_ruby_gem_path GEM_HOME=$rvm_ruby_gem_home BUNDLE_PATH=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby $rvm_src_path/$rvm_gem_package_name/setup.rb"
     result=$?
     if [[ $result -gt 0 ]] ; then
-      "$rvm_path/scripts/log" "warning" "$rvm_ruby_string - #warning Installation of rubygems $rvm_ruby_package_name did not complete successfully."
+      "$rvm_path/scripts/log" "warning" \
+        "$rvm_ruby_string - #warning Installation of rubygems $rvm_ruby_package_name did not complete successfully."
     fi
 
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
@@ -1792,16 +1797,24 @@ __rvm_inject_gem_env() {
 }
 
 __rvm_actual_file() {
+
   if [[ -L $1 ]] ; then          # If the file is a symlink,
+
     actual_file="$(readlink $1)" # read the link target so we can preserve it.
+
   else
+
     actual_file="$1"
+
   fi
+
 }
 
 __rvm_manage_rubies() {
-  local manage_result=0
-  local bin_line=""
+
+  local manage_result bin_line
+
+  manage_result=0
 
   rvm_gemset_name=""
   rvm_ruby_selected_flag=0
