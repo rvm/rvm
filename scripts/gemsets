@@ -14,7 +14,7 @@ usage() {
 
   Action:
 
-    {import,export,create,copy,empty,delete,name,dir,list,gemdir,install,pristine,clear,use,update,globalcache}
+    {import,export,create,copy,empty,delete,name,dir,list,gemdir,install,pristine,clear,use,update,unpack,globalcache}
 
   Description:
 
@@ -345,6 +345,44 @@ gemset_copy() {
   fi
 }
 
+gemset_unpack() {
+
+  local gems name directory version versions
+
+  directory="${args[$__array_start]}"
+  if [[ -z "$directory" ]] ; then
+    directory="vendor/gems"
+  fi
+
+  if [[ -n "$rvm_ruby_gem_home" ]] ; then
+    export GEM_HOME="$rvm_ruby_gem_home"
+    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator:-"@"}global/bin"
+    export BUNDLE_PATH="$rvm_ruby_gem_home"
+  fi
+
+  "$rvm_path/scripts/log" "info" \
+    "Unpacking current environments gemset to $directory"
+
+  unset -f gem
+
+  gems=($(command gem list | sed 's#[\(|\)]##g' | sed -e 's#, #,#g' -e 's/ /;/g'))
+
+  for gem in ${gems[@]} ; do
+
+    name="${gem/;*/}"
+
+    versions="${gem/*;/}" ; versions=(${versions//,/ })
+
+    for version in "${versions[@]}" ; do
+
+      command gem unpack "$name" -v"$version" --target "$directory"
+
+    done
+
+  done
+
+  return 0
+}
 gemset_export() {
   local gems name file_name version versions
 
@@ -799,6 +837,9 @@ case "$action" in
     ;;
   update)
     gemset_update
+    ;;
+  unpack)
+    gemset_unpack
     ;;
   globalcache)
     gemset_globalcache "$2"
