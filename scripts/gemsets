@@ -27,7 +27,7 @@ gemset_update() {
   if [[ -z "$rvm_ruby_strings" ]]; then
     "$rvm_path/scripts/log" "info" "Running gem update for all rubies and gemsets."
 
-    rvm_ruby_strings="$(builtin cd "$rvm_gems_path" ; find . -maxdepth 1 -mindepth 1 -type d -print 2>/dev/null | grep -v '^\(doc\|cache\|@\|system\)' | \tr '\n' ',')"
+    rvm_ruby_strings="$(builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ; find . -maxdepth 1 -mindepth 1 -type d -print 2>/dev/null | grep -v '^\(doc\|cache\|@\|system\)' | \tr '\n' ',')"
     rvm_ruby_strings="${rvm_ruby_strings/%,}"
     rvm_ruby_strings="${rvm_ruby_strings//.\/}"
   else
@@ -62,11 +62,11 @@ gemset_globalcache() {
 
     "$rvm_path/scripts/log" "info" "Removing the global cache (note: this will empty the caches)"
 
-    directories=($(builtin cd "$rvm_gems_path" ; find . -maxdepth 1 -mindepth 1 -type d -print))
+    directories=($(builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ; find . -maxdepth 1 -mindepth 1 -type d -print))
 
     for directory_name in "${directories[@]//.\/}"; do
 
-      current_cache_path="$rvm_gems_path/$directory_name/cache"
+      current_cache_path="${rvm_gems_path:-"$rvm_path/gems"}/$directory_name/cache"
 
       if [[ -L "$current_cache_path" && "$(readlink "$current_cache_path")" == "$rvm_gems_cache_path" ]]; then
 
@@ -86,11 +86,11 @@ gemset_globalcache() {
 
     mkdir -p "$rvm_gems_cache_path"
 
-    directories=($(builtin cd "$rvm_gems_path" ; find . -maxdepth 1 -mindepth 1 -type d -print))
+    directories=($(builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ; find . -maxdepth 1 -mindepth 1 -type d -print))
 
     for directory_name in "${directories[@]//.\/}" ; do
 
-      current_cache_path="$rvm_gems_path/$directory_name/cache"
+      current_cache_path="${rvm_gems_path:-"$rvm_path/gems"}/$directory_name/cache"
 
       if [[ -d "$current_cache_path" && ! -L "$current_cache_path" ]]; then
 
@@ -175,7 +175,7 @@ gemset_list() {
   if [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] ; then __rvm_select ; fi
 
   "$rvm_path/scripts/log" "info" \
-    "\ngemsets for $rvm_ruby_string (found in $rvm_gems_path/$rvm_ruby_string)"
+    "\ngemsets for $rvm_ruby_string (found in ${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string)"
 
   if [[ -n "${rvm_gems_path:-""}" ]] ; then
 
@@ -191,7 +191,7 @@ gemset_list() {
 
   else
     "$rvm_path/scripts/log" "error" \
-      "\$rvm_gems_path is not set!"
+      "\${rvm_gems_path:-"$rvm_path/gems"} is not set!"
     return 1
   fi
   printf "\n"
@@ -205,7 +205,7 @@ gemset_delete() {
 
   if [[ -n "$rvm_gemset_name" ]] ; then
 
-    gemdir="$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator:-"@"}$rvm_gemset_name"
+    gemdir="${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string${rvm_gemset_separator:-"@"}$rvm_gemset_name"
 
     if [[ -d "$gemdir" && "$gemdir" != '/' && ${rvm_force_flag:-0} -gt 0 ]] ; then
 
@@ -357,7 +357,7 @@ gemset_unpack() {
 
   if [[ -n "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
-    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator:-"@"}global/bin"
+    export GEM_PATH="$rvm_ruby_gem_home/bin:${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string${rvm_gemset_separator:-"@"}global/bin"
     export BUNDLE_PATH="$rvm_ruby_gem_home"
   fi
 
@@ -395,7 +395,7 @@ gemset_export() {
 
   if [[ -n "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
-    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator:-"@"}global/bin"
+    export GEM_PATH="$rvm_ruby_gem_home/bin:${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string${rvm_gemset_separator:-"@"}global/bin"
     export BUNDLE_PATH="$rvm_ruby_gem_home"
   fi
 
@@ -442,7 +442,7 @@ gemset_import() {
 
   if [[ -n "${rvm_ruby_gem_home:-""}" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
-    export GEM_PATH="$rvm_ruby_gem_home/bin:$rvm_gems_path/$rvm_ruby_string${rvm_gemset_separator:-"@"}global/bin"
+    export GEM_PATH="$rvm_ruby_gem_home/bin:${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string${rvm_gemset_separator:-"@"}global/bin"
     export BUNDLE_PATH="$rvm_ruby_gem_home"
   fi
 
@@ -605,9 +605,9 @@ gem_install() {
     # TODO: Set vars if fourth field is non-empty (means that there are conditional statements to execute in the gem install line.
     if [[ "rvm_make_flags_flag" -eq 1 ]] ; then __rvm_make_flags ; fi
 
-    if [[ -n "$rvm_ruby_gem_home" && "$rvm_ruby_gem_home" != "$rvm_gems_path" ]] ; then
+    if [[ -n "$rvm_ruby_gem_home" && "$rvm_ruby_gem_home" != "${rvm_gems_path:-"$rvm_path/gems"}" ]] ; then
 
-      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home/bin:$rvm_gems_path/${rvm_ruby_string}${rvm_gemset_separator:-"@"}global/bin' BUNDLE_PATH='${rvm_ruby_gem_home}' ${gem_prefix} command gem install $gems_args $rvm_gem_options $gem_postfix $vars"
+      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home/bin:${rvm_gems_path:-"$rvm_path/gems"}/${rvm_ruby_string}${rvm_gemset_separator:-"@"}global/bin' BUNDLE_PATH='${rvm_ruby_gem_home}' ${gem_prefix} command gem install $gems_args $rvm_gem_options $gem_postfix $vars"
 
     else
 
