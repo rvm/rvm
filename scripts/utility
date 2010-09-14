@@ -34,7 +34,8 @@ __rvm_teardown() {
     fi
   fi
 
-  unset rvm_ruby_strings rvm_head_flag rvm_prior_cc
+  unset rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token result rvm_bin_path rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_interactive_flag rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_tag rvm_ruby_version rvm_selfcontained rvm_token
+
 
   [[ ${rvm_dump_environment_flag:-0} -eq 1 ]] && __rvm_dump_environment
 
@@ -533,9 +534,9 @@ __rvm_bin_script() {
 # Add bin path if not present
 __rvm_conditionally_add_bin_path() {
 
-  if echo "${PATH//:/ }" | \grep -vqF "$rvm_bin_path " ; then
+  if echo "${PATH//:/ }" | \grep -vqF "${rvm_bin_path:-"$rvm_path/bin"} " ; then
 
-    PATH="${rvm_bin_path}:$PATH"
+    PATH="${rvm_bin_path:-"$rvm_path/bin"}:$PATH"
 
     builtin hash -r
 
@@ -548,7 +549,7 @@ __rvm_conditionally_add_bin_path() {
 # rvm will refresh the stored information the next time it is called after reset.
 __rvm_reset() {
 
-  local flag file system_config variable
+  local flag flags file files config configs variable
 
   __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
 
@@ -556,25 +557,48 @@ __rvm_reset() {
 
   builtin hash -r
 
-  for flag in default passenger editor ; do
-    \rm -f "$rvm_bin_path"/${flag}_*
+  flags=( default passenger editor )
+
+  for flag in "${flags[@]}"; do
+
+    \rm -f "${rvm_bin_path:-"$rvm_path/bin"}"/${flag}_*
+
   done
 
   for file in system default ; do
+
     [[ -f "$rvm_path/${file}" ]] && \rm -f "$rvm_path/${file}"
+
     [[ -f "$rvm_path/config/${file}" ]] && \rm -f "$rvm_path/config/${file}"
+
     [[ -f "$rvm_path/environments/${file}" ]] && \rm -f "$rvm_path/environments/${file}"
+
   done
 
   # Go back to a clean state.
   __rvm_become "system"
+
   __rvm_unset_ruby_variables
 
-  for system_config in system_ruby system_gem_path system_user_gem_path ; do
+  configs=(system_ruby system_gem_path system_user_gem_path)
+
+  for system_config in "${configs[@]}" ; do
+
     "$rvm_path/scripts/db" "$rvm_path/config/user" "$system_config" "delete"
+
   done
 
-  \rm -f $rvm_bin_path/ruby $rvm_bin_path/gem $rvm_bin_path/rake $rvm_bin_path/irb $rvm_bin_path/default*
+  files=(ruby gem rake irb $(cd "${rvm_bin_path:-"$rvm_path/bin"}" ; find . -iname 'default*' --mindepth 1 --maxdepth 1 -type f | sed -e 's#./##g'))
+
+  for file in "${files[@]}"; do
+
+    if [[ -f "${rvm_bin_path:-"$rvm_path/bin"}/$file" ]] ; then
+
+      \rm -f "${rvm_bin_path:-"$rvm_path/bin"}/$file"
+
+    fi
+
+  done
 
   return 0
 }
@@ -878,7 +902,7 @@ __rvm_ensure_has_environment_files() {
 
     \mkdir -p "$rvm_path/environments"
 
-    echo "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"" > "$file_name"
+    echo "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path:-"$rvm_path/bin"}:\$PATH\"" > "$file_name"
 
     for variable in RUBY_VERSION GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME IRBRC rvm_ruby_string rvm_gemset_name MAGLEV_HOME ; do
 
