@@ -11,7 +11,7 @@ trap 'cleanup_download' 1 2 3 15
 
 cleanup_download() {
 
-  [[ -f "$archive" ]] && rm -rf "$archive"
+  [[ -f "$archive" ]] && rm -f "$archive"
 
 }
 
@@ -35,13 +35,20 @@ builtin cd "${rvm_archives_path:-"$rvm_path/archives"}"
 
 # args=($*) # Reserved for future use
 
-if [[ -z "$1" ]] ; then "$rvm_path/scripts/log" "fail" "BUG: $0 called without an argument :/" ; exit 1 ; fi
+if [[ -z "$1" ]] ; then
+
+  "$rvm_path/scripts/log" "fail" \
+    "BUG: $0 called without an argument :/"
+
+  exit 1
+fi
 
 url="$1"; download=1 ; package_name="$2"
 
 if ! command -v curl > /dev/null ; then
 
-  "$rvm_path/scripts/log" "fail" "rvm requires curl. curl was not found in your active path."
+  "$rvm_path/scripts/log" "fail" \
+    "rvm requires curl. curl was not found in your active path."
 
   exit 1
 
@@ -69,41 +76,64 @@ else
 
 fi
 
-if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Fetching $archive" ; fi
+if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
+
+  "$rvm_path/scripts/log" "debug" \
+    "Fetching $archive"
+
+fi
 
 # Check first if we have the correct archive
 archive_md5="$($rvm_path/scripts/db "$rvm_path/config/md5" "$archive" | head -n1)"
 
-if [[ -e "$archive" ]] && [[ ! -z "$archive_md5" ]] ; then
+if [[ -e "$archive" && ! -z "$archive_md5" ]] ; then
 
-  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Found archive and its md5, testing correctness" ; fi
+  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
+
+    "$rvm_path/scripts/log" "debug" \
+    "Found archive and its md5, testing correctness"
+
+  fi
 
   if ! "$rvm_path/scripts"/md5 "${rvm_archives_path:-"$rvm_path/archives"}/${archive}" "$archive_md5" ; then
 
-    if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Archive is bad, downloading" ; fi
+    if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
+      "$rvm_path/scripts/log" "debug" \
+        "Archive md5 did not match, downloading"
+    fi
 
     download=1
 
   else
 
-    if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Archive is good, not downloading" ; fi
+    if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
+
+      "$rvm_path/scripts/log" "debug" \
+        "Archive md5 matched, not downloading"
+
+    fi
 
     download=0
 
     result=0
 
-  fi ; unset archive_md5
+  fi
 
 else
 
-  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "No archive or no MD5, downloading" ; fi
+  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
+
+    "$rvm_path/scripts/log" "debug" \
+      "No archive or no MD5, downloading"
+
+  fi
 
   download=1
 
 fi
 
 # try to convert the ftp url to a http url
-http_url="$(echo $url | sed -e 's/ftp:/http:/' -e 's/git:/http:/')"
+http_url="$(echo "$url" | sed -e 's/ftp:/http:/' -e 's/git:/http:/')"
 
 if [[ $download -gt 0 ]] ; then
 
@@ -119,13 +149,15 @@ if [[ $download -gt 0 ]] ; then
 
     if [[ $result -eq 78 ]] ; then
 
-      "$rvm_path/scripts/log" "error" "The requested url does not exist: '$url'"
+      "$rvm_path/scripts/log" "error" \
+        "The requested url does not exist: '$url'"
 
       try_http=1
 
     elif [[ $result -eq 18 ]] ; then
 
-      "$rvm_path/scripts/log" "error" "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
+      "$rvm_path/scripts/log" "error" \
+        "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
 
       rm -f "$archive"
 
@@ -133,7 +165,12 @@ if [[ $download -gt 0 ]] ; then
 
     elif [[ $result -eq 33 ]] ; then
 
-      if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then "$rvm_path/scripts/log" "debug" "Server does not support 'range' command, removing '$archive'" ; fi
+      if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
+
+        "$rvm_path/scripts/log" "debug" \
+        "Server does not support 'range' command, removing '$archive'"
+
+      fi
 
       rm -f "$archive"
 
@@ -141,7 +178,8 @@ if [[ $download -gt 0 ]] ; then
 
     else
 
-      "$rvm_path/scripts/log" "error" "There was an error, please check $rvm_ruby_log_path/*.error.log. Next we'll try to fetch via http."
+      "$rvm_path/scripts/log" "error" \
+        "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.error.log. Next we'll try to fetch via http."
 
       try_http=1
 
@@ -153,7 +191,8 @@ if [[ $download -gt 0 ]] ; then
 
       if [[ $result -gt 0 ]] ; then
 
-        "$rvm_path/scripts/log" "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+        "$rvm_path/scripts/log" "error" \
+          "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.error.log"
 
       else
 
@@ -169,7 +208,8 @@ if [[ $download -gt 0 ]] ; then
 
       if [[ $result -gt 0 ]] ; then
 
-        "$rvm_path/scripts/log" "error" "There was an error, please check $rvm_ruby_log_path/*.error.log"
+        "$rvm_path/scripts/log" "error" \
+          "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.error.log"
 
       else
 
@@ -184,6 +224,7 @@ if [[ $download -gt 0 ]] ; then
     record_md5
 
   fi
+
 fi
 
 exit $result
