@@ -88,13 +88,13 @@ __rvm_ruby_string_paths_under() {
 
   parts=(${rvm_ruby_string//-/ }) # Strip white space.
 
-  echo "$path/"
+  echo "$path"
 
   for part in "${parts[@]}" ; do
 
     path="$path/$part"
 
-    echo "$path/"
+    echo "$path"
 
   done
 
@@ -229,81 +229,111 @@ __rvm_remove_rvm_from_path() {
 # Run a specified command and log it.
 __rvm_run() {
 
-  local result log_file_name command message
+  local name log path command message
 
-  log_file_name="${1:-""}"
+  name="${1:-""}"
   command="${2:-""}"
   message="${3:-""}"
 
-  if [[ -n "$message" ]] ; then "$rvm_path/scripts/log" "info" "$message" ; fi
+  if [[ -n "$message" ]] ; then
+    "$rvm_path/scripts/log" "info" "$message"
+  fi
 
   if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-    "$rvm_path/scripts/log" "debug" "Executing: $command"
+    "$rvm_path/scripts/log" "debug" \
+      "Executing: $command"
   fi
 
-  \mkdir -p "$(dirname "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log")"
+  path="${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string"
 
-  \touch "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" \
-    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log" # for zsh :(
+  log="$path/$name.log"
 
-  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | \
-    \tee "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" >> \
-    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
-
-    eval "nice -n ${rvm_niceness:-0} $command" \
-      >> "${rvm_ruby_log_path:-"$rvm_path/log"}/$log_file_name.log" \
-      2>> "${rvm_ruby_log_path:-"$rvm_path/log"}/$log_file_name.error.log"
-
-  local result=$?
-
-  if [[ $result -gt 0 ]] ; then
-    "$rvm_path/scripts/log" "error" \
-      "Error running '$command', please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name*.log"
+  if [[ ! -d "$path" ]] ; then
+    \mkdir -p "$path"
   fi
 
-  return $result
-}
+  \touch "$log" "${log/%.log/.error.log}" # for zsh :(
 
-# Runs a command in a given env.
-__rvm_run_with_env() {
+  printf "[$(date +'%Y-%m-%d %H:%M:%S')] $command" | \
+    \tee "$log" \
+    >> "${log/%log/error.log}"
 
-  local result log_file_name env_name comand message
-
-  log_file_name="${1:-""}"
-  env_name="${2:-""}"
-  command="${3:-""}"
-  message="${4:-""}"
-
-  if [[ -z "$env_name" ]]; then env_name="$(__rvm_environment_identifier)"; fi
-
-  if [[ -n "$message" ]] ; then "$rvm_path/scripts/log" "info" "$message" ; fi
-
-  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-    "$rvm_path/scripts/log" "debug" "Executing: $command in environment "$env_name""
+  if [[ ${rvm_niceness:-0} -gt 0 ]] ; then
+    command="nice -n $rvm_niceness $command"
   fi
 
-  \mkdir -p "$(dirname "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log")"
-
-  \touch \
-    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" \
-    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log" # for zsh :(
-
-  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $command # under $env_name" | \
-    tee "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" >> \
-    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
-
-  nice -n ${rvm_niceness:-0} "$rvm_path/bin/rvm" "$env_name" "$command" >> \
-    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" 2>> \
-    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
+  eval "$command" \
+    >>  "$log" \
+    2>> "${log/%log/error.log}"
 
   result=$?
 
   if [[ $result -gt 0 ]] ; then
     "$rvm_path/scripts/log" "error" \
-      "Error running '$command' under $env_name, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name*.log"
+      "Error running '$command', please check ${log/%log/error.log}"
   fi
 
-  return $result
+  return ${result:-0}
+}
+
+# Runs a command in a given env.
+__rvm_run_with_env() {
+
+  local name environment command message log path
+
+  name="${1:-""}"
+  environment="${2:-""}"
+  command="${3:-""}"
+  message="${4:-""}"
+
+  if [[ -z "$environment" ]] ; then
+    environment="$(__rvm_environment_identifier)"
+  fi
+
+  if [[ -n "$message" ]] ; then
+    "$rvm_path/scripts/log" "info" "$message"
+  fi
+
+  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
+    "$rvm_path/scripts/log" "debug" "Executing: $command in environment "$environment""
+  fi
+
+  path="${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string"
+
+  log="$path/$name.log"
+
+  if [[ ! -d "$path" ]] ; then
+    \mkdir -p "$path"
+  fi
+
+  \touch "$log" "${log/%.log/.error.log}" # for zsh :(
+
+  printf "[$(date +'%Y-%m-%d %H:%M:%S')] $command # under $environment\n" \
+    | tee "${log}" \
+    >> "${log/%log/error.log}"
+
+  if [[ ${rvm_niceness:-0} -gt 0 ]] ; then
+    command="nice -n $rvm_niceness $command"
+  fi
+
+  (
+    rvm_ruby_string="$environment"
+
+    __rvm_use
+
+    eval "$command" \
+      >> "${log}" \
+      2>> "${log/%log/error.log}"
+  )
+
+  result=$?
+
+  if [[ $result -gt 0 ]] ; then
+    "$rvm_path/scripts/log" "error" \
+      "Error running '$command' under $env_name, please check ${log/%log/error.log}"
+  fi
+
+  return ${result:-0}
 }
 
 __rvm_nuke_rvm_variables() {
@@ -444,7 +474,7 @@ __rvm_load_rvmrc() {
 # Wrap the specified ruby code file in a Benchmark.bmbm block and execute it.
 __rvm_benchmark() {
 
-  local result old_rvm_ruby_string
+  local old_rvm_ruby_string
 
   code="require \"benchmark\" \n Benchmark.bmbm do |benchmark| \n benchmark.report(\"${rvm_ruby_file}\") do \n"
 
@@ -483,7 +513,7 @@ __rvm_benchmark() {
   # Restore the state pre-sets.
   [[ -n "$old_rvm_ruby_string" ]] && rvm_ruby_string=$old_rvm_ruby_string
 
-  return $result
+  return ${result:-0}
 }
 
 # Loop over the currently installed rubies and refresh their binscripts.

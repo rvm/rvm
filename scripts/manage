@@ -15,8 +15,6 @@ __rvm_check_for_clang() {
 
 # Checks for bison, returns zero iff it is found
 __rvm_check_for_bison() {
-  local result
-
   if [[ ${rvm_head_flag:-0} -gt 0 ]]; then
     command -v bison > /dev/null
     result=$?
@@ -26,7 +24,7 @@ __rvm_check_for_bison() {
     fi
   fi
 
-  return $result
+  return ${result:-0}
 }
 
 # Emits a number of patches to STDOUT, each on a new name
@@ -59,7 +57,7 @@ __rvm_current_patch_names() {
 
 __rvm_apply_patches() {
 
-  local result patches patch_name patch_level_separator patch_fuzziness patch_level source_directory full_patch_path
+  local patches patch_name patch_level_separator patch_fuzziness patch_level source_directory full_patch_path
 
   result=0
   patch_level_separator="%"
@@ -107,12 +105,12 @@ __rvm_apply_patches() {
     done
   )
 
-  return $result
+  return ${result:-0}
 }
 
 __rvm_install_source() {
 
-  local result directory configure_parameters db_configure_flags
+  local directory configure_parameters db_configure_flags
 
   [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] && __rvm_select
 
@@ -259,22 +257,22 @@ __rvm_install_source() {
   export BUNDLE_PATH="$rvm_ruby_gem_home"
 
   __rvm_rubygems_setup
+  result=$?
 
   __rvm_bin_script
 
   __rvm_run "chmod.bin" "chmod +x $rvm_ruby_home/bin/*"
 
   __rvm_post_install
+  result=$?
 
   "$rvm_path/scripts/log" "info" \
     "Install of $rvm_ruby_string - #complete "
 
-  return 0
+  return ${result:-0}
 }
 
 __rvm_install_ruby() {
-
-  local result
 
   if [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] ; then __rvm_select ; fi
 
@@ -1121,12 +1119,10 @@ RubyWrapper
     export RUBYOPT
   fi
 
-  return $result
+  return ${result:-0}
 }
 
 __rvm_fetch_from_github() {
-  local result
-
   rm -rf "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
 
   if [[ ! -d "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string/.git" ]] ; then
@@ -1157,11 +1153,10 @@ __rvm_fetch_from_github() {
 
   builtin cd "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
 
-  return $?
+  return ${result:-0}
 }
 
 __rvm_fetch_ruby() {
-  local result
 
   [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]] && __rvm_select
 
@@ -1318,7 +1313,8 @@ __rvm_fetch_ruby() {
 
         rvm_ruby_repo_http_url="${rvm_ruby_repo_url//git:/http:/}"
 
-        "$rvm_path/scripts/log" "info" "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
+        "$rvm_path/scripts/log" "info" \
+          "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
 
         git clone --depth 1 "$rvm_ruby_repo_url" "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
         result=$?
@@ -1386,7 +1382,9 @@ __rvm_fetch_ruby() {
       else
         rm -rf "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
-        __rvm_run "svn.checkout" "svn checkout -q ${rvm_rev/-r/-r } $rvm_ruby_url ${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" "Downloading source from ${rvm_ruby_url}."
+        __rvm_run "svn.checkout" \
+          "svn checkout -q ${rvm_rev/-r/-r } $rvm_ruby_url ${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" \
+          "Downloading source from ${rvm_ruby_url}."
       fi
       result=$?
 
@@ -1403,39 +1401,57 @@ __rvm_fetch_ruby() {
 
     cp -R "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
   fi
+
+  return ${result:-0}
 }
 
 __rvm_check_default() {
 
-  local default_ruby_interpreter="$(rvm alias show default 2>/dev/null | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
+  local default_ruby_interpreter current_ruby_interpreter
 
-  local current_ruby_interpreter="$(echo "$rvm_ruby_string" | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
+  default_ruby_interpreter="$(rvm alias show default 2>/dev/null | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
+
+  current_ruby_interpreter="$(echo "$rvm_ruby_string" | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
 
   if [[ -n "$current_ruby_interpreter" && "$current_ruby_interpreter" = "$default_ruby_interpreter" ]]; then
+
     __rvm_run_with_env 'default.restore' 'system' 'rvm use system --default' 'Removing default ruby interpreter'
+
   fi
+
+  return $?
 }
 
 __rvm_uninstall_ruby() {
+
+  local dir
 
   if [[ ${rvm_ruby_selected_flag} -eq 0 ]] ; then __rvm_select ; fi
 
   if [[ -n "${rvm_ruby_string:-""}" ]] ; then
 
     for dir in "$rvm_path/rubies" ; do
+
       if [[ -d "$dir/$rvm_ruby_string" ]] ; then
+
         "$rvm_path/scripts/log" "info" "Removing $dir/$rvm_ruby_string..."
 
         rm -rf $dir/$rvm_ruby_string
+
       else
+
         "$rvm_path/scripts/log" "info" \
           "$dir/$rvm_ruby_string has already been removed."
+
       fi
 
       if [[ -e "${rvm_bin_path:-"$rvm_path/bin"}/$rvm_ruby_string" ]] ; then
+
         rm -f "${rvm_bin_path:-"$rvm_path/bin"}/$rvm_ruby_string"
+
       fi
-    done ; unset dir
+
+    done
 
     __rvm_remove_install_record "$rvm_ruby_string"
 
@@ -1444,8 +1460,10 @@ __rvm_uninstall_ruby() {
     __rvm_check_default
 
   else
+
     "$rvm_path/scripts/log" "fail" \
       "Cannot uninstall unknown package '$rvm_ruby_string'"
+
   fi
 
   unset rvm_uninstall_flag
@@ -1604,7 +1622,7 @@ __rvm_post_install() {
     fi
 
     "$rvm_path/scripts/log" "info" \
-      "$rvm_ruby_string adjusting #shebangs for ($binaries)."
+      "$rvm_ruby_string - adjusting #shebangs for ($binaries)."
 
     for binary in "${binaries[@]}" ; do
 
@@ -1631,7 +1649,9 @@ __rvm_post_install() {
   fi
 
   # Import the initial gemsets.
-  #__rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" "'$rvm_path/scripts/gemsets' initial" "$rvm_ruby_string - #importing default gemsets ($rvm_path/gemsets/)"
+  __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
+    "'$rvm_path/scripts/gemsets' initial" \
+    "$rvm_ruby_string - #importing default gemsets ($rvm_path/gemsets/)"
 
   __rvm_irbrc
 
@@ -1663,9 +1683,9 @@ __rvm_generate_default_docs() {
 
 __rvm_rubygems_setup() {
 
-  local result home path dir directory_name version_number ruby_lib_gem_path
+  local home path dir directory_name version_number ruby_lib_gem_path
 
-  if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.9/')" ]] || [[ -n "$(echo "$rvm_ruby_interpreter" | awk '/^mput/')" ]] ; then
+  if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.9/')" || -n "$(echo "$rvm_ruby_interpreter" | awk '/^mput/')" ]] ; then
     install=0
 
   elif [[ "$rvm_ruby_string" = "ruby-head" ]] ; then
@@ -1727,13 +1747,16 @@ __rvm_rubygems_setup() {
 
     # Hands off rubygems for rbx & jruby
     if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-      "$rvm_path/scripts/log" "debug" "Skipping rubygems update for $rvm_ruby_version"
+      "$rvm_path/scripts/log" "debug" \
+        "Skipping rubygems update for $rvm_ruby_version"
     fi
 
     ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/jruby"
 
   else
-    "$rvm_path/scripts/log" "info" "$rvm_ruby_string - #rubygems installing to $rvm_ruby_string"
+
+    "$rvm_path/scripts/log" "info" \
+      "$rvm_ruby_string - #rubygems installing to $rvm_ruby_string"
 
     rvm_rubygems_version="$(__rvm_db "${rvm_ruby_interpreter}_rubygems_version")"
     rvm_rubygems_version="${rvm_rubygems_version:-"$(__rvm_db "rubygems_version")"}"
@@ -1770,8 +1793,9 @@ __rvm_rubygems_setup() {
     builtin cd "${rvm_src_path:-"$rvm_path/src"}/$rvm_gem_package_name"
 
     __rvm_run "rubygems.install" \
-      "GEM_PATH="$rvm_ruby_gem_path:$rvm_ruby_global_gems_path" GEM_HOME=$rvm_ruby_gem_home BUNDLE_PATH=$rvm_ruby_gem_home $rvm_ruby_home/bin/ruby ${rvm_src_path:-"$rvm_path/src"}/$rvm_gem_package_name/setup.rb"
+      "GEM_PATH='$rvm_ruby_gem_path:$rvm_ruby_global_gems_path' GEM_HOME='$rvm_ruby_gem_home' BUNDLE_PATH='$rvm_ruby_gem_home' $rvm_ruby_home/bin/ruby ${rvm_src_path:-"$rvm_path/src"}/$rvm_gem_package_name/setup.rb"
     result=$?
+
     if [[ $result -gt 0 ]] ; then
       "$rvm_path/scripts/log" "warning" \
         "$rvm_ruby_string - #warning Installation of rubygems $rvm_ruby_package_name did not complete successfully."
@@ -1807,7 +1831,7 @@ __rvm_rubygems_setup() {
     __rvm_inject_ruby_shebang "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string/bin/rake"
   fi
 
-  return $result
+  return ${result:-0}
 }
 
 __rvm_inject_ruby_shebang() {
@@ -1849,6 +1873,8 @@ __rvm_inject_gem_env() {
 
     fi
   fi
+
+  return 0
 }
 
 __rvm_actual_file() {
@@ -1863,6 +1889,7 @@ __rvm_actual_file() {
 
   fi
 
+  return 0
 }
 
 __rvm_manage_rubies() {
