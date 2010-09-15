@@ -82,19 +82,19 @@ __rvm_dump_environment() {
 # Return a list of directories under a given base path.
 # Derived from rvm_ruby_string.
 __rvm_ruby_string_paths_under() {
-  local path path_parts
+  local path part parts
 
-  path="$1"
+  path="${1%/}" # Strip off any trailing slash
 
-  path_parts="${rvm_ruby_string//-/ }"
+  parts=(${rvm_ruby_string//-/ }) # Strip white space.
 
-  while true ; do
+  echo "$path/"
 
-    echo "$path/$path_parts" | sed -e 's# #/#g' -e 's#/$##g'
+  for part in "${parts[@]}" ; do
 
-    [[ -z "$path_parts" ]] && break
+    path="$path/$part"
 
-    path_parts="$(echo "$path_parts" | awk '{$NF=""; print}' | __rvm_strip)"
+    echo "$path/"
 
   done
 
@@ -250,17 +250,9 @@ __rvm_run() {
     \tee "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" >> \
     "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
 
-  (
-    if [[ -z "${rvm_niceness:-""}" || "0" = "${rvm_niceness:-""}" ]] ; then
-      eval "$command" >> \
-        "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" 2>> \
-        "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
-    else
-      eval "nice -n $rvm_niceness $command" >> \
-        ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log 2>> \
-        ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log
-    fi
-  )
+    nice -n ${rvm_niceness:-0} $command >> \
+      "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" 2>> \
+      "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
   local result=$?
 
   if [[ $result -gt 0 ]] ; then
@@ -299,17 +291,10 @@ __rvm_run_with_env() {
     tee "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" >> \
     "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
 
-  (
-    if [[ -z "${rvm_niceness:-""}" || $rvm_niceness -eq 0 ]] ; then
-      eval "__rvm_with_env '$env_name' '$command'" >> \
-        "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" 2>> \
-        "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
-    else
-      eval "nice -n $rvm_niceness __rvm_with_env '$env_name' '$command'" >> \
-        ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log 2>> \
-        ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log
-    fi
-  )
+  nice -n ${rvm_niceness:-0} "$rvm_path/bin/rvm" "$env_name" "$command" >> \
+    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.log" 2>> \
+    "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/$log_file_name.error.log"
+
   result=$?
 
   if [[ $result -gt 0 ]] ; then
@@ -339,20 +324,6 @@ __rvm_cleanse_variables() {
   if [[ ${rvm_sticky_flag:-0} -eq 1 ]] ; then export rvm_gemset_name ; else unset rvm_gemset_name  ; fi
 
   unset rvm_action rvm_irbrc_file rvm_command rvm_error_message rvm_force_flag rvm_all_flag rvm_reconfigure_flag rvm_make_flags rvm_bin_flag rvm_import_flag rvm_export_flag rvm_self_flag rvm_gem_flag rvm_rubygems_flag rvm_debug_flag rvm_delete_flag rvm_summary_flag rvm_test_flag _rvm_spec_flag rvm_json_flag rvm_yaml_flag rvm_shebang_flag rvm_env_flag rvm_tail_flag rvm_use_flag rvm_dir_flag rvm_list_flag rvm_empty_flag rvm_file_name rvm_benchmark_flag rvm_clear_flag rvm_name_flag rvm_verbose_flag rvm_user_flag rvm_system_flag rvm_configure_flags rvm_uninstall_flag rvm_install_flag rvm_llvm_flag rvm_ruby_bits rvm_sticky_flag rvm_rvmrc_flag rvm_gems_flag rvm_only_path_flag rvm_docs_flag rvm_ruby_aliases rvm_patch_names rvm_clang_flag rvm_install_arguments rvm_dump_environment_flag rvm_ruby_alias
-}
-
-# Usage: __rvm_with_env 'env-name' 'command'
-__rvm_with_env() {
-  local environment_id command
-
-  environment_id="$1"
-  command="$2"
-
-  (
-    rvm use "$environment_id"
-
-    eval "$command"
-  )
 }
 
 # Returns the first 1.8.7-compatible (partly) ruby for use

@@ -24,21 +24,30 @@ usage() {
 }
 
 gemset_update() {
+
   if [[ -z "$rvm_ruby_strings" ]]; then
+
     "$rvm_path/scripts/log" "info" "Running gem update for all rubies and gemsets."
 
     rvm_ruby_strings="$(builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ; find . -maxdepth 1 -mindepth 1 -type d -print 2>/dev/null | grep -v '^\(doc\|cache\|@\|system\)' | \tr '\n' ',')"
+
     rvm_ruby_strings="${rvm_ruby_strings/%,}"
+
     rvm_ruby_strings="${rvm_ruby_strings//.\/}"
+
   else
     "$rvm_path/scripts/log" "info" "Running gem update for the specified rubies."
   fi
+
   export rvm_ruby_strings
+
   "$rvm_path/scripts/set" "gem" "update"
+
   return $?
 }
 
 gemset_globalcache() {
+
   local gc_status globalcache_enabled directories directory_name full_directory_path directory_name
 
   if [[ "$1" == "enabled" ]]; then
@@ -46,6 +55,7 @@ gemset_globalcache() {
     __rvm_using_gemset_globalcache
 
     globalcache_enabled=$?
+
     gc_status="Unknown"
 
     if [[ $globalcache_enabled -eq 0 ]]; then
@@ -54,13 +64,15 @@ gemset_globalcache() {
       gc_status="Disabled"
     fi
 
-    "$rvm_path/scripts/log" "info" "Gemset global cache is currently: $gc_status"
+    "$rvm_path/scripts/log" "info" \
+      "Gemset global cache is currently: $gc_status"
 
     return "$globalcache_enabled"
 
   elif [[ "$1" == "disable" ]]; then
 
-    "$rvm_path/scripts/log" "info" "Removing the global cache (note: this will empty the caches)"
+    "$rvm_path/scripts/log" "info" \
+      "Removing the global cache (note: this will empty the caches)"
 
     directories=($(builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ; find . -maxdepth 1 -mindepth 1 -type d -print))
 
@@ -70,7 +82,8 @@ gemset_globalcache() {
 
       if [[ -L "$current_cache_path" && "$(readlink "$current_cache_path")" == "$rvm_gems_cache_path" ]]; then
 
-        "$rvm_path/scripts/log" "info" "Reverting the gem cache for $directory_name to an empty directory."
+        "$rvm_path/scripts/log" "info" \
+          "Reverting the gem cache for $directory_name to an empty directory."
 
         rm -f "$current_cache_path" 2>/dev/null
 
@@ -82,7 +95,8 @@ gemset_globalcache() {
 
   elif [[ "$1" == "enable" ]]; then
 
-    "$rvm_path/scripts/log" "info" "Enabling global cache for gems."
+    "$rvm_path/scripts/log" "info" \
+      "Enabling global cache for gems."
 
     mkdir -p "$rvm_gems_cache_path"
 
@@ -717,37 +731,39 @@ gemset_pristine() {
 # Loads the default gemsets for the current interpreter and gemset.
 gemset_initial() {
 
+  local gemsets gemset path
+
   "$rvm_path/scripts/log" "info" \
     "Importing initial gemsets for $(__rvm_environment_identifier)."
 
-  mkdir -p "$rvm_path/gemsets/${rvm_ruby_string//-//}" 2>/dev/null
+  mkdir -p "$rvm_gemsets_path/$(echo "$rvm_ruby_string" | \tr '-' '/')" 2>/dev/null
 
-  for gemsets_path in $(__rvm_ruby_string_paths_under "$rvm_path/gemsets") ; do
+  for gemsets_path in $(__rvm_ruby_string_paths_under "$rvm_gemsets_path") ; do
 
-    # TODO: This can be condensed.
-    if [[ -d "$gemsets_path" ]] ; then
+    if [[ -n "$rvm_gemset_name" ]] ; then
 
-      if [[ -n "$rvm_gemset_name" && -s "${gemsets_path}/${rvm_gemset_name}.gems" ]] ; then
-        (
-        rvm --create "$rvm_ruby_string"
-        "$rvm_path/scripts/gemsets" import "${gemsets_path}/${rvm_gemset_name}.gems"
-        )
+      if [[ -s "${gemsets_path}/${rvm_gemset_name}.gems" ]] ; then
+
+        (source "$rvm_scripts_path/rvm"; rvm gemset import "${gemsets_path}/${rvm_gemset_name}.gems") > /dev/null
+
       fi
 
-      if [[ -s "${gemsets_path}/default.gems" ]] ; then
-        (
-        rvm --create "$rvm_ruby_string"
-        "$rvm_path/scripts/gemsets" import "$gemsets_path/default.gems"
-        )
+    else
+
+      if [[ -d "$gemsets_path" && -s "${gemsets_path}/default.gems" ]] ; then
+
+        (source "$rvm_scripts_path/rvm"; rvm gemset import "$gemsets_path/default.gems") > /dev/null
+
       fi
 
-      if [[ -s "${gemsets_path}/global.gems" ]] ; then
-        (
-        rvm --create "$rvm_ruby_string@global"
-        "$rvm_path/scripts/gemsets" import "${gemsets_path}/global.gems"
-        )
+      if [[ -d "$gemsets_path" && -s "${gemsets_path}/global.gems" ]] ; then
+
+        (source "$rvm_scripts_path/rvm"; rvm use "$rvm_ruby_string@global" --create ; rvm gemset import "${gemsets_path}/global.gems") > /dev/null
+
       fi
+
     fi
+
   done
 
   "$rvm_path/scripts/log" "info" \
@@ -773,10 +789,15 @@ export rvm_gemset_name="${args[1]:-""}" # For wherever used.
 rvm_sticky_flag=1
 
 if [[ -z "$rvm_ruby_string" ]] ; then
+
   if echo "${GEM_HOME:-""}" | grep -q 'rvm' ; then
+
     rvm_ruby_string="${GEM_HOME##*/}"
+
     rvm_ruby_string="${rvm_ruby_string%%@*}"
+
   fi
+
 fi
 
 case "$action" in
