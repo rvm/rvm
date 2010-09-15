@@ -78,45 +78,84 @@ alias_delete() {
 }
 
 alias_create() {
-  rvm_environment_identifier="${rvm_environment_identifier:-""}"
+
   alias_name="${alias_name:-""}"
+
   rvm_ruby_string="${rvm_ruby_string:-""}"
 
-  if alias_conflicts_with_ruby "$alias_name"; then
+  if [[ "default" != "$alias_name" ]] && alias_conflicts_with_ruby "$alias_name"; then
     # Force it to an empty alias name to trigger the usage.
     alias_name=""
   fi
 
-  if [[ -z "$rvm_environment_identifier" ]] || [[ -z "$alias_name" ]] ; then
-    "$rvm_path/scripts"/log "error" "\nusage: 'rvm alias [alias_name] [ruby_string]'\n"
+  if [[ -z "${rvm_environment_identifier:-""}" || -z "$alias_name" ]] ; then
+
+    "$rvm_path/scripts"/log "error" \
+      "\nusage: 'rvm alias [alias_name] [ruby_string]'\n"
+
     result=1
   else
+
+    if [[ "default" = "$alias_name" ]] ; then
+      rvm_alias=""
+    fi
+
     if [[ -z "$rvm_alias" ]] ; then
+
       rvm_ruby_string="$rvm_environment_identifier"
+
       if [[ -z "$rvm_alias_expanded" ]]; then
+
         rvm_expanding_aliases=1
+
         __rvm_become
+
         unset rvm_expanding_aliases
+
       else
+
         rvm_ruby_string="$rvm_environment_identifier"
+
       fi
+
       if [[ -z "$rvm_ruby_string" ]]; then
-        "$rvm_path/scripts"/log "error" "\nUnknown ruby string '$rvm_ruby_string' specified\n"
+
+        "$rvm_path/scripts"/log "error" \
+          "\nUnknown ruby string '$rvm_ruby_string' specified\n"
+
         result=1
-        return
+
+        return $result
       fi
-      final_environment_identifier="$(__rvm_environment_identifier)"
-      "$rvm_path/scripts"/log "info" "Creating alias $alias_name for $final_environment_identifier."
-      ln -nfs "$rvm_path/rubies/$rvm_ruby_string" "$rvm_path/rubies/$alias_name"
-      "$rvm_path/scripts"/log "info" "Recording alias $alias_name for $final_environment_identifier."
+
+      final_environment_identifier="${rvm_environment_identifier:-$(__rvm_environment_identifier)}"
+
+      "$rvm_path/scripts"/log "info" \
+        "Creating alias $alias_name for $final_environment_identifier."
+
+      ln -nfs "$rvm_path/rubies/$rvm_ruby_string" "nrvm_path/rubies/$alias_name"
+
+      "$rvm_path/scripts"/log "info" \
+        "Recording alias $alias_name for $final_environment_identifier."
+
       "$rvm_path/scripts"/db "$rvm_path/config/alias" "$alias_name" "$final_environment_identifier"
+
     else
+
       if [[ -d "$rvm_path/rubies/$alias_name" ]] ; then
-        "$rvm_path/scripts"/log "error" "\n$rvm_path/rubies/$alias_name is taken and is *not* able to be an alias name.\n"
+
+        "$rvm_path/scripts"/log "error" \
+          "\n$rvm_path/rubies/$alias_name is taken and is *not* able to be an alias name.\n"
+
         result=1
+
       else
-        "$rvm_path/scripts"/log "error" "\n$rvm_path/rubies/$alias_name is already aliased.\n"
+
+        "$rvm_path/scripts"/log "error" \
+          "\n$rvm_path/rubies/$alias_name is already aliased.\n"
+
         result=1
+
       fi
     fi
   fi
@@ -130,7 +169,7 @@ alias_list() {
 
     if [[ -L "$item" ]] ; then
 
-      echo "$(basename "$item") => $("$rvm_path/scripts"/db "$rvm_path/config/alias" "$(basename "$item")")"
+      echo "$(basename "$item") => $("$rvm_path/scripts"/db "$rvm_path/config/alias" "$(basename "$item")" | head -n 1)"
 
     fi
 
@@ -154,21 +193,33 @@ else
   gemset_name=""
 fi
 
-if [[ ! -z "$alias_name" ]] ; then
+if [[ -n "$alias_name" ]] ; then
   rvm_alias="$("$rvm_path/scripts/db" "$rvm_path/config/alias" "$alias_name")"
 fi
 
 if [[ "$action" = "delete" ]] ; then
+
   alias_delete
+
 elif [[ "$action" = "create" ]] ; then
+
   alias_create
+
 elif [[ "$action" = "list" ]] ; then
+
   alias_list
+
 elif [[ "$action" = "show" ]]; then
+
   alias_show
+
+
 elif [[ "$action" = "help" ]]; then
+
   usage
+
 else
+
   usage
   exit 1
 fi

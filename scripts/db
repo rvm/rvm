@@ -1,41 +1,86 @@
 #!/usr/bin/env bash
 
 usage() {
-  printf "\nUsage:\n" >&2
-  printf "\n  $rvm_path/scripts/db database_file {{key}} {{value}} # set" >&2
-  printf "\n  $rvm_path/scripts/db database_file {{key}} # get" >&2
-  printf "\n  $rvm_path/scripts/db database_file {{key}} unset # unset\n\n" >&2
+  printf "
+
+  Usage:
+
+    db database_file {{key}} {{value}} # set
+    db database_file {{key}}           # get
+    db database_file {{key}} unset     # unset
+
+" >&2
 }
 
 if [[ -f "$1" ]] ; then
+
   database_file="$1" ; shift
+
   if [[ ! -f "$database_file" ]] ; then
-    \mkdir -p $(dirname $database_file)
-    \touch $database_file
+
+    directory=$(dirname "$database_file")
+
+    if [[ ! -d "$directory" ]] ; then
+      mkdir -p "$directory"
+    fi
+
+    touch "$database_file"
+
   fi
+
 else
+
   printf "\n\nDatabase file $1 does not exist.\n\n" >&2
+
   exit 1
+
 fi
 
 key="$1" ; shift
+
 if [[ -z "$key" ]] ; then
+
   usage
+
   exit 1
+
 else
+
   value="$*"
-  if [[ "unset" = "$value" ]] || [[ "delete" = "$value" ]] ; then
-    sed -i.tmp -e "s#^$key=.*\$##" -e '/^$/d' $database_file
+
+  if [[ "unset" = "$value" || "delete" = "$value" ]] ; then
+
+    sed -e "s#^$key=.*\$##" -e '/^$/d' "$database_file" > "$database_file.new"
+
+    mv "$database_file.new" "$database_file"
+
   else
+
     if [[ -z "$value" ]] ; then # get
-      awk -F= '/^'"$key"'=/' $database_file | sed -e "s#^$key=##" -e '/^$/d'
+
+      awk -F= '/^'"$key"'=/' "$database_file" | sed -e "s#^$key=##" -e '/^$/d'
+
     else # set
-      if [[ -z "$(awk -F= "/^'"$key"'=/{print $2}" $database_file)" ]] ; then # append
-        echo "$key=$value" >> $database_file
+
+      sed -e "s#^$key=.*\$##" -e '/^$/d' "$database_file" > "$database_file.new"
+
+      mv "$database_file.new" "$database_file"
+
+      if [[ -z "$(awk -F= "/^'"$key"'=/{print $2}" "$database_file")" ]] ; then # append
+
+        echo "$key=$value" >> "$database_file"
+
       else # overwrite
-        sed -i.tmp "s#^$key=.*\$#$key=$value#" $database_file
+
+        sed -i.tmp "s#^$key=.*\$#$key=$value#" "$database_file" > "$database_file.new"
+
+        mv "$database_file.new" "$database_file"
+
       fi
+
     fi
+
   fi
+
 fi
 
