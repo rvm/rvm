@@ -3,12 +3,12 @@ module RVM
 
     # Returns the contents of the env file.
     def env_contents
-      rvm(:env).stdout
+      rvm(:env, environment_name).stdout
     end
 
     # Returns the path to the env file
     def env_path
-      rvm(:env, :path => true).stdout.strip
+      rvm(:env, environment_name, :path => true).stdout.strip
     end
 
     # Returns a ruby-like wrapper for the env functions
