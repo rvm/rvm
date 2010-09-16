@@ -5,12 +5,6 @@ if [[ "$rvm_trace_flag" -eq 2 ]] ; then set -x ; export rvm_trace_flag ; fi
 rvm_base_except="selector"
 source "$rvm_path/scripts/base"
 
-# Tools to make managing ruby dependencies inside of rvm easier.
-args=($*)
-action="${args[0]:-""}"
-library="${args[1]:-""}"
-args="$(echo ${args[@]:2})"
-
 install_package() {
 
   __rvm_db "${package}_url" "package_url"
@@ -18,56 +12,81 @@ install_package() {
   if [[ ! -z "$rvm_make_flags_flag" ]] ; then __rvm_make_flags ; fi
 
   (
-    builtin cd "${rvm_src_path:-"$rvm_path/src"}"
+    builtin cd "$src_path"
 
-    "$rvm_path/scripts/log" "info" "Fetching $package-$version.$archive_format to ${rvm_archives_path:-"$rvm_path/archives"}"
+    "$rvm_path/scripts/log" "info" \
+      "Fetching $package-$version.$archive_format to $archives_path"
 
-    if [[ "$archive_format" = "tar.gz" ]] || [[ "$archive_format" = "tgz" ]] ; then
-      "$rvm_path/scripts/fetch" \
-        "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+    case "$archive_format" in
 
-      __rvm_run "$package/extract" \
-        "tar zxf ${rvm_archives_path:-"$rvm_path/archives"}/$package-$version.$archive_format -C ${rvm_src_path:-"$rvm_path/src"}" "Extracting $package-$version.$archive_format to ${rvm_src_path:-"$rvm_path/src"}"
+      tar.gz|tgz)
 
-    elif [[ "$archive_format" = "tar.bz2" ]] ; then
-      "$rvm_path/scripts/fetch" \
-        "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+        "$rvm_path/scripts/fetch" \
+          "$package_url/$package-$version.$archive_format" \
+          || (result=$? && return $result)
 
-      __rvm_run "$package/extract" \
-        "tar jxf ${rvm_archives_path:-"$rvm_path/archives"}/$package-$version.$archive_format -C ${rvm_src_path:-"$rvm_path/src"}" "Extracting $package-$version.$archive_format to ${rvm_src_path:-"$rvm_path/src"}"
+        __rvm_run "$package/extract" \
+          "tar zxf $archives_path/$package-$version.$archive_format -C $src_path" \
+          "Extracting $package-$version.$archive_format to $src_path"
+        ;;
 
-    elif [[ "$archive_format" = "zip" ]] ; then
-      "$rvm_path/scripts/fetch" \
-        "$package_url/$package-$version.$archive_format" || (result=$? && return $result)
+      tar.bz2)
 
-      __rvm_run "$package/extract" \
-        "unzip -q -o ${rvm_archives_path:-"$rvm_path/archives"}/$package-$version.$archive_format -d ${rvm_src_path:-"$rvm_path/src"}/$package-$version" "Extracting $package-$version.$archive_format to ${rvm_src_path:-"$rvm_path/src"}"
+        "$rvm_path/scripts/fetch" \
+          "$package_url/$package-$version.$archive_format" \
+          || (result=$? && return $result)
 
-    else
-      printf "\nUnrecognized archive format '$archive_format'" ; return 1
-    fi
+        __rvm_run "$package/extract" \
+          "tar jxf $archives_path/$package-$version.$archive_format -C $src_path" \
+          "Extracting $package-$version.$archive_format to $src_path"
 
-    builtin cd "${rvm_src_path:-"$rvm_path/src"}/$package-$version"
+        ;;
+
+      zip)
+
+        "$rvm_path/scripts/fetch" \
+          "$package_url/$package-$version.$archive_format" \
+          || (result=$? && return $result)
+
+        __rvm_run "$package/extract" \
+          "unzip -q -o $archives_path/$package-$version.$archive_format -d $src_path/$package-$version" \
+          "Extracting $package-$version.$archive_format to $src_path"
+        ;;
+
+      *)
+        printf "\nUnrecognized archive format '$archive_format'" ; return 1
+
+    esac
+
+    builtin cd "$src_path/$package-$version"
 
     __rvm_run "$package/configure" \
-      "${configure:-"./configure --prefix=${prefix_path:-"${rvm_usr_path:-"$rvm_path/usr"}"}"} $configure_flags" "Configuring $package in ${rvm_src_path:-"$rvm_path/src"}/$package-$version."
+      "${configure:-"./configure --prefix=${prefix_path:-"$usr_path"}"} $configure_flags" \
+      "Configuring $package in $src_path/$package-$version."
 
     unset configure_flags
 
     if [[ "$action" = "uninstall" ]] ; then
+
       __rvm_run "$package/make.uninstall" \
-        "/usr/bin/make uninstall" "Uninstalling $package from ${rvm_usr_path:-"$rvm_path/usr"}"
+        "/usr/bin/make uninstall" \
+        "Uninstalling $package from $usr_path"
 
     else
+
       __rvm_run "$package/make" \
-        "/usr/bin/make $rvm_make_flags" "Compiling $package in ${rvm_src_path:-"$rvm_path/src"}/$package-$version."
+        "/usr/bin/make $rvm_make_flags" \
+        "Compiling $package in $src_path/$package-$version."
 
       __rvm_run "$package/make.install" \
-        "/usr/bin/make install" "Installing $package to ${rvm_usr_path:-"$rvm_path/usr"}"
+        "/usr/bin/make install" \
+        "Installing $package to $usr_path"
+
     fi
 
     touch "$rvm_path/config/packages"
-    "$rvm_path/scripts/db" "$rvm_path/config/packages" "${package}" "${version}"
+    "$rvm_path/scripts/db" \
+      "$rvm_path/config/packages" "${package}" "${version}"
   )
   result=$?
 
@@ -136,7 +155,7 @@ openssl() {
   else
     configure_command="./config"
   fi
-  configure="$configure_command $openssl_os -I${rvm_usr_path:-"$rvm_path/usr"}/include -L${rvm_usr_path:-"$rvm_path/usr"}/lib --prefix=${rvm_usr_path:-"$rvm_path/usr"} zlib no-asm no-krb5 shared"
+  configure="$configure_command $openssl_os -I$usr_path/include -L$usr_path/lib --prefix=$usr_path zlib no-asm no-krb5 shared"
   install_package
 }
 
@@ -147,7 +166,7 @@ zlib() {
 
 autoconf() {
   package="autoconf" ; version="2.65" ; archive_format="tar.gz"
-  prefix_path="${rvm_usr_path:-"$rvm_path/usr"}"
+  prefix_path="$usr_path"
   install_package
 }
 
@@ -170,7 +189,7 @@ gettext() {
 libxml2() {
   package="libxml2" ; version="2.7.3" ; archive_format="tar.gz"
   if [[ "Darwin" = "$(uname)" ]] ; then
-    configure="./configure --prefix=${rvm_usr_path:-"$rvm_path/usr"} --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)"
+    configure="./configure --prefix=$usr_path --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)"
   fi
   install_package
   unset prefix_path
@@ -180,7 +199,7 @@ glib() {
   pkgconfig
   gettext
   package="glib" ; version="2.23.1" ; archive_format="tar.gz"
-  configure="CC=\"cc -L${rvm_usr_path:-"$rvm_path/usr"}/lib -I${rvm_usr_path:-"$rvm_path/usr"}/include\" PKG_CONFIG=\"${rvm_usr_path:-"$rvm_path/usr"}/bin/pkg-config\" ./configure --prefix=${rvm_usr_path:-"$rvm_path/usr"}"
+  configure="CC=\"cc -L$usr_path/lib -I$usr_path/include\" PKG_CONFIG=\"$usr_path/bin/pkg-config\" ./configure --prefix=$usr_path"
 
   install_package
 }
@@ -197,18 +216,28 @@ llvm() {
   package="llvm" ; version="89156"
   if [[ ! -z "$rvm_make_flags_flag" ]] ; then __rvm_make_flags ; fi
   (
-    builtin cd ${rvm_src_path:-"$rvm_path/src"}
-    if [[ ! -d "${rvm_src_path:-"$rvm_path/src"}/llvm/.svn" ]] ; then
+    builtin cd $src_path
+    if [[ ! -d "$src_path/llvm/.svn" ]] ; then
       __rvm_db "${package}_url" "package_url"
-      \rm -rf "${rvm_src_path:-"$rvm_path/src"}/llvm"
+      \rm -rf "$src_path/llvm"
       svn co -r "$version" "$package_url" llvm
-      builtin cd "${rvm_src_path:-"$rvm_path/src"}/llvm"
+      builtin cd "$src_path/llvm"
       ./configure --enable-bindings=none
       UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make -j2
       sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make install
     fi
   )
 }
+
+# Tools to make managing ruby dependencies inside of rvm easier.
+args=($*)
+action="${args[0]:-""}"
+library="${args[1]:-""}"
+args="$(echo ${args[@]:2})"
+
+archives_path="${rvm_archives_path:-"$rvm_path/archives"}"
+src_path="${rvm_src_path:-"$rvm_path/src"}"
+usr_path="${rvm_usr_path:-"$rvm_path/usr"}"
 
 if [[ -n "$library" ]] ; then
 
