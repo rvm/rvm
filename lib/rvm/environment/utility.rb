@@ -19,7 +19,7 @@ module RVM
 
     # Returns the ruby string that represents the current environment.
     def self.current_ruby_string
-      identifier_to_ruby_string current_environment_id
+      identifier_to_ruby_string(current_environment_id)
     end
 
     # Converts a ruby identifier (string + gemset) to just the ruby string.
@@ -55,10 +55,11 @@ module RVM
       rearrange_options!(args, options)
       args += hash_to_options(options)
       args.map! { |a| a.to_s }
+
       if silent
-        run_silently 'rvm', *args
+        run_silently('rvm', *args)
       else
-        run 'rvm', *args
+        run('rvm', *args)
       end
     end
 
@@ -89,7 +90,7 @@ module RVM
       if result && result[:rvm_ruby_string]
         result[:rvm_ruby_string]
       else
-        self.class.identifier_to_ruby_string expanded_name
+        self.class.identifier_to_ruby_string(expanded_name)
       end
     end
 
@@ -116,7 +117,7 @@ module RVM
 
     # Normalizes an array, removing blank lines.
     def normalize_array(value)
-      value.split("\n").map { |l| l.strip }.reject { |l| l.empty? }
+      value.split("\n").map { |line| line.strip }.reject { |line| line.empty? }
     end
 
     # Extract options from a hash.
@@ -146,7 +147,7 @@ module RVM
     def normalize_option_value(value)
       case value
       when Array
-        value.map { |v| normalize_option_value(v) }.join(",")
+        value.map { |option| normalize_option_value(option) }.join(",")
       else
         value.to_s
       end
