@@ -276,19 +276,25 @@ __rvm_use() {
     fi
 
     # Check binaries, remove under the condition they're symlinks.
-    if [[ "$rvm_selfcontained" = "0" ]] ; then
+    if [[ ${rvm_selfcontained:-1} -eq 0 ]] ; then
 
       for binary in ruby gem irb ri rdoc rake erb testrb ; do
 
         full_binary_path="${rvm_bin_path:-"$rvm_path/bin"}/$binary"
 
         [[ -L "$full_binary_path" ]] && \rm -f "$full_binary_path"
+
       done
+
     fi
 
     if [[ ${rvm_verbose_flag:-0} -gt 0 ]] ; then
       "$rvm_path/scripts/log" "info" "Now using system ruby."
     fi
+
+    __rvm_remove_rvm_from_path
+
+    new_path="$PATH:${rvm_bin_path:-"$rvm_path/bin"}"
 
     export rvm_ruby_string="system"
 
@@ -338,56 +344,59 @@ __rvm_use() {
     builtin hash -r
   fi
 
-  if [[ ${rvm_rvmrc_flag:-0} -eq 1 ]]   ; then __rvm_set_rvmrc ; fi
+  if [[ "$rvm_ruby_string" != "system" ]] ; then
 
-  local environment_id="$(__rvm_environment_identifier)"
+    if [[ ${rvm_rvmrc_flag:-0} -eq 1 ]]   ; then __rvm_set_rvmrc ; fi
 
-  if [[ ${rvm_default_flag:-0} -eq 1 && "default" != "${rvm_ruby_interpreter:-""}" ]] ; then
+    local environment_id="$(__rvm_environment_identifier)"
 
-    if [[ ${rvm_selfcontained:-""} -eq 0 ]] ; then
-      # Sets up the default wrappers.
-      "$rvm_path/scripts/wrapper" "$rvm_ruby_string" --no-prefix
-    else
-      "$rvm_path/scripts/wrapper" "$rvm_ruby_string" "default"
+    if [[ ${rvm_default_flag:-0} -eq 1 && "default" != "${rvm_ruby_interpreter:-""}" ]] ; then
+
+      if [[ ${rvm_selfcontained:-""} -eq 0 ]] ; then
+        # Sets up the default wrappers.
+        "$rvm_path/scripts/wrapper" "$rvm_ruby_string" --no-prefix
+      else
+        "$rvm_path/scripts/wrapper" "$rvm_ruby_string" "default"
+      fi
+
+      if [[ "system" = "$rvm_ruby_interpreter" ]] ; then
+        "$rvm_path/scripts/alias" delete default &> /dev/null
+        \find "${rvm_bin_path:-"$rvm_path/bin"}" -name 'default_*' -maxdepth 0 -delete
+        \rm -f "$rvm_path/config/default"
+        \rm -f "$rvm_path/environments/default"
+        \rm -rf "$rvm_path/wrappers/default"
+
+      else
+        RUBY_VERSION="$("$rvm_ruby_home/bin/ruby" -v | sed 's#^\(.*\) (.*$#\1#')"
+        export GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME RUBY_VERSION
+        "$rvm_path/scripts/alias" delete default &> /dev/null
+        "$rvm_path/scripts/alias" create default "$environment_id" >& /dev/null
+        \ln -nfs "$rvm_path/environments/$environment_id" "$rvm_path/environments/default"
+        \ln -nfs "$rvm_path/wrappers/$environment_id" "$rvm_path/wrappers/default"
+      fi
     fi
 
-    if [[ "system" = "$rvm_ruby_interpreter" ]] ; then
-      "$rvm_path/scripts/alias" delete default &> /dev/null
-      \find "${rvm_bin_path:-"$rvm_path/bin"}" -name 'default_*' -maxdepth 0 -delete
-      \rm -f "$rvm_path/config/default"
-      \rm -f "$rvm_path/environments/default"
-      \rm -rf "$rvm_path/wrappers/default"
+    rvm_default_flag=0
 
-    else
-      RUBY_VERSION="$("$rvm_ruby_home/bin/ruby" -v | sed 's#^\(.*\) (.*$#\1#')"
-      export GEM_HOME GEM_PATH BUNDLE_PATH MY_RUBY_HOME RUBY_VERSION
-      "$rvm_path/scripts/alias" delete default &> /dev/null
-      "$rvm_path/scripts/alias" create default "$environment_id" >& /dev/null
-      \ln -nfs "$rvm_path/environments/$environment_id" "$rvm_path/environments/default"
-      \ln -nfs "$rvm_path/wrappers/$environment_id" "$rvm_path/wrappers/default"
+    if [[ -n "${rvm_wrapper_name:-""}" ]] ; then
+      "$rvm_path/scripts/wrapper" "$environment_id" "$rvm_wrapper_name" > /dev/null 2>&1
+      rvm_wrapper_name=""
     fi
-  fi
 
-  rvm_default_flag=0
+    if [[ -n "${rvm_ruby_alias:-""}" ]]; then
+      "$rvm_path/scripts/log" "info" "Attempting to alias $environment_id to $rvm_ruby_alias"
+      "$rvm_path/scripts/alias" delete "$rvm_ruby_alias" > /dev/null 2>&1
+      rvm_alias_expanded=1 "$rvm_path/scripts/alias" create "$rvm_ruby_alias" "$environment_id" > /dev/null 2>&1
+      ruby_alias="" ; rvm_ruby_alias=""
+    fi
 
-  if [[ -n "${rvm_wrapper_name:-""}" ]] ; then
-    "$rvm_path/scripts/wrapper" "$environment_id" "$rvm_wrapper_name" > /dev/null 2>&1
-    rvm_wrapper_name=""
-  fi
-
-  if [[ -n "${rvm_ruby_alias:-""}" ]]; then
-    "$rvm_path/scripts/log" "info" "Attempting to alias $environment_id to $rvm_ruby_alias"
-    "$rvm_path/scripts/alias" delete "$rvm_ruby_alias" > /dev/null 2>&1
-    rvm_alias_expanded=1 "$rvm_path/scripts/alias" create "$rvm_ruby_alias" "$environment_id" > /dev/null 2>&1
-    ruby_alias="" ; rvm_ruby_alias=""
-  fi
-
-  if [[ "maglev" = "${rvm_ruby_interpreter:-""}" ]] ; then
-    export MAGLEV_HOME="$rvm_ruby_home"
-    export GEMSTONE_GLOBAL_DIR=$MAGLEV_HOME
-    if [[ -x "$MAGLEV_HOME/gemstone/bin/gslist" ]] ; then
-      "$MAGLEV_HOME/gemstone/bin/gslist" -clv > /dev/null 2>&1 ; result=$?
-      if [[ $result -eq 1 ]] ; then "$rvm_ruby_home/bin/maglev" start ; fi
+    if [[ "maglev" = "${rvm_ruby_interpreter:-""}" ]] ; then
+      export MAGLEV_HOME="$rvm_ruby_home"
+      export GEMSTONE_GLOBAL_DIR=$MAGLEV_HOME
+      if [[ -x "$MAGLEV_HOME/gemstone/bin/gslist" ]] ; then
+        "$MAGLEV_HOME/gemstone/bin/gslist" -clv > /dev/null 2>&1 ; result=$?
+        if [[ $result -eq 1 ]] ; then "$rvm_ruby_home/bin/maglev" start ; fi
+      fi
     fi
   fi
 
@@ -422,19 +431,26 @@ __rvm_ruby_string() {
   fi
 
   # Alias'd rubies
-  if [[ ${rvm_expanding_aliases:-0} -eq 0 && -n ${rvm_ruby_string:-""} ]]; then
+  if [[ ${rvm_expanding_aliases:-0} -eq 0 && -n ${rvm_ruby_string:-""} && $rvm_ruby_string != "system" ]]; then
+
     if expanded_alias_name="$("$rvm_path/scripts/alias" show "$rvm_ruby_string" 2>/dev/null)" && [[ -n "$expanded_alias_name" ]] ; then
+
       rvm_ruby_string="$expanded_alias_name"
 
     elif [[ "$rvm_ruby_string" = default ]]; then
+
       # Default is not a known value. Instead, we need to therefore set it to system.
       rvm_ruby_string="system"
+
     fi
+
   fi
 
   ruby_string=${rvm_ruby_string/${rvm_gemset_separator:-"@"}*/}
 
   __rvm_unset_ruby_variables
+
+  rvm_ruby_string=${rvm_ruby_string:-""}
 
   strings=($(echo ${ruby_string//-/ }))
 
