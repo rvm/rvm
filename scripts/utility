@@ -44,8 +44,7 @@ __rvm_teardown() {
 
   fi
 
-  unset rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_bin_path rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_interactive_flag rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_tag rvm_ruby_version rvm_selfcontained rvm_token
-
+  unset rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_bin_path rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_interactive_flag rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_string rvm_ruby_tag rvm_ruby_version rvm_selfcontained rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_project_rvmrc_default rvm_action
 
   [[ ${rvm_dump_environment_flag:-0} -eq 1 ]] && __rvm_dump_environment
 
@@ -1290,41 +1289,63 @@ __rvm_environment_identifier() {
   string="${path//*gems\//}"
   string="${string//\/*/}"
 
-  echo "${string:-system}"
+  printf "${string:-system}"
 
   return $?
 }
 
 __rvm_expand_ruby_string() {
 
-  local string="$1"
+  local string current_ruby
 
-  if [[ -z "$string" || "$string" = "all" ]]; then
+  string="$1"
+
+  if [[ -z "$string" ]] ; then
+
     "$rvm_path/scripts/list" strings | tr ' ' "\n"
 
-  elif [[ "$string" = "all-gemsets" ]]; then
-    "$rvm_path/scripts/list" gemsets strings
+    return $?
 
-  elif [[ "$string" = "default-with-rvmrc" || "$string" = "rvmrc" ]]; then
-    "$rvm_path/scripts/tools" path-identifier "$PWD"
-
-  elif [[ "$string" == "all-rubies" || "$string" = "rubies" ]]; then
-    "$rvm_path/scripts/list" rubies strings
-
-  elif [[ "$string" == "current-ruby" || "$string" = "gemsets" ]]; then
-    local current_ruby="$(__rvm_environment_identifier | awk -F"${rvm_gemset_separator:-"@"}" '{print $string}')"
-    rvm_silence_logging=1 "$rvm_path/scripts/gemsets" list | sed "s/^/$current_ruby${rvm_gemset_separator:-"@"}/"
-
-  elif [[ "$string" = "current" ]]; then
-    __rvm_environment_identifier
-
-  elif [[ "$string" = "aliases" ]]; then
-    awk -F= '{print $string}' < "$rvm_path/config/alias"
-
-  else
-
-    echo "$string" | tr "," "\n" | __rvm_strip
   fi
+
+  case "$string" in
+
+    all)
+      "$rvm_path/scripts/list" strings | tr ' ' "\n"
+      ;;
+
+    all-gemsets)
+      "$rvm_path/scripts/list" gemsets strings
+      ;;
+
+    default-with-rvmrc|rvmrc)
+      "$rvm_path/scripts/tools" path-identifier "$PWD"
+      ;;
+
+    all-rubies|rubies)
+      "$rvm_path/scripts/list" rubies strings
+      ;;
+
+    current-ruby|gemsets)
+      current_ruby="$(__rvm_environment_identifier | awk -F"${rvm_gemset_separator:-"@"}" '{print $string}')"
+
+      rvm_silence_logging=1 "$rvm_path/scripts/gemsets" list | sed "s/^/$current_ruby${rvm_gemset_separator:-"@"}/"
+      ;;
+
+    current)
+      __rvm_environment_identifier
+      ;;
+
+    aliases)
+      awk -F= '{print $string}' < "$rvm_path/config/alias"
+      ;;
+
+    *)
+      echo "$string" | tr "," "\n" | __rvm_strip
+      ;;
+
+  esac
+
   return $?
 }
 
