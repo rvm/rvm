@@ -3,6 +3,11 @@ module RVM
 
     PREFIX_OPTIONS = [:trace, :json, :yaml]
 
+    def self.default_rvm_path
+      value = `bash '#{File.expand_path('../shell/calculate_rvm_path.sh', File.dirname(__FILE__))}'`.strip
+      $?.success? && !value.empty? ? File.expand_path(value) : nil
+    end
+
     # Returns the environment identifier for the current environment,
     # as determined from the GEM_HOME.
     def self.current_environment_id

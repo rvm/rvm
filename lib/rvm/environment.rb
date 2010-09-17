@@ -45,7 +45,7 @@ module RVM
 
     # Automatically load rvm config from the multiple sources.
     def source_rvm_environment
-      rvm_path = config_value_for(:rvm_path, File.expand_path("~/.rvm"), false)
+      rvm_path = config_value_for(:rvm_path, self.class.default_rvm_path, false)
       actual_config = defined_config.merge('rvm_path' => rvm_path)
       config = []
       actual_config.each_pair do |k, v|
