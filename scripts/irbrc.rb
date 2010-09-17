@@ -28,7 +28,7 @@ begin
     maxhistsize = 100
     histfile = File::expand_path(".irb-history", ENV["HOME"])
     lines = Readline::HISTORY.to_a.reverse.uniq.reverse
-    lines = lines[-maxhistsize, maxhistsize] if lines.nitems > maxhistsize
+    lines = lines[-maxhistsize, maxhistsize] if lines.compact.length > maxhistsize
     File::open(histfile, File::WRONLY|File::CREAT|File::TRUNC) { |io| io.puts lines.join("\n") }
   end
 
