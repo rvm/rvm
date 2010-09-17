@@ -20,7 +20,6 @@ require "irb/completion" rescue nil
 #
 # This technique was adopted from /etc/irbrc on OS X.
 histfile = File::expand_path(".irb-history", ENV["HOME"])
-maxhistsize = 100
 
 if File::exists?(histfile)
   lines = IO::readlines(histfile).collect { |line| line.chomp }
@@ -28,6 +27,7 @@ if File::exists?(histfile)
 end
 
 Kernel::at_exit do
+  maxhistsize = 100
   lines = Readline::HISTORY.to_a.reverse.uniq.reverse
   lines = lines[-maxhistsize, maxhistsize] if lines.nitems > maxhistsize
   File::open(histfile, File::WRONLY|File::CREAT|File::TRUNC) { |io| io.puts lines.join("\n") }
