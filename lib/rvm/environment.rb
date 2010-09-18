@@ -12,7 +12,8 @@ module RVM
 
     # The default config has rvm_silence_logging so that log doesn't print anything to stdout.
     merge_config! :rvm_silence_logging => 1,
-                  :rvm_promptless      => 1
+                  :rvm_promptless      => 1,
+                  :rvm_ruby_api        => 1
 
     attr_reader :environment_name, :shell_wrapper
 

@@ -17,10 +17,10 @@ begin
   #   patch: http://pastie.org/513500
   #
   # This technique was adopted from /etc/irbrc on OS X.
-  histfile = File::expand_path(".irb-history", ENV["HOME"])
+  histfile = File.expand_path(".irb-history", ENV["HOME"])
 
-  if File::exists?(histfile)
-    lines = IO::readlines(histfile).collect { |line| line.chomp }
+  if File.exists?(histfile)
+    lines = IO.readlines(histfile).collect { |line| line.chomp }
     Readline::HISTORY.push(*lines)
   end
 
@@ -29,7 +29,7 @@ begin
     histfile = File::expand_path(".irb-history", ENV["HOME"])
     lines = Readline::HISTORY.to_a.reverse.uniq.reverse
     lines = lines[-maxhistsize, maxhistsize] if lines.compact.length > maxhistsize
-    File::open(histfile, File::WRONLY|File::CREAT|File::TRUNC) { |io| io.puts lines.join("\n") }
+    File::open(histfile, "w+") { |io| io.puts lines.join("\n") }
   end
 
 rescue
@@ -37,7 +37,7 @@ rescue
 end
 
 # Calculate the ruby string.
-rvm_ruby_string = ENV["rvm_ruby_string"] || "#{RUBY_ENGINE rescue 'ruby'}-#{RUBY_VERSION}-#{(RUBY_PATCHLEVEL) ? "p#{RUBY_PATCHLEVEL}" : "r#{RUBY_REVISION}"}"
+rvm_ruby_string = ENV["rvm_ruby_string"] || `rvm tools identifier`.strip.split("@", 2)[0]
 
 # Set up the prompt to be RVM specific.
 @prompt = {
