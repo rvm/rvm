@@ -33,6 +33,49 @@ __rvm_system_wide_permissions() {
   return 0
 }
 
+__rvm_create_user_group() {
+  [[ -z "$1" ]] && return 1
+
+  if \grep -q "$1" /etc/group ; then
+    echo "Group '$1' exists, proceeding with installation."
+  else
+    echo "Creating the group '$1'"
+
+    case "$os_type" in
+      "FreeBSD")
+        echo "FreeBSD pw groupadd"
+        pw groupadd -q "$rvm_group_name"
+      ;;
+      "Linux")
+        groupadd -f "$rvm_group_name"
+      ;;
+    esac
+  fi
+
+  return 0
+}
+
+__rvm_add_user_to_group() {
+  [[ -z "$1" || -z "$2" ]] && return 1
+
+  echo "Adding '$1' to the group '$2'"
+  
+  case "$os_type" in
+    "FreeBSD")
+      pw usermod "$1" -G "$2"
+    ;;
+    "Linux")
+      usermod -a -G "$2" "$1"
+    ;;
+  esac
+
+  return 0
+}
+
+os_type="$(uname)"
+
+echo "$os_type"
+
 # Require root to install it.
 if [[ "$(whoami)" != "root" ]]; then
   echo "Please rerun this installer as root." >&2
@@ -43,8 +86,8 @@ elif [[ -z "$(command -v git)" ]] ; then
   echo "Please ensure git is installed and available in PATH to continue." >&2
   exit 1
 
-elif [[ "$(uname)" != "Linux" ]]; then
-  echo "The rvm system wide installer is currently Linux only." >&2
+elif [[ "$os_type" != "Linux" && "$os_type" != "FreeBSD" ]]; then
+  echo "The rvm system wide installer currently only supports Linux and FreeBSD." >&2
   exit 1
 fi
 
@@ -90,14 +133,9 @@ rvm_path="${rvm_path:-"/usr/local/rvm"}"
 export rvm_selfcontained=0
 
 rvm_group_name="${rvm_group_name:-"rvm"}"
-if \grep -q "${rvm_group_name}$" /etc/group ; then
-  echo "Group '$rvm_group_name' exists, proceeding with installation."
-else
-  echo "Creating the group '$rvm_group_name'"
-  groupadd -f "$rvm_group_name"
-fi
-echo "Adding $(whoami) the '$rvm_group_name'"
-usermod -a -G "$rvm_group_name" "$(whoami)"
+
+__rvm_create_user_group "$rvm_group_name"
+__rvm_add_user_to_group "$(whoami)" "$rvm_group_name"
 
 echo "Creating the destination dir and making sure the permissions are correct"
 mkdir -p "$rvm_path"
