@@ -34,7 +34,7 @@ usage() {
 }
 
 check_rubyopt_conditions() {
-  if [[ -n "$RUBYOPT" ]]; then
+  if [[ -n "${RUBYOPT:-""}" ]]; then
     printf "\n\nWARNING: You have RUBYOPT set in your current environment. This may interfere with normal rvm"
     printf "\n operation. If errors show up, please try unsetting RUBYOPT first.\n"
   fi
@@ -158,7 +158,13 @@ Upgrade Notes
 "
 }
 
-if echo "$*" | grep -q 'trace' ; then echo "$*" ; env | grep '^rvm_' ; set -x ; fi
+set -o noclobber
+set -o nounset
+set -o errtrace
+
+if [[ -z "${ZSH_VERSION:-""}" ]] ; then
+  export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
+fi
 
 while [[ $# -gt 0 ]] ; do
   token="$1" ; shift
@@ -166,11 +172,16 @@ while [[ $# -gt 0 ]] ; do
     --auto)    rvm_auto_flag=1 ;;
     --prefix)  rvm_prefix="$1" ; shift ;;
     --version) rvm_path="$PWD" ; __rvm_version ; unset rvm_path ; exit ;;
+    --trace)
+      echo "$*"
+      env | grep '^rvm_'
+      set -o xtrace
+      ;;
     --help|*)  usage ;;
   esac
 done
 
-if [[ -z "$rvm_prefix" ]] ; then
+if [[ -z "${rvm_prefix:-""}" ]] ; then
   __rvm_load_rvmrc
   if [[ "$rvm_selfcontained" = "0" ]] ; then
     rvm_prefix="${rvm_prefix:-"/usr/local/"}"
@@ -179,7 +190,9 @@ if [[ -z "$rvm_prefix" ]] ; then
   fi
 fi
 
-if [[ -z "$rvm_path" ]] ; then rvm_path="${rvm_prefix}rvm" ; fi
+if [[ -z "${rvm_path:-""}" ]] ; then
+  rvm_path="${rvm_prefix}rvm"
+fi
 
 source scripts/initialize
 
@@ -303,11 +316,11 @@ chmod +x "${rvm_bin_path:-"$rvm_path/bin"}"/* # TODO: this is quite suboptimal.
 #
 # RC Files
 #
-if [[ -n "$rvm_auto_flag" ]] ; then
+if [[ ${rvm_auto_flag:-0} -eq 1 ]] ; then
 
   printf "Checking rc files... ($rvm_rc_files)"
 
-  if [[ "$rvm_loaded_flag" != "1" ]] ; then
+  if [[ ${rvm_loaded_flag:-0} -ne 1 ]] ; then
 
     for rcfile in $(printf $rvm_rc_files) ; do
 
@@ -492,22 +505,16 @@ fi
 #
 # End of gemset migration.
 #
+declare -a files
+
 printf "\n    Correct permissions for base binaries in $rvm_bin_path..."
 
 mkdir -p "${rvm_bin_path:-"$rvm_path/bin"}"
 
-for file in rvm rvmsudo rvm-shell rvm-auto-ruby ; do
-
-  [[ -s "${rvm_bin_path:-"$rvm_path/bin"}/$file" ]] && chmod +x "${rvm_bin_path:-"$rvm_path/bin"}/$file"
-
-done
-
-# Cleanup any .swp files that might have appeared.
-files=($( find "$rvm_path/" -mindepth 1 -maxdepth 2 -iname '*.swp' -type f ))
-
+files=(rvm rvmsudo rvm-shell rvm-auto-ruby)
 for file in "${files[@]}" ; do
 
-  [[ -f "$file" ]] && rm -f "$file"
+  [[ -s "${rvm_bin_path:-"$rvm_path/bin"}/$file" ]] && chmod +x "${rvm_bin_path:-"$rvm_path/bin"}/$file"
 
 done
 
@@ -523,7 +530,25 @@ for file in "${files[@]//.\/}" ; do
 
 done
 
-[[ "$upgrade_flag" = 0 ]] && ./scripts/notes
+files=($( find "$rvm_path/" -mindepth 1 -maxdepth 2 -iname '*.swp' -type f ))
+
+if [[ ${#files[@]} -gt 0 ]] ; then
+
+  printf "\n    Cleanup any .swp files."
+
+  for file in "${files[@]}" ; do
+
+    if [[ -f "$file" ]] ; then
+      rm -f "$file"
+    fi
+
+  done
+fi
+
+if [[ $upgrade_flag -eq 0 ]] ; then
+  chmod +x ./script/notes # Sometimes things don't clone properly :/
+  ./scripts/notes
+fi
 
 name="$(awk -F= '/^[[:space:]]*name/{print $2}' ~/.gitconfig 2>/dev/null)"
 
@@ -532,7 +557,7 @@ if [[ ${upgrade_flag:-0} -eq 1 ]] ; then
   upgrade_notes
 
   check_rubyopt_conditions
-  
+
   regenerate_wrappers
 
   printf "\nUpgrade of RVM in $rvm_path/ is complete.\n\n"
