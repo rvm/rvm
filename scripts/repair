@@ -3,12 +3,37 @@
 source "$rvm_path/scripts/base"
 
 usage() {
-  echo "Usage: rvm repair {wrappers,symlinks,environments,archives,all}" >&2
-  return 1
+  printf "
+  Usage:
+
+    rvm repair [option]
+
+  Options:
+    wrappers     - Repair wrappers
+    symlinks     - Repair symlinks
+    environments - Repair environments
+    archives     - Repair archives
+    all          - Repair all of the above
+
+"
 }
 
 repair_wrappers() {
-  __rvm_regenerate_wrappers
+
+  local wrapper_ruby_name
+
+  "$rvm_path/scripts/log" "info" \
+    "Regenerating all wrappers..."
+
+  while read -r wrapper_ruby_name ; do
+
+    "$rvm_path/scripts/log" "info" "$wrapper_ruby_name"
+
+    __rvm_run "wrappers.regenerate" \
+      "\"$rvm_path/scripts/wrapper\" '$wrapper_ruby_name'"
+
+  done < <("$rvm_path/scripts/list" gemsets strings)
+
 }
 
 # Removes stale symlinks in $rvm_bin_path, likely
@@ -24,7 +49,7 @@ repair_symlinks() {
       if [[ -f "$executable_name" ]]  ; then
 
         "$rvm_path/scripts/log" "info" \
-          "Removing stale symlink from $(basename "$executable_name")"
+          "removing stale symlink from $(basename "$executable_name")"
 
         \rm -f "$executable_name"
 
@@ -103,8 +128,9 @@ repair_all() {
 }
 
 args=($*)
-action="${args[0]}"
-args="$(echo ${args[@]:1}) " # Strip trailing / leading / extra spacing.
+action="${args[$__array_start]}"
+args[$__array_start]=""
+args=(${args[@]})
 
 if [[ -z "$action" ]]; then
   usage
@@ -117,7 +143,8 @@ case "$action" in
   environments) repair_environments ;;
   archives)     repair_archives     ;;
   wrappers)     repair_wrappers     ;;
-  *)            usage               ;;
+  help)         usage               ;;
+  *)            usage >&2 ; exit 1  ;;
 esac
 
 exit $?
