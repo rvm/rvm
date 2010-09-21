@@ -18,7 +18,14 @@ usage() {
 
     ruby, gem, rake, irb, rdoc, ri, testrb
 
-  For more information, see 'rvm help wrapper'
+  Notes
+
+    For more information, see 'rvm help wrapper'
+
+  Example
+
+    # Wrap the spec binary as 'rails3_spec' for 1.9.2@rails3
+    rvm wrapper 1.9.2@rails3 rails3 spec
 
 "
 }
@@ -65,6 +72,7 @@ fi
 }
 
 symlink_binary() {
+
   # Generate the default wrapper with the given binary name.
   # We first check if we can wrap the binary and if we were able to,
   # we then symlink it into place.
@@ -75,9 +83,11 @@ symlink_binary() {
     ln -fs "$file_name" "$rvm_bin_path/${prefix}_${binary_name}"
 
   fi
+
 }
 
 wrap_binary() {
+
   # We wrap when the given binary is in the path or override_check is set to one.
   if [[ "$override_check" = "1" ]] || command -v $binary_name > /dev/null; then
 
@@ -85,15 +95,16 @@ wrap_binary() {
 
   else
 
-    "$rvm_path/scripts/log" "error" "Binary '$binary_name' not found in path."
+    "$rvm_path/scripts/log" "error" "Binary '$binary_name' not found."
 
     return 1
 
   fi
+
 }
 
 # Empty ruby string: show usage and exit.
-if [[ "$#" -eq 0 ]] ; then
+if [[ $# -eq 0 ]] ; then
   usage
   exit 1
 else
@@ -101,12 +112,17 @@ else
   shift
 fi
 
-if [[ "$#" -gt 0 ]] ; then
+if [[ $# -gt 0 ]] ; then
   prefix="${1:-""}"
   shift
 fi
 
-binaries=($(echo "$@"))
+if [[ -z "$ruby_string" ]] ; then
+  usage
+  exit 1
+fi
+
+binaries=("$@")
 override_check=0
 
 # Default the list of binaries to those we use regularily.
@@ -125,7 +141,7 @@ environment_identifier="$(__rvm_environment_identifier)"
 # it to the existing wrapper if needed.
 for binary_name in "${binaries[@]}"; do
 
-  file_name="$rvm_path/wrappers/${environment_identifier}/${binary_name}"
+  file_name="$rvm_path/wrappers/${environment_identifier}/${binary_name##*\/}"
 
   if [[ ${rvm_default_flag:-0} -gt 0 ]] ; then
 
@@ -148,18 +164,17 @@ for binary_name in "${binaries[@]}"; do
 
       else
 
-        destination="$rvm_bin_path/${binary_name}-${environment_identifier}"
+        destination="$rvm_bin_path/${binary_name##*\/}-${environment_identifier}"
 
       fi
 
-      rm -rf "$destination"
+      rm -f "$destination"
 
       ln -nsf "$file_name" "$destination"
 
-    fi; unset destination
+    fi
 
-
-  elif [[ "$prefix" == "--no-prefix" ]]; then
+  elif [[ "--no-prefix" == "$prefix" ]]; then
 
     override_check=1
 
@@ -167,11 +182,11 @@ for binary_name in "${binaries[@]}"; do
 
     if [[ -f  "$file_name" ]]; then
 
-      destination="$rvm_bin_path/$binary_name"
+      destination="$rvm_bin_path/${binary_name##*\/}"
 
       if [[ -s "$destination" ]] ; then
 
-        rm -rf "$destination"
+        rm -f "$destination"
 
       fi
 
@@ -183,7 +198,6 @@ for binary_name in "${binaries[@]}"; do
     symlink_binary
 
   fi
-
 
 done
 
