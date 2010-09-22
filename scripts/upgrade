@@ -8,16 +8,14 @@ usage() {
 
   Usage:
 
-    rvm upgrade prefix [ruby-string]
+    rvm upgrade [new ruby] [existing ruby]
 
   Description:
 
     Upgrades the latest installed ruby with a given ruby string
-    (e.g. ree) to the latest known version.
+    (e.g. ree) to the latest known version or the version specified
 
-" >&2
-
-  exit 1
+"
 }
 
 confirm() {
@@ -28,7 +26,9 @@ confirm() {
 
   read -r confirmation_response
 
-  [[ -z "$confirmation_response" ]] || echo $confirmation_response | \grep -qi '^y\|^Y'
+  if [[ -n "$confirmation_response" ]] ; then
+    echo $confirmation_response | \grep -qi '^y\|^Y'
+  fi
 }
 
 die_with_error() {
@@ -37,7 +37,8 @@ die_with_error() {
 }
 
 expand_ruby_name() {
-  "$rvm_path/scripts/tools" strings "$1" | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}'
+  "$rvm_path/scripts/tools" strings "$1" \
+    | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}'
 }
 
 expand_existing_ruby() {
@@ -51,20 +52,28 @@ expand_existing_ruby() {
       echo "$ruby_name" ; return 0
     fi
 
-  done < <("$rvm_path/scripts/list" strings | tr ' ' '\n'  | sort -ur | \grep "^$prefix" | \grep -v '-head$' | head -n1)
+  done < <("$rvm_path/scripts/list" strings | tr ' ' '\n'  \
+    | sort -ur | \grep "^$prefix" | \grep -v '-head$' | head -n1)
 
   return 1
 }
 
 upgrade_ruby() {
 
-  [[ -z "$source_ruby" ]] && die_with_error "Unable to find a source ruby. Please manually provide one."
+  if [[ -z "$source_ruby" ]] ; then
+    die_with_error "Unable to find a source ruby. Please manually provide one."
+  fi
 
   expanded_source="$(expand_ruby_name "$source_ruby")"
 
-  [[ -z "$expanded_source" ]] && die_with_error "The source ruby was not a valid ruby string."
+  if [[ -z "$expanded_source" ]] ; then
+    die_with_error "The source ruby was not a valid ruby string."
+  fi
 
-  confirm "Are you sure you wish to upgrade from $expanded_source to $expanded_destination?" || die_with_error "Cancelling upgrade."
+  if ! confirm "Are you sure you wish to upgrade from $expanded_source to \
+    $expanded_destination?" ; then
+    die_with_error "Cancelling upgrade."
+  fi
 
   if [[ ! -d "$rvm_path/rubies/$expanded_destination" ]]; then
 
@@ -75,7 +84,10 @@ upgrade_ruby() {
 
     result="$?"
 
-    [[ "$result" -gt 0 ]] && die_with_error "Unable to install ruby $expanded_destination. Please install it manually to continue." "$result"
+    if [[ "$result" -gt 0 ]] ; then
+      die_with_error "Unable to install ruby $expanded_destination. \
+        Please install it manually to continue." "$result"
+    fi
 
   fi
 
@@ -91,16 +103,36 @@ upgrade_ruby() {
 }
 
 args=($*)
-destination_ruby="${args[0]}"
-source_ruby="${args[1]:-"$(expand_existing_ruby "$destination_ruby")"}"
-args="$(echo ${args[@]:2}) " # Strip trailing / leading / extra spacing.
+destination_ruby="${args[$__array_start]}"
+args[$__array_start]=""
+args=(${args[@]})
 
-[[ -z "$source_ruby" ]] && usage
+source_ruby="${args[$__array_start]:-"$(expand_existing_ruby "$destination_ruby")"}"
+args[$__array_start]=""
+args=(${args[@]})
+
+if [[ -z "${source_ruby:-""}" ]] ; then
+  usage >&2
+  exit 1
+fi
+
+if [[ "help" = "$source_ruby"]] ; then
+  usage
+  exit 0
+fi
 
 expanded_destination="$(expand_ruby_name "$destination_ruby")"
 
-[[ -z "$source_ruby" ]] && die_with_error "The Source ruby was not specified, a valid ruby string, or not found."
+if [[ -z "$source_ruby" ]] ; then
+  die_with_error \
+    "Source ruby was either not a recognized ruby string or not installed."
+fi
 
-[[ -z "$expanded_destination" ]] && die_with_error "The destination ruby was not a valid ruby string, or not found."
+if [[ -z "$expanded_destination" ]] ; then
+  die_with_error \
+    "Destination ruby is not a known ruby string."
+fi
 
 upgrade_ruby
+
+exit $?
