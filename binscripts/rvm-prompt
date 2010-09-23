@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 
 add(){
+
   token=${1:-""}
+
   eval "${token}_flag=1" ; shift
+
   if [[ -n "$format" ]] ; then
+
     format="${format}-\$${token}"
+
   else
+
     format="\$${token}"
+
   fi
+
+  return 0
 }
 
 rvm_gemset_separator="${rvm_gemset_separator:-"@"}"
@@ -15,98 +24,181 @@ rvm_gemset_separator="${rvm_gemset_separator:-"@"}"
 ruby=$(command -v ruby)
 
 if [[ -n "$ruby" && -n "$(echo "$ruby" | awk '/rvm/{print}')" ]] ; then
+
   unset format
+
   while [[ $# -gt 0 ]] ; do
+
     token="$1" ; shift
+
     case "$token" in
+
       i|interpreter)  add "interpreter"  ;;
+
       v|version)      add "version"      ;;
+
       p|patchlevel)   add "patchlevel"   ;;
+
       r|revision)     add "revision"     ;;
+
       a|architecture) add "architecture" ;;
+
       g|gemset)       add "gemset"       ;;
+
       u|unicode)      add "unicode"      ;;
+
       s|system)       add "system"       ;;
+
       -d|--no-default) no_default=1      ;;
+
       *) echo "Unrecognized command line option '$token' for $0" ; exit 1 ;;
+
     esac
+
   done
 
+
   if [[ -z "$format" ]] ; then
+
     add "interpreter"
+
     add "version"
+
     add "patchlevel"
+
     add "gemset"
+
   fi
 
   ruby_string=$(dirname "$ruby" | xargs dirname | xargs basename)
 
-  # Dont' display anything if no default flag was provided and we're using the default ruby
-  if [[ -n "$no_default" && "$(rvm tools identifier)" = "$(rvm alias show default)" ]]; then
+  default_alias="$(rvm alias show default)"
+
+  identifier="$(rvm tools identifier)"
+
+  # Do not display anything if no default flag was provided
+  #   and we are using the default ruby
+  if [[ -n "$no_default" && "$identifier" = "$default_alias" ]]; then
+
     exit 0
+
   fi
 
+  strings=(${ruby_string//-/ })
+
   if [[ ${interpreter_flag:-0} -gt 0 || -n "$unicode_flag" ]] ; then
-    interpreter="${ruby_string/-*/}"
+
+    interpreter=${strings[0]}
+
   fi
 
   if [[ ${version_flag:-0} -gt 0 || -n "$unicode_flag" ]] ; then
-    version="${ruby_string%-*}" ; version="${version#*-}"
+
+    version=${strings[1]}
+
   fi
 
-  if [[ ${patchlevel_flag:-0} -gt 0 ]] ; then
-    patchlevel="${ruby_string##*-}"
+  if [[ ${#strings[@]} -gt 2 ]] ; then
+
+    if [[ ${patchlevel_flag:-0} -gt 0 ]] ; then
+
+      patchlevel=${strings[2]}
+
+    fi
+
   fi
 
   if [[ ${architecture_flag:-0} -gt 0 ]] ; then
+
     architecture="$(echo "$(ruby -v)" | sed 's/^.*\[//' | sed 's/\].*$//')"
+
   fi
 
   if [[ ${gemset_flag:-0} -gt 0 ]] ; then
+
     case "${GEM_HOME:-""}" in
+
       *${rvm_gemset_separator:-"@"}*)
+
         gemset="${rvm_gemset_separator:-"@"}${GEM_HOME/*${rvm_gemset_separator:-"@"}/}"
+
         ;;
+
     esac
+
   fi
 
   if [[ ${unicode_flag:-0} -gt 0 ]] ; then
+
     case "$interpreter" in
+
       jruby)    unicode="☯" ;;
+
       rbx)      unicode="☃" ;;
+
       ree)      unicode="✈" ;;
+
       macruby)  unicode="⌘" ;;
+
       maglev)   unicode="㎖" ;;
+
       ironruby) unicode="♭" ;;
+
       mput)     unicode="⎈" ;;
+
       system)   unicode="➆" ;;
+
       ruby)
+
         case ${version:-""} in
+
           1.8.6)  unicode="❻"  ;;
+
           1.8.7)  unicode="❼"  ;;
+
           1.9.1)  unicode="❶"  ;;
+
           1.9.2)  unicode="❷"  ;;
+
           *)      unicode="♢"  ;;
+
         esac ;;
+
       *) unicode="♢" ;;
+
     esac
 
     if echo "$ruby_string" | \grep -q '-head' ; then
+
       unicode="${unicode}〠"
+
     fi
+
   fi
 
   eval "prompt=\"$format\""
 
-  echo "$prompt" | sed -e 's#^[[:space:]]*-*##g' -e 's#--*#-#g' -e 's#-*[[:space:]]*$##' -e 's#-'${rvm_gemset_separator:-"@"}'#'${rvm_gemset_separator:-"@"}'#'
+  echo "$prompt" \
+    | sed -e 's#^[[:space:]]*-*##g' \
+          -e 's#--*#-#g' \
+          -e 's#-*[[:space:]]*$##' \
+          -e 's#-'${rvm_gemset_separator:-"@"}'#'${rvm_gemset_separator:-"@"}'#'
+
 
 else
+
   while [[ $# -gt 0 ]] ; do
+
     token="$1" ; shift
+
     case "$token" in
+
       s|system) echo "system" ;;
+
     esac
+
   done
+
 fi
 
 exit 0
