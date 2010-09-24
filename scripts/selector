@@ -233,7 +233,7 @@ __rvm_select() {
 
     rvm_ruby_gem_home="${rvm_gems_path:-"$rvm_path/gems"}/${rvm_ruby_string}"
 
-    if [[ ! -z "$rvm_gemset_name" ]] ; then
+    if [[ -n "$rvm_gemset_name" ]] ; then
       rvm_ruby_gem_home="${rvm_ruby_gem_home}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
       rvm_ruby_gem_path="${rvm_ruby_gem_home}:${rvm_gems_path:-"$rvm_path/gems"}/${rvm_ruby_string}${rvm_gemset_separator:-"@"}global"
     fi
@@ -437,7 +437,7 @@ __rvm_ruby_string() {
       rvm_ruby_string="system"
     fi
   fi
-  
+
   if echo "$rvm_ruby_string" | \grep -q "${rvm_gemset_separator:-"@"}" ; then
     rvm_gemset_name="${rvm_ruby_string/*${rvm_gemset_separator:-"@"}/}"
     rvm_ruby_string="${rvm_ruby_string/${rvm_gemset_separator:-"@"}*/}"
@@ -655,7 +655,6 @@ __rvm_gemset_select() {
 
   rvm_ruby_gem_home=${rvm_ruby_gem_home:-""}
   rvm_gemset_name=${rvm_gemset_name:-""}
-  rvm_ruby_global_gems_path="${rvm_ruby_gem_home%%${rvm_gemset_separator:-"@"}*}${rvm_gemset_separator:-"@"}global"
 
   if [[ -z "${rvm_gemset_name:-""}" ]] ; then
 
@@ -672,7 +671,8 @@ __rvm_gemset_select() {
       fi
     fi
 
-    if ! echo "${rvm_gemset_name:-""}" | grep -q "^[[:digit:]]\.[[:digit:]]" ; then
+    if [[ -n "${rvm_gemset_name:-""}" ]] &&
+      ! echo "${rvm_gemset_name:-""}" | grep -q "^[[:digit:]]\.[[:digit:]]" ; then
 
       rvm_ruby_gem_home="${rvm_gems_path:-"$rvm_path/gems"}/${rvm_ruby_string}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
 
@@ -729,9 +729,9 @@ __rvm_gemset_select() {
 
   if [[ -z "${rvm_ruby_gem_home:-""}" && -n "${rvm_ruby_string:-""}" ]] ; then
     rvm_ruby_gem_home="${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string"
-    rvm_ruby_global_gems_path="${rvm_ruby_gem_home%%${rvm_gemset_separator}*}${rvm_gemset_separator:-"@"}global"
   fi
 
+  rvm_ruby_global_gems_path="${rvm_ruby_gem_home%%${rvm_gemset_separator:-"@"}*}${rvm_gemset_separator:-"@"}global"
   rvm_ruby_gem_path="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
 
   # Ensure that the ruby gem home exists.
@@ -749,8 +749,10 @@ __rvm_gemset_select() {
 
 # Use a gemset specified by 'rvm_ruby_gem_home'
 __rvm_gemset_use() {
+
   if [[ -z "${rvm_gemset_name:-""}" ]] ; then
-    "$rvm_path/scripts/log" "error" "Gemset was not given.\n  Usage:\n    rvm gemset use <gemsetname>\n"
+    "$rvm_path/scripts/log" "error" \
+      "Gemset was not given.\n  Usage:\n    rvm gemset use <gemsetname>\n"
     return 1
   fi
 
@@ -758,10 +760,12 @@ __rvm_gemset_use() {
 
     if [[ ! -d "$rvm_ruby_gem_home" ]] ; then
 
-      if [[ ${rvm_gemset_create_on_use_flag:-0} -eq 1 || ${rvm_create_flag:-0} -eq 1 ]] ; then
+      if [[ ${rvm_gemset_create_on_use_flag:-0} -eq 1 \
+        || ${rvm_create_flag:-0} -eq 1 ]] ; then
         "$rvm_path/scripts/gemsets" create "$rvm_gemset_name"
       else
-        "$rvm_path/scripts/log" "error" "Gemset '$rvm_gemset_name' does not exist, rvm gemset create '$rvm_gemset_name' first."
+        "$rvm_path/scripts/log" "error" \
+          "Gemset '$rvm_gemset_name' does not exist, rvm gemset create '$rvm_gemset_name' first."
         return 1
       fi
     fi
@@ -771,9 +775,12 @@ __rvm_gemset_use() {
     fi
 
     rvm_ruby_gem_home="${GEM_HOME//${rvm_gemset_separator:-"@"}*}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
+    rvm_ruby_global_gems_path="${rvm_ruby_gem_home%%${rvm_gemset_separator:-"@"}*}${rvm_gemset_separator:-"@"}global"
+
     GEM_HOME="$rvm_ruby_gem_home"
     BUNDLE_PATH="$rvm_ruby_gem_home"
     GEM_PATH="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
+
     export rvm_ruby_gem_home GEM_HOME BUNDLE_PATH GEM_PATH
 
     __rvm_use # Now ensure the selection takes effect for the environment.
@@ -783,13 +790,22 @@ __rvm_gemset_use() {
 }
 
 __rvm_gemset_clear() {
-  rvm_gemset_name="" ; shift # TODO: Is this shift necessary???
+
+  rvm_gemset_name=""
+
   rvm_ruby_gem_home="${GEM_HOME//${rvm_gemset_separator:-"@"}*}"
-  rvm_ruby_global_gems_path="${rvm_ruby_gem_home%%${rvm_gemset_separator:-"@"}*}${rvm_gemset_separator:-"@"}global"
+
+  rvm_ruby_global_gems_path="${rvm_ruby_gem_home}${rvm_gemset_separator:-"@"}global"
+
   GEM_HOME=$rvm_ruby_gem_home
+
   BUNDLE_PATH="$rvm_ruby_gem_home"
+
   GEM_PATH="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
+
   export rvm_ruby_gem_home rvm_ruby_global_gems_path GEM_HOME BUNDLE_PATH GEM_PATH
+
   __rvm_use # Now ensure the selection takes effect for the environment.
+
 }
 
