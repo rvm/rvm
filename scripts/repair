@@ -13,9 +13,47 @@ usage() {
     symlinks     - Repair symlinks
     environments - Repair environments
     archives     - Repair archives
+    gemsets      - Repair gemsets
     all          - Repair all of the above
 
 "
+}
+
+
+repair_gemsets() {
+
+  local directory directories
+
+  "$rvm_path/scripts/log" "info" \
+    "Removing gemsets missing names."
+
+  directories=($(find "$rvm_path/gems" -type d -mindepth 1 -maxdepth 1 | grep '@$'))
+
+  for directory in "${directories[@]}" ; do
+
+    if [[ -d "$directory" ]] ; then
+      rm -rf "$directory/"
+    fi
+
+  done
+
+  "$rvm_path/scripts/log" "info" \
+    "Removing gemsets missing interpreters."
+
+  directories=($(builtin cd "$rvm_path/gems" ; \
+    find . -type d -mindepth 1 -maxdepth 1 | grep '^./@' | sed -e 's#^\./##'))
+
+  for directory in "${directories[@]}" ; do
+
+    if [[ -d "$rvm_path/gems/$directory" ]] ; then
+      rm -rf "$rvm_path/gems/$directory/"
+    fi
+
+  done
+
+  "$rvm_path/scripts/log" "info" "Gemsets repaired."
+
+  return 0
 }
 
 repair_wrappers() {
@@ -36,6 +74,7 @@ repair_wrappers() {
 
   "$rvm_path/scripts/log" "info" "Wrappers regenerated"
 
+  return 0
 }
 
 # Removes stale symlinks in $rvm_bin_path, likely
@@ -49,7 +88,10 @@ repair_symlinks() {
 
     for executable_name in $(\find \. -type l); do
 
-      [[ -e "$executable_name" || "$(readlink "$executable_name")" != "$rvm_path/wrappers/"* ]] && continue
+      if [[ -e "$executable_name" \
+        || "$(readlink "$executable_name")" != "$rvm_path/wrappers/"* ]] ; then
+        continue
+      fi
 
       if [[ -f "$executable_name" ]]  ; then
 
@@ -71,7 +113,7 @@ repair_environments() {
 
   "$rvm_path/scripts/log" "info" "Regenerating environments..."
 
-  environments=($(cd "$rvm_path/environments" ; find . -maxdepth 1 -mindepth 1 -type f))
+  environments=($(builtin cd "$rvm_path/environments" ; find . -maxdepth 1 -mindepth 1 -type f))
 
   for environment_name in "${environments[@]//.\/}" ; do
 
@@ -103,7 +145,7 @@ repair_archives() {
   local archive_file archives stored_md5sum
   "$rvm_path/scripts/log" "info" "Repairing archives..."
 
-  archives=($(cd "${rvm_archives_path:-"$rvm_path/archives"}" ; find . -maxdepth 1 -mindepth 1 -type f))
+  archives=($(builtin cd "${rvm_archives_path:-"$rvm_path/archives"}" ; find . -maxdepth 1 -mindepth 1 -type f))
 
   for archive_file in "${archives[@]//.\/}" ; do
 
@@ -153,6 +195,7 @@ fi
 case "$action" in
   all)          repair_all          ;;
   symlinks)     repair_symlinks     ;;
+  gemsets)      repair_gemsets      ;;
   environments) repair_environments ;;
   archives)     repair_archives     ;;
   wrappers)     repair_wrappers     ;;
