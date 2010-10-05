@@ -60,6 +60,15 @@ install_package()
 
     builtin cd "$src_path/$package-$version"
 
+    if [[ ! -z "$patches" ]] ; then
+      for patch in $(echo $patches | tr ',' ' ') ; do
+        __rvm_run "$package/patch" "patch -p0 -f < $patch" "Applying patch '$patch'..."
+        if [[ $? -gt 0 ]] ; then
+          $rvm_scripts_path/log "error" "Patch $patch did not apply cleanly... back to the patching board :(" ; exit 1
+        fi
+      done
+    fi
+
     __rvm_run "$package/configure" \
       "${configure:-"./configure --prefix=\"${prefix_path:-"$usr_path"}\""} $configure_flags" \
       "Configuring $package in $src_path/$package-$version."
@@ -96,10 +105,15 @@ install_package()
 readline()
 {
   package="readline" ; archive_format="tar.gz"
-  for version in 5.2 6.0 ; do
-    configure_flags="--disable-dependency-tracking --disable-static --enable-shared"
-    install_package
-  done
+  configure="env CFLAGS=-I${usr_path}/include LDFLAGS=-L${usr_path}/lib ./configure --prefix=${usr_path} --disable-dependency-tracking --disable-static --enable-shared"
+
+  version="5.2"
+  patches="$rvm_path/patches/$package-$version/shobj-conf.patch"
+  install_package
+
+  version="6.0"
+  patches=""
+  install_package
 }
 
 iconv()
@@ -242,6 +256,11 @@ llvm()
   )
 }
 
+reset()
+{
+  unset package version archive_format patches prefix_path configure configure_flags
+}
+
 # Tools to make managing ruby dependencies inside of rvm easier.
 args=($*)
 action="${args[0]:-""}"
@@ -258,6 +277,12 @@ if [[ -n "$library" ]] ; then
     readline|iconv|curl|openssl|zlib|autoconf|ncurses|pkgconfig|gettext|glib|mono|llvm|libxml2)
       ${library}
     ;;
+    ree_dependencies)
+      for i in zlib ncurses readline openssl iconv; do
+        ${i}
+        reset
+      done
+    ;;
     *)
       "$rvm_path/scripts/log" "error" "Package '${library}' is unknown."
     ;;
@@ -268,5 +293,9 @@ if [[ -n "$library" ]] ; then
 else
   "$rvm_path/scripts/log" "info" \
     "Usage: 'rvm package {install,uninstall} {readline,iconv,curl,openssl,zlib,autoconf,ncurses,pkgconfig,gettext,glib,mono,llvm,libxml2}'"
+  "$rvm_path/scripts/log" "info" \
+    "  'ree_dependencies' installs zlib, ncurses, readline, openssl and iconv in this order."
+  "$rvm_path/scripts/log" "info" \
+    "  still need to add '-C --with-readline-dir=\$rvm_path/usr,--with-iconv-dir=\$rvm_path/usr,--with-zlib-dir=\$rvm_path/usr,--with-openssl-dir=\$rvm_path/usr' to 'rvm install ree'"
   exit 1
 fi
