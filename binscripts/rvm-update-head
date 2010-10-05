@@ -1,26 +1,39 @@
 #!/usr/bin/env bash
 
-rvm_ignore_rvmrc=${rvm_ignore_rvmrc:-0}
-if [[ $rvm_ignore_rvmrc -eq 0 ]]; then
-  [[ -s /etc/rvmrc ]] && source /etc/rvmrc
-  [[ -s "$HOME/.rvmrc" ]] && source "$HOME/.rvmrc"
+set -o errtrace
+set -o errexit
+
+export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
+
+if [[ ${rvm_ignore_rvmrc:-0} -eq 0 ]]; then
+  for file in /etc/rvmrc "$HOME/.rvmrc" ; do
+    if [[ -s "$file" ]] ; then
+      source $file
+    fi
+  done
 fi
 
-rvm_path="${rvm_path:-$HOME/.rvm}"
+rvm_path="${rvm_path:-"$HOME/.rvm"}"
 
-[ -d "$rvm_path/src" ] || \mkdir -p $rvm_path/src/
+if [[ ! -d "$rvm_path/src" ]] ; then
+  mkdir -p "$rvm_path/src/"
+fi
 
-cd "$rvm_path/src"
+builtin cd "$rvm_path/src"
 
-[ -d ./rvm ] && \rm -rf ./rvm/
+if [[ -d ./rvm ]] ; then
+  rm -rf ./rvm/
+fi
 
-git clone --depth 1 git://github.com/wayneeseguin/rvm.git ||
-  git clone http://github.com/wayneeseguin/rvm.git
+url="http://github.com/wayneeseguin/rvm.git"
 
-cd rvm &&
+if ! git clone "$url" ; then
+  printf "ERROR: Cloning from $url failed.\n"
+  exit 1
+fi
 
-# v v v This is a good idea however it does not preserve the executible bit.
-# Needs more thought, perhaps a simple sed instead...
-# dos2unix scripts/* >/dev/null 2>&1
+builtin cd rvm
 
-bash scripts/install
+chmod +x "$PWD/scripts/install"
+
+exec "$PWD/scripts/install"
