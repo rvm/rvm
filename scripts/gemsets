@@ -15,7 +15,7 @@ usage()
 
   Action:
 
-    {import,export,create,copy,empty,delete,name,dir,list,gemdir,install,pristine,clear,use,update,unpack,globalcache}
+    {import,export,create,copy,rename,empty,delete,name,dir,list,gemdir,install,pristine,clear,use,update,unpack,globalcache}
 
   Description:
 
@@ -225,7 +225,10 @@ gemset_list()
 
     if [[ -n "${rvm_ruby_string:-""}" ]] ; then
 
-      ls "${rvm_gems_path:-"$rvm_path/gems"}/" | awk -F"${rvm_gemset_separator:-"@"}" "/${rvm_ruby_string}${rvm_gemset_separator:-"@"}/{print \$2}" 2>/dev/null
+      ls "${rvm_gems_path:-"$rvm_path/gems"}/" \
+        | awk -F"${rvm_gemset_separator:-"@"}" \
+        "/${rvm_ruby_string}${rvm_gemset_separator:-"@"}/{print \$2}" \
+        2>/dev/null
 
     else
       "$rvm_path/scripts/log" "error" \
@@ -401,6 +404,59 @@ gemset_copy()
     return 1
   fi
 }
+
+# Migrate gemsets from ruby X to ruby Y
+gemset_rename()
+{
+  local source_name destination_name source_path destination_path
+
+  source_name="${args[__array_start]:-""}"
+  args[$__array_start]="" ; args=(${args[@]})
+
+  destination_name="${args[__array_start]:-""}"
+  args[$__array_start]="" ; args=(${args[@]})
+
+  if [[ -z "$destination_name" || -z "$source_name" ]] ; then
+    "$rvm_path/scripts/log" "error" \
+      "Source and destination gemsets must be specified: 'rvm gemset rename X Y'"
+    return 1
+  fi
+
+  source_path="$(rvm_silence_logging=1 rvm "@$source_name" gem env gemdir)"
+
+  if [[ -z "$source_path" || ! -d "$source_path" ]]; then
+    "$rvm_path/scripts/log" "error" \
+      "'$source_name' does not exist."
+    return 1
+  fi
+
+  destination_path=${source_path/%$source_name/$destination_name}
+
+  if [[ -d "$source_path" ]] ; then
+
+    if [[ ! -d "$destination_path" ]] ; then
+
+      mv "$source_path" "$destination_path"
+
+    else
+
+      "$rvm_path/scripts/log" "error" \
+        "Gemset $destination_name already exists!"
+
+      return 1
+
+    fi
+
+  else
+
+    "$rvm_path/scripts/log" "error" \
+      "Gems directory does not exist for $source_path ($source_path)"
+
+    return 1
+
+  fi
+}
+
 
 gemset_unpack()
 {
@@ -909,6 +965,9 @@ case "$action" in
     ;;
   copy)
     gemset_copy
+    ;;
+  rename)
+    gemset_rename
     ;;
   empty)
     gemset_empty
