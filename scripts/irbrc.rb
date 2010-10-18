@@ -32,7 +32,7 @@ begin
     File::open(histfile, "w+") { |io| io.puts lines.join("\n") }
   end
 
-rescue
+rescue LoadError
   puts "Readline was unable to be required, if you need completion or history install readline then reinstall the ruby.\nYou may follow 'rvm notes' for dependencies and/or read the docs page http://rvm.beginrescueend.com/packages/readline/ . Be sure you 'rvm remove X ; rvm install X' to re-compile your ruby with readline support after obtaining the readline libraries."
 end
 
