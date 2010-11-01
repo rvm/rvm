@@ -772,10 +772,12 @@ __rvm_update()
   (
     builtin cd "$rvm_path"
 
+    # TODO:
     if [[ ${rvm_head_flag:-0} -eq 1 || ${rvm_self_flag:-0} -eq 1 \
       || "update" = "${rvm_action:-""}" || ${rvm_update_flag:-0} -eq 1 ]] ; then
-      __rvm_version
-      __rvm_update_rvm
+    "$rvm_path/scripts/log" "warn" \
+        "'rvm update --head' is depreciated, use 'rvm get head' instead"
+      "$rvm_path/scripts/get" head
     fi
 
     if [[ ${rvm_bin_flag:-0} -eq 1 ]] ; then
@@ -789,56 +791,6 @@ __rvm_update()
   )
   unset rvm_update_flag rvm_action rvm_self_flag \
     rvm_ruby_revision rvm_bin_flag rvm_rubygems_flag
-
-  return 0
-}
-
-# Update rvm using rubygems
-# If --head was specified, update from git repository master branch.
-__rvm_update_rvm()
-{
-  (
-    if [[ ! -d "${rvm_src_path:-"$rvm_path/src"}" ]] ; then
-      \mkdir -p "${rvm_src_path:-"$rvm_path/src"}"
-    fi
-
-    builtin cd "${rvm_src_path:-"$rvm_path/src"}"
-
-    if [[ ${rvm_head_flag:-0} -eq 1 ]] ; then
-
-      if [[ -d "${rvm_src_path:-"$rvm_path/src"}/rvm/.git" ]] ; then
-
-        builtin cd "${rvm_src_path:-"$rvm_path/src"}/rvm/" && \
-          git pull origin master && \
-          ./scripts/install
-
-      else
-
-        builtin cd "${rvm_src_path:-"$rvm_path/src"}" && \
-          ( git clone http://github.com/wayneeseguin/rvm.git || \
-          git clone --depth 1 git://github.com/wayneeseguin/rvm.git ) && \
-          builtin cd rvm/ && ./scripts/install
-      fi
-    else
-      version_url="http://rvm.beginrescueend.com/releases/stable-version.txt"
-
-      stable_version="$(curl -s $version_url)"
-
-      __rvm_run "fetch" \
-        "$rvm_path/scripts/fetch 'http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz'" \
-        "fetching rvm-${stable_version}.tar.gz"
-
-      __rvm_run "extract" \
-        "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/rvm-${stable_version}.tar.gz\" | tar xf - -C ${rvm_src_path:-"$rvm_path/src"}" \
-        "Extracting rvm-${stable_version}.tar.gz ..."
-
-      __rvm_run "install" \
-        "builtin cd ${rvm_src_path:-"$rvm_path/src"}/rvm-${stable_version}/; ./install" \
-        "Installing rvm-${stable_version}..."
-    fi
-  )
-
-  rvm_hook="after_update" ; source "$rvm_path/scripts/hook"
 
   return 0
 }
@@ -868,7 +820,7 @@ __rvm_reboot()
 
     gem install rvm $rvm_gem_options
 
-    __rvm_update_rvm
+    "$rvm_path/scripts/get" latest
 
     source "$rvm_path/scripts/rvm"
   else
