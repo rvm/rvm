@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+source "$rvm_path/scripts/base"
+source "$rvm_path/scripts/version"
+
+get_help()
+{
+  printf "
+
+Usage:
+
+  rvm get {latest,head,help}
+
+Options:
+
+  latest - download and install the latest RVM release listed by
+           http://rvm.beginrescueend.com/releases/stable-version.txt
+
+  head   - git clone and install the latest RVM repository HEAD.
+
+  help   - Output this message.
+
+"
+}
+
+get_latest()
+{
+  local version_url stable_version
+
+  version_url="http://rvm.beginrescueend.com/releases/stable-version.txt"
+
+  stable_version=$(curl -s $version_url)
+
+  "$rvm_path/scripts/log" "info" "\nOriginal installed RVM version:"
+  (__rvm_version)
+
+
+  (
+
+  __rvm_run "fetch" \
+    "$rvm_path/scripts/fetch 'http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz'" \
+    "fetching rvm-${stable_version}.tar.gz"
+
+  __rvm_run "extract" \
+    "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/rvm-${stable_version}.tar.gz\" | tar xf - -C ${rvm_src_path:-"$rvm_path/src"}" \
+    "Extracting rvm-${stable_version}.tar.gz ..."
+
+  __rvm_run "install" \
+    "builtin cd ${rvm_src_path:-"$rvm_path/src"}/rvm-${stable_version}/; ./install" \
+    "Installing rvm-${stable_version}..."
+
+  )
+
+  "$rvm_path/scripts/log" "info" "\nInstalled RVM version:"
+  ( source $rvm_path/scripts/rvm ; rvm --version )
+
+  rvm_hook="after_update"
+
+  source "$rvm_path/scripts/hook"
+}
+
+get_head()
+{
+
+  "$rvm_path/scripts/log" "info" "\nOriginal installed RVM version:"
+
+  __rvm_version
+
+  (
+    if [[ ! -d "${rvm_src_path:-"$rvm_path/src"}" ]] ; then
+      \mkdir -p "${rvm_src_path:-"$rvm_path/src"}"
+    fi
+
+    builtin cd "${rvm_src_path:-"$rvm_path/src"}"
+
+    if [[ -d "${rvm_src_path:-"$rvm_path/src"}/rvm/.git" ]] ; then
+
+      builtin cd "${rvm_src_path:-"$rvm_path/src"}/rvm/" && \
+        git pull origin master && \
+        ./scripts/install
+
+    else
+
+      builtin cd "${rvm_src_path:-"$rvm_path/src"}" && \
+        ( git clone http://github.com/wayneeseguin/rvm.git || \
+        git clone --depth 1 git://github.com/wayneeseguin/rvm.git ) && \
+        builtin cd rvm/ && ./scripts/install
+    fi
+  )
+
+  "$rvm_path/scripts/log" "info" "\nInstalled RVM HEAD version:"
+  ( source $rvm_path/scripts/rvm ; rvm --version )
+
+  rvm_hook="after_update"
+
+  source "$rvm_path/scripts/hook"
+
+  return 0
+}
+
+args=($*)
+action="${args[$__array_start]}"
+args[$__array_start]=""
+args=(${args[@]})
+
+case "$action" in
+
+  latest)
+    get_latest
+    ;;
+
+  head)
+    get_head
+    ;;
+
+  help)
+    get_help
+    true
+    ;;
+
+  *)
+    false
+    ;;
+esac
+
+exit $?
