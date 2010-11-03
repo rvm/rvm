@@ -27,26 +27,31 @@ module RVM
     end
 
     # Lists all known ruby strings (raw, filtered output)
+    #
     def list_known
       normalize_listing_output rvm(:list, :known).stdout
     end
 
     # Lists all known ruby strings
+    #
     def list_known_strings
       normalize_listing_output rvm(:list, :known_strings).stdout
     end
 
     # Lists all known svn tags.
+    #
     def list_ruby_svn_tags
       normalize_listing_output rvm(:list, :ruby_svn_tags).stdout
     end
 
     # Returns an interface to a more Ruby-like interface for list.
+    #
     def list
       @list_helper ||= ListWrapper.new(self)
     end
 
     # Provides a ruby-like interface to make listing rubies easier.
+    #
     class ListWrapper
 
       def initialize(parent)
