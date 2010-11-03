@@ -2,8 +2,11 @@ module RVM
   class Environment
 
     # Returns the contents of the env file.
+    # 
+    # env.env_contents # => ['export PATH= ....', ...]
+    #
     def env_contents
-      rvm(:env, environment_name).stdout
+      rvm(:env, environment_name).stdout.split
     end
 
     # Returns the path to the env file
