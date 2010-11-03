@@ -18,7 +18,7 @@ module RVM
     end
 
     # Lists the default ruby (minus gemset)
-    # Supose that Ruby 1.9.2 patchlevel 0, is the default:
+    # Suppose that Ruby 1.9.2 patchlevel 0, is the default:
     # 
     # env.list_default # => "ruby-1.9.2-p0"
     #
