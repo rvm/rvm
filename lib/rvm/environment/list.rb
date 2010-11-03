@@ -2,16 +2,26 @@ module RVM
   class Environment
 
     # Returns a raw array list of ruby + gemset combinations.
+    #
+    # env.list_gemsets # => ['ruby-1.9.2-p0@my_gemset', 'jruby@my_gemset', ...]
+    #
     def list_gemsets
       normalize_listing_output rvm(:list, :gemsets, :strings).stdout
     end
 
     # Returns a raw array list of installed ruby strings, including aliases.
+    #
+    # env.list_strings # => ["ruby-1.9.2-p0", "jruby-1.5.3"]
+    #
     def list_strings
       normalize_listing_output rvm(:list, :strings).stdout.tr(' ', "\n")
     end
 
     # Lists the default ruby (minus gemset)
+    # Supose that Ruby 1.9.2 patchlevel 0, is the default:
+    # 
+    # env.list_default # => "ruby-1.9.2-p0"
+    #
     def list_default
       normalize rvm(:list, :default, :string).stdout
     end
