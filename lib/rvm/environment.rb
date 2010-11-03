@@ -34,6 +34,11 @@ module RVM
     end
 
     # Returns the expanded name, using the same method as used by the rvm command line.
+    #
+    # Suppose that you are in the 1.9.2 patchlevel Environment.
+    #
+    # env.expanded_name # => "ruby-1.9.2-p0"
+    #
     def expanded_name
       @expanded_name ||= tools_identifier.to_s
     end
