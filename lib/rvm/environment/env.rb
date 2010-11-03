@@ -7,6 +7,10 @@ module RVM
     end
 
     # Returns the path to the env file
+    # Supose that you are in the 1.9.2 environment.
+    #
+    # env.env_path # => "~/.rvm/environments/ruby-1.9.2-p0"
+    #    
     def env_path
       rvm(:env, environment_name, :path => true).stdout.strip
     end
@@ -17,6 +21,12 @@ module RVM
     end
 
     # Returns the path for the given command
+    # 
+    # Supose that you are in the 1.9.2 environment.
+    #
+    # env.path_for(:rspec) # => '~/.rvm/gems/ruby-1.9.2-p0/bin/rspec'
+    # env.path_for(:ruby)  # => '~/.rvm/rubies/ruby-1.9.2-p0/bin/ruby'
+    #
     def path_for(command)
       run(:command, "-v", command).stdout.strip
     end
