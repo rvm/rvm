@@ -2,41 +2,56 @@ module RVM
   class Environment
 
     # Returns a raw array list of ruby + gemset combinations.
+    #
+    # env.list_gemsets # => ['ruby-1.9.2-p0@my_gemset', 'jruby@my_gemset', ...]
+    #
     def list_gemsets
       normalize_listing_output rvm(:list, :gemsets, :strings).stdout
     end
 
     # Returns a raw array list of installed ruby strings, including aliases.
+    #
+    # env.list_strings # => ["ruby-1.9.2-p0", "jruby-1.5.3"]
+    #
     def list_strings
       normalize_listing_output rvm(:list, :strings).stdout.tr(' ', "\n")
     end
 
     # Lists the default ruby (minus gemset)
+    # Suppose that Ruby 1.9.2 patchlevel 0, is the default:
+    # 
+    # env.list_default # => "ruby-1.9.2-p0"
+    #
     def list_default
       normalize rvm(:list, :default, :string).stdout
     end
 
     # Lists all known ruby strings (raw, filtered output)
+    #
     def list_known
       normalize_listing_output rvm(:list, :known).stdout
     end
 
     # Lists all known ruby strings
+    #
     def list_known_strings
       normalize_listing_output rvm(:list, :known_strings).stdout
     end
 
     # Lists all known svn tags.
+    #
     def list_ruby_svn_tags
       normalize_listing_output rvm(:list, :ruby_svn_tags).stdout
     end
 
     # Returns an interface to a more Ruby-like interface for list.
+    #
     def list
       @list_helper ||= ListWrapper.new(self)
     end
 
     # Provides a ruby-like interface to make listing rubies easier.
+    #
     class ListWrapper
 
       def initialize(parent)

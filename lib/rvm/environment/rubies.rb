@@ -17,6 +17,10 @@ module RVM
     end
 
     # Changes the ruby string for the current environment.
+    #
+    # env.use '1.9.2' # => nil
+    # env.use 'ree' # => nil
+    #
     def use(ruby_string, opts = {})
       ruby_string = ruby_string.to_s
       result = rvm(:use, ruby_string)
