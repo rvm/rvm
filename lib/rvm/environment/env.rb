@@ -8,7 +8,7 @@ module RVM
 
     # Returns the path to the env file
     def env_path
-      rvm(:env, environment_name, :path => true).stdout.strip
+      normalize_array rvm(:env, environment_name, :path => true).stdout
     end
 
     # Returns a ruby-like wrapper for the env functions
