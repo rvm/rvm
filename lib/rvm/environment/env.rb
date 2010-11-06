@@ -2,7 +2,7 @@ module RVM
   class Environment
 
     # Returns the contents of the env file.
-    # 
+    #
     # env.env_contents # => ['export PATH= ....', ...]
     #
     def env_contents
@@ -13,9 +13,9 @@ module RVM
     # Suppose that you are in the 1.9.2 environment.
     #
     # env.env_path # => "~/.rvm/environments/ruby-1.9.2-p0"
-    #    
+    #
     def env_path
-      rvm(:env, environment_name, :path => true).stdout.strip
+      normalize_array rvm(:env, environment_name, :path => true).stdout
     end
 
     # Returns a ruby-like wrapper for the env functions
@@ -24,7 +24,7 @@ module RVM
     end
 
     # Returns the path for the given command
-    # 
+    #
     # Suppose that you are in the 1.9.2 environment.
     #
     # env.path_for(:rspec) # => '~/.rvm/gems/ruby-1.9.2-p0/bin/rspec'
