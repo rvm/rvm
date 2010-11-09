@@ -79,6 +79,8 @@ module RVM
     #   RVM.environments("ree@rails3,rbx@rails3") do |env|
     #     puts "Full environment: #{env.expanded_name}"
     #   end
+    #   # => "ree-1.8.7@rails3"
+    #   # => "rbx-1.1.0@rails3" # Suppose that you are installed rbx 1.1.0
     #
     # Alternatively, you can use the more ruby-like fashion:
     #
