@@ -659,11 +659,17 @@ __rvm_ruby_string()
 
     if [[ -n "${patch_level:-""}" ]] ; then
 
-      if [[ "ree" = "$rvm_ruby_interpreter" ]] || [[ "rbx" = "$rvm_ruby_interpreter" ]] ; then
-        rvm_ruby_patch_level="${patch_level}"
-      else
-        rvm_ruby_patch_level="p${patch_level}"
-      fi
+      case "$rvm_ruby_interpreter" in
+        ree|rbx)
+          # REE & Rubinius use dates for their patch levels.
+          rvm_ruby_patch_level="${patch_level}"
+          ;;
+        *)
+          # MRI uses -pN+ to specify the patch level.
+          rvm_ruby_patch_level="p${patch_level}"
+          ;;
+      esac
+
     fi
 
     if [[ -n "${rvm_ruby_patch_level:-""}" ]] ; then
@@ -671,13 +677,19 @@ __rvm_ruby_string()
       rvm_ruby_patch_level="${rvm_ruby_patch_level/#pp/p}"
       rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
 
-      if [[ "ree" = "${rvm_ruby_interpreter:-""}" || "rbx" = "${rvm_ruby_interpreter:-""}" ]] ; then
-        rvm_ruby_string="${rvm_ruby_string//-p*/-}"
+      case "$rvm_ruby_interpreter" in
 
-      else
-        rvm_ruby_string="${rvm_ruby_string//-pp/-p}"
-        rvm_ruby_string="${rvm_ruby_string//-prc/-rc}"
-      fi
+        ree|rbx)
+          rvm_ruby_string="${rvm_ruby_string//-p*/-}"
+          ;;
+
+        *)
+          rvm_ruby_string="${rvm_ruby_string//-pp/-p}"
+          rvm_ruby_string="${rvm_ruby_string//-prc/-rc}"
+          ;;
+
+      esac
+
     fi
   fi
 
@@ -740,9 +752,11 @@ __rvm_gemset_select()
     if [[ -n "${rvm_ruby_string:-""}" ]] ; then
 
       if [[ -z "${rvm_ruby_gem_home:-""}" || -n "${gemset:-""}" ]] ; then
+
         rvm_ruby_gem_home="${rvm_gems_path:-"$rvm_path/gems"}/${rvm_ruby_string}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
 
       elif [[ -n "${gemset:-""}" && "${rvm_gemset_name:-""}" != "${gemset:-""}" ]] ; then
+
         rvm_ruby_gem_home="${rvm_gems_path:-"$rvm_path/gems"}/${rvm_ruby_string}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
       fi
     else
@@ -780,12 +794,18 @@ __rvm_gemset_select()
 
   # Ensure that the ruby gem home exists.
   \mkdir -p "$rvm_ruby_gem_home"
-  if [[ -n "${rvm_ruby_gem_home:-""}" ]] && echo "$rvm_ruby_gem_home" | \grep -q 'rvm'; then
+
+  if [[ -n "${rvm_ruby_gem_home:-""}" ]] &&
+    echo "$rvm_ruby_gem_home" | \grep -q 'rvm'; then
+
     if __rvm_using_gemset_globalcache && [[ ! -L "$rvm_ruby_gem_home/cache" ]]; then
+
       \mv "$rvm_ruby_gem_home/cache/"*.gem "$rvm_gems_cache_path/" 2>/dev/null
       \rm -rf "$rvm_ruby_gem_home/cache"
       \ln -nfs "$rvm_gems_cache_path" "$rvm_ruby_gem_home/cache"
+
     fi
+
   fi
 
   export rvm_ruby_gem_path rvm_ruby_gem_home
@@ -795,9 +815,12 @@ __rvm_gemset_select()
 __rvm_gemset_use()
 {
   if [[ -z "${rvm_gemset_name:-""}" ]] ; then
+
     "$rvm_path/scripts/log" "error" \
       "Gemset was not given.\n  Usage:\n    rvm gemset use <gemsetname>\n"
+
     return 1
+
   fi
 
   if [[ -n "${rvm_ruby_gem_home:-""}" ]] ; then
@@ -820,6 +843,7 @@ __rvm_gemset_use()
     fi
 
     rvm_ruby_gem_home="${GEM_HOME//${rvm_gemset_separator:-"@"}*}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
+
     rvm_ruby_global_gems_path="${rvm_ruby_gem_home%%${rvm_gemset_separator:-"@"}*}${rvm_gemset_separator:-"@"}global"
 
     GEM_HOME="$rvm_ruby_gem_home"
@@ -851,6 +875,5 @@ __rvm_gemset_clear()
   export rvm_ruby_gem_home rvm_ruby_global_gems_path GEM_HOME BUNDLE_PATH GEM_PATH
 
   __rvm_use # Now ensure the selection takes effect for the environment.
-
 }
 
