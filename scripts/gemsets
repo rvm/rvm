@@ -598,10 +598,14 @@ gemset_import()
 
   if [[ -s "$rvm_file_name" ]] ; then
 
-    echo "Importing  $rvm_file_name file..."
+    printf "\nInstalling gems listed in $rvm_file_name file...\n\n"
 
-    rvm_ruby_gem_list=$(builtin cd "$rvm_ruby_gem_home/specifications/" ; find . -maxdepth 1 -mindepth 1 -type f -print 2> /dev/null | sed -e 's#.gems.*$##' 2> /dev/null)
-    rvm_ruby_gem_list="${rvm_ruby_gem_list//.\/}"
+    rvm_ruby_gem_list=$(
+      builtin cd "$rvm_ruby_gem_home/specifications/" ;
+      find . -maxdepth 1 -mindepth 1 -type f -print 2> /dev/null | \
+        sed -e 's#.gems.*$##' -e 's#^./##g' 2> /dev/null
+    )
+    # rvm_ruby_gem_list="${rvm_ruby_gem_list//.\/}"
 
     while read -r line
     do # Keep this on 2nd line :(
@@ -611,6 +615,8 @@ gemset_import()
       fi
 
     done < <(awk '/^[^#]+/{print}' "${rvm_file_name}")
+
+    printf "\nProcessing of $rvm_file_name is complete.\n\n"
 
   else
     "$rvm_path/scripts/log" "error" \
@@ -675,8 +681,7 @@ gem_install()
   if [[ ${rvm_force_flag:-0} -eq 0 && -f "${rvm_ruby_gem_home}/specifications/$(basename "$gem_file_name")spec" ]] ; then
     gem=""
 
-    "$rvm_path/scripts/log" "info" \
-      "$gem_name $gem_version exists, skipping (--force to re-install)"
+    "$rvm_path/scripts/log" "info" "$gem_name $gem_version is already installed."
 
   else
     if [[ -s "$gem" ]] ; then
@@ -739,7 +744,6 @@ gem_install()
 
     else
 
-      #--ignore-dependencies
       command="$gem_prefix gem install --ignore-dependencies $gems_args $rvm_gem_options -q $gem $gem_postfix $vars"
 
     fi
@@ -770,19 +774,25 @@ gem_install()
 gemset_info()
 {
   if [[ ${rvm_user_flag:-0} -eq 1 ]] ; then
+
     echo $(rvm system ; gem env | grep "\- $HOME" | awk '{print $NF}')
 
   elif [[ ${rvm_system_flag:-0} -eq 1 ]] ; then
+
     echo $(rvm system ; gem env $action system)
 
   elif [[ -n "${rvm_ruby_string:-""}" ]] ; then
+
     echo $(rvm "$rvm_ruby_string" ; gem env $action)
 
   elif [[ -n "${GEM_HOME:-""}" ]] ; then
+
     echo "$GEM_HOME"
 
   else
+
     gem env $action
+
   fi
 
   return $?
