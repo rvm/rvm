@@ -48,6 +48,7 @@ rvm_ruby_string = ENV["rvm_ruby_string"] || `rvm tools identifier`.strip.split("
   :RETURN => " => %s \n",
   :AUTO_INDENT => true
 }
+IRB.conf[:PROMPT] ||= {}
 IRB.conf[:PROMPT][:RVM] = @prompt
 IRB.conf[:PROMPT_MODE] = :RVM
 
