@@ -1097,12 +1097,33 @@ __rvm_fetch_from_github()
       __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_http_url ${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" "Cloning $rvm_ruby_repo_http_url"
     fi
   else
-    local branch="${2:-"master"}"
+    local branch="${rvm_ruby_repo_branch:-"master"}"
 
     builtin cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
     __rvm_run "$1.repo" "git pull origin $branch" "Pulling from origin $branch"
   fi
+
+  (
+    remote="origin"
+
+    cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
+
+    if [[ -z "$(git branch | awk "/$rvm_ruby_repo_branch$/")" ]] ; then
+
+      git checkout -b "$rvm_ruby_repo_branch" --track "$remote/$rvm_ruby_repo_branch" 2>/dev/null
+
+    elif [[ -z "$(git branch | awk "/\* $rvm_ruby_repo_branch$/")" ]] ; then
+
+      if ! git checkout $rvm_ruby_repo_branch 2>/dev/null ; then
+
+        "$rvm_path/scripts/log" "error" \
+          "Branch $remote/$rvm_ruby_repo_branch not found."
+
+      fi
+
+    fi
+  )
 
   rm -rf "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
 
