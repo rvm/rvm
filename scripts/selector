@@ -246,6 +246,49 @@ __rvm_select()
   fi
 }
 
+__rvm_use_system() {
+
+  unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
+
+  new_path="$(__rvm_remove_rvm_from_path ; printf "$PATH"):${rvm_bin_path:-"$rvm_path/bin"}"
+
+  if [[ -s "$rvm_path/config/system" ]] ; then
+
+    \grep "MY_RUBY_HOME='$rvm_path/rubies" "$rvm_path/config/system" > /dev/null
+
+    if [[ $? -eq 0 ]] ; then
+      # 'system' should *not* point to an rvm ruby.
+      [[ -f "$rvm_path/config/system" ]] && \rm -f "$rvm_path/config/system"
+    else
+      source "$rvm_path/config/system"
+    fi
+  fi
+
+  # Check binaries, remove under the condition they're symlinks.
+  if [[ ${rvm_selfcontained:-1} -eq 0 ]] ; then
+
+    for binary in ruby gem irb ri rdoc rake erb testrb ; do
+
+      full_binary_path="${rvm_bin_path:-"$rvm_path/bin"}/$binary"
+
+      [[ -L "$full_binary_path" ]] && \rm -f "$full_binary_path"
+
+    done
+
+  fi
+
+  if [[ ${rvm_verbose_flag:-0} -gt 0 ]] ; then
+    "$rvm_path/scripts/log" "info" "Now using system ruby."
+  fi
+
+  __rvm_remove_rvm_from_path
+
+  new_path="$PATH:${rvm_bin_path:-"$rvm_path/bin"}"
+
+  export rvm_ruby_string="system"
+
+}
+
 __rvm_use()
 {
   local new_path binary full_binary_path rvm_ruby_gem_home
@@ -257,44 +300,7 @@ __rvm_use()
 
   if [[ "system" = "$rvm_ruby_interpreter" ]] ; then
 
-    unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
-
-    new_path="$(__rvm_remove_rvm_from_path ; printf "$PATH"):${rvm_bin_path:-"$rvm_path/bin"}"
-
-    if [[ -s "$rvm_path/config/system" ]] ; then
-
-      \grep "MY_RUBY_HOME='$rvm_path/rubies" "$rvm_path/config/system" > /dev/null
-
-      if [[ $? -eq 0 ]] ; then
-        # 'system' should *not* point to an rvm ruby.
-        [[ -f "$rvm_path/config/system" ]] && \rm -f "$rvm_path/config/system"
-      else
-        source "$rvm_path/config/system"
-      fi
-    fi
-
-    # Check binaries, remove under the condition they're symlinks.
-    if [[ ${rvm_selfcontained:-1} -eq 0 ]] ; then
-
-      for binary in ruby gem irb ri rdoc rake erb testrb ; do
-
-        full_binary_path="${rvm_bin_path:-"$rvm_path/bin"}/$binary"
-
-        [[ -L "$full_binary_path" ]] && \rm -f "$full_binary_path"
-
-      done
-
-    fi
-
-    if [[ ${rvm_verbose_flag:-0} -gt 0 ]] ; then
-      "$rvm_path/scripts/log" "info" "Now using system ruby."
-    fi
-
-    __rvm_remove_rvm_from_path
-
-    new_path="$PATH:${rvm_bin_path:-"$rvm_path/bin"}"
-
-    export rvm_ruby_string="system"
+    __rvm_use_system
 
   else
     unset BUNDLE_PATH # Ensure that BUNDLE_PATH is not set!
@@ -401,6 +407,7 @@ __rvm_use()
         if [[ $result -eq 1 ]] ; then "$rvm_ruby_home/bin/maglev" start ; fi
       fi
     fi
+
   else
 
     if [[ ${rvm_default_flag:-0} -eq 1 ]] ; then
