@@ -42,11 +42,12 @@ __rvm_create_user_group() {
     echo "Creating the group '$1'"
 
     case "$os_type" in
+      "OpenBSD") groupadd "$rvm_group_name";;
       "FreeBSD") pw groupadd -q "$rvm_group_name";;
       "Linux")   groupadd -f "$rvm_group_name";;
-      "Darwin")  
+      "Darwin")
         gid="501" #only gids > 500 show up in user preferences
-        
+
         #Find an open gid
         while true; do
           name=$(dscl . search /groups PrimaryGroupID $gid | cut -f1 -s)
@@ -55,7 +56,7 @@ __rvm_create_user_group() {
           fi
           gid=$[$gid +1]
         done
-        
+
         #Create the group
         dscl . -create "/Groups/$rvm_group_name"
         dscl . -create "/Groups/$rvm_group_name" gid "$gid"
@@ -70,8 +71,9 @@ __rvm_add_user_to_group() {
   [[ -z "$1" || -z "$2" ]] && return 1
 
   echo "Adding '$1' to the group '$2'"
-  
+
   case "$os_type" in
+    "OpenBSD") usermod -G "$2" "$1";;
     "FreeBSD") pw usermod "$1" -G "$2";;
     "Linux")   usermod -a -G "$2" "$1";;
     "Darwin")  dscl . -append "/Groups/$2" GroupMembership "$1";;
@@ -92,9 +94,20 @@ elif [[ -z "$(command -v git)" ]] ; then
   echo "Please ensure git is installed and available in PATH to continue." >&2
   exit 1
 
-elif [[ "$os_type" != "Linux" && "$os_type" != "FreeBSD" && "$os_type" != "Darwin" ]]; then
-  echo "The rvm system wide installer currently only supports Linux, FreeBSD, and Darwin." >&2
-  exit 1
+else
+  case "$os_type" in
+
+    OpenBSD|Linux|FreeBSD|Darwin)
+      : # All clear, proceed!
+    ;;
+
+    *)
+      echo "The rvm system wide installer currently only supports the OS types:" >&2
+      echo "Linux, FreeBSD, OpenBSD, and Darwin" >&2
+      echo "'$os_type' is currently unknown." >&2
+      exit 1
+    ;;
+  esac
 fi
 
 while [[ $# -gt 0 ]] ; do
