@@ -57,7 +57,7 @@ module RVM
       actual_config.each_pair do |k, v|
         config << "#{k}=#{escape_argument(v.to_s)}"
       end
-      run_silently :export, config.join(" ")
+      run_silently "export #{config.join(" ")}"
       run_silently :source, File.join(rvm_path, "scripts", "rvm")
     end
 
