@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-__rvm_usage() { ${PAGER:-less} "${rvm_path:-$HOME/.rvm}/README" ; }
+__rvm_usage() {
+  eval "${PAGER:-less -X} '${rvm_path:-$HOME/.rvm}/README'"
+}
 
 __rvm_run_script()
 {
@@ -66,7 +68,7 @@ __rvm_parse_args()
       ;;
 
       # Can likely remove this due to the *) case
-      jruby*|ree*|macruby*|rbx*|rubinius*|mput*|shyouhei*|ironruby*|default*|maglev*|all)
+      jruby*|ree*|macruby*|rbx*|rubinius*|goruby|ironruby*|default*|maglev*|all)
         if [[ "rubinius" = "$rvm_token" ]] ; then rvm_token="rbx"; fi
         rvm_ruby_interpreter="$rvm_token"
         rvm_ruby_string="$rvm_token"
@@ -79,7 +81,7 @@ __rvm_parse_args()
       ;;
 
       default)
-
+        # No-op
       ;;
 
       gemset)
@@ -168,7 +170,7 @@ __rvm_parse_args()
 
       -e)
         rvm_action="ruby"
-        rvm_ruby_args="$rvm_token $next_token $(__rvm_quote_args "$@")"
+        IFS="\n" ; rvm_ruby_args="$rvm_token '$next_token $@'" ; IFS=" "
         rvm_parse_break=1
       ;;
 
@@ -219,7 +221,7 @@ __rvm_parse_args()
 
           elif [[ "-e" = "$next_token" ]] ; then
             rvm_action="ruby"
-            rvm_ruby_args="$flag $next_token $(__rvm_quote_args "$@")"
+            IFS="\n" ; rvm_ruby_args="$flag $next_token '$@'" ; IFS=" "
             rvm_parse_break=1
 
           else
@@ -239,7 +241,7 @@ __rvm_parse_args()
             else
               case "$next_token" in
 
-                ruby|rbx|jruby|macruby|ree|rubinius|maglev|mput|shyouhei|ironruby)
+                ruby|rbx|jruby|macruby|ree|rubinius|maglev|goruby|ironruby)
                   rvm_ruby_strings=$next_token
                   rvm_ruby_interpreter=$next_token
                   if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
@@ -301,7 +303,9 @@ __rvm_parse_args()
         rvm_patch_original_pwd="$PWD"
       ;;
 
-      --head) rvm_head_flag=1 ;;
+      --head)   rvm_head_flag=1 ;;
+
+      --static) rvm_static_flag=1 ;;
 
       --bin)
         if [[ "update" = "${rvm_action:-""}" ]] ; then
@@ -451,7 +455,6 @@ __rvm_parse_args()
       --install)                    rvm_install_on_use_flag=1 ;;
       --pretty)                     rvm_pretty_print_flag=1   ;;
 
-
       reboot|damnit|wtf|argh|BOOM|boom|wth) $rvm_action="reboot" ;;
 
       --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--sticky|--create|--gems|--docs)
@@ -575,7 +578,9 @@ __rvm_parse_args()
             if "$rvm_path/scripts/match" "$rvm_token" ".rb$" ; then # we have a specified ruby script
               rvm_ruby_args="$rvm_token"
               rvm_ruby_file="$rvm_token"
-              if [[ -z "${rvm_action:-""}" ]] ; then rvm_action="ruby" ; fi
+              if [[ -z "${rvm_action:-""}" || "$rvm_action" = "use" ]]; then
+                rvm_action="ruby"
+              fi
             else
               rvm_action="error"
               rvm_error_message="Unrecognized command line argument: '$rvm_token'"
@@ -625,7 +630,8 @@ rvm()
 
   if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
 
-  if [[ "${rvm_version:-""}" != "${disk_version:-""}" && "reload" != "${next_token:-""}" ]] ; then
+  if [[ -n "${rvm_version:-""}" && "${rvm_version:-""}" != "${disk_version:-""}" \
+    && "reload" != "${next_token:-""}" ]] ; then
 
     printf "\nA RVM version ${disk_version} is installed yet ${rvm_version} is loaded.\n Please do one of the following:\n  * 'rvm reload'\n  * open a new shell\n  * source your shell init scripts"
 
@@ -641,15 +647,14 @@ rvm()
 
   __rvm_parse_args "$@"
 
-  result=$?
-
-  if [[ $result -gt 0 ]] ; then
+  if [[ $? -gt 0 ]] ; then
+    result=$?
     return $result
   fi
 
   rvm_action="${rvm_action:-usage}"
 
-  export BUNDLE_PATH GEM_HOME GEM_PATH rvm_action rvm_archflags rvm_bin_flag rvm_bin_path rvm_clang_flag rvm_configure_flags rvm_debug_flag rvm_delete_flag rvm_docs_type rvm_dump_environment_flag rvm_error_message rvm_file_name rvm_gemdir_flag rvm_gemset_name rvm_head_flag rvm_install_arguments rvm_install_on_use_flag rvm_interactive_flag rvm_llvm_flag rvm_loaded_flag rvm_make_flags rvm_niceness rvm_only_path_flag rvm_parse_break rvm_patch_names rvm_patch_original_pwd rvm_pretty_print_flag rvm_prior_cc rvm_proxy rvm_quiet_flag rvm_ree_options rvm_reload_flag rvm_remove_flag rvm_ruby_alias rvm_ruby_aliases rvm_ruby_args rvm_ruby_file rvm_ruby_gem_home rvm_ruby_interpreter rvm_ruby_load_path rvm_ruby_make rvm_ruby_make_install rvm_ruby_patch_level rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_require rvm_ruby_string rvm_ruby_strings rvm_ruby_version rvm_script_name rvm_sdk rvm_silent_flag rvm_system_flag rvm_token rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_wrapper_name
+  export GEM_HOME GEM_PATH rvm_action rvm_archflags rvm_bin_flag rvm_bin_path rvm_clang_flag rvm_configure_flags rvm_debug_flag rvm_delete_flag rvm_docs_type rvm_dump_environment_flag rvm_error_message rvm_file_name rvm_gemdir_flag rvm_gemset_name rvm_head_flag rvm_install_arguments rvm_install_on_use_flag rvm_interactive_flag rvm_llvm_flag rvm_loaded_flag rvm_make_flags rvm_niceness rvm_only_path_flag rvm_parse_break rvm_patch_names rvm_patch_original_pwd rvm_pretty_print_flag rvm_prior_cc rvm_proxy rvm_quiet_flag rvm_ree_options rvm_reload_flag rvm_remove_flag rvm_ruby_alias rvm_ruby_aliases rvm_ruby_args rvm_ruby_file rvm_ruby_gem_home rvm_ruby_interpreter rvm_ruby_load_path rvm_ruby_make rvm_ruby_make_install rvm_ruby_patch_level rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_require rvm_ruby_string rvm_ruby_strings rvm_ruby_version rvm_script_name rvm_sdk rvm_silent_flag rvm_system_flag rvm_token rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_wrapper_name rvm_version rvm_static_flag
 
   case "$rvm_action" in
     use)             __rvm_use        ;;
@@ -724,9 +729,8 @@ rvm()
           if [[ "${GEM_HOME:-""}" = "${gem_prefix}${rvm_gemset_separator:-"@"}${rvm_gemset_name}" ]] ; then
             rvm_ruby_gem_home="$gem_prefix"
             GEM_HOME="$rvm_ruby_gem_home"
-            BUNDLE_PATH="$rvm_ruby_gem_home"
             GEM_PATH="$rvm_ruby_gem_home:$rvm_ruby_gem_home${rvm_gemset_separator:-"@"}global"
-            export rvm_ruby_gem_home GEM_HOME BUNDLE_PATH GEM_PATH
+            export rvm_ruby_gem_home GEM_HOME GEM_PATH
           fi
           unset gem_prefix
         fi
@@ -792,4 +796,6 @@ rvm()
 
   return ${result:-0}
 }
+
+__rvm_project_rvmrc
 

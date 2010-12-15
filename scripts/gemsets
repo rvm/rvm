@@ -15,13 +15,21 @@ usage()
 
   Action:
 
-    {import,export,create,copy,rename,empty,delete,name,dir,list,gemdir,install,pristine,clear,use,update,unpack,globalcache}
+    {import,export,create,copy,rename,empty,delete,name,dir,list,list_all,gemdir,install,pristine,clear,use,update,unpack,globalcache}
 
   Description:
 
     Commands for working with and manipulating gemsets within RVM.
 
 "
+}
+
+gemset_list_all()
+{
+  for rvm_ruby_string in $(rvm list strings) ; do
+    (__rvm_use ; gemset_list)
+  done
+  unset rvm_ruby_string
 }
 
 gemset_update()
@@ -471,7 +479,6 @@ gemset_unpack()
   if [[ -n "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
     export GEM_PATH="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
-    export BUNDLE_PATH="$rvm_ruby_gem_home"
   fi
 
   "$rvm_path/scripts/log" "info" \
@@ -510,7 +517,6 @@ gemset_export()
   if [[ -n "$rvm_ruby_gem_home" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
     export GEM_PATH="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
-    export BUNDLE_PATH="$rvm_ruby_gem_home"
   fi
 
   if [[ -z "$rvm_file_name" ]] ; then
@@ -560,7 +566,6 @@ gemset_import()
   if [[ -n "${rvm_ruby_gem_home:-""}" ]] ; then
     export GEM_HOME="$rvm_ruby_gem_home"
     export GEM_PATH="$rvm_ruby_gem_home"
-    export BUNDLE_PATH="$rvm_ruby_gem_home"
   else
     rvm_ruby_gem_home=${GEM_HOME:-$(gem env gemdir)}
   fi
@@ -601,10 +606,14 @@ gemset_import()
 
   if [[ -s "$rvm_file_name" ]] ; then
 
-    echo "Importing  $rvm_file_name file..."
+    printf "\nInstalling gems listed in $rvm_file_name file...\n\n"
 
-    rvm_ruby_gem_list=$(builtin cd "$rvm_ruby_gem_home/specifications/" ; find . -maxdepth 1 -mindepth 1 -type f -print 2> /dev/null | sed -e 's#.gems.*$##' 2> /dev/null)
-    rvm_ruby_gem_list="${rvm_ruby_gem_list//.\/}"
+    rvm_ruby_gem_list=$(
+      builtin cd "$rvm_ruby_gem_home/specifications/" ;
+      find . -maxdepth 1 -mindepth 1 -type f -print 2> /dev/null | \
+        sed -e 's#.gems.*$##' -e 's#^./##g' 2> /dev/null
+    )
+    # rvm_ruby_gem_list="${rvm_ruby_gem_list//.\/}"
 
     while read -r line
     do # Keep this on 2nd line :(
@@ -615,8 +624,11 @@ gemset_import()
 
     done < <(awk '/^[^#]+/{print}' "${rvm_file_name}")
 
+    printf "\nProcessing of $rvm_file_name is complete.\n\n"
+
   else
-    "$rvm_path/scripts/log" "error" "${rvm_file_name} does not exist to import from."
+    "$rvm_path/scripts/log" "error" \
+      "${rvm_file_name} does not exist to import from."
   fi
 }
 
@@ -677,8 +689,7 @@ gem_install()
   if [[ ${rvm_force_flag:-0} -eq 0 && -f "${rvm_ruby_gem_home}/specifications/$(basename "$gem_file_name")spec" ]] ; then
     gem=""
 
-    "$rvm_path/scripts/log" "info" \
-      "$gem_name $gem_version exists, skipping (--force to re-install)"
+    "$rvm_path/scripts/log" "info" "$gem_name $gem_version is already installed."
 
   else
     if [[ -s "$gem" ]] ; then
@@ -737,29 +748,29 @@ gem_install()
 
     if [[ -n "$rvm_ruby_gem_home" && "$rvm_ruby_gem_home" != "${rvm_gems_path:-"$rvm_path/gems"}" ]] ; then
 
-      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' BUNDLE_PATH='${rvm_ruby_gem_home}' $gem_prefix gem install $gems_args $rvm_gem_options $gem_postfix $vars"
+      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix gem install $gems_args $rvm_gem_options $gem_postfix $vars"
 
     else
 
-      #--ignore-dependencies
       command="$gem_prefix gem install --ignore-dependencies $gems_args $rvm_gem_options -q $gem $gem_postfix $vars"
 
     fi
 
     unset -f gem
 
-    __rvm_run "gem.install" "$command" "installing ${gem_name} ${gem_version}..."
+    __rvm_run "gem.install" "$command" \
+      "installing ${gem_name} ${gem_version}..."
     result=$?
 
     if [[ $result -eq 0 ]] ; then
 
       "$rvm_path/scripts/log" "info" \
-        "$gem_name $gem_version installed ( output logged to: $rvm_path/log/$rvm_ruby_string/gem.install.log )"
+        "$gem_name $gem_version installed."
 
     else
 
       "$rvm_path/scripts/log" "error" \
-        "$gem_name $gem_version failed to install ( output logged to: $rvm_path/log/$rvm_ruby_string/gem.install.error.log )"
+        "$gem_name $gem_version failed to install ( output logged to: $rvm_path/log/$rvm_ruby_string/gem.install.log )"
 
     fi
   fi
@@ -771,19 +782,25 @@ gem_install()
 gemset_info()
 {
   if [[ ${rvm_user_flag:-0} -eq 1 ]] ; then
+
     echo $(rvm system ; gem env | grep "\- $HOME" | awk '{print $NF}')
 
   elif [[ ${rvm_system_flag:-0} -eq 1 ]] ; then
+
     echo $(rvm system ; gem env $action system)
 
   elif [[ -n "${rvm_ruby_string:-""}" ]] ; then
+
     echo $(rvm "$rvm_ruby_string" ; gem env $action)
 
   elif [[ -n "${GEM_HOME:-""}" ]] ; then
+
     echo "$GEM_HOME"
 
   else
+
     gem env $action
+
   fi
 
   return $?
@@ -983,6 +1000,9 @@ case "$action" in
     ;;
   list)
     gemset_list
+    ;;
+  list_all)
+    gemset_list_all
     ;;
   gemdir|gempath|gemhome|home|path|version)
     gemset_info

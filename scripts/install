@@ -5,8 +5,7 @@ set -o errtrace
 export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
 
 if [[ -z "$rvm_selfcontained" ]]; then
-  if [[ "root" = "$(whoami)" \
-    || -n "$rvm_prefix" && "$rvm_prefix" != "$HOME"/* ]]; then
+  if [[ $(id -u) -eq 0 || -n "$rvm_prefix" && "$rvm_prefix" != "$HOME"/* ]]; then
     export rvm_selfcontained=0
   else
     export rvm_selfcontained=1
@@ -126,7 +125,7 @@ andand_return_warning()
 thank_you()
 {
   printf "
-${name:-"${USER:-$(whoami)}"},
+${name:-"${USER:-$(id | sed -e 's/^[^(]*(//' -e 's/).*$//')}"},
 
 Thank you very much for using RVM! I sincerely hope that RVM helps to
 make your work both easier and more enjoyable.
@@ -161,6 +160,8 @@ upgrade_notes()
 
 Upgrade Notes
 
+  * rvm_trust_rvmrcs has been changed to rvm_trust_rvmrcs_flag for consistency
+
   * Ruby package dependency list for your OS is given by:
     rvm notes
 
@@ -192,22 +193,36 @@ while [[ $# -gt 0 ]] ; do
       env | grep '^rvm_'
       set -o xtrace
       ;;
-    --help)  usage ; exit ;;
+    --help)
+      usage
+      exit 0
+      ;;
     *)
       echo "Unrecognized option: $token"
       usage
-      exit
+      exit 1
       ;;
   esac
 done
 
-if [[ -z "${rvm_prefix:-""}" ]] ; then
-  __rvm_load_rvmrc
-  if [[ "$rvm_selfcontained" = "0" ]] ; then
-    rvm_prefix="${rvm_prefix:-"/usr/local/"}"
+if [[ -z "${rvm_prefix:-""}"  ]] ; then
+
+  if [[ "$USER" = "root" ]] ; then
+
+    source /etc/rvmrc
+
+    if [[ ${rvm_selfcontained:-0} -eq 0 ]] ; then
+      rvm_prefix="${rvm_prefix:-"/usr/local/"}"
+    else
+      rvm_prefix="${rvm_prefix:-"$HOME/."}"
+    fi
+
   else
+
     rvm_prefix="${rvm_prefix:-"$HOME/."}"
+
   fi
+
 fi
 
 if [[ -z "${rvm_path:-""}" ]] ; then
@@ -459,7 +474,7 @@ fi
 #
 mkdir -p "${rvm_rubies_path:-"$rvm_path/rubies"}/"
 
-for ruby in $rvm_path/ruby-* $rvm_path/jruby-* $rvm_path/mput-* \
+for ruby in $rvm_path/ruby-* $rvm_path/jruby-* $rvm_path/goruby\
   $rvm_path/rbx-* $rvm_path/maglev-* $rvm_path/ree-* ; do
 
   if [[ -d "$ruby" ]] ; then
@@ -490,6 +505,18 @@ done
 # End of rubies migration.
 #
 
+if [[ -d "$rvm_path/environments" ]] ; then
+  #
+  # Remove BUNDLE_PATH from environment files
+  #
+  environments=($( find "$rvm_path/environments" -maxdepth 1 -mindepth 1 -type f ))
+  for file in "${environments[@]}" ; do
+    if grep 'BUNDLE_PATH' "$file" > /dev/null ; then
+      grep -v 'BUNDLE_PATH' "$file" > "$file.new"
+      mv "$file.new" "$file"
+    fi
+  done
+fi
 #
 # Migrate old gemset directories to new gemset pattern.
 #

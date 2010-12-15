@@ -16,12 +16,25 @@ Capistrano::Configuration.instance(true).load do
   set :default_shell do
     shell = File.join(rvm_bin_path, "rvm-shell")
     ruby = rvm_ruby_string.to_s.strip
-    shell = "#{shell} '#{ruby}'" unless ruby.empty?
+    shell = "rvm_path=#{rvm_path} #{shell} '#{ruby}'" unless ruby.empty?
     shell
   end
 
   # Let users set the type of their rvm install.
   _cset(:rvm_type, :system)
+
+  # Define rvm_path
+  # This is used in the default_shell command to pass the required variable to rvm-shell, allowing
+  # rvm to boostrap using the proper path.  This is being lost in Capistrano due to the lack of a
+  # full environment.
+  _cset(:rvm_path) do
+    case rvm_type
+    when :system_wide, :root, :system
+      "/usr/local/rvm"
+    when :local, :user, :default
+      "$HOME/.rvm/"
+    end
+  end
 
   # Let users override the rvm_bin_path
   _cset(:rvm_bin_path) do

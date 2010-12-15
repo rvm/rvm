@@ -34,6 +34,7 @@ begin
   require "lib/rvm/version"
 
   Jeweler::Tasks.new do |gemspec|
+    # No longer packaging RVM with RVM API
     gemspec.name            = "rvm"
     gemspec.version         = RVM::Version::STRING
     gemspec.summary         = "Ruby Version Manager (rvm)"
@@ -41,8 +42,8 @@ begin
     gemspec.date            = Time.now.strftime("%Y-%m-%d")
     gemspec.description     = "Manages Ruby interpreter environments and switching between them."
     gemspec.platform        = Gem::Platform::RUBY
-    gemspec.files           = ["install", "README", "sha1", "LICENCE", "rvm.gemspec", "bash/*", "binscripts/*", "scripts/*", "patches/*", "examples/*", "config/*", "help/**", "gemsets/*", "contrib/*", Dir::glob("lib/**/**"), Dir::glob("man/**/**")].flatten
-    gemspec.executables     = Dir::glob("bin/rvm-*").map{ |script| File::basename script }
+    gemspec.files           = ["README", "sha1", "LICENCE", "rvm.gemspec", Dir::glob("lib/**/**")].flatten
+    # gemspec.executables     = Dir::glob("bin/rvm-*").map{ |script| File::basename script }
     gemspec.require_path    = "lib"
     gemspec.has_rdoc        = File::exist?("doc")
     gemspec.rdoc_options    = ["--inline-source", "--charset=UTF-8"]
