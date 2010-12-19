@@ -41,7 +41,19 @@ case $state in
 	args)
 		case $line[1] in
 			(use|uninstall|remove|list)
-				_values -S , 'rubies' $(rvm list strings | sed -e 's/ruby-\([^) ]*\)-\([^) ]*\)/ruby-\1-\2 \1-\2 \1/g') default system $(rvm alias list | cut -d' ' -f1) && ret=0
+				if (( CURRENT == 3 )); then
+                    # See if we’ve made it to the ‘@’; eg, 1.9.2@
+                    if ! \grep -q '@' <<< "${line[CURRENT-1]}" ; then
+                        _values -S , 'rubies' \
+                            $(rvm list strings | sed -e 's/ruby-\([^) ]*\)-\([^) ]*\)/ruby-\1-\2 \1-\2 \1/g') \
+                            default system $(rvm alias list | cut -d' ' -f1) && ret=0
+                    else
+                        # Construct a full version string for each of the gemsets.
+                        # Eg, 1.9.2@min 1.9.2@rail3 …
+                        _values -S , 'gemsets' \
+                            $(rvm ${line[CURRENT-1]%%@*} gemset list | awk '/^[-_[:alnum:]]+$/ {print "'${line[CURRENT-1]%%@*}'@"$1}')
+                    fi
+                fi
 				;;
 			(install|fetch)
 				_values -S , 'rubies' $(rvm list known_strings) && ret=0
@@ -50,7 +62,8 @@ case $state in
 				if (( CURRENT == 3 )); then
 					_values 'gemset_commands' $(rvm gemset | sed -e '/create/!d; s/^.*[{]\(.*\)[}].*$/\1/; s/,/ /g')
 				else
-					_values -S , 'gemsets' $(rvm gemset list | \grep -v gemset 2>/dev/null)
+					#_values -S , 'gemsets' $(rvm gemset list | \grep -v gemset 2>/dev/null)
+                    _values -S , 'gemsets' $(rvm gemset list | \grep -Ev '(gemset|info)' 2>/dev/null)
 				fi
 				ret=0
 				;;
