@@ -1394,52 +1394,42 @@ __rvm_fetch_ruby()
     fi
 
     return 0
-  else
+
+  else # -head
 
     mkdir -p "${rvm_repo_path:-"$rvm_path/repos"}"
 
-    if [[ -n "$(echo "$rvm_ruby_url" | awk '/git/')" ]] ; then
+    if [[ -z "${rvm_ruby_url:-""}" ]] ; then
+      rvm_ruby_url="$rvm_ruby_repo_url"
+    fi
 
-      if [[ -d "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string/.git" ]] ; then
+    if echo "$rvm_ruby_url" | grep -q 'git' ; then # Using a  git url.
 
-        builtin cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
+      # Determine Branch
+      if [[ -z "${rvm_ruby_repo_branch:-""}" ]]; then
 
-        if [[ -z "$rvm_ruby_revision" ]] ; then
+        if [[ -n "${rvm_ruby_major_version:-""}" ]] ; then
 
-          "$rvm_path/scripts/log" "info" \
-            "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
-
-          git pull origin master --force
-
-          result=$?
-
-          if [[ "$result" -gt 0 ]] ; then
-            "$rvm_path/scripts/log" "error" \
-              "There has been an error while trying to update the source from the remote repository. \
-              \nHalting the installation."
-            return $result
+          if [[ -n "${rvm_ruby_minor_version:-""}" ]]; then
+            rvm_ruby_repo_branch="ruby_1_${rvm_ruby_major_version}_${rvm_ruby_minor_version}"
+          else
+            rvm_ruby_repo_branch="ruby_1_${rvm_ruby_major_version}"
           fi
 
         else
-          if [[ -z "${rvm_ruby_sha:-""}" ]] ; then
-            git checkout HEAD
-          else
-            git checkout $(echo "$rvm_ruby_sha" | sed 's#^s##')
-          fi
-          result=$?
 
-          if [[ "$result" -gt 0 ]] ; then
-            "$rvm_path/scripts/log" "error" \
-              "There has been an error while trying to checkout the source branch. \
-              \nHalting the installation."
-            return $result
-          fi
+          rvm_ruby_repo_branch="HEAD" # NOTE: Ruby Core team maps 'trunk' as HEAD
+
         fi
 
-      else
+      fi
+
+      # Clone if repository does not yet exist locally
+      if [[ ! -d "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string/.git" ]] ; then
+
         rm -rf "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
-        rvm_ruby_repo_http_url="${rvm_ruby_repo_url//git:/http:/}"
+        rvm_ruby_repo_http_url="${rvm_ruby_repo_url//git:/https:/}"
 
         "$rvm_path/scripts/log" "info" \
           "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
@@ -1463,32 +1453,64 @@ __rvm_fetch_ruby()
             return $result
           fi
         fi
+
       fi
 
-      if [[ -z "$rvm_ruby_repo_branch" ]]; then
-        rvm_ruby_repo_branch="master"
-      fi
-
+      # Use the selected branch.
       (
-        remote="origin"
+        remote="${remote:-origin}"
 
-        cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
+        cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" &&
 
-        if [[ -z "$(git branch | awk "/$rvm_ruby_repo_branch$/")" ]] ; then
+        if ! git branch  | grep '^*' | grep -q "${rvm_ruby_repo_branch}" ]]; then
 
-          git checkout -b "$rvm_ruby_repo_branch" --track "$remote/$rvm_ruby_repo_branch" 2>/dev/null
+          # Not already on the desired branch
+          if ! git branch  | grep -q "^  ${rvm_ruby_repo_branch}" ]]; then
 
-        elif [[ -z "$(git branch | awk "/\* $rvm_ruby_repo_branch$/")" ]] ; then
+            git checkout "${rvm_ruby_repo_branch}" # Branch is local
+            git pull "$remote" "${rvm_ruby_repo_branch}"
 
-          if ! git checkout $rvm_ruby_repo_branch 2>/dev/null ; then
+          else # Branch is not local
 
-            "$rvm_path/scripts/log" "error" \
-              "Branch $remote/$rvm_ruby_repo_branch not found."
+            if ! git checkout -t "${remote}/${rvm_ruby_repo_branch}" ; then
+              result=$?
 
+              "$rvm_path/scripts/log" "error" \
+                "Branch $remote/$rvm_ruby_repo_branch not found."
+              return $result
+
+            fi
           fi
 
+        else
+          true
         fi
       )
+      result=$?
+
+      if [[ "$result" -gt 0 ]] ; then
+        "$rvm_path/scripts/log" "error" \
+          "There has been an error while checking out branch ${rvm_ruby_repo_branch}. \
+          \nHalting the installation."
+        return $result
+      fi
+
+      # If a revision was specified, check it out.
+      if [[ -n "$rvm_ruby_revision" ]] ; then
+
+        if [[ -z "${rvm_ruby_sha:-""}" ]] ; then
+          git checkout HEAD
+        else
+          git checkout ${rvm_ruby_sha/#s/}
+        fi
+        result=$?
+
+        if [[ "$result" -gt 0 ]] ; then
+          "$rvm_path/scripts/log" "error" \
+            "There has been an error while trying to checkout the source branch.\nHalting the installation."
+          return $result
+        fi
+      fi
 
     else
       if [[ -n "${rvm_ruby_tag:-""}" ]] ; then
