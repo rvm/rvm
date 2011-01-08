@@ -48,7 +48,7 @@ __rvm_teardown()
 
   fi
 
-  unset rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_bin_path rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_interactive_flag rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_tag rvm_ruby_version rvm_selfcontained rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_action rvm_ruby_package_file rvm_ruby_name rvm_static_flag
+  unset rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_bin_path rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_interactive_flag rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_tag rvm_ruby_version rvm_selfcontained rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_action rvm_ruby_package_file rvm_ruby_name rvm_static_flag rvm_export_args
 
   [[ ${rvm_dump_environment_flag:-0} -eq 1 ]] && __rvm_dump_environment
 
@@ -687,6 +687,8 @@ __rvm_reset()
   __rvm_use_system
 
   __rvm_unset_ruby_variables
+
+  __rvm_unset_exports
 
   configs=(system_ruby system_gem_path system_user_gem_path)
 
@@ -1421,6 +1423,8 @@ __rvm_project_rvmrc()
 
         unset rvm_rvmrc_cwd rvm_previous_environment
 
+        __rvm_unset_exports
+
       fi
       break
     else
@@ -1438,6 +1442,8 @@ __rvm_project_rvmrc()
             rvm_previous_environment="$(__rvm_environment_identifier)"
 
             rvm_rvmrc_cwd="$cwd"
+            
+            __rvm_unset_exports
 
             source "$cwd/.rvmrc"
 
@@ -1598,4 +1604,44 @@ __rvm_expand_ruby_string()
   esac
 
   return $?
+}
+
+__rvm_export()
+{
+
+  # extract the variable name from the first arg.
+  local name=${1%%=*}
+
+  # store the current value, to be restored later.
+  builtin export rvm_old_$name=${!name}
+
+  # pass-through the return value of the builtin.
+  export "$@"
+  return $?
+}
+
+__rvm_unset_exports()
+{
+  for pair in $(env); do
+
+    # ignore everything except for wrapped variables.
+    if [[ $pair =~ "rvm_old_" ]]; then
+
+      local wrap_name=${pair%%=*}
+      local name=${wrap_name#rvm_old_}
+      local value=${!wrap_name}
+
+      # if the old value is non-empty, restore it.
+      if [[ -n $value ]]; then
+        export $name=${value}
+
+      # otherwise, just remove it.
+      else
+        unset $name
+      fi
+
+      # unset the wrapped variable.
+      unset $wrap_name
+    fi
+  done
 }
