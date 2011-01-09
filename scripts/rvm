@@ -35,7 +35,7 @@ if ! declare -f rvm > /dev/null || [[ ${rvm_reload_flag:-0} -eq 1 ]] ; then
   if [[ -z "${rvm_selfcontained:-""}" ]]; then
 
     if [[ $(id | \sed -e 's/(.*//' | awk -F= '{print $2}') -eq 0 || \
-      -n "$rvm_prefix" && "$rvm_prefix" != "$HOME"/* ]]; then
+      -n "${rvm_prefix:-""}" && "${rvm_prefix:-""}" != "$HOME"/* ]]; then
 
       rvm_selfcontained=0
 
@@ -47,9 +47,9 @@ if ! declare -f rvm > /dev/null || [[ ${rvm_reload_flag:-0} -eq 1 ]] ; then
 
   fi
 
-  if [[ -z "$rvm_prefix" ]] ; then
+  if [[ -z "${rvm_prefix:-""}" ]] ; then
 
-    if [[ "$rvm_selfcontained" = "0" ]] ; then
+    if [[ "${rvm_selfcontained:-0}" = "0" ]] ; then
 
       rvm_prefix="/usr/local/"
 
@@ -61,65 +61,68 @@ if ! declare -f rvm > /dev/null || [[ ${rvm_reload_flag:-0} -eq 1 ]] ; then
 
       echo "No \$rvm_prefix was provided and "
       echo "$(id | \sed -e's/^[^(]*(//' -e 's/).*//') has no \$HOME defined."
-      echo "Exploding violently."
-      exit 1
-
+      echo "Haling loading of RVM."
+      rvm_load_rvm=0
     fi
 
   fi
 
-  # Fix rvm_prefix changes.
-  echo "$rvm_prefix" | \grep -vq '\(\/\|\.\)$' && [[ -d "$rvm_prefix/rvm/scripts" ]]
+  if [[ ${rvm_load_rvm:-1} -eq 1 ]] ; then
 
-  rvm_prefix_needs_trailing_slash="$?"
+    # Fix rvm_prefix changes.
+    echo "$rvm_prefix" | \grep -vq '\(\/\|\.\)$' && [[ -d "$rvm_prefix/rvm/scripts" ]]
 
-  if [[ "$rvm_prefix" = "/usr/local" || "$rvm_prefix_needs_trailing_slash" = "0" ]]; then
+    rvm_prefix_needs_trailing_slash="$?"
 
-    rvm_prefix="$rvm_prefix/"
+    if [[ "$rvm_prefix" = "/usr/local" || "$rvm_prefix_needs_trailing_slash" = "0" ]]; then
 
-  fi
-
-  if [[ -z "$rvm_path" ]] ; then
-    rvm_path="${rvm_prefix}rvm"
-  fi
-
-  if [[ -d "$rvm_path" ]] ; then
-
-    for script in array utility initialize version selector cd cli override_gem ; do
-
-      if [[ -f "$rvm_path/scripts/$script" ]] ; then
-
-        source "$rvm_path/scripts/$script"
-
-      else
-
-        "$rvm_path/scripts/log" "error" \
-          "RVM: Could not source script '$rvm_path/scripts/$script', file does not exist. RVM will likely not work as expected."
-
-      fi
-    done
-
-    rvm_version="$(awk '/:/{printf $NF"."}' "$rvm_path/lib/VERSION.yml")"
-
-    export rvm_version="${rvm_version/%.}"
-
-    alias rvm-restart="source '${rvm_path}/scripts/rvm'"
-
-    if ! command -v ruby >/dev/null 2>&1 || command -v ruby | \grep -v rvm >/dev/null ; then
-
-      if [[ -s "$rvm_path/environments/default" ]] ; then
-
-        source "$rvm_path/environments/default"
-
-      fi
+      rvm_prefix="$rvm_prefix/"
 
     fi
 
-    # Makes sure rvm_bin_path is in PATH atleast once.
-    __rvm_conditionally_add_bin_path
+    if [[ -z "$rvm_path" ]] ; then
+      rvm_path="${rvm_prefix}rvm"
+    fi
 
-  else
-    printf "\n\$rvm_path ($rvm_path) does not exist."
+    if [[ -d "$rvm_path" ]] ; then
+
+      for script in array utility initialize version selector cd cli override_gem ; do
+
+        if [[ -f "$rvm_path/scripts/$script" ]] ; then
+
+          source "$rvm_path/scripts/$script"
+
+        else
+
+          "$rvm_path/scripts/log" "error" \
+            "RVM: Could not source script '$rvm_path/scripts/$script', file does not exist. RVM will likely not work as expected."
+
+        fi
+      done
+
+      rvm_version="$(awk '/:/{printf $NF"."}' "$rvm_path/lib/VERSION.yml")"
+
+      export rvm_version="${rvm_version/%.}"
+
+      alias rvm-restart="source '${rvm_path}/scripts/rvm'"
+
+      if ! command -v ruby >/dev/null 2>&1 || command -v ruby | \grep -v rvm >/dev/null ; then
+
+        if [[ -s "$rvm_path/environments/default" ]] ; then
+
+          source "$rvm_path/environments/default"
+
+        fi
+
+      fi
+
+      # Makes sure rvm_bin_path is in PATH atleast once.
+      __rvm_conditionally_add_bin_path
+
+    else
+      printf "\n\$rvm_path ($rvm_path) does not exist."
+    fi
+
   fi
 
   unset rvm_prefix_needs_trailing_slash rvm_bin_path rvm_man_path rvm_rc_files rvm_gems_path rvm_gems_cache_path rvm_interactive_flag rvm_gems_path rvm_project_rvmrc_default rvm_gemset_separator
