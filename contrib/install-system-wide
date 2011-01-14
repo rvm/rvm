@@ -42,8 +42,25 @@ __rvm_create_user_group() {
     echo "Creating the group '$1'"
 
     case "$os_type" in
+      "OpenBSD") groupadd "$rvm_group_name";;
       "FreeBSD") pw groupadd -q "$rvm_group_name";;
       "Linux")   groupadd -f "$rvm_group_name";;
+      "Darwin")
+        gid="501" #only gids > 500 show up in user preferences
+
+        #Find an open gid
+        while true; do
+          name=$(dscl . search /groups PrimaryGroupID $gid | cut -f1 -s)
+          if [ -z "$name" ] ; then
+            break
+          fi
+          gid=$[$gid +1]
+        done
+
+        #Create the group
+        dscl . -create "/Groups/$rvm_group_name"
+        dscl . -create "/Groups/$rvm_group_name" gid "$gid"
+      ;;
     esac
   fi
 
@@ -54,10 +71,12 @@ __rvm_add_user_to_group() {
   [[ -z "$1" || -z "$2" ]] && return 1
 
   echo "Adding '$1' to the group '$2'"
-  
+
   case "$os_type" in
+    "OpenBSD") usermod -G "$2" "$1";;
     "FreeBSD") pw usermod "$1" -G "$2";;
     "Linux")   usermod -a -G "$2" "$1";;
+    "Darwin")  dscl . -append "/Groups/$2" GroupMembership "$1";;
   esac
 
   return 0
@@ -66,7 +85,7 @@ __rvm_add_user_to_group() {
 os_type="$(uname)"
 
 # Require root to install it.
-if [[ "$(whoami)" != "root" ]]; then
+if [[ $(id | sed -e 's/(.*//' | awk -F= '{print $2}') -ne 0 ]]; then
   echo "Please rerun this installer as root." >&2
   exit 1
 
@@ -75,9 +94,20 @@ elif [[ -z "$(command -v git)" ]] ; then
   echo "Please ensure git is installed and available in PATH to continue." >&2
   exit 1
 
-elif [[ "$os_type" != "Linux" && "$os_type" != "FreeBSD" ]]; then
-  echo "The rvm system wide installer currently only supports Linux and FreeBSD." >&2
-  exit 1
+else
+  case "$os_type" in
+
+    OpenBSD|Linux|FreeBSD|Darwin)
+      : # All clear, proceed!
+    ;;
+
+    *)
+      echo "The rvm system wide installer currently only supports the OS types:" >&2
+      echo "Linux, FreeBSD, OpenBSD, and Darwin" >&2
+      echo "'$os_type' is currently unknown." >&2
+      exit 1
+    ;;
+  esac
 fi
 
 while [[ $# -gt 0 ]] ; do
@@ -124,7 +154,7 @@ export rvm_selfcontained=0
 rvm_group_name="${rvm_group_name:-"rvm"}"
 
 __rvm_create_user_group "$rvm_group_name"
-__rvm_add_user_to_group "$(whoami)" "$rvm_group_name"
+__rvm_add_user_to_group "${USER:-$(id | sed -e 's/^[^(]*(//' -e 's/).*$//')}" "$rvm_group_name"
 
 echo "Creating the destination dir and making sure the permissions are correct"
 mkdir -p "$rvm_path"

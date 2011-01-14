@@ -5,6 +5,6 @@ __rvm_show_command_epilog() {
   echo "---"
   echo " exit_status: \"$last_command_result\""
   echo " environment:"
-  env | sed "s#'#\\'#g" | sed -e 's#"#\\"#g' -e "s#\\([^=]*\\)=\\(.*\\)#   '\1': \"\2\"#"
+  \env | \sed "s#'#\\'#g" | \sed -e 's#"#\\"#g' -e "s#\\([^=]*\\)=\\(.*\\)#   '\1': \"\2\"#"
   echo "----------------RVM-RESULTS-END----------------"
 }

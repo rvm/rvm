@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+set -o errtrace
+set -o errexit
+
+export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
+
 rvm_ignore_rvmrc=${rvm_ignore_rvmrc:-0}
 if [[ $rvm_ignore_rvmrc -eq 0 ]]; then
   [[ -s /etc/rvmrc ]] && source /etc/rvmrc
@@ -7,21 +12,44 @@ if [[ $rvm_ignore_rvmrc -eq 0 ]]; then
 fi
 
 rvm_path="${rvm_path:-$HOME/.rvm}"
-\mkdir -p $rvm_path/src/
-cd $rvm_path/src
+mkdir -p "$rvm_path/src/" "$rvm_path/archives"
+cd "$rvm_path/src"
 
 stable_version=$(curl -B http://rvm.beginrescueend.com/releases/stable-version.txt 2>/dev/null)
+stable_md5=$(curl -B http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz.md5 2>/dev/null)
 
 echo "rvm-${stable_version}"
 
-curl -L "http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz" -o "rvm-${stable_version}.tar.gz"
+archive="$rvm_path/archives/rvm-${stable_version}.tar.gz"
 
-tar zxf "rvm-${stable_version}.tar.gz"
+curl -L "http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz" \
+  -o "$archive"
 
-cd "rvm-${stable_version}"
+case "$(uname)" in
+  Darwin|FreeBSD)
+    archive_md5="$(/sbin/md5 -q "${archive}")"
+    ;;
+  OpenBSD)
+    archive_md5="$(/bin/md5 -q "${archive}")"
+    ;;
+  Linux|*)
+    archive_md5="$(md5sum "${archive}" | awk '{print $1}')"
+    ;;
+esac
 
-# v v v This is a godo idea however it does not preserve the executible bit.
-# Needs more thought, perhaps a simple sed instead.
-#dos2unix scripts/* >/dev/null 2>&1
+if [[ "$archive_md5" != "$stable_md5" ]]; then
+  printf "ERROR:
+  Archive package rvm-${stable_version}.tar.gz downloaded does not match it's md5 checksum ${stable_md5}.
+  Aborting RVM Installation.
+"
+  exit 1
+fi
 
-bash scripts/install
+tar zxf "${rvm_path}/archives/rvm-${stable_version}.tar.gz" -C "$rvm_path/src/"
+
+cd "$rvm_path/src/rvm-${stable_version}"
+
+chmod +x ./scripts/install
+
+./scripts/install
+

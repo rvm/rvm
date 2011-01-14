@@ -166,6 +166,22 @@ __rvm_install_source()
     builtin hash -r
   fi
 
+  if [[ ${rvm_static_flag:-0} -eq 1 ]]; then
+
+    if [[ -s "ext/Setup" ]]; then
+      echo 'option nodynamic' >> ext/Setup
+      "$rvm_path/scripts/log" "info" "Setting option nodynamic (static)."
+    else
+      "$rvm_path/scripts/log" "info" "
+      You asked for static Ruby compilation however the file ext/Setup
+      appears to be missing from the source directory
+      ${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string
+      please investigate this, continuing installation regardless.
+      "
+    fi
+
+  fi
+
   __rvm_apply_patches
   result="$?"
 
@@ -218,7 +234,7 @@ __rvm_install_source()
       fi
     fi
 
-    local configure_command="./configure --prefix=$rvm_ruby_home ${db_configure_flags:-""} ${rvm_configure_flags:-""} ${configure_parameters:-""}"
+    local configure_command="${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home ${db_configure_flags:-""} ${rvm_configure_flags:-""} ${configure_parameters:-""}"
 
     __rvm_run "configure" "$configure_command" "$rvm_ruby_string - #configuring "
     result=$?
@@ -262,7 +278,6 @@ __rvm_install_source()
 
   export GEM_HOME="$rvm_ruby_gem_home"
   export GEM_PATH="$rvm_ruby_gem_path"
-  export BUNDLE_PATH="$rvm_ruby_gem_home"
 
   __rvm_rubygems_setup
   result=$?
@@ -298,7 +313,7 @@ __rvm_install_ruby()
     macruby)
       if [[ "Darwin" = "$(uname)" ]] ; then
 
-        if [[ "$rvm_head_flag" = 1 ]] ; then
+        if [[ ${rvm_head_flag:-0} -eq 1 ]] ; then
 
           if [[ -n "$rvm_llvm_flag" ]] ; then
             "$rvm_path/scripts/package" llvm install
@@ -308,7 +323,7 @@ __rvm_install_ruby()
           # TODO: configure & make variables should be set here.
           rvm_ruby_configure=" true "
           rvm_ruby_make="rake"
-          rvm_ruby_make_install="sudo rake install"
+          rvm_ruby_make_install="$rvm_path/bin/rvmsudo rake install"
 
           __rvm_db "${rvm_ruby_interpreter}_repo_url" "rvm_ruby_url"
 
@@ -325,15 +340,16 @@ __rvm_install_ruby()
           fi
 
         elif [[ "nightly" = "$rvm_ruby_version" ]] ; then
-          macruby_path="/Library/Frameworks/MacRuby.framework/Versions/0.6/usr/bin"
+          __rvm_db "macruby_nightly_version" "macruby_nightly_version"
+          macruby_path="/Library/Frameworks/MacRuby.framework/Versions/${macruby_nightly_version}/usr/bin"
+          unset macruby_nightly_version
           # TODO: Separated nightly from head.
 
           "$rvm_path/scripts/log" "info" "Retrieving the latest nightly macruby build..."
 
           "$rvm_path/scripts/fetch" "$rvm_ruby_url"
           result=$?
-
-          if [[ "$result" -gt 0 ]] ; then
+          if [[ $result -gt 0 ]] ; then
             "$rvm_path/scripts/log" "error" \
               "There has been an error while trying to fetch the source. \
               \nHalting the installation."
@@ -341,7 +357,7 @@ __rvm_install_ruby()
           fi
 
           mv "${rvm_archives_path:-"$rvm_path/archives"}/macruby_nightly-latest.pkg" \
-            "$rvm_archives_path/macruby_nightly.pkg"
+            "${rvm_archives_path:-"$rvm_path/archives"}/macruby_nightly.pkg"
 
           __rvm_run "macruby/extract" \
             "sudo /usr/sbin/installer -pkg '${rvm_archives_path:-"$rvm_path/archives"}/macruby_nightly.pkg' -target '/'"
@@ -385,8 +401,8 @@ __rvm_install_ruby()
           ruby_wrapper=$(cat <<RubyWrapper
 #!/usr/bin/env bash
 
-export GEM_HOME="$rvm_ruby_gem_home"
-export GEM_PATH="$rvm_ruby_gem_path"
+export GEM_HOME="\${GEM_HOME:-$rvm_ruby_gem_home}"
+export GEM_PATH="\${GEM_PATH:-$rvm_ruby_gem_path}"
 export MY_RUBY_HOME="$rvm_ruby_home"
 export PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH"
 
@@ -540,7 +556,7 @@ RubyWrapper
       # TODO: use 'rvm gems load' here:
       unset CFLAGS LDFLAGS ARCHFLAGS # Important.
 
-      unset BUNDLE_PATH GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
+      unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
 
       __rvm_remove_rvm_from_path
 
@@ -613,7 +629,7 @@ RubyWrapper
 
       rvm_configure_flags="${rvm_configure_flags:-"--skip-system"}"
 
-      rvm_ruby_configure="$rvm_path/wrappers/$ruby/ruby ./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_configure_flags"
+      rvm_ruby_configure="$rvm_path/wrappers/$ruby/ruby ${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_configure_flags"
       message="$rvm_ruby_string - #configuring"
 
       if [[ "$rvm_llvm_flag" = "0" ]] ; then
@@ -648,8 +664,7 @@ RubyWrapper
 
       if [[ "$result" -gt 0 ]] ; then
         "$rvm_path/scripts/log" "error" \
-          "There has been an error while running '$rvm_ruby_configure'. \
-          \nHalting the installation."
+          "There has been an error while running '$rvm_ruby_configure'.\nHalting the installation."
         return $result
       fi ; unset ruby
 
@@ -728,7 +743,7 @@ RubyWrapper
           ;;
         *)
           __rvm_run "nailgun" \
-            "builtin cd \"${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string/tool/nailgun\" && ./configure --prefix=$rvm_ruby_home && make $rvm_make_flags" \
+            "builtin cd \"${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string/tool/nailgun\" && ${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home && make $rvm_make_flags" \
             "Building Nailgun"
           ;;
       esac
@@ -779,6 +794,8 @@ RubyWrapper
 
         cp -R "$rvm_ruby_home/lib/ruby/gems/1.8/" "$rvm_ruby_gem_home/"
       fi
+
+      "$rvm_ruby_home/bin/gem" install jruby-launcher
     ;;
 
     maglev)
@@ -995,15 +1012,13 @@ RubyWrapper
 
         unzip -o  -d "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string" \
           "${rvm_archives_path:-"$rvm_path/archives"}/${rvm_ruby_package_file}" >> \
-          "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/extract.log" 2>> \
-          "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/extract.error.log"
+          "${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/extract.log" 2>&1
         result=$?
 
         if [[ "$result" -gt 1 ]] ; then
 
           "$rvm_path/scripts/log" "error" \
-            "There has been an error while trying to extract $rvm_ruby_package_file. \
-            \nHalting the installation."
+            "There has been an error while trying to extract $rvm_ruby_package_file.\n${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/extract.log might have more details.\nHalting the installation."
           return $result
 
         fi
@@ -1045,11 +1060,11 @@ RubyWrapper
         "Installing $rvm_gem_name to $dir"
     ;;
 
-    mput|shyouhei)
+    goruby)
 
       if [[ ${rvm_make_flags_flag:-0} -eq 1 ]] ; then __rvm_make_flags ; fi
 
-      unset BUNDLE_PATH GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
+      unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
 
       __rvm_remove_rvm_from_path
 
@@ -1057,15 +1072,15 @@ RubyWrapper
 
       builtin hash -r
 
-      rvm_ruby_home="$rvm_path/rubies/$rvm_ruby_interpreter-$rvm_ruby_version"
+      rvm_ruby_home="$rvm_path/rubies/$rvm_ruby_interpreter"
 
-      __rvm_fetch_from_github "mput" "trunk"
+      __rvm_fetch_from_github "ruby" "trunk"
 
       __rvm_apply_patches ; result=$?
 
       if [[ "$result" -gt 0 ]] ; then
         "$rvm_path/scripts/log" "error" \
-          "There has been an error while trying to apply patches to mput. \
+          "There has been an error while trying to apply patches to goruby. \
           \nHalting the installation."
         return $result
       fi
@@ -1104,18 +1119,18 @@ RubyWrapper
         fi
 
       elif [[ -s ./configure ]] ; then
-        local configure_command="./configure --prefix=$rvm_ruby_home $rvm_configure_flags"
+        local configure_command="${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home $rvm_configure_flags"
 
-        __rvm_run "configure" "" \
+        __rvm_run "configure" "$configure_command" \
           "Configuring $rvm_ruby_string using $rvm_configure_flags, this may take a while depending on your cpu(s)..."
         result=$?
 
-        if [[ "$result" -gt 0 ]] ; then
+      if [[ "$result" -gt 0 ]] ; then
         "$rvm_path/scripts/log" "error" \
           "There has been an error while trying to configure the source.\
           \nHalting the installation."
         return $result
-      fi
+	  fi
 
     else
       "$rvm_path/scripts/log" "error" \
@@ -1124,7 +1139,7 @@ RubyWrapper
 
       rvm_ruby_make=${rvm_ruby_make:-"make"}
 
-      __rvm_run "make" "$rvm_ruby_make $rvm_make_flags" \
+      __rvm_run "make" "$rvm_ruby_make golf $rvm_make_flags" \
         "Compiling $rvm_ruby_string, this may take a while depending on your cpu(s)..."
       result=$?
 
@@ -1152,7 +1167,6 @@ RubyWrapper
 
       export GEM_HOME="$rvm_ruby_gem_home"
       export GEM_PATH="$rvm_ruby_gem_path"
-      export BUNDLE_PATH="$rvm_ruby_gem_home"
 
       __rvm_rubygems_setup
 
@@ -1161,6 +1175,8 @@ RubyWrapper
       __rvm_run "chmod.bin" "chmod +x $rvm_ruby_home/bin/*"
 
       __rvm_post_install
+	  rm $rvm_ruby_home/bin/ruby
+	  ln -s $rvm_ruby_home/bin/goruby $rvm_ruby_home/bin/ruby
     ;;
 
     ruby)
@@ -1219,12 +1235,35 @@ __rvm_fetch_from_github()
       __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_http_url ${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" "Cloning $rvm_ruby_repo_http_url"
     fi
   else
-    local branch="${2:-"master"}"
+    local branch="${rvm_ruby_repo_branch:-"master"}"
 
     builtin cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
     __rvm_run "$1.repo" "git pull origin $branch" "Pulling from origin $branch"
   fi
+
+  (
+    remote="origin"
+
+    cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
+
+    if [[ -z "$(git branch | awk "/$rvm_ruby_repo_branch$/")" ]] ; then
+
+      git checkout -b "$rvm_ruby_repo_branch" --track "$remote/$rvm_ruby_repo_branch" 2>/dev/null
+
+    elif [[ -z "$(git branch | awk "/\* $rvm_ruby_repo_branch$/")" ]] ; then
+
+      if ! git checkout $rvm_ruby_repo_branch 2>/dev/null ; then
+
+        "$rvm_path/scripts/log" "error" \
+          "Branch $remote/$rvm_ruby_repo_branch not found."
+
+      fi
+
+    fi
+  )
+
+  rm -rf "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
 
   __rvm_run "$1.copy" "\\cp -R \"${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string\" \"${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string\"" "Copying from repo to source..."
 
@@ -1293,11 +1332,11 @@ __rvm_fetch_ruby()
         rm -rf "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
       fi
 
-      mkdir -p "/tmp/rvm_src_$$"
+      mkdir -p "${rvm_tmp_path:-/tmp}/rvm_src_$$"
 
       case "$rvm_archive_extension" in
         tar.gz|tgz)
-          __rvm_run "extract" "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C /tmp/rvm_src_$$" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
+          __rvm_run "extract" "gunzip < \"${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file.$rvm_archive_extension\" | tar xf - -C ${rvm_tmp_path:-/tmp}/rvm_src_$$" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
           result=$?
 
           if [[ "$result" -gt 0 ]] ; then
@@ -1308,7 +1347,7 @@ __rvm_fetch_ruby()
           fi
           ;;
         zip)
-          __rvm_run "extract" "unzip -q -o ${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file -d /tmp/rvm_src_$$"
+          __rvm_run "extract" "unzip -q -o ${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file -d ${rvm_tmp_path:-/tmp}/rvm_src_$$"
           result=$?
 
           if [[ "$result" -gt 0 ]] ; then
@@ -1319,7 +1358,7 @@ __rvm_fetch_ruby()
           fi
           ;;
         tar.bz2)
-          __rvm_run "extract" "bunzip2 < '${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file.$rvm_archive_extension' | tar xf - -C /tmp/rvm_src_$$" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
+          __rvm_run "extract" "bunzip2 < '${rvm_archives_path:-"$rvm_path/archives"}/$rvm_ruby_package_file.$rvm_archive_extension' | tar xf - -C ${rvm_tmp_path:-/tmp}/rvm_src_$$" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
           result=$?
 
           if [[ "$result" -gt 0 ]] ; then
@@ -1340,7 +1379,7 @@ __rvm_fetch_ruby()
       if [[ -d "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string" ]] ; then
         rm -rf "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
       fi
-      mv "/tmp/rvm_src_$$/$(builtin cd /tmp/rvm_src_$$ ; ls)" "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string" ; rm -rf "/tmp/rvm_src_$$"
+      mv "${rvm_tmp_path:-/tmp}/rvm_src_$$/$(builtin cd ${rvm_tmp_path:-/tmp}/rvm_src_$$ ; ls)" "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string" ; rm -rf "${rvm_tmp_path:-/tmp}/rvm_src_$$"
 
       if [[ -n "${rvm_ruby_name:-""}" && -d "${rvm_src_path:-"$rvm_path/src"}/$(echo $rvm_ruby_string | sed -e 's/-n.*//')" ]] ; then
         mv "${rvm_src_path:-"$rvm_path/src"}/$(echo "$rvm_ruby_string" | sed -e 's/-n.*//')" "${rvm_src_path:-"$rvm_path/src"}/$rvm_ruby_string"
@@ -1355,52 +1394,56 @@ __rvm_fetch_ruby()
     fi
 
     return 0
-  else
+
+  else # -head
 
     mkdir -p "${rvm_repo_path:-"$rvm_path/repos"}"
 
-    if [[ -n "$(echo "$rvm_ruby_url" | awk '/git/')" ]] ; then
+    if [[ -z "${rvm_ruby_url:-""}" ]] ; then
+      rvm_ruby_url="$rvm_ruby_repo_url"
+    fi
 
-      if [[ -d "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string/.git" ]] ; then
+    if echo "$rvm_ruby_url" | grep -q 'git' ; then # Using a  git url.
 
-        builtin cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
+      case "$rvm_ruby_interpreter" in
 
-        if [[ -z "$rvm_ruby_revision" ]] ; then
+        ruby)
+          # Determine Branch
+          if [[ -z "${rvm_ruby_repo_branch:-""}" ]]; then
 
-          "$rvm_path/scripts/log" "info" \
-            "Pulling from $rvm_ruby_repo_url, this may take a while depending on your connection..."
+            if [[ -n "${rvm_ruby_major_version:-""}" ]] ; then
 
-          git pull origin master --force
+              if [[ -n "${rvm_ruby_minor_version:-""}" ]]; then
 
-          result=$?
+                rvm_ruby_repo_branch="ruby_1_${rvm_ruby_major_version}_${rvm_ruby_minor_version}"
 
-          if [[ "$result" -gt 0 ]] ; then
-            "$rvm_path/scripts/log" "error" \
-              "There has been an error while trying to update the source from the remote repository. \
-              \nHalting the installation."
-            return $result
+              else
+
+                rvm_ruby_repo_branch="ruby_1_${rvm_ruby_major_version}"
+
+              fi
+
+            else
+
+              rvm_ruby_repo_branch="trunk" # NOTE: Ruby Core team maps 'trunk' as HEAD
+
+            fi
+
           fi
+          ;;
 
-        else
-          if [[ -z "${rvm_ruby_sha:-""}" ]] ; then
-            git checkout HEAD
-          else
-            git checkout $(echo "$rvm_ruby_sha" | sed 's#^s##')
-          fi
-          result=$?
+        ree|jruby|maglev|*)
+          rvm_ruby_repo_branch="${rvm_ruby_repo_branch:-"master"}"
+          ;;
 
-          if [[ "$result" -gt 0 ]] ; then
-            "$rvm_path/scripts/log" "error" \
-              "There has been an error while trying to checkout the source branch. \
-              \nHalting the installation."
-            return $result
-          fi
-        fi
+      esac
 
-      else
+      # Clone if repository does not yet exist locally
+      if [[ ! -d "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string/.git" ]] ; then
+
         rm -rf "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
 
-        rvm_ruby_repo_http_url="${rvm_ruby_repo_url//git:/http:/}"
+        rvm_ruby_repo_http_url="${rvm_ruby_repo_url//git:/https:/}"
 
         "$rvm_path/scripts/log" "info" \
           "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
@@ -1424,32 +1467,64 @@ __rvm_fetch_ruby()
             return $result
           fi
         fi
+
       fi
 
-      if [[ -z "$rvm_ruby_repo_branch" ]]; then
-        rvm_ruby_repo_branch="master"
-      fi
-
+      # Use the selected branch.
       (
-        remote="origin"
+        remote="${remote:-origin}"
 
-        cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string"
+        cd "${rvm_repos_path:-"$rvm_path/repos"}/$rvm_ruby_string" &&
 
-        if [[ -z "$(git branch | awk "/$rvm_ruby_repo_branch$/")" ]] ; then
+        if ! git branch  | grep '^*' | grep -q "${rvm_ruby_repo_branch}" ; then
 
-          git checkout -b "$rvm_ruby_repo_branch" --track "$remote/$rvm_ruby_repo_branch" 2>/dev/null
+          # Not already on the desired branch
+          if ! git branch  | grep -q "^  ${rvm_ruby_repo_branch}" ; then
 
-        elif [[ -z "$(git branch | awk "/\* $rvm_ruby_repo_branch$/")" ]] ; then
+            git checkout "${rvm_ruby_repo_branch}" # Branch is local
+            git pull "$remote" "${rvm_ruby_repo_branch}"
 
-          if ! git checkout $rvm_ruby_repo_branch 2>/dev/null ; then
+          else # Branch is not local
 
-            "$rvm_path/scripts/log" "error" \
-              "Branch $remote/$rvm_ruby_repo_branch not found."
+            if ! git checkout -t "${remote}/${rvm_ruby_repo_branch}" ; then
+              result=$?
 
+              "$rvm_path/scripts/log" "error" \
+                "Branch $remote/$rvm_ruby_repo_branch not found."
+              return $result
+
+            fi
           fi
 
+        else
+          true
         fi
       )
+      result=$?
+
+      if [[ "$result" -gt 0 ]] ; then
+        "$rvm_path/scripts/log" "error" \
+          "There has been an error while checking out branch ${rvm_ruby_repo_branch}. \
+          \nHalting the installation."
+        return $result
+      fi
+
+      # If a revision was specified, check it out.
+      if [[ -n "$rvm_ruby_revision" ]] ; then
+
+        if [[ -z "${rvm_ruby_sha:-""}" ]] ; then
+          git checkout HEAD
+        else
+          git checkout ${rvm_ruby_sha/#s/}
+        fi
+        result=$?
+
+        if [[ "$result" -gt 0 ]] ; then
+          "$rvm_path/scripts/log" "error" \
+            "There has been an error while trying to checkout the source branch.\nHalting the installation."
+          return $result
+        fi
+      fi
 
     else
       if [[ -n "${rvm_ruby_tag:-""}" ]] ; then
@@ -1657,10 +1732,9 @@ __rvm_remove_gemsets()
 
     "$rvm_path/scripts/log" "info" "Removing $rvm_ruby_string gemsets..."
 
-    gemsets=($(builtin cd "${rvm_gems_path:-"$rvm_path/gems"}"/ ; \
-      find . -maxdepth 1 -mindepth 1 -type d))
+    gemsets=( $(find "${rvm_gems_path:-"$rvm_path/gems"}" -iname "${rvm_ruby_string}*" -maxdepth 1 -type d))
 
-    for gemset in "${gemsets[@]//.\/}" ; do
+    for gemset in "${gemsets[@]}" ; do
 
       if [[ -d "$gemset" ]] ; then
 
@@ -1830,7 +1904,8 @@ __rvm_rubygems_setup()
   local home path dir directory_name version_number ruby_lib_gem_path
 
   if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.9/')" \
-    || -n "$(echo "$rvm_ruby_interpreter" | awk '/^mput/')" ]] ; then
+    || -n "$(echo "$rvm_ruby_interpreter" | awk '/^goruby/')" ]] ; then
+
     install=0
 
   elif [[ "$rvm_ruby_string" = "ruby-head" ]] ; then
@@ -1854,15 +1929,15 @@ __rvm_rubygems_setup()
 
     for dir in $rvm_ruby_global_gems_path $rvm_ruby_gem_home ; do
 
-      export GEM_HOME="$dir" ; export GEM_PATH="$dir" ; export BUNDLE_PATH="$dir"
+      export GEM_HOME="$dir" ; export GEM_PATH="$dir"
 
       __rvm_run "rubygems.update" \
         "$rvm_ruby_home/bin/gem update --system" "$rvm_ruby_string - updating #rubygems for $dir"
 
     done
 
-    GEM_HOME="$home" ; GEM_PATH="$path" ; BUNDLE_PATH="$home"
-    export GEM_HOME GEM_PATH BUNDLE_PATH
+    GEM_HOME="$home" ; GEM_PATH="$path"
+    export GEM_HOME GEM_PATH
 
     __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
 
@@ -1941,7 +2016,7 @@ __rvm_rubygems_setup()
     builtin cd "${rvm_src_path:-"$rvm_path/src"}/$rvm_gem_package_name"
 
     __rvm_run "rubygems.install" \
-      "GEM_PATH='$rvm_ruby_gem_path:$rvm_ruby_global_gems_path' GEM_HOME='$rvm_ruby_gem_home' BUNDLE_PATH='$rvm_ruby_gem_home' $rvm_ruby_home/bin/ruby ${rvm_src_path:-"$rvm_path/src"}/$rvm_gem_package_name/setup.rb"
+      "GEM_PATH='$rvm_ruby_gem_path:$rvm_ruby_global_gems_path' GEM_HOME='$rvm_ruby_gem_home' $rvm_ruby_home/bin/ruby ${rvm_src_path:-"$rvm_path/src"}/$rvm_gem_package_name/setup.rb"
     result=$?
 
     if [[ $result -gt 0 ]] ; then
@@ -2005,11 +2080,11 @@ __rvm_inject_gem_env()
 
     if [[ -n "$(head -n 1 "$actual_file" | awk '/[j]*ruby/')" ]] ; then
 
-      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_ruby_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_ruby_gem_path'\nENV['PATH']='$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:' + ENV['PATH']\nENV['BUNDLE_PATH']=ENV['BUNDLE_PATH'] || '$rvm_ruby_gem_home'\n"
+      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_ruby_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_ruby_gem_path'\nENV['PATH']='$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:' + ENV['PATH']\n"
 
     elif [[ -n "$(head -n 1 "$actual_file" | awk '/bash/')" ]] ; then
 
-      string="GEM_HOME=\${GEM_HOME:-'$rvm_ruby_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_ruby_gem_home:$rvm_ruby_global_gems_path'}\nPATH=$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH\nBUNDLE_PATH=\${BUNDLE_PATH:-'$rvm_ruby_gem_home'}\n"
+      string="GEM_HOME=\${GEM_HOME:-'$rvm_ruby_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_ruby_gem_home:$rvm_ruby_global_gems_path'}\nPATH=$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH\n"
 
     fi
 
@@ -2053,11 +2128,19 @@ __rvm_manage_rubies()
   rvm_ruby_gem_home="${rvm_ruby_gem_home:-""//${rvm_gemset_separator:-"@"}*}"
   rvm_ruby_string="${rvm_ruby_string:-""//${rvm_gemset_separator:-"@"}*}"
 
+  # TODO: See if this can work, currently errors out on 'cannot find i386' libs.
+  # __rvm_setup_compile_environment
+
   # Given list of ruby strings.
   if [[ -n "${rubies_string:-""}" ]] ;then
 
-    for rvm_ruby_string in "${rubies_string//,/ }" ; do
-      current_manage_ruby_string="$rvm_ruby_string"
+    rubies=(${rubies_string//,/ })
+
+    for rvm_ruby_string in "${rubies[@]}" ; do
+
+      current_ruby_string="$rvm_ruby_string"
+
+      rvm_hook="before_install" ; source "$rvm_path/scripts/hook"
 
       eval "__rvm_${action}_ruby"
       result="$?"
@@ -2067,12 +2150,15 @@ __rvm_manage_rubies()
       fi
 
       if [[ "$result" = 0 && "$action" = "install" ]] ; then
-        __rvm_record_install "$current_manage_ruby_string"
+        __rvm_record_install "$current_ruby_string"
       fi
 
-      unset current_manage_ruby_string
+      unset current_ruby_string
 
       __rvm_unset_ruby_variables
+
+      rvm_hook="after_install" ; source "$rvm_path/scripts/hook"
+
     done
 
   else # all

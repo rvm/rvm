@@ -41,13 +41,14 @@ rvm_ruby_string = ENV["rvm_ruby_string"] || `rvm tools identifier`.strip.split("
 
 # Set up the prompt to be RVM specific.
 @prompt = {
-  :PROMPT_I => "#{rvm_ruby_string} > ",  # default prompt
-  :PROMPT_S => "#{rvm_ruby_string}%l> ", # known continuation
-  :PROMPT_C => "#{rvm_ruby_string} > ",
-  :PROMPT_N => "#{rvm_ruby_string} ?> ", # unknown continuation
+  :PROMPT_I => "#{rvm_ruby_string} :%03n > ",  # default prompt
+  :PROMPT_S => "#{rvm_ruby_string} :%03n%l> ", # known continuation
+  :PROMPT_C => "#{rvm_ruby_string} :%03n > ",
+  :PROMPT_N => "#{rvm_ruby_string} :%03n?> ", # unknown continuation
   :RETURN => " => %s \n",
   :AUTO_INDENT => true
 }
+IRB.conf[:PROMPT] ||= {}
 IRB.conf[:PROMPT][:RVM] = @prompt
 IRB.conf[:PROMPT_MODE] = :RVM
 

@@ -41,8 +41,11 @@ begin
     gemspec.date            = Time.now.strftime("%Y-%m-%d")
     gemspec.description     = "Manages Ruby interpreter environments and switching between them."
     gemspec.platform        = Gem::Platform::RUBY
-    gemspec.files           = ["install", "README", "sha1", "LICENCE", "rvm.gemspec", "bash/*", "binscripts/*", "scripts/*", "patches/*", "examples/*", "config/*", "help/**", "gemsets/*", "contrib/*", Dir::glob("lib/**/**"), Dir::glob("man/**/**")].flatten
-    gemspec.executables     = Dir::glob("bin/rvm-*").map{ |script| File::basename script }
+    gemspec.files           = [
+      "README", "sha1", "LICENCE", "rvm.gemspec", Dir::glob("lib/**/**"),
+      Dir::glob("releases/rvm-#{RVM::Version::STRING}.tar.gz*")
+    ].flatten
+    gemspec.executables     = Dir::glob("bin/rvm*").map{ |script| File::basename script }
     gemspec.require_path    = "lib"
     gemspec.has_rdoc        = File::exist?("doc")
     gemspec.rdoc_options    = ["--inline-source", "--charset=UTF-8"]
@@ -54,11 +57,31 @@ begin
     gemspec.post_install_message = <<-POST_INSTALL_MESSAGE
 #{"*" * 80}
 
-  In order to setup rvm for your user's environment you must now run rvm-install.
-  rvm-install will be found in your current gems bin directory corresponding to where the gem was installed.
+  This gem contains only the Ruby libraries for the RVM Ruby API.
 
-  rvm-install will install the scripts to your user account and append itself to your profiles in order to
-  inject the proper rvm functions into your shell so that you can manage multiple rubies.
+  In order to install RVM please use one of the methods listed in the documentation
+
+  http://rvm.beginrescueend.com/rvm/install/
+
+  such as,
+
+    bash < <( curl http://rvm.beginrescueend.com/releases/rvm-install-latest )
+
+  followed by placing the sourcing line in your ~/.bash_profile or wherever may
+  be appropriate for your setup (example, .zshenv, /etc/profile, ...):
+
+    [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"  # Load RVM into a shell session *as a function*
+
+  After completing setup please open a new shell to use RVM and be sure to run
+  'rvm notes' to gain a list of dependencies to install before installing the
+  first Ruby. You can read more details about this process on the above
+  mentioned install page as well as the basics page:
+
+    http://rvm.beginrescueend.com/rvm/basics/
+
+  Enjoy!
+
+      ~Wayne
 
 #{"*" * 80}
     POST_INSTALL_MESSAGE

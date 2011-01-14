@@ -47,11 +47,18 @@ if [[ -z "$key" ]] ; then
 
 else
 
+  if [[ ${escape_flag:-0} -eq 1 ]]; then
+    escaped_key="$(printf "$key" | sed -e 's#\\#\\#g' -e 's#/#\\/#g' -e 's#\.#\.#g')"
+  else
+    escaped_key="$key"
+  fi
+
   value="$*"
 
   if [[ "unset" = "$value" || "delete" = "$value" ]] ; then
 
-    sed -e "s#^$key=.*\$##" -e '/^$/d' "$database_file" > "$database_file.new"
+    sed -e "s#^$escaped_key=.*\$##"  -e '/^$/d' "$database_file" \
+      > "$database_file.new"
 
     mv "$database_file.new" "$database_file"
 
@@ -59,21 +66,22 @@ else
 
     if [[ -z "$value" ]] ; then # get
 
-      awk -F= '/^'"$key"'=/' "$database_file" | sed -e "s#^$key=##" -e '/^$/d'
+      awk -F= '/^'"$escaped_key"'=/' "$database_file" \
+        | sed -e "s#^$escaped_key=##" -e '/^$/d'
 
     else # set
 
-      sed -e "s#^$key=.*\$##" -e '/^$/d' "$database_file" > "$database_file.new"
+      sed -e "s#^$escaped_key=.*\$##" -e '/^$/d' "$database_file" > "$database_file.new"
 
       mv "$database_file.new" "$database_file"
 
-      if [[ -z "$(awk -F= "/^'"$key"'=/{print $2}" "$database_file")" ]] ; then # append
+      if [[ -z "$(awk -F= "/^'"$escaped_key"'=/{print $2}" "$database_file")" ]] ; then # append
 
-        echo "$key=$value" >> "$database_file"
+        echo "$escaped_key=$value" >> "$database_file"
 
       else # overwrite
 
-        sed -i.tmp "s#^$key=.*\$#$key=$value#" "$database_file" > "$database_file.new"
+        sed -i.tmp "s#^$escaped_key=.*\$#$escaped_key=$value#" "$database_file" > "$database_file.new"
 
         mv "$database_file.new" "$database_file"
 
