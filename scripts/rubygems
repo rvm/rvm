@@ -6,6 +6,26 @@ result=0
 
 __rvm_become
 
+
+rubygems_remove()
+{
+  "$rvm_path/scripts/log" "info" \
+    "Removing old Rubygems files..."
+
+  rubygems_dir="$(ruby -rrbconfig -e "puts Config::CONFIG.values_at('sitelibdir','vendorlibdir').detect {|path| File.directory?(File.join(path, 'rubygems')) }.to_s")"
+
+  if [[ -n "$rubygems_dir" && -d "$rubygems_dir" ]] ; then
+
+    # Remove common files installed by ruby gems.
+    \rm -rf "${rubygems_dir}/ubygems.rb" "${rubygems_dir}/rubygems.rb" \
+      "${rubygems_dir}/rubygems" "${rubygems_dir}/gauntlet_rubygems.rb"
+
+  fi
+
+  "$rvm_path/scripts/log" "info" \
+    "Installing rubygems dedicated to ${rvm_ruby_string}..."
+}
+
 rubygems_setup()
 {
   __rvm_warn_on_rubyopt
@@ -31,21 +51,7 @@ rubygems_setup()
 
   else
 
-    "$rvm_path/scripts/log" "info" \
-      "Removing old Rubygems files..."
-
-    rubygems_dir="$(ruby -rrbconfig -e "puts Config::CONFIG.values_at('sitelibdir','vendorlibdir').detect {|path| File.directory?(File.join(path, 'rubygems')) }.to_s")"
-
-    if [[ -n "$rubygems_dir" && -d "$rubygems_dir" ]] ; then
-
-      # Remove common files installed by ruby gems.
-      \rm -rf "${rubygems_dir}/ubygems.rb" "${rubygems_dir}/rubygems.rb" \
-        "${rubygems_dir}/rubygems" "${rubygems_dir}/gauntlet_rubygems.rb"
-
-    fi
-
-    "$rvm_path/scripts/log" "info" \
-      "Installing rubygems dedicated to ${rvm_ruby_string}..."
+    rubygems_remove
 
     rvm_rubygems_version="$version"
     rvm_gem_package_name="rubygems-${rvm_rubygems_version}"
@@ -138,18 +144,9 @@ args="$(echo ${args[@]:1}) " # Strip trailing / leading / extra spacing.
 if [[ -z "$version" ]] ; then
 
   "$rvm_path/scripts/log" "error" \
-    "A version must be specified, for example 'rvm rubygems 1.3.7'"
+    "Usage: rvm rubygems [version#|current|remove]"
 
   exit 1
-
-fi
-
-# Update the rubygems to the current.
-if [[ "$version" = "current" ]]; then
-
-  version="$(__rvm_db "${rvm_ruby_interpreter}_rubygems_version")"
-
-  version="${rvm_rubygems_version:-"$(__rvm_db "rubygems_version")"}"
 
 fi
 
@@ -162,6 +159,23 @@ if ! command -v ruby | grep -q "rvm" ; then
 
 fi
 
-rubygems_setup
+case "$version" in
+
+  remove)
+    rubygems_remove
+    ;;
+
+  current)
+    # Install current known latest version of rubygems.
+    version="$(__rvm_db "${rvm_ruby_interpreter}_rubygems_version")"
+    version="${rvm_rubygems_version:-"$(__rvm_db "rubygems_version")"}"
+    rubygems_setup
+    ;;
+
+  *)
+    rubygems_setup
+    ;;
+
+esac
 
 exit $result
