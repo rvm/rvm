@@ -2,19 +2,20 @@ require "rubygems"
 require "hoe"
 
 Hoe.spec "rvm" do
+
   developer "Wayne E. Seguin", "wayneeseguin@gmail.com"
 
-  # TODO? unsure about the releases/* stuff
-  #     gemspec.files           = [
-  #       "README", "sha1", "LICENCE", "rvm.gemspec", Dir::glob("lib/**/**"),
-  #       Dir::glob("releases/rvm-#{RVM::Version::STRING}.tar.gz*")
-  #     ].flatten
+  # TODO: package the release with the API .gem
+  gemspec.files           = [
+    "README", "sha1", "LICENCE", "rvm.gemspec",
+    Dir::glob("lib/**/**"),
+    Dir::glob("releases/rvm-#{RVM::Version::STRING}.tar.gz*")
+  ].flatten
 
   spec_extras[:rdoc_options] = proc do |ary|
     # hoe kinda sucks for this! TODO: submit patch for Hoe#rdoc_options
     ary.push "--inline-source", "--charset=UTF-8"
   end
-
 
   spec_extras[:post_install_message] = <<-POST_INSTALL_MESSAGE
 #{"*" * 80}
@@ -51,7 +52,6 @@ Hoe.spec "rvm" do
     POST_INSTALL_MESSAGE
 end
 
-# TODO: convert tests to ruby
 task :test do
   exec "bash -l -c \"./test/suite\""
 end
