@@ -1,9 +1,17 @@
+= rvm
 
-Usage
+* http://github.com/wayneeseguin/rvm
+
+== DESCRIPTION:
+
+RVM is the Ruby Version Manager (rvm). It manages Ruby interpreter
+environments and switching between them.
+
+== Usage
 
   rvm [Flags] [Options] Action [Implementation[,Implementation[,...]]
 
-Flags
+== Flags
 
   --default     - with 'rvm use X', sets the default ruby for new shells to X.
   --debug       - Toggle debug mode on for very verbose output.
@@ -15,7 +23,7 @@ Flags
   --docs        - with install, attempt to generate ri after installation.
   --reconfigure - Force ./configure on install even if Makefile already exists.
 
-Options
+== Options
 
   -v|--version    - Emit rvm version loaded for current shell
   -l|--level      - patch level to use with rvm use / install
@@ -37,7 +45,7 @@ Options
   --ree-options   - Options passed directly to ree's './installer' on the command line.
   --with-rubies   - Specifies a string for rvm to attempt to expand for set operations.
 
-Action
+== Action
 
   (Note that for most actions, 'rvm help action-name' may provide more information.)
 
@@ -107,7 +115,7 @@ Action
   export     - Temporarily set an environment variable in the current shell.
   unexport   - Undo changes made to the environment by 'rvm export'.
 
-Implementation
+== Implementation
 
   * ruby    - MRI/YARV Ruby (The Gold Standard) {1.8.6,1.8.7,1.9.1,1.9.2...}
   jruby     - JRuby, Ruby interpreter on the Java Virtual Machine.
@@ -121,14 +129,46 @@ Implementation
   default   - use rvm set default ruby and system if it hasn't been set.
               http://rvm.beginrescueend.com/rubies/default/
 
-Resources:
+== Resources:
 
   http://rvm.beginrescueend.com/
   https://www.pivotaltracker.com/projects/26822
 
-Contributions:
+== Contributions:
 
   Any and all contributions offered in any form, past present or future, to the
   RVM project are understood to be in complete agreement and acceptance with the
   Apache Licence v2.0.
 
+== INSTALL:
+
+See http://rvm.beginrescueend.com/rvm/install/
+
+or just use:
+
+    bash < <( curl http://rvm.beginrescueend.com/releases/rvm-install-latest )
+
+== LICENSE:
+
+(The MIT License)
+
+Copyright (c) XXX
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

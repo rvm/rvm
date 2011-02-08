@@ -1,19 +1,12 @@
-require 'yaml'
+require 'rvm'
 
 module RVM
   module Version
+    # TODO: delete me - this crap is wholly unnecessary. It is only
+    # here right now for backwards compatibility... Unsure if that is
+    # necessary at all so I'm being conservative.
 
-    # YAML of raw version info
-    VERSION_YAML = YAML.load_file(File.expand_path("../VERSION.yml", File.dirname(__FILE__)))
-
-    # Current major version of rvm
-    MAJOR  = VERSION_YAML[:major]
-    # Current minor version of rvm
-    MINOR  = VERSION_YAML[:minor]
-    # Current patch level of rvm
-    PATCH  = VERSION_YAML[:patch]
-    # A String with the current rvm version
-    STRING = [MAJOR, MINOR, PATCH].join(".").freeze
-
+    STRING = RVM::VERSION
+    MAJOR, MINOR, PATCH = STRING.split(/\./)
   end
 end

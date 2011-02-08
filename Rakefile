@@ -1,67 +1,30 @@
 require "rubygems"
+require "hoe"
 
-task :default => ["test"]
-task :test do exec "bash -l -c \"./test/suite\"" ; end
+Hoe.spec "rvm" do
+  developer "Wayne E. Seguin", "wayneeseguin@gmail.com"
 
-namespace :gem do
-  task :refresh do
-    exec "gem uninstall rvm ; rm -f pkg/*.gem ./rvm.gemspec && rake gemspec && rake build && gem install pkg/*.gem --no-rdoc --no-ri"
+  # TODO? unsure about the releases/* stuff
+  #     gemspec.files           = [
+  #       "README", "sha1", "LICENCE", "rvm.gemspec", Dir::glob("lib/**/**"),
+  #       Dir::glob("releases/rvm-#{RVM::Version::STRING}.tar.gz*")
+  #     ].flatten
+
+  spec_extras[:rdoc_options] = proc do |ary|
+    # hoe kinda sucks for this! TODO: submit patch for Hoe#rdoc_options
+    ary.push "--inline-source", "--charset=UTF-8"
   end
 
-  desc "Build the rvm gem."
-  task :build do
-puts <<-LOCAL_INSTALL_WARNING
 
-  $(tput setaf 3)INSTALLING FROM SOURCE$(tput sgr0)
-
-  If you are using rvm from source, DO NOT build the gem.
-  Instead, run the following from the rvm source's root dir.
-
-    $(tput setaf 2)For installing/updating:  ./install$(tput sgr0)
-
-LOCAL_INSTALL_WARNING
-    puts "$(gem build rvm.gemspec)"
-  end
-
-  desc "Install the rvm gem (NO sudo)."
-  task :install do
-    %x{gem install rvm*.gem --no-rdoc --no-ri -l}
-  end
-end
-
-begin
-  require "jeweler"
-  require "lib/rvm/version"
-
-  Jeweler::Tasks.new do |gemspec|
-    gemspec.name            = "rvm"
-    gemspec.version         = RVM::Version::STRING
-    gemspec.summary         = "Ruby Version Manager (rvm)"
-    gemspec.require_paths   = ["lib"]
-    gemspec.date            = Time.now.strftime("%Y-%m-%d")
-    gemspec.description     = "Manages Ruby interpreter environments and switching between them."
-    gemspec.platform        = Gem::Platform::RUBY
-    gemspec.files           = [
-      "README", "sha1", "LICENCE", "rvm.gemspec", Dir::glob("lib/**/**"),
-      Dir::glob("releases/rvm-#{RVM::Version::STRING}.tar.gz*")
-    ].flatten
-    gemspec.executables     = Dir::glob("bin/rvm*").map{ |script| File::basename script }
-    gemspec.require_path    = "lib"
-    gemspec.has_rdoc        = File::exist?("doc")
-    gemspec.rdoc_options    = ["--inline-source", "--charset=UTF-8"]
-    gemspec.authors         = ["Wayne E. Seguin"]
-    gemspec.email           = "wayneeseguin@gmail.com"
-    gemspec.homepage        = "http://github.com/wayneeseguin/rvm"
-    gemspec.extensions      << "extconf.rb" if File::exists?("extconf.rb")
-    gemspec.rubyforge_project = "rvm"
-    gemspec.post_install_message = <<-POST_INSTALL_MESSAGE
+  spec_extras[:post_install_message] = <<-POST_INSTALL_MESSAGE
 #{"*" * 80}
 
   This gem contains only the Ruby libraries for the RVM Ruby API.
 
-  In order to install RVM please use one of the methods listed in the documentation
+  In order to install RVM please use one of the methods listed in the
+  documentation:
 
-  http://rvm.beginrescueend.com/rvm/install/
+    http://rvm.beginrescueend.com/rvm/install/
 
   such as,
 
@@ -70,7 +33,8 @@ begin
   followed by placing the sourcing line in your ~/.bash_profile or wherever may
   be appropriate for your setup (example, .zshenv, /etc/profile, ...):
 
-    [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"  # Load RVM into a shell session *as a function*
+    # Load RVM into a shell session *as a function*
+    [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"
 
   After completing setup please open a new shell to use RVM and be sure to run
   'rvm notes' to gain a list of dependencies to install before installing the
@@ -85,9 +49,9 @@ begin
 
 #{"*" * 80}
     POST_INSTALL_MESSAGE
-
-  end
-rescue LoadError
-  puts "Jeweler not available. Install it with: gem install jeweler"
 end
 
+# TODO: convert tests to ruby
+task :test do
+  exec "bash -l -c \"./test/suite\""
+end
