@@ -58,7 +58,7 @@ module RVM
     end
 
     # Initializes gemsets for a given ruby.
-    def gemset_intial
+    def gemset_initial
       rvm(:gemset, :initial).successful?
     end
 
