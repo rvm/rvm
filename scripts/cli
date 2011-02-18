@@ -563,62 +563,74 @@ __rvm_parse_args()
               rvm_file_name="$rvm_gemset_name.gems"
             fi
 
-          elif match "$rvm_token" "*,*" ; then
-
-            rvm_ruby_strings="$rvm_token"
-            if [[ -z "${rvm_action:-""}" ]] ; then
-              rvm_action="ruby" # Not sure if we really want to do this but we'll try it out.
-            fi
-
-          elif match "$rvm_token" "${rvm_gemset_separator:-"@"}*" ; then
-            rvm_action="${rvm_action:-use}"
-            rvm_gemset_name="${rvm_token/*${rvm_gemset_separator:-"@"}/}"
-            rvm_ruby_string="${rvm_ruby_string:-""}"
-            rvm_ruby_strings="${rvm_ruby_string}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
-
-          elif match "$rvm_token" "*${rvm_gemset_separator:-"@"}*" ; then
-            gemset_name="${rvm_token/*${rvm_gemset_separator:-"@"}/}"
-            rvm_ruby_string="$rvm_token"
-            rvm_ruby_strings="$rvm_token"
-
-          elif match "$rvm_token" "*\\+*" ; then
-            rvm_ruby_alias="${rvm_token/*+/}"
-            rvm_ruby_string="${rvm_token/+*/}"
-            rvm_ruby_strings="$rvm_ruby_string"
-
-          elif match "$rvm_token" "*-*" ; then
-            rvm_ruby_string="$rvm_token"
-            rvm_ruby_strings="$rvm_token"
-
-          elif match "$rvm_token" "[0-9].[0-9]*" ; then
-            rvm_ruby_string="$rvm_token"
-            rvm_ruby_strings="$rvm_token"
-            rvm_action="${rvm_action:-use}"
-
-          elif match "$rvm_token" "ree-*" ; then
-            rvm_ruby_string="$rvm_token"
-            rvm_ruby_strings="$rvm_token"
-            rvm_action="${rvm_action:-use}"
-
-          elif [[ -L "$rvm_path/rubies/$rvm_token" ]] ; then # Alias
-            rvm_ruby_string=$rvm_token
-            rvm_ruby_strings="$rvm_token"
-            rvm_action="${rvm_action:-use}"
-
           else
-            if match "$rvm_token" "*.rb" ; then # we have a specified ruby script
-              rvm_ruby_args="$rvm_token"
-              rvm_ruby_file="$rvm_token"
+            case "$rvm_token" in
+              *,*)
+                rvm_ruby_strings="$rvm_token"
+                if [[ -z "${rvm_action:-""}" ]] ; then
+                  rvm_action="ruby" # Not sure if we really want to do this but we'll try it out.
+                fi
+                ;;
 
-              if [[ -z "${rvm_action:-""}" || "$rvm_action" = "use" ]]; then
-                rvm_action="ruby"
-              fi
+              ${rvm_gemset_separator:-"@"}*)
+                rvm_action="${rvm_action:-use}"
+                rvm_gemset_name="${rvm_token/*${rvm_gemset_separator:-"@"}/}"
+                rvm_ruby_string="${rvm_ruby_string:-""}"
+                rvm_ruby_strings="${rvm_ruby_string}${rvm_gemset_separator:-"@"}${rvm_gemset_name}"
+                ;;
 
-            else
-              rvm_action="error"
-              rvm_error_message="Unrecognized command line argument: '$rvm_token'"
-            fi
+              *${rvm_gemset_separator:-"@"}*)
+                gemset_name="${rvm_token/*${rvm_gemset_separator:-"@"}/}"
+                rvm_ruby_string="$rvm_token"
+                rvm_ruby_strings="$rvm_token"
+                ;;
+
+              *+*)
+                rvm_ruby_alias="${rvm_token/*+/}"
+                rvm_ruby_string="${rvm_token/+*/}"
+                rvm_ruby_strings="$rvm_ruby_string"
+                ;;
+
+              *-*)
+                rvm_ruby_string="$rvm_token"
+                rvm_ruby_strings="$rvm_token"
+                ;;
+
+              [0-9].[0-9]*)
+                rvm_ruby_string="$rvm_token"
+                rvm_ruby_strings="$rvm_token"
+                rvm_action="${rvm_action:-use}"
+                ;;
+
+              ree-*)
+                rvm_ruby_string="$rvm_token"
+                rvm_ruby_strings="$rvm_token"
+                rvm_action="${rvm_action:-use}"
+                ;;
+
+              *.rb) # we have a specified ruby script
+                rvm_ruby_args="$rvm_token"
+                rvm_ruby_file="$rvm_token"
+
+                if [[ -z "${rvm_action:-""}" || "$rvm_action" = "use" ]]; then
+                  rvm_action="ruby"
+                fi
+                ;;
+
+              *)
+                if [[ -L "$rvm_path/rubies/$rvm_token" ]] ; then # Alias
+                  rvm_ruby_string=$rvm_token
+                  rvm_ruby_strings="$rvm_token"
+                  rvm_action="${rvm_action:-use}"
+
+                else
+                  rvm_action="error"
+                  rvm_error_message="Unrecognized command line argument: '$rvm_token'"
+                fi
+                ;;
+            esac
           fi
+
         else
           rvm_action="error"
           rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
@@ -647,6 +659,7 @@ rvm()
 
   __rvm_setup
 
+  # Detect wheter or not the shell is interactive.
   case $- in *i*) rvm_interactive_flag=1 ;;
                *) rvm_interactive_flag=0 ;;
   esac ; export rvm_interactive_flag
