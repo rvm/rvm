@@ -38,8 +38,7 @@ builtin cd "${rvm_archives_path:-"$rvm_path/archives"}"
 
 if [[ -z "$1" ]] ; then
 
-  "$rvm_path/scripts/log" "fail" \
-    "BUG: $0 called without an argument :/"
+  rvm_error "BUG: $0 called without an argument :/"
 
   exit 1
 fi
@@ -48,8 +47,7 @@ url="$1"; download=1 ; package_name="$2"
 
 if ! command -v curl > /dev/null ; then
 
-  "$rvm_path/scripts/log" "fail" \
-    "rvm requires curl. curl was not found in your active path."
+  rvm_error "rvm requires curl. curl was not found in your active path."
 
   exit 1
 
@@ -77,42 +75,27 @@ else
 
 fi
 
-if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-
-  "$rvm_path/scripts/log" "debug" \
-    "Fetching $archive"
-
-fi
+[[ ${rvm_debug_flag:-0} -gt 0 ]] && rvm_debug "Fetching $archive"
 
 # Check first if we have the correct archive
 archive_md5="$("$rvm_path/scripts/db" "$rvm_path/config/md5" "$archive" | head -n1)"
 
 if [[ -e "$archive" && ! -z "$archive_md5" ]] ; then
 
-  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-
-    "$rvm_path/scripts/log" "debug" \
-    "Found archive and its md5, testing correctness"
-
-  fi
+  [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
+    rvm_debug "Found archive and its md5, testing correctness"
 
   if ! "$rvm_path/scripts"/md5 "${rvm_archives_path:-"$rvm_path/archives"}/${archive}" "$archive_md5" ; then
 
-    if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-      "$rvm_path/scripts/log" "debug" \
-        "Archive md5 did not match, downloading"
-    fi
+    [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
+      rvm_debug "Archive md5 did not match, downloading"
 
     download=1
 
   else
 
-    if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-
-      "$rvm_path/scripts/log" "debug" \
-        "Archive md5 matched, not downloading"
-
-    fi
+    [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
+      rvm_debug "Archive md5 matched, not downloading"
 
     download=0
 
@@ -122,12 +105,8 @@ if [[ -e "$archive" && ! -z "$archive_md5" ]] ; then
 
 else
 
-  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-
-    "$rvm_path/scripts/log" "debug" \
-      "No archive or no MD5, downloading"
-
-  fi
+  [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
+    rvm_debug "No archive or no MD5, downloading"
 
   download=1
 
@@ -150,15 +129,13 @@ if [[ $download -gt 0 ]] ; then
 
     if [[ $result -eq 78 ]] ; then
 
-      "$rvm_path/scripts/log" "error" \
-        "The requested url does not exist: '$url'"
+      rvm_error "The requested url does not exist: '$url'"
 
       try_http=1
 
     elif [[ $result -eq 18 ]] ; then
 
-      "$rvm_path/scripts/log" "error" \
-        "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
+      rvm_error "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
 
       rm -f "$archive"
 
@@ -166,12 +143,8 @@ if [[ $download -gt 0 ]] ; then
 
     elif [[ $result -eq 33 ]] ; then
 
-      if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-
-        "$rvm_path/scripts/log" "debug" \
-        "Server does not support 'range' command, removing '$archive'"
-
-      fi
+      [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
+        rvm_debug "Server does not support 'range' command, removing '$archive'"
 
       rm -f "$archive"
 
@@ -179,8 +152,7 @@ if [[ $download -gt 0 ]] ; then
 
     else
 
-      "$rvm_path/scripts/log" "error" \
-        "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.log. Next we'll try to fetch via http."
+      rvm_error "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.log. Next we'll try to fetch via http."
 
       try_http=1
 
@@ -192,8 +164,7 @@ if [[ $download -gt 0 ]] ; then
 
       if [[ $result -gt 0 ]] ; then
 
-        "$rvm_path/scripts/log" "error" \
-          "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.log"
+        rvm_error "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.log"
 
       else
 
@@ -205,14 +176,13 @@ if [[ $download -gt 0 ]] ; then
 
     if [[ $try_http -eq 1 ]] ; then
 
-      "$rvm_path/scripts/log" "info" "Trying http:// URL instead."
+      rvm_log "Trying http:// URL instead."
 
       eval $fetch_command "$http_url" ; result=$?
 
       if [[ $result -gt 0 ]] ; then
 
-        "$rvm_path/scripts/log" "error" \
-          "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.log"
+        rvm_error "There was an error, please check ${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string/*.log"
 
       else
 

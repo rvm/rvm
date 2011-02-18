@@ -8,7 +8,7 @@ source "$rvm_path/scripts/base"
 __error_on_result()
 {
   if [[ "$1" -gt 0 ]]; then
-    "$rvm_path/scripts/log" "fail" "$2 - Aborting now."
+    rvm_error "$2 - Aborting now."
     return 0
   else
     return 1
@@ -43,16 +43,16 @@ snapshot_save()
 
   mkdir -p "$snapshot_temp_path"
 
-  "$rvm_path/scripts/log" "info" "Backing up a list of aliases"
+  rvm_log "Backing up a list of aliases"
   cp "$rvm_path/config/alias" "$snapshot_temp_path/"
 
-  "$rvm_path/scripts/log" "info" "Backing up your user preferences"
+  rvm_log "Backing up your user preferences"
   cp "$rvm_path/config/user" "$snapshot_temp_path/"
 
-  "$rvm_path/scripts/log" "info" "Backing up your installed packages"
+  rvm_log "Backing up your installed packages"
   sed -e 's/-//' -e 's/^lib//' < "$rvm_path/config/packages" | awk -F= '{print $1}' | sort | uniq > "$snapshot_temp_path/packages"
 
-  "$rvm_path/scripts/log" "info" "Backing up all of your gemsets"
+  rvm_log "Backing up all of your gemsets"
   mkdir -p "$snapshot_temp_path/gems"
 
   (
@@ -75,7 +75,7 @@ snapshot_save()
     done
   )
 
-  "$rvm_path/scripts/log" "info" "Backing up all of your installed rubies"
+  rvm_log "Backing up all of your installed rubies"
 
   echo '#!/usr/bin/env bash -e' > "$snapshot_temp_path/install-rubies.sh"
 
@@ -121,7 +121,7 @@ snapshot_save()
 
   rm -rf "$snapshot_installable_file"
 
-  "$rvm_path/scripts/log" "info" "Compressing snapshotting"
+  rvm_log "Compressing snapshotting"
 
   local destination_path="$PWD"
   (
@@ -132,11 +132,11 @@ snapshot_save()
     __error_on_result "$result" "Error creating archive $destination_path/$1.tar.gz" && return "$result"
   )
 
-  "$rvm_path/scripts/log" "info" "Cleaning up"
+  rvm_log "Cleaning up"
 
   rm -rf "$snapshot_temp_path"
 
-  "$rvm_path/scripts/log" "info" "Snapshot complete"
+  rvm_log "Snapshot complete"
 }
 
 snapshot_load()
@@ -161,7 +161,7 @@ snapshot_load()
   \rm -rf "$snapshot_temp_path"
   \mkdir -p "$snapshot_temp_path"
 
-  "$rvm_path/scripts/log" "info" "Extracting snapshot"
+  rvm_log "Extracting snapshot"
   (
     builtin cd "$snapshot_temp_path"
     tar xzf "$snapshot_archive"
@@ -169,17 +169,17 @@ snapshot_load()
     __error_on_result "$result" "Error extracting the archive '$snapshot_archive'" && return "$result"
   )
 
-  "$rvm_path/scripts/log" "info" "Restoring user settings"
+  rvm_log "Restoring user settings"
   \cp -f "$snapshot_temp_path/user" "$rvm_path/config/user"
 
-  "$rvm_path/scripts/log" "info" "Installing rvm-managed packages"
+  rvm_log "Installing rvm-managed packages"
   for snapshot_package in $(cat "$snapshot_temp_path/packages"); do
     "$rvm_path/scripts/package" install "$snapshot_package"
     result="$?"
     __error_on_result "$result" "Error installing package '$snapshot_package'" && return "$result"
   done; unset snapshot_package
 
-  "$rvm_path/scripts/log" "info" "Installing rubies"
+  rvm_log "Installing rubies"
 
   chmod +x "$snapshot_temp_path/install-rubies.sh"
 
@@ -190,7 +190,7 @@ snapshot_load()
 
   export rvm_create_flag=1
 
-  "$rvm_path/scripts/log" "info" "Setting up gemsets"
+  rvm_log "Setting up gemsets"
 
   (
     builtin cd "$snapshot_temp_path/gems"
@@ -221,7 +221,7 @@ snapshot_load()
     done
   )
 
-  "$rvm_path/scripts/log" "info" "Restoring aliases"
+  rvm_log "Restoring aliases"
 
   while read -r package_info; do
     # Note: this assumes an '=' int the input...
@@ -236,10 +236,10 @@ snapshot_load()
     fi
   done < "$snapshot_temp_path/alias"
 
-  "$rvm_path/scripts/log" "info" "Cleaning up load process"
-  \rm -rf "$snapshot_temp_path"
+  rvm_log "Cleaning up load process"
+  rm -rf "$snapshot_temp_path"
 
-  "$rvm_path/scripts/log" "info" "Loaded snapshot from $(basename "$snapshot_archive")"
+  rvm_log "Loaded snapshot from $(basename "$snapshot_archive")"
 }
 
 snapshot_usage()

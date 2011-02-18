@@ -52,7 +52,7 @@ __rvm_teardown()
 
   fi
 
-  unset rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_bin_path rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_interactive_flag rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_tag rvm_ruby_version rvm_selfcontained rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_action rvm_ruby_package_file rvm_ruby_name rvm_static_flag rvm_export_args
+  unset rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_bin_path rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_tag rvm_ruby_version rvm_selfcontained rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_action rvm_ruby_package_file rvm_ruby_name rvm_static_flag rvm_export_args
 
   [[ ${rvm_dump_environment_flag:-0} -eq 1 ]] && __rvm_dump_environment
 
@@ -61,6 +61,9 @@ __rvm_teardown()
   return 0
 }
 
+#
+# Functions RVM is built on
+#
 # match <value> <string|regex>
 match()
 {
@@ -72,6 +75,36 @@ match()
   esac
 }
 
+# Detect wheter or not the shell is interactive, if it has not already been specified.
+if [[ -z ${rvm_interactive_flag:-""} ]]; then
+  case $- in *i*) rvm_interactive_flag=1 ;;
+               *) rvm_interactive_flag=0 ;;
+  esac ; export rvm_interactive_flag
+fi
+
+# Logging functions
+if [[ ${rvm_interactive_flag:-0} -eq 1 ]]; then
+  color_normal="$(tput setaf 9)"
+  color_red="$(tput setaf 1)"
+  color_green="$(tput setaf 2)"
+  color_magenta="$(tput setaf 5)"
+  color_yellow="$(tput setaf 3)"
+
+  eval "rvm_log()   { printf \"${color_green}\$*${color_normal}\n\" ; }"
+  eval "rvm_debug() { printf \"${color_magenta}DEBUG: \$*${color_normal}\n\" ; }"
+  eval "rvm_warn()  { printf \"${color_yellow}WARN: \$*${color_normal}\n\" ; }"
+  eval "rvm_error() { printf \"${color_red}ERROR: \$*${color_normal}\n\" >&2 ; }"
+  unset color_green color_magenta color_yellow color_red color_normal
+else
+  rvm_log()   { printf "$*\n" ; }
+  rvm_debug() { printf "DEBUG: $*\n" ; }
+  rvm_warn()  { printf "WARN: $*\n" ; }
+  rvm_error() { printf "ERROR: $*\n" >&2 ; }
+fi
+
+#
+# RVM specific functions.
+#
 
 # Dump the current environment to a file.
 __rvm_dump_environment()
@@ -269,12 +302,11 @@ __rvm_run()
   message="${3:-""}"
 
   if [[ -n "$message" ]] ; then
-    "$rvm_path/scripts/log" "info" "$message"
+    rvm_log "$message"
   fi
 
-  if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-    "$rvm_path/scripts/log" "debug" "Executing: $command"
-  fi
+  [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
+    rvm_debug "Executing: $command"
 
   if [[ -n "${rvm_ruby_string:-""}" ]] ; then
     temp_log_path="${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string"
@@ -301,8 +333,7 @@ __rvm_run()
   result=$?
 
   if [[ $result -gt 0 ]] ; then
-    "$rvm_path/scripts/log" "error" \
-      "Error running '$command', please read $log"
+    rvm_error "Error running '$command', please read $log"
   fi
 
   return ${result:-0}
@@ -322,13 +353,10 @@ __rvm_run_with_env()
     environment="$(__rvm_environment_identifier)"
   fi
 
-  if [[ -n "$message" ]] ; then
-    "$rvm_path/scripts/log" "info" "$message"
-  fi
+  if [[ -n "$message" ]] ; then rvm_log "$message" ; fi
 
   if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-    "$rvm_path/scripts/log" "debug" \
-      "Executing: $command in environment $environment"
+    rvm_debug "Executing: $command in environment $environment"
   fi
 
   path="${rvm_log_path:-"$rvm_path/log"}/$rvm_ruby_string"
@@ -358,8 +386,7 @@ __rvm_run_with_env()
   result=$?
 
   if [[ $result -gt 0 ]] ; then
-    "$rvm_path/scripts/log" "error" \
-      "Error running '$command' under $env_name,\nplease read $log"
+    rvm_error "Error running '$command' under $env_name,\nplease read $log"
   fi
 
   return ${result:-0}
@@ -425,8 +452,7 @@ __rvm_ensure_has_18_compat_ruby()
 
     if ! ( "$rvm_path/scripts/manage" install 1.8.7 ); then
 
-      "$rvm_path/scripts/log" "fail" \
-        "To proceed rvm requires a 1.8-compatible ruby is installed.\
+        rvm_error "To proceed rvm requires a 1.8-compatible ruby is installed.\
         \nWe attempted to install 1.8.7 automatically but it failed.\
         \nPlease install it manually (or a compatible alternative) to proceed."
 
@@ -472,8 +498,7 @@ __rvm_set_rvmrc()
 
       mv .rvmrc .rvmrc.$(date +%m.%d.%Y-%H:%M:%S)
 
-      "$rvm_path/scripts/log" "warning" \
-        ".rvmrc is not empty, moving aside to preserve."
+      rvm_warn ".rvmrc is not empty, moving aside to preserve."
 
     fi
 
@@ -529,8 +554,7 @@ fi
 " >> .rvmrc
 
   else
-    "$rvm_path/scripts/log" "error" \
-      ".rvmrc cannot be set in your home directory.\
+    rvm_error ".rvmrc cannot be set in your home directory.\
       \nThe home .rvmrc is for global rvm settings only."
   fi
 }
@@ -545,8 +569,7 @@ __rvm_load_rvmrc()
 
       if \grep -q '^\s*rvm .*$' $rvmrc ; then
 
-        "$rvm_path/scripts/log" "error" \
-          "$rvmrc is for rvm settings only.\
+        rvm_error "$rvmrc is for rvm settings only.\
           \nrvm CLI may NOT be called from within $rvmrc.\
           \nSkipping the loading of $rvmrc"
 
@@ -741,12 +764,10 @@ __rvm_implode_binaries()
   (
     source "$rvm_path/scripts/base"
 
-    "$rvm_path/scripts/log" "info" \
-      "Removing rvm-shipped binaries (rvm-prompt, rvm, rvm-sudom rvm-shell and rvm-auto-ruby)"
+    rvm_log "Removing rvm-shipped binaries (rvm-prompt, rvm, rvm-sudom rvm-shell and rvm-auto-ruby)"
     \rm -rf "$rvm_bin_path/"{rvm-prompt,rvm,rvmsudo,rvm-shell,rvm-auto-ruby}
 
-    "$rvm_path/scripts/log" "info" \
-      "Removing rvm wrappers in $rvm_bin_path"
+    rvm_log "Removing rvm wrappers in $rvm_bin_path"
     \find "$rvm_bin_path" -type l | while read symlinked_rvm_file; do
       if [[ "$(readlink "$symlinked_rvm_file")" = "$rvm_path/wrappers/"* ]]; then
         \rm -rf "$symlinked_rvm_file"
@@ -761,8 +782,7 @@ __rvm_implode()
 {
   while : ; do
 
-    "$rvm_path/scripts/log" "warn" \
-      "Are you SURE you wish for rvm to implode?\
+    rvm_warn "Are you SURE you wish for rvm to implode?\
       \nThis will recursively remove $rvm_path and other rvm traces?\
       \n(type 'yes' or 'no')> "
 
@@ -772,8 +792,7 @@ __rvm_implode()
 
       if [[ "/" = "$rvm_path" ]] ; then
 
-        "$rvm_path/scripts/log" "error" \
-          "remove '/' ?!... Ni!"
+        rvm_error "remove '/' ?!... Ni!"
 
       else
 
@@ -782,24 +801,21 @@ __rvm_implode()
           __rvm_implode_binaries
 
 
-          "$rvm_path/scripts/log" "info" \
-            "Hai! Removing $rvm_path"
+          rvm_log "Hai! Removing $rvm_path"
 
           \rm -rf "$rvm_path/"
 
           echo "$rvm_path has been removed."
 
           if [[ "$rvm_path" = "/usr/local/rvm"* && -f "/usr/local/lib/rvm" ]]; then
-            "$rvm_path/scripts/log" "info" \
-              "Removing the rvm loader at /usr/local/lib/rvm"
+            rvm_log "Removing the rvm loader at /usr/local/lib/rvm"
           fi
 
           printf "rvm has been fully removed. Note you may need to manually remove /etc/rvmrc and ~/.rvmrc if they exist still."
 
         else
 
-          "$rvm_path/scripts/log" "info" \
-            "It appears that $rvm_path is already non existant."
+          rvm_log "It appears that $rvm_path is already non existant."
 
         fi
       fi
@@ -807,8 +823,7 @@ __rvm_implode()
 
     elif [[ "no" = "$response" ]] ; then
 
-      "$rvm_path/scripts/log" "info" \
-        "Cancelling implosion, no harm done :)"
+      rvm_log "Psycologist intervened, cancelling implosion, crisis avoided :)"
       break
 
     fi
@@ -824,8 +839,7 @@ __rvm_source_dir()
 
   if [[ -z "$rvm_ruby_src_path" ]] ; then
 
-    "$rvm_path/scripts/log" "fail" \
-      "No source directory exists for the default implementation."
+    rvm_error "No source directory exists for the default implementation."
 
   else
 
@@ -860,8 +874,7 @@ __rvm_update()
     # TODO:
     if [[ ${rvm_head_flag:-0} -eq 1 || ${rvm_self_flag:-0} -eq 1 \
       || "update" = "${rvm_action:-""}" || ${rvm_update_flag:-0} -eq 1 ]] ; then
-    "$rvm_path/scripts/log" "warn" \
-        "'rvm update --head' is deprecated, use 'rvm get head' instead"
+      rvm_warn "'rvm update --head' is deprecated, use 'rvm get head' instead"
       "$rvm_path/scripts/get" head
     fi
 
@@ -882,9 +895,7 @@ __rvm_update()
 
 __rvm_reboot()
 {
-  "$rvm_path/scripts/log" "warn" \
-    "Do you wish to reboot rvm?\
-    \n('yes', or 'no')> "
+    rvm_warn "Do you wish to reboot rvm?\n('yes', or 'no')> "
 
   local response="no"
 
@@ -898,7 +909,7 @@ __rvm_reboot()
     mv "$rvm_path/archives" "$HOME/.archives"
 
     if [[ "/" = "$rvm_path" ]] ; then
-      "$rvm_path/scripts/log" "error" "remove '/' ?!... NO!"
+      rvm_error "remove '/' ?!... NO!"
     else
       if [[ -d "$rvm_path" ]] ; then \rm -rf "$rvm_path/" ; fi
     fi
@@ -909,7 +920,7 @@ __rvm_reboot()
 
     source "$rvm_path/scripts/rvm"
   else
-    "$rvm_path/scripts/log" "info" "Carry on then..."
+    rvm_log "Carry on then..."
   fi
 
   return 0
@@ -968,7 +979,7 @@ __rvm_inspect()
 
     actual_file="$(unset -f gem ; command -v gem )"
 
-    "$rvm_path/scripts/log" "info" "$actual_file:"
+    rvm_log "$actual_file:"
 
     if [[ ${rvm_shebang_flag:-0} -eq 1 ]] ; then
       \head -n 1    < "$actual_file"
@@ -1247,8 +1258,7 @@ __rvm_md5_for()
   elif command -v md5sum > /dev/null ; then
     echo "$1" | md5sum | awk '{print $1}'
   else
-    "$rvm_path/scripts/log" "error" \
-      "Neither md5 nor md5sum were found in the PATH"
+    rvm_error "Neither md5 nor md5sum were found in the PATH"
     return 1
   fi
 
