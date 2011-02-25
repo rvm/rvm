@@ -141,7 +141,7 @@ __rvm_db()
   variable=${2:-""}
 
   if [[ -f "$rvm_config_path/user" ]] ; then
-    value="$("$rvm_scripts_path/db" "$rvm_path/user/db" "$key")"
+    value="$("$rvm_scripts_path/db" "$rvm_user_path/db" "$key")"
   fi
 
   if [[ -z "$value" ]] ; then
@@ -691,8 +691,8 @@ __rvm_reset()
       \rm -f "$rvm_config_path/${file}"
     fi
 
-    if [[ -f "$rvm_path/environments/${file}" ]] ; then
-      \rm -f "$rvm_path/environments/${file}"
+    if [[ -f "$rvm_environments_path/${file}" ]] ; then
+      \rm -f "$rvm_environments_path/${file}"
     fi
 
   done
@@ -742,7 +742,7 @@ __rvm_implode_binaries()
 
     rvm_log "Removing rvm wrappers in $rvm_bin_path"
     \find "$rvm_bin_path" -type l | while read symlinked_rvm_file; do
-      if [[ "$(readlink "$symlinked_rvm_file")" = "$rvm_path/wrappers/"* ]]; then
+      if [[ "$(readlink "$symlinked_rvm_file")" = "$rvm_wrappers_path/"* ]]; then
         \rm -rf "$symlinked_rvm_file"
       fi
     done
@@ -1072,15 +1072,15 @@ __rvm_make_flags()
 
 __rvm_mono_env()
 {
-  DYLD_LIBRARY_PATH="${rvm_usr_path:-"$rvm_path/usr"}/lib:$DYLD_LIBRARY_PATH"
-  C_INCLUDE_PATH="${rvm_usr_path:-"$rvm_path/usr"}/include:$C_INCLUDE_PATH"
-  ACLOCAL_PATH="${rvm_usr_path:-"$rvm_path/usr"}/share/aclocal"
+  DYLD_LIBRARY_PATH="${rvm_usr_path}/lib:$DYLD_LIBRARY_PATH"
+  C_INCLUDE_PATH="${rvm_usr_path}/include:$C_INCLUDE_PATH"
+  ACLOCAL_PATH="${rvm_usr_path}/share/aclocal"
   ACLOCAL_FLAGS="-I $ACLOCAL_PATH"
-  PKG_CONFIG_PATH="${rvm_usr_path:-"$rvm_path/usr"}/lib/pkgconfig:$PKG_CONFIG_PATH"
+  PKG_CONFIG_PATH="${rvm_usr_path}/lib/pkgconfig:$PKG_CONFIG_PATH"
 
   export  DYLD_LIBRARY_PATH C_INCLUDE_PATH ACLOCAL_PATH ACLOCAL_FLAGS PKG_CONFIG_PATH
 
-  PATH="${rvm_usr_path:-"$rvm_path/usr"}/bin:$PATH"
+  PATH="${rvm_usr_path}/bin:$PATH"
 
   builtin hash -r
 
@@ -1108,7 +1108,7 @@ __rvm_ensure_has_environment_files()
 
   if [[ ! -s "$file_name" ]] ; then
 
-    \mkdir -p "$rvm_path/environments"
+    \mkdir -p "$rvm_environments_path"
 
     printf "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"\n" \
       > "$file_name"
@@ -1136,14 +1136,14 @@ __rvm_ensure_has_environment_files()
 
   # Next, ensure we have default wrapper files. Also, prevent it from recursing.
   if [[ ${rvm_create_default_wrappers:-0} -eq 1 \
-    || ! -f "$rvm_path/wrappers/$environment_id/ruby" ]] ; then
+    || ! -f "$rvm_wrappers_path/$environment_id/ruby" ]] ; then
 
     # We need to generate wrappers for both the default gemset and the global gemset.
     for identifier in "$environment_id" "${environment_id//@*/}@global" ; do
 
       rvm_create_default_wrappers=1
 
-      directory="$rvm_path/wrappers/$identifier"
+      directory="$rvm_wrappers_path/$identifier"
 
       if [[ ! -L "$directory" && ! -d "$directory" ]]; then
         \mkdir -p "$directory"
@@ -1223,12 +1223,12 @@ __rvm_ultimate_question()
 __rvm_load_env_file()
 {
   local string="$1"
-  if [[ -f "$rvm_path/environments/$string" ]]; then
+  if [[ -f "$rvm_environments_path/$string" ]]; then
     # Restore the path to it's state minus rvm
     __rvm_remove_rvm_from_path
 
     # source the environment file
-    \. "$rvm_path/environments/$string"
+    \. "$rvm_environments_path/$string"
 
     # clear the PATH cache
     builtin hash -r
@@ -1267,7 +1267,7 @@ __rvm_rvmrc_key()
 
 __rvm_reset_rvmrc_trust()
 {
-  "$rvm_scripts_path/db" "$rvm_path/user/rvmrcs" \
+  "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
   return $?
 }
@@ -1275,7 +1275,7 @@ __rvm_reset_rvmrc_trust()
 __rvm_trust_rvmrc()
 {
   __rvm_reset_rvmrc_trust "$1"
-  "$rvm_scripts_path/db" "$rvm_path/user/rvmrcs" \
+  "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")" "1" >/dev/null 2>&1
   return $?
 }
@@ -1283,14 +1283,14 @@ __rvm_trust_rvmrc()
 __rvm_untrust_rvmrc()
 {
   __rvm_reset_rvmrc_trust "$1"
-  "$rvm_scripts_path/db" "$rvm_path/user/rvmrcs" \
+  "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")" "0" >/dev/null 2>&1
   return $?
 }
 
 __rvm_rvmrc_stored_trust()
 {
-  "$rvm_scripts_path/db" "$rvm_path/user/rvmrcs" \
+  "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")"
   return $?
 }
