@@ -266,7 +266,7 @@ __rvm_use_system() {
 
   unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
 
-  new_path="$(__rvm_remove_rvm_from_path ; printf "$PATH"):${rvm_bin_path:-"$rvm_path/bin"}"
+  new_path="$(__rvm_remove_rvm_from_path ; printf "$PATH"):${rvm_bin_path}"
 
   if [[ -s "$rvm_path/config/system" ]] ; then
 
@@ -282,9 +282,9 @@ __rvm_use_system() {
 
   if [[ ${rvm_default_flag:-0} -eq 1 ]] ; then
 
-    "$rvm_path/scripts/alias" delete default &> /dev/null
+    "$rvm_scripts_path/alias" delete default &> /dev/null
 
-    \find "${rvm_bin_path:-"$rvm_path/bin"}" -maxdepth 0 -name 'default_*' -delete
+    \find "${rvm_bin_path}" -maxdepth 0 -name 'default_*' -delete
     \rm -f "$rvm_path/config/default"
     \rm -f "$rvm_path/environments/default"
     \rm -rf "$rvm_path/wrappers/default"
@@ -297,7 +297,7 @@ __rvm_use_system() {
 
     for binary in ruby gem irb ri rdoc rake erb testrb ; do
 
-      full_binary_path="${rvm_bin_path:-"$rvm_path/bin"}/$binary"
+      full_binary_path="${rvm_bin_path}/$binary"
 
       [[ -L "$full_binary_path" ]] && \rm -f "$full_binary_path"
 
@@ -311,7 +311,7 @@ __rvm_use_system() {
 
   __rvm_remove_rvm_from_path
 
-  new_path="$PATH:${rvm_bin_path:-"$rvm_path/bin"}"
+  new_path="$PATH:${rvm_bin_path}"
 
   export rvm_ruby_string="system"
 
@@ -346,7 +346,7 @@ __rvm_use()
       rvm_warn "$rvm_ruby_interpreter $rvm_ruby_string is not installed."
 
       if [[ ${rvm_install_on_use_flag:-0} -eq 1 ]] ; then
-        "$rvm_path/scripts/manage" "install" "$rvm_ruby_string"
+        "$rvm_scripts_path/manage" "install" "$rvm_ruby_string"
       else
         rvm_log "To install do: 'rvm install $rvm_ruby_string'"
         return 1
@@ -359,7 +359,7 @@ __rvm_use()
     [[ ${rvm_verbose_flag:-0} -gt 0 ]] && \
       rvm_log "Using ${GEM_HOME/${rvm_gemset_separator:-'@'}/ with gemset }"
 
-    new_path="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:$MY_RUBY_HOME/bin:${rvm_bin_path:-"$rvm_path/bin"}:$(__rvm_remove_rvm_from_path ; printf "$PATH")"
+    new_path="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:$MY_RUBY_HOME/bin:${rvm_bin_path}:$(__rvm_remove_rvm_from_path ; printf "$PATH")"
   fi
 
   # Export ruby string and gem set me for extrenal scripts to take advantage of them.
@@ -387,9 +387,9 @@ __rvm_use()
 
       if [[ ${rvm_selfcontained:-""} -eq 0 ]] ; then
         # Sets up the default wrappers.
-        "$rvm_path/scripts/wrapper" "$rvm_ruby_string" --no-prefix
+        "$rvm_scripts_path/wrapper" "$rvm_ruby_string" --no-prefix
       else
-        "$rvm_path/scripts/wrapper" "$rvm_ruby_string" "default"
+        "$rvm_scripts_path/wrapper" "$rvm_ruby_string" "default"
       fi
 
       if [[ "system" != "$rvm_ruby_interpreter" ]] ; then
@@ -398,9 +398,9 @@ __rvm_use()
 
         export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
 
-        "$rvm_path/scripts/alias" delete default &> /dev/null
+        "$rvm_scripts_path/alias" delete default &> /dev/null
 
-        "$rvm_path/scripts/alias" create default "$environment_id" >& /dev/null
+        "$rvm_scripts_path/alias" create default "$environment_id" >& /dev/null
 
         \ln -nfs "$rvm_path/environments/$environment_id" "$rvm_path/environments/default"
 
@@ -408,7 +408,7 @@ __rvm_use()
 
         for wrapper in "$rvm_path"/wrappers/default/* ; do
 
-          ln -nfs "$wrapper" "$rvm_path/bin/${wrapper##*\/}"
+          ln -nfs "$wrapper" "$rvm_bin_path/${wrapper##*\/}"
 
         done
 
@@ -419,14 +419,14 @@ __rvm_use()
     rvm_default_flag=0
 
     if [[ -n "${rvm_wrapper_name:-""}" ]] ; then
-      "$rvm_path/scripts/wrapper" "$environment_id" "$rvm_wrapper_name" > /dev/null 2>&1
+      "$rvm_scripts_path/wrapper" "$environment_id" "$rvm_wrapper_name" > /dev/null 2>&1
       rvm_wrapper_name=""
     fi
 
     if [[ -n "${rvm_ruby_alias:-""}" ]]; then
       rvm_log "Attempting to alias $environment_id to $rvm_ruby_alias"
-      "$rvm_path/scripts/alias" delete "$rvm_ruby_alias" > /dev/null 2>&1
-      rvm_alias_expanded=1 "$rvm_path/scripts/alias" create "$rvm_ruby_alias" "$environment_id" > /dev/null 2>&1
+      "$rvm_scripts_path/alias" delete "$rvm_ruby_alias" > /dev/null 2>&1
+      rvm_alias_expanded=1 "$rvm_scripts_path/alias" create "$rvm_ruby_alias" "$environment_id" > /dev/null 2>&1
       ruby_alias="" ; rvm_ruby_alias=""
     fi
 
@@ -449,7 +449,7 @@ __rvm_use()
 
   fi
 
-  rvm_hook="after_use" ; source "$rvm_path/scripts/hook"
+  rvm_hook="after_use" ; source "$rvm_scripts_path/hook"
 
   return 0
 }
@@ -484,7 +484,7 @@ __rvm_ruby_string()
   # Alias'd rubies
   if [[ ${rvm_expanding_aliases:-0} -eq 0 && -n "${rvm_ruby_string:-""}"
     && "$rvm_ruby_string" != "system" ]] ; then
-    if expanded_alias_name="$("$rvm_path/scripts/alias" show "$rvm_ruby_string" 2>/dev/null)" \
+    if expanded_alias_name="$("$rvm_scripts_path/alias" show "$rvm_ruby_string" 2>/dev/null)" \
       && [[ -n "$expanded_alias_name" ]] ; then
       rvm_ruby_string="$expanded_alias_name"
     elif [[ "$rvm_ruby_string" = default ]] ; then
@@ -860,7 +860,7 @@ __rvm_gemset_use()
 
       if [[ ${rvm_gemset_create_on_use_flag:-0} -eq 1 \
         || ${rvm_create_flag:-0} -eq 1 ]] ; then
-        "$rvm_path/scripts/gemsets" create "$rvm_gemset_name"
+        "$rvm_scripts_path/gemsets" create "$rvm_gemset_name"
       else
         rvm_error "Gemset '$rvm_gemset_name' does not exist, rvm gemset create '$rvm_gemset_name' first."
         return 1

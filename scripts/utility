@@ -75,26 +75,6 @@ match()
   esac
 }
 
-# Detect wheter or not the shell is interactive, if it has not already been specified.
-if [[ -z ${rvm_interactive_flag:-""} ]]; then
-  case $- in *i*) rvm_interactive_flag=1 ;;
-               *) rvm_interactive_flag=0 ;;
-  esac ; export rvm_interactive_flag
-fi
-
-# Logging functions
-if [[ ${rvm_interactive_flag:-0} -eq 1 ]]; then
-  eval "rvm_log()   { printf \"\$(tput setaf 2)\$*\$(tput sgr0)\n\" ; }"
-  eval "rvm_debug() { printf \"\$(tput setaf 5)DEBUG: \$*\$(tput sgr0)\n\" ; }"
-  eval "rvm_warn()  { printf \"\$(tput setaf 3)WARN: \$*\$(tput sgr0)\n\" ; }"
-  eval "rvm_error() { printf \"\$(tput setaf 1)ERROR: \$*\$(tput sgr0)\n\" >&2 ; }"
-else
-  rvm_log()   { printf "$*\n" ; }
-  rvm_debug() { printf "DEBUG: $*\n" ; }
-  rvm_warn()  { printf "WARN: $*\n" ; }
-  rvm_error() { printf "ERROR: $*\n" >&2 ; }
-fi
-
 #
 # RVM specific functions.
 #
@@ -117,7 +97,7 @@ __rvm_dump_environment()
         && ln -s /dev/null "$dump_environment_file" >/dev/null 2>&1
 
     else
-      "$rvm_path/scripts/environment-convertor" "$dump_environment_type" \
+      "$rvm_scripts_path/environment-convertor" "$dump_environment_type" \
         "$(__rvm_environment_identifier)" > "$dump_environment_file"
       if [[ "$?" -gt 0 && -f "$dump_environment_file" ]] ; then
         \rm -f "$dump_environment_file"
@@ -161,11 +141,11 @@ __rvm_db()
   variable=${2:-""}
 
   if [[ -f "$rvm_path/config/user" ]] ; then
-    value="$("$rvm_path/scripts/db" "$rvm_path/user/db" "$key")"
+    value="$("$rvm_scripts_path/db" "$rvm_path/user/db" "$key")"
   fi
 
   if [[ -z "$value" ]] ; then
-    value="$("$rvm_path/scripts/db" "$rvm_path/config/db" "$key")"
+    value="$("$rvm_scripts_path/db" "$rvm_path/config/db" "$key")"
   fi
 
   if [[ -n "$value" ]] ; then
@@ -222,7 +202,7 @@ __rvm_quote_args_with_shift()
 __rvm_warn_on_rubyopt()
 {
   if [[ -n "${RUBYOPT:-""}" ]]; then
-    "$rvm_path/scripts"/log "warn" \
+    "$rvm_scripts_path"/log "warn" \
       "Please note: You have the RUBYOPT environment variable set and this \
             may interfere with normal rvm operations. We sugges unsetting it."
     return 1
@@ -443,7 +423,7 @@ __rvm_ensure_has_18_compat_ruby()
     # TODO: install currently doesn't return the correct status.
     local compat_result=0
 
-    if ! ( "$rvm_path/scripts/manage" install 1.8.7 ); then
+    if ! ( "$rvm_scripts_path/manage" install 1.8.7 ); then
 
         rvm_error "To proceed rvm requires a 1.8-compatible ruby is installed.\
         \nWe attempted to install 1.8.7 automatically but it failed.\
@@ -622,7 +602,7 @@ __rvm_benchmark()
 
   export rvm_ruby_strings
 
-  "$rvm_path/scripts/set" "$rvm_action" $rvm_ruby_args ; result=$?
+  "$rvm_scripts_path/set" "$rvm_action" $rvm_ruby_args ; result=$?
 
   # Restore the state pre-sets.
   [[ -n "$old_rvm_ruby_string" ]] && rvm_ruby_string=$old_rvm_ruby_string
@@ -656,7 +636,7 @@ __rvm_bin_scripts()
 #       not just the standard interpreteres.
 __rvm_bin_script()
 {
-  "$rvm_path/scripts/wrapper" "$rvm_ruby_string"
+  "$rvm_scripts_path/wrapper" "$rvm_ruby_string"
 
   return $?
 }
@@ -664,14 +644,14 @@ __rvm_bin_script()
 # Add bin path if not present
 __rvm_conditionally_add_bin_path()
 {
-  if printf "${PATH//:/ }" | \grep -vqF "${rvm_bin_path:-"$rvm_path/bin"} " ; then
+  if printf "${PATH//:/ }" | \grep -vqF "${rvm_bin_path} " ; then
 
     case "${rvm_ruby_string:-"system"}" in
       system)
-        PATH="$PATH:${rvm_bin_path:-"$rvm_path/bin"}"
+        PATH="$PATH:${rvm_bin_path}"
         ;;
       *)
-        PATH="${rvm_bin_path:-"$rvm_path/bin"}:$PATH"
+        PATH="${rvm_bin_path}:$PATH"
         ;;
     esac
 
@@ -697,7 +677,7 @@ __rvm_reset()
 
   for flag in "${flags[@]}"; do
 
-    \rm -f "${rvm_bin_path:-"$rvm_path/bin"}"/${flag}_*
+    \rm -f "${rvm_bin_path}"/${flag}_*
 
   done
 
@@ -728,19 +708,19 @@ __rvm_reset()
 
   for system_config in "${configs[@]}" ; do
 
-    "$rvm_path/scripts/db" "$rvm_path/config/user" "$system_config" "delete"
+    "$rvm_scripts_path/db" "$rvm_path/config/user" "$system_config" "delete"
 
   done
 
-  files=(ruby gem rake irb $(cd "${rvm_bin_path:-"$rvm_path/bin"}" ; \
+  files=(ruby gem rake irb $(cd "${rvm_bin_path}" ; \
     find . -mindepth 1 -maxdepth 1 -iname 'default*' -type f \
     | \sed -e 's#./##g'))
 
   for file in "${files[@]}"; do
 
-    if [[ -f "${rvm_bin_path:-"$rvm_path/bin"}/$file" ]] ; then
+    if [[ -f "${rvm_bin_path}/$file" ]] ; then
 
-      \rm -f "${rvm_bin_path:-"$rvm_path/bin"}/$file"
+      \rm -f "${rvm_bin_path}/$file"
 
     fi
 
@@ -755,7 +735,7 @@ __rvm_implode_binaries()
 {
   # Load inside a subshell to avoid polutting the current shells env.
   (
-    source "$rvm_path/scripts/base"
+    source "$rvm_scripts_path/base"
 
     rvm_log "Removing rvm-shipped binaries (rvm-prompt, rvm, rvm-sudom rvm-shell and rvm-auto-ruby)"
     \rm -rf "$rvm_bin_path/"{rvm-prompt,rvm,rvmsudo,rvm-shell,rvm-auto-ruby}
@@ -868,7 +848,7 @@ __rvm_update()
     if [[ ${rvm_head_flag:-0} -eq 1 || ${rvm_self_flag:-0} -eq 1 \
       || "update" = "${rvm_action:-""}" || ${rvm_update_flag:-0} -eq 1 ]] ; then
       rvm_warn "'rvm update --head' is deprecated, use 'rvm get head' instead"
-      "$rvm_path/scripts/get" head
+      "$rvm_scripts_path/get" head
     fi
 
     if [[ ${rvm_bin_flag:-0} -eq 1 ]] ; then
@@ -877,7 +857,7 @@ __rvm_update()
 
     # Update to the latest rubygems.
     if [[ ${rvm_rubygems_flag:-0} -eq 1 ]] ; then
-      "$rvm_path/scripts/rubygems" current
+      "$rvm_scripts_path/rubygems" current
     fi
   )
   unset rvm_update_flag rvm_action rvm_self_flag \
@@ -909,9 +889,9 @@ __rvm_reboot()
 
     gem install rvm $rvm_gem_options
 
-    "$rvm_path/scripts/get" latest
+    "$rvm_scripts_path/get" latest
 
-    source "$rvm_path/scripts/rvm"
+    source "$rvm_scripts_path/rvm"
   else
     rvm_log "Carry on then..."
   fi
@@ -923,7 +903,7 @@ __rvm_reboot()
 __rvm_irbrc()
 {
   if [[ -d "$rvm_ruby_home" && ! -s "$rvm_ruby_irbrc" ]] ; then
-    \cp "$rvm_path/scripts/irbrc" "$rvm_ruby_irbrc"
+    \cp "$rvm_scripts_path/irbrc" "$rvm_ruby_irbrc"
   fi
   return $?
 }
@@ -1130,7 +1110,7 @@ __rvm_ensure_has_environment_files()
 
     \mkdir -p "$rvm_path/environments"
 
-    printf "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path:-"$rvm_path/bin"}:\$PATH\"\n" \
+    printf "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"\n" \
       > "$file_name"
 
     for variable in rvm_path RUBY_VERSION GEM_HOME GEM_PATH \
@@ -1168,7 +1148,7 @@ __rvm_ensure_has_environment_files()
       if [[ ! -L "$directory" && ! -d "$directory" ]]; then
         \mkdir -p "$directory"
 
-        "$rvm_path/scripts/wrapper" "$identifier" &> /dev/null
+        "$rvm_scripts_path/wrapper" "$identifier" &> /dev/null
       fi
 
     done
@@ -1204,7 +1184,7 @@ __rvm_current_gemset()
 
 __rvm_using_gemset_globalcache()
 {
-  "$rvm_path/scripts/db" "$rvm_path/config/user" \
+  "$rvm_scripts_path/db" "$rvm_path/config/user" \
     "use_gemset_globalcache" | \grep -q '^true$'
   return $?
 }
@@ -1287,7 +1267,7 @@ __rvm_rvmrc_key()
 
 __rvm_reset_rvmrc_trust()
 {
-  "$rvm_path/scripts/db" "$rvm_path/user/rvmrcs" \
+  "$rvm_scripts_path/db" "$rvm_path/user/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
   return $?
 }
@@ -1295,7 +1275,7 @@ __rvm_reset_rvmrc_trust()
 __rvm_trust_rvmrc()
 {
   __rvm_reset_rvmrc_trust "$1"
-  "$rvm_path/scripts/db" "$rvm_path/user/rvmrcs" \
+  "$rvm_scripts_path/db" "$rvm_path/user/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")" "1" >/dev/null 2>&1
   return $?
 }
@@ -1303,14 +1283,14 @@ __rvm_trust_rvmrc()
 __rvm_untrust_rvmrc()
 {
   __rvm_reset_rvmrc_trust "$1"
-  "$rvm_path/scripts/db" "$rvm_path/user/rvmrcs" \
+  "$rvm_scripts_path/db" "$rvm_path/user/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")" "0" >/dev/null 2>&1
   return $?
 }
 
 __rvm_rvmrc_stored_trust()
 {
-  "$rvm_path/scripts/db" "$rvm_path/user/rvmrcs" \
+  "$rvm_scripts_path/db" "$rvm_path/user/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")"
   return $?
 }
@@ -1545,7 +1525,7 @@ __rvm_record_install()
 
   [[ -z "$1" ]] && return
 
-  recorded_ruby_name="$("$rvm_path/scripts/tools" strings "$1")"
+  recorded_ruby_name="$("$rvm_scripts_path/tools" strings "$1")"
 
   rvm_install_record_file="$rvm_path/config/installs"
 
@@ -1571,7 +1551,7 @@ __rvm_remove_install_record()
 {
   local recorded_ruby_name rvm_install_record_file
 
-  recorded_ruby_name="$("$rvm_path/scripts/tools" strings "$1")"
+  recorded_ruby_name="$("$rvm_scripts_path/tools" strings "$1")"
 
   rvm_install_record_file="$rvm_path/config/installs"
 
@@ -1592,7 +1572,7 @@ __rvm_recorded_install_command()
 {
   local recorded_ruby_name recorded_ruby_match
 
-  recorded_ruby_name="$("$rvm_path/scripts/tools" strings "$1" \
+  recorded_ruby_name="$("$rvm_scripts_path/tools" strings "$1" \
     | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
 
   [[ -z "$recorded_ruby_name" ]] && return 1
@@ -1632,7 +1612,7 @@ __rvm_expand_ruby_string()
 
   if [[ -z "$string" ]] ; then
 
-    "$rvm_path/scripts/list" strings | tr ' ' "\n"
+    "$rvm_scripts_path/list" strings | tr ' ' "\n"
 
     return $?
 
@@ -1641,26 +1621,26 @@ __rvm_expand_ruby_string()
   case "$string" in
 
     all)
-      "$rvm_path/scripts/list" strings | tr ' ' "\n"
+      "$rvm_scripts_path/list" strings | tr ' ' "\n"
       ;;
 
     all-gemsets)
-      "$rvm_path/scripts/list" gemsets strings
+      "$rvm_scripts_path/list" gemsets strings
       ;;
 
     default-with-rvmrc|rvmrc)
-      "$rvm_path/scripts/tools" path-identifier "$PWD"
+      "$rvm_scripts_path/tools" path-identifier "$PWD"
       ;;
 
     all-rubies|rubies)
-      "$rvm_path/scripts/list" rubies strings
+      "$rvm_scripts_path/list" rubies strings
       ;;
 
     current-ruby|gemsets)
       current_ruby="$(__rvm_environment_identifier \
         | awk -F"${rvm_gemset_separator:-"@"}" '{print $string}')"
 
-      rvm_silence_logging=1 "$rvm_path/scripts/gemsets" list \
+      rvm_silence_logging=1 "$rvm_scripts_path/gemsets" list \
         | \sed "s/^/$current_ruby${rvm_gemset_separator:-"@"}/"
       ;;
 
