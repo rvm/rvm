@@ -6,11 +6,13 @@ Hoe.spec "rvm" do
   developer "Wayne E. Seguin", "wayneeseguin@gmail.com"
 
   # TODO: package the release with the API .gem
-  gemspec.files           = [
-    "README", "sha1", "LICENCE", "rvm.gemspec",
-    Dir::glob("lib/**/**"),
-    Dir::glob("releases/rvm-#{RVM::Version::STRING}.tar.gz*")
-  ].flatten
+  #gemspec.files           = [
+  #  "README", "sha1", "LICENCE", "rvm.gemspec",
+  #  # TODO: Go through manifest carefully.
+  #  # FOR NOW glob
+  #  Dir::glob("lib/**/**"),
+  #  Dir::glob("releases/rvm-#{RVM::Version::STRING}.tar.gz*")
+  #].flatten
 
   spec_extras[:rdoc_options] = proc do |ary|
     # hoe kinda sucks for this! TODO: submit patch for Hoe#rdoc_options
