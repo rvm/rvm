@@ -39,52 +39,9 @@ get_latest()
 
   # NOTE: This is the content as in binscripts/rvm-update-latest
 
-  stable_version=$(curl -B http://rvm.beginrescueend.com/releases/stable-version.txt 2>/dev/null)
-  stable_md5=$(curl -B http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz.md5 2>/dev/null)
+  stable_version=$(curl -B $version_url 2>/dev/null)
 
-  echo "rvm-${stable_version}"
-
-  archive="$rvm_archives_path/rvm-${stable_version}.tar.gz"
-
-  curl -L "http://rvm.beginrescueend.com/releases/rvm-${stable_version}.tar.gz" \
-    -o "$archive"
-
-  case "$(uname)" in
-    Darwin|FreeBSD)
-      archive_md5="$(/sbin/md5 -q "${archive}")"
-      ;;
-    OpenBSD)
-      archive_md5="$(/bin/md5 -q "${archive}")"
-      ;;
-    Linux|*)
-      archive_md5="$(md5sum "${archive}" | awk '{print $1}')"
-      ;;
-  esac
-
-  if [[ "$archive_md5" != "$stable_md5" ]]; then
-    printf "ERROR:
-    Archive package rvm-${stable_version}.tar.gz downloaded does not match it's md5 checksum ${stable_md5}.
-    Aborting RVM Installation.
-  "
-    exit 1
-  fi
-
-  tar zxf "${rvm_path}/archives/rvm-${stable_version}.tar.gz" -C "$rvm_src_path/"
-
-  (
-    cd "$rvm_src_path/rvm-${stable_version}"
-
-    chmod +x ./scripts/install
-
-    ./scripts/install
-  )
-
-  rvm_log "\nInstalled RVM version:"
-  ( source $rvm_scripts_path/rvm ; rvm --version )
-
-  rvm_hook="after_update"
-
-  source "$rvm_scripts_path/hook"
+  get_version $stable_version
 }
 
 get_head()
@@ -126,6 +83,57 @@ get_head()
   return 0
 }
 
+get_version()
+{
+  version="$1"
+
+
+  md5=$(curl -B http://rvm.beginrescueend.com/releases/rvm-${version}.tar.gz.md5 2>/dev/null)
+
+  echo "rvm-${version}"
+
+  archive="$rvm_archives_path/rvm-${version}.tar.gz"
+
+  curl -L "http://rvm.beginrescueend.com/releases/rvm-${version}.tar.gz" \
+    -o "$archive"
+  case "$(uname)" in
+    Darwin|FreeBSD)
+      archive_md5="$(/sbin/md5 -q "${archive}")"
+      ;;
+    OpenBSD)
+      archive_md5="$(/bin/md5 -q "${archive}")"
+      ;;
+    Linux|*)
+      archive_md5="$(md5sum "${archive}" | awk '{print $1}')"
+      ;;
+  esac
+
+  if [[ "$archive_md5" != "$md5" ]]; then
+    printf "ERROR:
+    Archive package rvm-${version}.tar.gz downloaded does not match it's md5 checksum ${md5}.
+    Aborting RVM Installation.
+  "
+    exit 1
+  fi
+
+  tar zxf "${rvm_path}/archives/rvm-${version}.tar.gz" -C "$rvm_src_path/"
+
+  (
+    cd "$rvm_src_path/rvm-${version}"
+
+    chmod +x ./scripts/install
+
+    ./scripts/install
+  )
+
+  rvm_log "\nInstalled RVM version:"
+  ( source $rvm_scripts_path/rvm ; rvm --version )
+
+  rvm_hook="after_update"
+
+  source "$rvm_scripts_path/hook"
+}
+
 args=($*)
 action="${args[$__array_start]}"
 args[$__array_start]=""
@@ -139,6 +147,10 @@ case "$action" in
 
   head)
     get_head
+    ;;
+
+  [:digit:]*)
+    get_version "$action"
     ;;
 
   help)
