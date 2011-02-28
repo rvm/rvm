@@ -32,3 +32,58 @@ __rvm_rm_rf()
   return $result
 }
 
+__rvm_reboot()
+{
+    rvm_warn "Do you wish to reboot rvm?\n('yes', or 'no')> "
+
+  local response="no"
+
+  read response
+
+  if [[ "yes" = "$response" ]] ; then
+    builtin cd $rvm_path
+
+    __rvm_reset
+
+    mv "$rvm_archives_path" "$HOME/.archives"
+
+    if [[ "/" = "$rvm_path" ]] ; then
+      rvm_error "remove '/' ?!... NO!"
+    else
+      if [[ -d "$rvm_path" ]] ; then __rvm_rm_rf "$rvm_path" ; fi
+    fi
+
+    gem install rvm $rvm_gem_options
+
+    "$rvm_scripts_path/get" latest
+
+    source "$rvm_scripts_path/rvm"
+  else
+    rvm_log "Carry on then..."
+  fi
+
+  return 0
+}
+
+# Cleans up temp folders for a given prefix ($1),
+# typically the current process id.
+__rvm_cleanup_tmp()
+{
+  result=$? # Capture last command status
+
+  [[ -z "${1:-""}" ]] && return 1
+
+  if [[ -d "${rvm_tmp_path}/" ]]; then
+
+    case "${rvm_tmp_path%\/}" in
+      *tmp)
+        __rvm_rm_rf "${rvm_tmp_path}/${1}"
+        ;;
+    esac
+
+
+  fi
+
+  return $result
+}
+
