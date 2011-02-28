@@ -12,7 +12,7 @@ DESCRIPTION="RVM facilitates easy installation and management of multiple Ruby e
 HOMEPAGE="http://rvm.beginrescueend.com/"
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="~x86"
+KEYWORDS="~x86 ~amd64"
 IUSE="mono java"
 
 RDEPEND="net-misc/curl
