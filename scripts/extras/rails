@@ -27,7 +27,18 @@ rails_routes()
 {
   # Usage:
   #
-  #   rails_routes [shell glob or search string]
+  #   rails_routes <or list, space separated> [options]
+  #
+  #   include string is a valid shell glob: http://mywiki.wooledge.org/glob
+  #
+  #   options are among
+  #
+  #     * a valid shell glob pattern
+  #     * -a <and glob>
+  #     * -o <or glob>
+  #     * -e <exclude (not) glob>
+  #
+  #   Processing occurs as ((or list) AND (and list)) NOT (exclude list)
   #
   # Examples:
   #
@@ -38,11 +49,12 @@ rails_routes()
   #                POST   /current(.:format)                        {:action=>"create", :controller=>"current"}
   #                PUT    /current/:id(.:format)                    {:action=>"update", :controller=>"current"}
   #
-  if [[ "$1" = "--trace" ]]; then
-    set -o xtrace
-    export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
-    shift
-  fi
+  #   or, equivalently, rails_routes POST -o PUT
+  #
+  #   List all routes containing admin but not test
+  #   rails_routes admin -e test
+  #
+  #   rails_routes
 
   if [[ -n "${ZSH_VERSION:-}" ]] ; then
     setopt extendedglob
@@ -54,12 +66,40 @@ rails_routes()
     fi
   fi
 
-  local md5_current md5_cached cache_file routes search_string
+  local md5_current md5_cached cache_file routes
+  declare -a ands ors nots
 
-  search_string="${1:-}" ; shift
-  search_string="*${search_string//\|/*|*}*"
+  while [[ $# -gt 0 ]] ; do
+    token="$1" ; shift
+    case "$token" in
 
-  cache_file="tmp/.rake_routes"
+      --trace)
+        set -o xtrace
+        export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
+        ;;
+
+      -a|and)
+        ands=(${ands[@]} "$1")
+        shift
+        ;;
+
+      -o|or)
+        ors=(${ors[@]} "$1")
+        shift
+        ;;
+
+      -e|exclude)
+        nots=(${exclude[@]} "$1")
+        shift
+        ;;
+      *) # Default is or.
+        ors=(${ors[@]} "$token")
+        ;;
+    esac
+  done
+
+  [[ -d tmp/rake ]] || mkdir -p "tmp/rake"
+  cache_file="tmp/rake/routes"
 
   if ! command -v rake >/dev/null 2>&1 ; then
     printf "ERROR: rake not found.\n" >&2
@@ -96,12 +136,50 @@ rails_routes()
   fi
   routes="${routes#\|\(in *\)}"
 
-  (IFS="
+  orig_ifs="$IFS"
+  condition="${ors[@]}"
+  condition="*${condition// /*|*}*"
+
+  IFS="
 "
+  # ORs
+  results=()
+
   for route in ${routes} ; do
-    eval "case '$route' in (${search_string}) printf \"\$route\\n\" ;; esac"
+    eval "case '${route}' in (${condition}) results=(\"${results[@]}\" \"${route}\") ;; esac"
   done
-  )
+  routes=(${results[@]})
+
+
+  # ANDs
+  results=()
+  for condition in "${ands[@]}" ; do
+    for route in ${routes[@]} ; do
+      if [[ ${route} = ${condition} ]]; then
+        results=(${results[@]} ${route})
+      fi
+    done
+    routes=(${results[@]})
+    results=()
+  done
+
+  # NOTs
+  results=()
+  for condition in "${nots[@]}" ; do
+    for route in ${routes[@]} ; do
+      if [[ ${route} != *${condition}* ]]; then
+        results=(${results[@]} ${route})
+      fi
+    done
+    routes=(${results[@]})
+    results=()
+  done
+
+  for route in ${routes[@]} ; do
+    printf "${route}\n"
+  done
+
+  IFS="$orig_ifs"
 }
 
 #
@@ -116,25 +194,67 @@ r() {
 
   case "$action" in
 
-    c)
+    c|console)
       action=console
       ;;
 
-    db)
+    d|db)
       action=dbconsole
       ;;
 
-    g)
+    g|generate)
       action=generate
       ;;
 
-    routes|r)
-      rails_routes $*
-      return $?
+    d|destroy)
+      action=destroy
       ;;
 
-    h|help)
+    s|server)
+      action=server
+      ;;
+
+    r|routes)
+      rails_routes $args
+      return $?
+      ;;
+    n|new)
+      rails_version=$(rails -v)
+      rails_version=${rails_version##* }
+      rails_version=${rails_version%%.*}
+      if [[ $rails_version -ge 3 ]]; then
+        rails new $args
+      elif [[ $rails_version = 1 || $rails_version = 2 ]] ; then
+        rails $args
+      fi
+      ;;
+
+    (*(-)@(h|?|help))
       action="-h"
+      ;;
+
+    (*(-)@(v|V|version))
+      action="-h"
+      ;;
+
+    usage)
+      printf "
+
+r - Rails shell convenience function
+
+Usage:
+
+  r [action]
+
+Actions:
+
+  c - Start a Rails Console
+  d - Start a database console
+  c - rails generate
+  s - rails server
+  r - rails routes <include filter glob> [-e <exclude filter glob>]
+
+      \n"
       ;;
 
   esac
@@ -143,17 +263,13 @@ r() {
 
     ruby ./script/rails $args
 
-  else
-
-    if [[ -s ./script/$action ]] ; then
+  elif [[ -s ./script/$action ]] ; then
 
       ruby ./script/$action $args
 
-    else
+  else
 
-      printf "ERROR: Missing script ./script/$action !!!"
-
-    fi
+    printf "ERROR: rails $action not found!!!"
 
   fi
 
