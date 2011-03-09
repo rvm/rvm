@@ -1436,18 +1436,21 @@ __rvm_fetch_ruby()
 
       # If a revision was specified, check it out.
       if [[ -n "$rvm_ruby_revision" ]] ; then
+        (
+          cd "${rvm_repos_path}/$rvm_ruby_string"
 
-        if [[ -z "${rvm_ruby_sha:-""}" ]] ; then
+          if [[ -z "${rvm_ruby_sha:-""}" ]] ; then
 
-          if [[ "$rvm_ruby_revision" = "head" ]]; then
-            rvm_ruby_revision="master"
+            if [[ "$rvm_ruby_revision" = "head" ]]; then
+              rvm_ruby_revision="master"
+            fi
+
+            git checkout "$rvm_ruby_revision"
+
+          else
+            git checkout ${rvm_ruby_sha/#s/}
           fi
-
-          git checkout "$rvm_ruby_revision"
-
-        else
-          git checkout ${rvm_ruby_sha/#s/}
-        fi
+        )
         result=$?
 
         if [[ "$result" -gt 0 ]] ; then
@@ -1486,28 +1489,31 @@ __rvm_fetch_ruby()
         rvm_rev="-$rvm_ruby_revision"
       fi
 
-      if [[ -d "${rvm_repos_path}/$rvm_ruby_string/.svn" ]] ; then
-
+      (
         builtin cd "${rvm_repos_path}/$rvm_ruby_string"
 
-        rvm_log "Updating ruby from $rvm_ruby_url"
+        if [[ -d "${rvm_repos_path}/$rvm_ruby_string/.svn" ]] ; then
 
-        __rvm_run "svn.switch" "svn switch $rvm_ruby_url"
 
-        __rvm_run "svn.update" "svn update"
+          rvm_log "Updating ruby from $rvm_ruby_url"
 
-        if [[ -n "${rvm_rev:-""}" ]] ; then
-          rvm_log "Checking out revision ${rvm_rev/-r/-r } from $rvm_ruby_url"
+          __rvm_run "svn.switch" "svn switch $rvm_ruby_url"
 
-          __rvm_run "svn.checkout" "svn update -q ${rvm_rev/-r/-r }"
+          __rvm_run "svn.update" "svn update"
+
+          if [[ -n "${rvm_rev:-""}" ]] ; then
+            rvm_log "Checking out revision ${rvm_rev/-r/-r } from $rvm_ruby_url"
+
+            __rvm_run "svn.checkout" "svn update -q ${rvm_rev/-r/-r }"
+          fi
+        else
+          __rvm_rm_rf "${rvm_repos_path}/$rvm_ruby_string"
+
+          __rvm_run "svn.checkout" \
+            "svn checkout -q ${rvm_rev/-r/-r } $rvm_ruby_url ${rvm_repos_path}/$rvm_ruby_string" \
+            "Downloading source from ${rvm_ruby_url}."
         fi
-      else
-        __rvm_rm_rf "${rvm_repos_path}/$rvm_ruby_string"
-
-        __rvm_run "svn.checkout" \
-          "svn checkout -q ${rvm_rev/-r/-r } $rvm_ruby_url ${rvm_repos_path}/$rvm_ruby_string" \
-          "Downloading source from ${rvm_ruby_url}."
-      fi
+      )
       result=$?
 
       if [[ "$result" -gt 0 ]] ; then
