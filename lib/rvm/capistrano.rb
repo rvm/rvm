@@ -43,6 +43,8 @@ Capistrano::Configuration.instance(true).load do
       "/usr/local/bin"
     when :local, :user, :default
       "$HOME/.rvm/bin"
+    else
+      "$HOME/.rvm/bin"
     end
   end
 
