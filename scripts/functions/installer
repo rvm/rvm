@@ -1,0 +1,742 @@
+#!/usr/bin/env bash
+
+install_setup()
+{
+  set -o errtrace
+  sys=$( uname -s )
+  if [[ "${sys}" = AIX ]] ; then
+      name_opt=-name
+  else
+      name_opt=-iname
+  fi
+
+  export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
+
+  export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
+
+  # TODO: Figure out a much better name for 'rvm_selfcontained'
+  if [[ -z "$rvm_selfcontained" ]]; then
+
+    if [[ $UID -eq 0 || -n "$rvm_prefix" && "$rvm_prefix" != "${HOME}"/* ]]; then
+
+      export rvm_selfcontained=0
+
+    else
+
+      export rvm_selfcontained=1
+
+    fi
+
+  fi
+
+  unset rvm_auto_flag
+
+  set -o noclobber
+  set -o nounset
+}
+
+install_usage()
+{
+  printf "
+  Usage:
+
+    ${0} [options]
+
+  options:
+
+    --auto    : Automatically update shell profile files.
+
+    --prefix  : Installation prefix directory.
+
+    --help    : Display help/usage (this) message
+
+    --version : display rvm package version
+
+  \n"
+}
+
+check_rubyopt_conditions()
+{
+  if [[ -n "${RUBYOPT:-""}" ]]; then
+    printf "
+
+WARNING: You have RUBYOPT set in your current environment.
+This may cause rubies to not work as you expect them to as it is not supported
+by all of them If errors show up, please try unsetting RUBYOPT first.
+
+"
+  fi
+}
+
+andand_return_instructions()
+{
+  printf "
+  This means that if you see something like:
+
+    '[ -z \"\$PS1\" ] && return'
+
+  then you change this line to:
+
+  if [[ -n \"\$PS1\" ]] ; then
+
+    # ... original content that was below the '&& return' line ...
+
+  fi # <= be sure to close the if at the end of the .bashrc.
+
+  # This is a good place to source rvm v v v
+  [[ -s \"\$rvm_path/scripts/rvm\" ]] && source \"\$rvm_path/scripts/rvm\"  # This loads RVM into a shell session.
+
+EOF - This marks the end of the .bashrc file
+"
+}
+
+installation_complete()
+{
+  printf "
+  You must now complete the install by loading RVM in new shells.
+
+  1) Place the folowing line at the end of your shell's loading files
+     (.bashrc or .bash_profile for bash and .zshrc for zsh),
+     after all PATH/variable settings:
+
+     [[ -s \"\$rvm_path/scripts/rvm\" ]] && source \"\$rvm_path/scripts/rvm\"  # This loads RVM into a shell session.
+
+     You only need to add this line the first time you install rvm.
+
+  2) Ensure that there is no 'return' from inside the ~/.bashrc file,
+     otherwise rvm may be prevented from working properly.
+
+     $(andand_return_instructions)
+
+     Be absolutely *sure* to REMOVE the '&& return'.
+
+     If you wish to DRY up your config you can 'source ~/.bashrc' at the bottom of your .bash_profile.
+
+     Placing all non-interactive (non login) items in the .bashrc,
+     including the 'source' line above and any environment settings.
+
+  3) CLOSE THIS SHELL and open a new one in order to use rvm.
+  \n"
+}
+
+andand_return_warning()
+{
+  printf "
+  WARNING:  you have a 'return' statement in your ~/.bashrc
+              This could cause some features of RVM to not work.
+
+  $(andand_return_instructions)
+
+  Even if you are using zsh you should still adjust the ~/.bashrc
+  If you have any questions about this please visit
+    #rvm on irc.freenode.net.
+  \n"
+}
+
+display_thank_you()
+{
+  printf "
+${name:-"${USER:-$(id | sed -e 's/^[^(]*(//' -e 's/).*$//')}"},
+
+Thank you very much for using RVM! I sincerely hope that RVM helps to
+make your work both easier and more enjoyable.
+
+If you have any questions, issues and/or ideas for improvement please
+join#rvm on irc.freenode.net and let me know, note you must register
+(http://bit.ly/5mGjlm) and identify (/msg nickserv <nick> <pass>) to
+talk, this prevents spambots from ruining our day.
+
+My irc nickname is 'wayneeseguin' and I hang out in #rvm typically
+
+  ~09:00-17:00EDT and again from ~21:00EDT-~23:00EDT
+
+If I do not respond right away, please hang around after asking your
+question, I will respond as soon as I am back.  It is best to talk in
+#rvm itself as then other users can help out should I be offline.
+
+Be sure to get head often as rvm development happens fast,
+you can do this by running 'rvm get head' followed by 'rvm reload'
+or opening a new shell
+
+  w⦿‿⦿t
+
+    ~ Wayne
+
+"
+}
+
+upgrade_notes()
+{
+  printf "
+
+Upgrade Notes
+
+  * rvm_trust_rvmrcs has been changed to rvm_trust_rvmrcs_flag for consistency
+
+  * Ruby package dependency list for your OS is given by:
+    rvm notes
+
+  * If you encounter any issues with a ruby 'X' your best bet is to:
+    rvm remove X ; rvm install X
+
+  * If you wish to have the 'pretty colors' again, set in ~/.rvmrc:
+    export rvm_pretty_print_flag=1
+
+  * If you see the following error message: Unknown alias name: 'default'
+    re-set your default ruby, this is due to a change in how default works.
+"
+}
+
+parse_install_args()
+{
+  # Parse CLI arguments.
+  while [[ $# -gt 0 ]] ; do
+
+    token="$1" ; shift
+
+    case "$token" in
+      --auto)
+        rvm_auto_flag=1
+        ;;
+      --prefix)
+        rvm_prefix="$1"
+        shift
+        ;;
+      --version)
+        rvm_path="${PWD%%+(\/)}"
+        __rvm_version
+        unset rvm_path
+        exit
+        ;;
+      --debug)
+        set -o verbose
+        ;;
+      --trace)
+        echo "$*"
+        env | grep '^rvm_'
+        set -o xtrace
+        ;;
+      --help)
+        install_usage
+        exit 0
+        ;;
+      *)
+        echo "Unrecognized option: $token"
+        install_usage
+        exit 1
+        ;;
+    esac
+  done
+}
+
+determine_install_path()
+{
+  if [[ -z "${rvm_prefix:-}"  ]] ; then
+
+    if [[ $UID -eq 0 ]] ; then
+
+      [[ -s /etc/rvmrc ]] && source /etc/rvmrc
+
+      if [[ ${rvm_selfcontained:-0} -eq 0 ]] ; then
+        true "${rvm_prefix:="/usr/local/"}"
+      else
+        true "${rvm_prefix:="${HOME}/."}"
+      fi
+
+    else
+
+      true "${rvm_prefix:="${HOME}/."}"
+
+    fi
+
+  fi
+
+  true "${rvm_path:="${rvm_prefix}rvm"}"
+}
+
+determine_install_or_upgrade()
+{
+  upgrade_flag=0
+  if grep -q 'scripts/rvm' "${HOME}"/.bash* 2>/dev/null \
+    || grep -q 'scripts/rvm' "${HOME}"/.zsh* 2>/dev/null ; then
+
+    [[ -d "$rvm_path" ]] &&
+      [[ -s "${rvm_path}/scripts/rvm" ]] &&
+        upgrade_flag=1
+
+  fi
+  export upgrade_flag
+}
+
+print_install_header()
+{
+  printf "
+  RVM:  Shell scripts enabling management of multiple ruby environments.
+  RTFM: http://rvm.beginrescueend.com/
+  HELP: http://webchat.freenode.net/?channels=rvm (#rvm on irc.freenode.net)
+"
+
+  if [[ ${upgrade_flag:-0} -eq 1 ]] ;then
+
+    printf "\nUpgrading the RVM installation in $rvm_path/"
+
+  else
+
+    printf "\nInstalling RVM to $rvm_path/"
+
+  fi
+}
+
+configure_installation()
+{
+  install_source_path="$(dirname "$0" | sed 's#\/scripts$##')"
+
+  if [[ -d "$install_source_path/scripts" \
+    && -s "$install_source_path/scripts/functions/utility" ]] ; then
+    builtin cd "$install_source_path"
+  fi
+
+  # Save scripts path
+  scripts_path=${rvm_scripts_path:-""}
+  rvm_scripts_path="${PWD%%+(\/)}/scripts"
+  # Load scripts.
+
+  source scripts/initialize
+  source scripts/functions/init
+  source scripts/version
+
+  # What does this do that scripts/initialize not do?:
+  __rvm_initialize
+
+  # Restore Scripts Path
+  rvm_scripts_path=${scripts_path:-"$rvm_path/scripts"}
+  #
+  item="* "
+  question="\n<?>"
+  cwd="${PWD%%+(\/)}"
+
+  true "${source_path:=$cwd}"
+
+  return 0
+}
+
+create_install_paths()
+{
+  install_paths=(
+    "${rvm_archives_path:="$rvm_path/archives"}"
+    "${rvm_src_path:="$rvm_path/src"}"
+    "${rvm_log_path:="$rvm_path/log"}"
+    "${rvm_bin_path:="$rvm_path/bin"}"
+    "${rvm_gems_path:="$rvm_path/gems"}"
+    "${rvm_man_path:="$rvm_path/man"}"
+    "${rvm_rubies_path:="$rvm_path/rubies"}"
+    "${rvm_config_path:="$rvm_path/config"}"
+    "${rvm_user_path:="$rvm_path/user"}"
+    "${rvm_tmp_path:="$rvm_path/tmp"}"
+  )
+  for directory in "${install_paths[@]}" ; do
+    [[ -d "$directory" ]] || mkdir -p "$directory"
+  done
+  return 0
+}
+
+cleanse_old_entities()
+{
+  #
+  # Remove old files that no longer exist.
+  #
+  for script in utility array ; do
+    [[ -f "$rvm_path/scripts/${script}" ]] &&
+      rm -f "$rvm_path/scripts/${script}"
+  done
+  return 0
+}
+
+install_rvm_files()
+{
+  files=(README LICENCE VERSION)
+  for file in "${files[@]}"; do
+    cp -f "$source_path/${file}" "$rvm_path/${file}"
+  done
+  return 0
+
+  directories=(config contrib scripts examples lib hooks help patches)
+
+  for directory in ${directories[@]} ; do
+
+    for entry in $(find $directory 2>/dev/null); do
+
+      if [[ -f "$source_path/$entry" ]] ; then
+
+        # Target is supposed to be a file, remove if it is a directory.
+        if [[ -d "$rvm_path/$entry" ]]; then __rvm_rm_rf "$rvm_path/$entry" ; fi
+
+        cp -f "$source_path/$entry" "$rvm_path/$entry"
+
+      elif [[ -d "$source_path/$entry" ]] ; then
+
+        # Target is supposed to be a directory, remove if it is a file.
+        if [[ -f "$rvm_path/$entry" ]]; then rm -f "$rvm_path/$entry" ; fi
+
+        if [[ ! -d "$rvm_path/$entry" ]] ; then mkdir -p "$rvm_path/$entry" ; fi
+
+      fi
+
+    done
+
+  done
+}
+
+setup_configuration_files()
+{
+  (
+    if [[ ! -s "$rvm_config_path/user" ]] ; then
+      echo '# User settings, overrides db settings and persists across installs.' \
+        >> "$rvm_config_path/user"
+    fi
+
+    cd "$rvm_path"
+
+    if [[ ! -f config/user ]]; then
+      mv config/user user/db
+    fi
+
+    if [[ ! -f user/db ]]; then
+      touch user/db
+    fi
+
+    if [[ -s config/rvmrcs ]] ; then
+      mv config/rvmrcs user/rvmrcs
+    else
+      if [[ ! -f user/rvmrcs ]] ; then
+        touch user/rvmrcs
+      fi
+    fi
+  )
+}
+
+ensure_scripts_are_executable()
+{
+  scripts=(monitor match log install color db fetch log set package)
+
+  for script_name in "${scripts[@]}" ; do
+
+    chmod +x "$rvm_scripts_path/$script_name" 2>/dev/null # Hide errors.
+
+  done
+  return 0
+}
+
+
+
+install_binscripts()
+{
+  files=(rvm-prompt rvm rvmsudo rvm-shell rvm-auto-ruby)
+  for file in "${files[@]}" ; do
+    rm -f "$rvm_bin_path/$file"
+    cp -f "$source_path/binscripts/${file}" "${rvm_bin_path}/${file}"
+    chmod +x "${rvm_bin_path}/$file"
+  done
+  return 0
+}
+
+automatic_profile_setup()
+{
+  if [[ ${rvm_auto_flag:-0} -eq 1 ]] ; then
+
+    printf "Checking rc files... ($rvm_rc_files)"
+
+    if [[ ${rvm_loaded_flag:-0} -ne 1 ]] ; then
+
+      for rcfile in $(printf $rvm_rc_files) ; do
+
+        if [[ ! -f $rcfile ]] ; then touch $rcfile ; fi
+
+        if [[ -s "${HOME}/.profile" ]] ; then
+
+          if ! grep -q '.profile' "$rcfile" ; then
+
+            echo "    Adding profile sourcing line to $rcfile."
+
+            printf "
+  # rvm install added line:
+  [[ -s \"$rvm_path/.profile\" ]] && source \"$rvm_path/.profile\"
+  " >> "$rcfile"
+
+          fi
+
+        fi
+
+        if ! grep -q "scripts\/rvm" "$rcfile" ; then
+
+          echo "    Adding rvm loading line to $rcfile."
+
+          printf "
+  # rvm install added:
+  [[ -s \"$rvm_scripts_path/rvm\" ]] && . \"$rvm_scripts_path/rvm\"
+  " >> "$rcfile"
+
+        fi
+
+      done
+    fi
+  fi
+}
+
+install_gemsets()
+{
+  if [[ -d gemsets/ ]] ; then
+
+    if [[ ! -d "$rvm_path/gemsets" ]] ; then
+
+      mkdir -p "$rvm_path/gemsets"
+
+    fi
+
+    for gemset_file in $(find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///') ; do
+
+      cwd="${PWD//\//\\/}\/gemsets\/"
+
+      destination="$rvm_path/gemsets/${gemset_file/$cwd}"
+
+      destination_path="$(dirname "$destination")"
+
+      if [[ ! -s "$destination" ]] ; then
+
+        mkdir -p "$destination_path"
+
+        cp "$gemset_file" "$destination"
+
+      fi
+
+    done
+
+  fi
+}
+
+install_patchsets()
+{
+  if [[ -d patchsets/ ]] ; then
+
+    if [[ ! -d "$rvm_path/patchsets" ]] ; then
+
+      mkdir -p "$rvm_path/patchsets"
+
+    fi
+
+    patchsets=($(builtin cd patchsets ; find \. "${name_opt}" '*' | sed 's/^\.\///'))
+
+    for patchset_file in "${patchsets[@]}" ; do
+
+      destination="$rvm_path/patchsets/$patchset_file"
+
+      if [[ ! -s "$destination" ]] ; then
+
+        destination_path="$(dirname "$destination")"
+
+        mkdir -p "$destination_path"
+
+        cp "patchsets/$patchset_file" "$destination"
+
+      fi
+    done
+
+  fi
+}
+
+migrate_old_ruby_installs()
+{
+  # Migrate ~/.rvm/ruby-X,jruby-X,... to ~/.rvm/rubies/ for 0.1.0.
+  mkdir -p "${rvm_rubies_path:-"$rvm_rubies_path"}/"
+
+  for ruby in $rvm_path/ruby-* $rvm_path/jruby-* $rvm_path/goruby\
+    $rvm_path/rbx-* $rvm_path/maglev-* $rvm_path/ree-* ; do
+
+    if [[ -d "$ruby" ]] ; then
+
+      mv "$ruby" "${rvm_rubies_path:-"$rvm_rubies_path"}/"
+
+      new_path="${rvm_rubies_path:-"$rvm_rubies_path"}/$(basename $ruby)"
+
+      for file in gem rake ; do
+
+        if [[ -s "$new_path/bin/$file" ]] ; then
+
+          sed -e '1,1s=.*=#!'"${new_path}/bin/ruby=" "${new_path}/bin/${file}" \
+            > "${new_path}/bin/${file}.new"
+
+          mv -f "$new_path/bin/$file.new" "$new_path/bin/$file"
+
+          chmod +x "$new_path/bin/$file"
+
+        fi
+
+      done
+
+    fi
+
+  done
+}
+
+cleanse_old_environments()
+{
+  if [[ -d "$rvm_path/environments" ]] ; then
+    #
+    # Remove BUNDLE_PATH from environment files
+    #
+    environments=($( find "$rvm_path/environments" -maxdepth 1 -mindepth 1 -type f ))
+    for file in "${environments[@]}" ; do
+      if grep 'BUNDLE_PATH' "$file" > /dev/null ; then
+        grep -v 'BUNDLE_PATH' "$file" > "$file.new"
+        mv "$file.new" "$file"
+      fi
+    done
+  fi
+}
+
+migrate_old_gemsets()
+{
+  for gemset in "$rvm_path"/gems/*\%* ; do
+
+    new_path=${gemset/\%/${rvm_gemset_separator:-"@"}}
+
+    if [[ -d "$gemset" ]] && [[ ! -d "$new_path" ]] ; then
+
+      printf "\n    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+
+      mv "$gemset" "$new_path"
+
+    fi
+
+  done
+
+  for gemset in "$rvm_path"/gems/*\+* ; do
+
+    new_path=${gemset/\+/${rvm_gemset_separator:-"@"}}
+
+    if [[ -d "$gemset" && ! -d "$new_path" ]] ; then
+
+      printf "\n    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+
+      mv $gemset $new_path
+
+    fi
+
+  done
+
+  for gemset in "$rvm_path"/gems/*\@ ; do
+
+    new_path=$(echo $gemset | sed -e 's#\@$##')
+
+    if [[ -d "$gemset" && ! -d "$new_path" ]] ; then
+
+      printf "\n    Fixing: $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+
+      mv "$gemset" "$new_path"
+
+    fi
+
+  done
+}
+
+migrate_defaults()
+{
+  # Move from legacy defaults to the new, alias based system.
+  if [[ -s "$rvm_config_path/default" ]]; then
+
+    original_version="$(basename "$(grep GEM_HOME "$rvm_config_path/default" \
+      | awk -F"'" '{print $2}' | sed "s#\%#${rvm_gemset_separator:-"@"}#")")"
+
+    if [[ -n "$original_version" ]]; then
+
+      "$rvm_scripts_path/alias" create default "$original_version" &> /dev/null
+
+    fi ; unset original_version
+
+    __rvm_rm_rf "$rvm_config_path/default"
+
+  fi
+}
+
+correct_binary_permissions()
+{
+  declare -a files
+
+  printf "\n    Correct permissions for base binaries in $rvm_bin_path..."
+
+  mkdir -p "${rvm_bin_path}"
+
+  files=(rvm rvmsudo rvm-shell rvm-auto-ruby)
+  for file in "${files[@]}" ; do
+    [[ -s "${rvm_bin_path}/$file" ]] &&
+      chmod +x "${rvm_bin_path}/$file"
+  done
+}
+
+install_man_pages()
+{
+  printf "\n    Copying manpages into place.\n"
+
+  files=($(builtin cd "$install_source_path/man" ; \
+         find . -maxdepth 2 -mindepth 1 -type f -print))
+
+  for file in "${files[@]//.\/}" ; do
+
+    [[ ! -d $rvm_man_path/${file%\/*} ]] &&
+      mkdir -p $rvm_man_path/${file%\/*}
+
+    cp -Rf "$install_source_path/man/$file" "$rvm_man_path/$file"
+
+  done
+}
+
+cleanup_tmp_files()
+{
+  files=($( find "$rvm_path/" -mindepth 1 -maxdepth 2 "${name_opt}" '*.swp' -type f ))
+
+  if [[ ${#files[@]} -gt 0 ]] ; then
+    printf "\n    Cleanup any .swp files."
+    for file in "${files[@]}" ; do
+      [[ -f "$file" ]] && rm -f "$file"
+    done
+  fi
+}
+
+display_notes()
+{
+  if [[ $upgrade_flag -eq 0 ]] ; then
+    chmod +x ./scripts/notes # Sometimes things don't clone properly :/
+    ./scripts/notes
+  fi
+
+  if command -v git > /dev/null 2>&1 ; then
+    name="$(git config user.name 2>/dev/null)"
+  fi
+
+  if [[ ${upgrade_flag:-0} -eq 1 ]] ; then
+
+    upgrade_notes
+
+    check_rubyopt_conditions
+
+    printf "\nUpgrade of RVM in $rvm_path/ is complete.\n\n"
+
+  else
+
+    if [[ ${rvm_selfcontained:-0} -eq 1 ]] ; then
+
+      installation_complete
+
+    fi
+
+    if [[ -s "${HOME}/.bashrc" ]] && grep -q '&& return' "${HOME}/.bashrc" ; then
+
+      andand_return_warning
+
+    fi
+
+    check_rubyopt_conditions
+
+    printf "\nInstallation of RVM to $rvm_path/ is complete.\n\n"
+  fi
+}
