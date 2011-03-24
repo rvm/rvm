@@ -262,8 +262,8 @@ determine_install_path()
 determine_install_or_upgrade()
 {
   upgrade_flag=0
-  if grep -q 'scripts/rvm' "${HOME}"/.bash* 2>/dev/null \
-    || grep -q 'scripts/rvm' "${HOME}"/.zsh* 2>/dev/null ; then
+  if grep 'scripts/rvm' "${HOME}"/.bash* >/dev/null 2>&1 \
+    || grep 'scripts/rvm' "${HOME}"/.zsh* >/dev/null 2>&1 ; then
 
     [[ -d "$rvm_path" ]] &&
       [[ -s "${rvm_path}/scripts/rvm" ]] &&
@@ -861,15 +861,17 @@ if [ -n \"\${BASH_VERSION:-}\" -o -n \"\${ZSH_VERSION:-}\" ] ; then
 
 setup_etc_rvmrc()
 {
-  if ! grep 'export rvm_path' /etc/rvmrc ; then
-    echo "export rvm_path=\"$rvm_path\"" >> /etc/rvmrc
-  fi
-
-  if ! grep 'umask g+w' /etc/rvmrc ; then
+  if ! grep 'umask g+w' /etc/rvmrc >/dev/null 2>&1; then
     echo 'umask g+w' >> /etc/rvmrc
   fi
 
-  chown root:${rvm_group_name} /etc/rvmrc
+  if ! grep 'export rvm_path' /etc/rvmrc >/dev/null 2>&1; then
+    echo "export rvm_path=\"$rvm_path\"" >> /etc/rvmrc
+  fi
+
+  if [[ -s /etc/rvmrc ]] ; then
+    chown root:${rvm_group_name} /etc/rvmrc
+  fi
 
   return 0
 }
@@ -903,7 +905,7 @@ add_user_to_group()
   return 0
 }
 
-add_users_to_rvm_group()
+setup_rvm_group_users()
 {
   # TODO: implement this.  For now we'll use a naieve approach based on homes.
   user_homes=$(find /home/ -mindepth 1 -maxdepth 1 -type d)
@@ -915,6 +917,11 @@ add_users_to_rvm_group()
   done
 }
 
+setup_usr_local_bin_rvm()
+{
+  ln -fs "$rvm_path/bin" "/usr/local/bin/rvm"
+}
+
 root_canal()
 {
   true ${rvm_group_name:=rvm}
@@ -923,7 +930,8 @@ root_canal()
     setup_etc_rvmrc
     setup_etc_profile
     setup_rvm_path_permissions
-    add_users_to_rvm_group
+    setup_usr_local_bin_rvm
+    setup_rvm_group_users
   fi
 
   return 0
