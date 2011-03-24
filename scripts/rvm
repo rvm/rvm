@@ -6,33 +6,22 @@
 
 # Is RVM loaded as a shell function already?
 
-if [[ -z "${rvm_path:-}" ]] ; then
+export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
-  export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
-
-  if [[ ${rvm_ignore_rvmrc:-0} -eq 0 ]]; then
-
-    for rvmrc in /etc/rvmrc "$HOME/.rvmrc" ; do
-
-      if [[ -f "$rvmrc" ]] ; then
-
-        if \grep -q '^\s*rvm .*$' $rvmrc ; then
-
-          printf "\nError: $rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
-
-          return 1
-
-        else
-
-          source "$rvmrc"
-
-        fi
-
+if [[ ${rvm_ignore_rvmrc:-0} -eq 0 ]]; then
+  for rvmrc in /etc/rvmrc "$HOME/.rvmrc" ; do
+    if [[ -f "$rvmrc" ]] ; then
+      if \grep -q '^\s*rvm .*$' $rvmrc ; then
+        printf "\nError: $rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
+        return 1
+      else
+        source "$rvmrc"
       fi
+    fi
+  done
+fi
 
-    done
-
-  fi
+if [[ -z "${rvm_path:-}" ]] ; then
 
   # Set the default sandboxed value.
   # TODO: Alter the variable names to make sense
@@ -66,34 +55,32 @@ if [[ -z "${rvm_path:-}" ]] ; then
 
   fi
 
-  if [[ ${rvm_load_rvm:-1} -eq 1 ]] ; then
+  # Fix rvm_prefix changes.
+  [[ "${rvm_prefix}" != *[/.] && -d "${rvm_prefix/rvm/scripts}" ]]
 
-    # Fix rvm_prefix changes.
-    [[ "${rvm_prefix}" != *[/.] && -d "${rvm_prefix/rvm/scripts}" ]]
+  rvm_prefix_needs_trailing_slash="$?"
 
-    rvm_prefix_needs_trailing_slash="$?"
+  if [[ "$rvm_prefix" = "/usr/local" || "$rvm_prefix_needs_trailing_slash" = "0" ]]; then
 
-    if [[ "$rvm_prefix" = "/usr/local" || "$rvm_prefix_needs_trailing_slash" = "0" ]]; then
+    rvm_prefix="$rvm_prefix/"
 
-      rvm_prefix="$rvm_prefix/"
+  fi
 
-    fi
+  if [[ -z "${rvm_path:-""}" ]] ; then
+    rvm_path="${rvm_prefix}rvm"
+  fi
 
-
-    if [[ -z "${rvm_path:-""}" ]] ; then
-      rvm_path="${rvm_prefix}rvm"
-    fi
-
-    export rvm_path="${rvm_path%%+(\/)}"
+  export rvm_path="${rvm_path%%+(\/)}"
 
 fi
 
 if ! declare -f rvm > /dev/null || [[ ${rvm_reload_flag:-0} -eq 1 ]] ; then
 
+  if [[ -d "$rvm_path" ]] ; then
 
-    if [[ -d "$rvm_path" ]] ; then
+    true ${rvm_scripts_path:="$rvm_path/scripts"}
 
-      true ${rvm_scripts_path:="$rvm_path/scripts"}
+    if [[ ${rvm_load_rvm:-1} -eq 1 ]] ; then
 
       for script in base version selector cd cli override_gem ; do
         if [[ -f "$rvm_scripts_path/$script" ]] ; then
@@ -122,9 +109,7 @@ if ! declare -f rvm > /dev/null || [[ ${rvm_reload_flag:-0} -eq 1 ]] ; then
     else
       printf "\n\$rvm_path ($rvm_path) does not exist."
     fi
-
   fi
-
   unset rvm_prefix_needs_trailing_slash rvm_rc_files rvm_gems_cache_path rvm_gems_path rvm_project_rvmrc_default rvm_gemset_separator
 
 fi
