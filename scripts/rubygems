@@ -69,7 +69,7 @@ rubygems_setup()
 
     if [[ "$result" -gt 0 ]] ; then
 
-      rvm_error "There has been an error while trying to fetch the source. Aborting the installation."
+      rvm_error "There has been an error while trying to fetch the source. \nHalting the installation."
 
       return $result
 
@@ -130,11 +130,8 @@ version="${args[0]}"
 args="$(echo ${args[@]:1}) " # Strip trailing / leading / extra spacing.
 
 if [[ -z "$version" ]] ; then
-
-  rvm_error "Usage: rvm rubygems [version#|current|remove]"
-
+  rvm_error "Usage: rvm rubygems [x.y.z|latest|remove]"
   exit 1
-
 fi
 
 if ! command -v ruby | grep -q "rvm" ; then
@@ -151,18 +148,25 @@ case "$version" in
     rubygems_remove
     ;;
 
-  current)
-    # Install current known latest version of rubygems.
+  latest|current) # Install latest known version of rubygems for the given interpreter.
     case "$rvm_ruby_string" in
-      *1.8.6*)
-        version=1.3.7
-      ;;
+      ruby-1.8*)
+        version="${rvm_ruby_version//*.}"
+        if [[ $version -lt 7 ]] ; then
+          version=1.3.7
+        else
+          version="$(__rvm_db "${rvm_ruby_interpreter}_rubygems_version")"
+          version="${rvm_rubygems_version:-"$(__rvm_db "rubygems_version")"}"
+          true ${version:=1.6.2} # Sanity check.
+        fi
+        ;;
       *)
         version="$(__rvm_db "${rvm_ruby_interpreter}_rubygems_version")"
         version="${rvm_rubygems_version:-"$(__rvm_db "rubygems_version")"}"
-        true ${version:=1.6.0} # Sanity check.
+        true ${version:=1.6.2} # Sanity check.
         ;;
     esac
+
     rubygems_setup
     ;;
 

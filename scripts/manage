@@ -272,7 +272,19 @@ __rvm_install_source()
   export GEM_HOME="$rvm_ruby_gem_home"
   export GEM_PATH="$rvm_ruby_gem_path"
 
-  __rvm_rubygems_setup
+  case "$rvm_ruby_string" in
+    ruby-1.8*)
+      version="${rvm_ruby_version//*.}"
+      if [[ $version -lt 7 ]] ; then
+        "$rvm_scripts_path/rubygems" 1.3.7
+      else
+        "$rvm_scripts_path/rubygems" latest
+      fi
+      ;;
+    *)
+      "$rvm_scripts_path/rubygems" latest
+      ;;
+  esac
   result=$?
 
   __rvm_bin_script
@@ -502,7 +514,7 @@ RubyWrapper
 
         chmod +x "$rvm_ruby_home"/bin/*
 
-        __rvm_rubygems_setup
+        "$rvm_scripts_path/rubygems" latest
         __rvm_irbrc
         __rvm_bin_script
         __rvm_post_install
@@ -749,7 +761,7 @@ RubyWrapper
 
       __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/rake"
 
-      __rvm_rubygems_setup
+      "$rvm_scripts_path/rubygems" latest
 
       __rvm_irbrc
 
@@ -891,8 +903,8 @@ RubyWrapper
 
       unset compatible_ruby
 
-      # TODO: Figure out if anything needs to be done with rubygems.
-      #__rvm_rubygems_setup
+      "$rvm_scripts_path/rubygems" latest
+
       __rvm_irbrc
 
       __rvm_bin_script
@@ -1107,7 +1119,7 @@ RubyWrapper
       export GEM_HOME="$rvm_ruby_gem_home"
       export GEM_PATH="$rvm_ruby_gem_path"
 
-      __rvm_rubygems_setup
+      "$rvm_scripts_path/rubygems" latest
 
       __rvm_bin_script
 
@@ -1824,160 +1836,6 @@ __rvm_generate_default_docs()
     __rvm_run_with_env "docs.generate" "$rvm_ruby_string" \
       "rvm docs generate-ri" "Attempting to generate ri documentation..."
   fi
-}
-
-# TODO: Merge this into scripts/rubygems.
-__rvm_rubygems_setup()
-{
-  local home path dir directory_name version_number ruby_lib_gem_path
-
-  if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.9/')" \
-    || -n "$(echo "$rvm_ruby_interpreter" | awk '/^goruby/')" ]] ; then
-
-    install=0
-
-  elif [[ "$rvm_ruby_string" = "ruby-head" ]] ; then
-    install=0
-
-  else
-    install=1
-  fi
-
-  __rvm_use
-
-  if [[ "$install" -eq 0 ]] ; then
-    # 1.9.X has it's own built-in gem command
-    __rvm_inject_ruby_shebang "${rvm_src_path}/$rvm_ruby_string/bin/gem"
-
-    __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
-
-    cp "${rvm_src_path}/$rvm_ruby_string/bin/gem" "$rvm_ruby_home/bin/gem"
-
-    home="$GEM_HOME" ; path="$GEM_PATH" # Save
-
-    for dir in $rvm_ruby_global_gems_path $rvm_ruby_gem_home ; do
-
-      export GEM_HOME="$dir" ; export GEM_PATH="$dir"
-
-      rvm_log "$rvm_ruby_string - Updating #rubygems to the latest."
-
-      "$rvm_scripts_path/rubygems" current
-
-    done
-
-    GEM_HOME="$home" ; GEM_PATH="$path"
-    export GEM_HOME GEM_PATH
-
-    __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
-
-    __rvm_inject_gem_env "$rvm_ruby_home/bin/gem"
-
-    directory_name="$rvm_ruby_home/lib/ruby/gems"
-
-    version_number="${rvm_ruby_release_version}.${rvm_ruby_major_version}"
-
-    if [[ "$version_number" == "." ]]; then
-
-      # TODO: Investigate this if statement, something feels not quite right.
-      version_number="$(builtin cd "$directory_name" ; \
-        find . -maxdepth 1 -mindepth 1 -type f \
-        | \grep '^[[:digit:]].[[:digit:]]\(.[[:digit:]]\)\?' | head -n1)"
-      version_number="${version_number//.\/}"
-
-      if [[ -n "$version_number" ]]; then
-        ruby_lib_gem_path="${directory_name}/${version_number}"
-      else
-        ruby_lib_gem_path=""
-      fi
-
-    else
-      ruby_lib_gem_path="${directory_name}/${version_number}"
-    fi
-
-  elif [[ -n "$(echo "$rvm_ruby_interpreter" | awk '/^rbx|jruby/')" ]] ; then
-
-    # Hands off rubygems for rbx & jruby
-    [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
-      rvm_debug "Skipping rubygems update for $rvm_ruby_version"
-
-    ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/jruby"
-
-  else
-
-    rvm_log "$rvm_ruby_string - #rubygems installing to $rvm_ruby_string"
-
-    rvm_rubygems_version="$(__rvm_db "${rvm_ruby_interpreter}_rubygems_version")"
-    rvm_rubygems_version="${rvm_rubygems_version:-"$(__rvm_db "rubygems_version")"}"
-    rvm_rubygems_url=$(__rvm_db "rubygems_url")
-    rvm_gem_package_name="rubygems-$rvm_rubygems_version"
-    rvm_gem_url="$rvm_rubygems_url/$rvm_gem_package_name.tgz"
-
-    # Sanity check... If setup.rb is missing from the rubygems source path,
-    # something went wrong. Cleanup, aisle 3!
-    if [[ ! -f "${rvm_src_path}/$rvm_gem_package_name/setup.rb" ]]; then
-      __rvm_rm_rf "${rvm_src_path}/$rvm_gem_package_name"
-    fi
-
-    if [[ ! -d "${rvm_src_path}/$rvm_gem_package_name" ]] ; then
-
-      rvm_log "Retrieving $rvm_gem_package_name"
-
-      "$rvm_scripts_path/fetch" "$rvm_gem_url"
-      result=$?
-
-      if [[ "$result" -gt 0 ]] ; then
-        rvm_error "There has been an error while trying to fetch the source. Halting the installation."
-        exit $result
-      fi
-
-      if [[ ! -d "${rvm_src_path}/$rvm_gem_package_name" ]] ; then
-        mkdir -p "${rvm_src_path}/$rvm_gem_package_name"
-      fi
-
-      __rvm_run "rubygems.extract" \
-        "gunzip < \"${rvm_archives_path}/$rvm_gem_package_name.tgz\" | tar xf - -C ${rvm_src_path}" \
-        "Extracting $rvm_gem_package_name ..."
-    fi
-
-    builtin cd "${rvm_src_path}/$rvm_gem_package_name"
-
-    __rvm_run "rubygems.install" \
-      "GEM_PATH='$rvm_ruby_gem_path:$rvm_ruby_global_gems_path' GEM_HOME='$rvm_ruby_gem_home' $rvm_ruby_home/bin/ruby ${rvm_src_path}/$rvm_gem_package_name/setup.rb"
-    result=$?
-
-    if [[ $result -gt 0 ]] ; then
-        rvm_warn "$rvm_ruby_string - #warning Installation of rubygems $rvm_ruby_package_name did not complete successfully."
-    fi
-
-    __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/gem"
-
-    if [[ -n "$rvm_ruby_major_version" ]] ; then
-      ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/${rvm_ruby_release_version}.$rvm_ruby_major_version"
-    else
-      ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/$interpreter"
-    fi
-  fi
-
-  if [[ -n "$ruby_lib_gem_path" ]]; then
-    # Add ruby's gem path to ruby's lib direcotry.
-
-    __rvm_rm_rf "$ruby_lib_gem_path"
-
-    mkdir -p ${ruby_lib_gem_path%\/*}
-
-    ln -fs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
-
-  fi
-
-  if [[ -s "${rvm_src_path}/$rvm_ruby_string/bin/rdoc" ]] ; then
-    __rvm_inject_ruby_shebang "${rvm_src_path}/$rvm_ruby_string/bin/rdoc"
-  fi
-
-  if [[ -s "${rvm_src_path}/$rvm_ruby_string/bin/rake" ]] ; then
-    __rvm_inject_ruby_shebang "${rvm_src_path}/$rvm_ruby_string/bin/rake"
-  fi
-
-  return ${result:-0}
 }
 
 __rvm_inject_ruby_shebang()
