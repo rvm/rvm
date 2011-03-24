@@ -35,6 +35,53 @@ install_setup()
   set -o nounset
 }
 
+parse_installer_args()
+{
+  # Parse CLI arguments.
+  while [[ $# -gt 0 ]] ; do
+
+    token="$1" ; shift
+
+    case "$token" in
+      --auto)
+        rvm_auto_flag=1
+        ;;
+      --prefix)
+        rvm_prefix="$1"
+        shift
+        ;;
+      --version)
+        rvm_path="${PWD%%+(\/)}"
+        __rvm_version
+        unset rvm_path
+        exit
+        ;;
+      --debug)
+        export rvm_debug_flag=1
+        set -o verbose
+        ;;
+      --trace)
+        export rvm_trace_flag=1
+        echo "$@"
+        env | grep '^rvm_'
+        export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
+        set -o xtrace
+        ;;
+      --help)
+        install_usage
+        exit 0
+        ;;
+      *)
+        echo "Unrecognized option: $token"
+        install_usage
+        exit 1
+        ;;
+    esac
+  done
+  return 0
+}
+
+
 install_usage()
 {
   printf "
@@ -185,48 +232,6 @@ Upgrade Notes
   * If you see the following error message: Unknown alias name: 'default'
     re-set your default ruby, this is due to a change in how default works.
 "
-}
-
-parse_install_args()
-{
-  # Parse CLI arguments.
-  while [[ $# -gt 0 ]] ; do
-
-    token="$1" ; shift
-
-    case "$token" in
-      --auto)
-        rvm_auto_flag=1
-        ;;
-      --prefix)
-        rvm_prefix="$1"
-        shift
-        ;;
-      --version)
-        rvm_path="${PWD%%+(\/)}"
-        __rvm_version
-        unset rvm_path
-        exit
-        ;;
-      --debug)
-        set -o verbose
-        ;;
-      --trace)
-        echo "$*"
-        env | grep '^rvm_'
-        set -o xtrace
-        ;;
-      --help)
-        install_usage
-        exit 0
-        ;;
-      *)
-        echo "Unrecognized option: $token"
-        install_usage
-        exit 1
-        ;;
-    esac
-  done
 }
 
 determine_install_path()
@@ -737,3 +742,190 @@ display_notes()
     printf "\nInstallation of RVM to $rvm_path/ is complete.\n\n"
   fi
 }
+
+#
+# root install functions.
+#
+setup_rvm_path_permissions()
+{
+  chown -R root:"$rvm_group_name" "$rvm_path"
+
+  chmod -R g+w "$rvm_path"
+
+  if [[ -d "$rvm_path" ]] ; then
+    find "$rvm_path" -type d -print0 | xargs -n1 -0 chmod g+s
+  fi
+
+  return 0
+}
+
+setup_rvm_group()
+{
+  if \grep -q "$1" /etc/group ; then
+    echo "RVM system user group '$1' exists, proceeding with installation."
+  else
+    echo "Creating RVM system user group '$1'"
+
+    case "$(uname)" in
+      "OpenBSD")
+        groupadd "$rvm_group_name"
+        ;;
+      "FreeBSD")
+        pw groupadd -q "$rvm_group_name"
+        ;;
+      "Linux")
+        if [[ -f "/etc/SuSE-release" ]] ; then
+          groupadd "$rvm_group_name"
+        else
+          groupadd -f "$rvm_group_name"
+        fi
+      ;;
+
+      "Darwin")
+        gid="501" #only gids > 500 show up in user preferences
+
+        #Find an open gid
+        while true; do
+
+          name=$(dscl . search /groups PrimaryGroupID $gid | cut -f1 -s)
+
+          [[ -z "$name" ]] && break
+
+          gid=$[$gid +1]
+        done
+
+        # Create the group, isn't OSX "fun"?! :)
+        # Yes folks, screw convention!!!
+        dscl . -create "/Groups/$rvm_group_name"
+        dscl . -create "/Groups/$rvm_group_name" gid "$gid"
+      ;;
+      "SunOS") groupadd "$rvm_group_name";;
+    esac
+  fi
+
+  return 0
+}
+
+system_check()
+{
+  local os=$(uname)
+  case "$os" in
+
+    OpenBSD|Linux|FreeBSD|Darwin|SunOS)
+      true # Accounted for, continue.
+    ;;
+
+    *)
+      printf "Installing RVM as root is currently only supported on the following known OS's (uname):\n  Linux, FreeBSD, OpenBSD, Darwin and SunOS\nWhereas your OS is reported as '$os'" >&2
+      exit 1
+    ;;
+  esac
+}
+
+setup_etc_profile()
+{
+  if ! grep -v "RVM profile addition" /etc/profile ; then
+
+    printf "
+#
+# RVM profile addition
+#
+
+if [ -n \"\${BASH_VERSION:-}\" -o -n \"\${ZSH_VERSION:-}\" ] ; then
+
+  # Load RVM if it is installed, try user then root install.
+  if [[ -s \"\$HOME/.rvm/scripts/rvm\" ]] ; then
+    source \"\$HOME/.rvm/scripts/rvm\"
+  elif [[ -s \"/usr/local/rvm/scripts/rvm\" ]] ; then
+    source \"/usr/local/rvm/scripts/rvm\"
+  fi
+
+  if [ \${rvm_ps1:-0} -eq 1 ]] ; then
+    # Source RVM ps1 functions for a great prompt.
+    if [[ -s \"\$rvm_path/contrib/ps1_functions\" ]] ; then
+      source \"\$rvm_path/contrib/ps1_functions\"
+    elif [[ -s \"/usr/local/rvm/contrib/ps1_functions\" ]] ; then
+      source \"/usr/local/rvm/contrib/ps1_functions\"
+    fi
+
+    if command -v ps1_set >/dev/null 2>&1 ; then
+      ps1_set
+    fi
+  fi
+"
+
+  fi
+
+  return 0
+}
+
+setup_etc_rvmrc()
+{
+  if ! grep 'export rvm_path' /etc/rvmrc ; then
+    echo "export rvm_path=\"$rvm_path\"" >> /etc/rvmrc
+  fi
+
+  if ! grep 'umask g+w' /etc/rvmrc ; then
+    echo 'umask g+w' >> /etc/rvmrc
+  fi
+
+  chown root:${rvm_group_name} /etc/rvmrc
+
+  return 0
+}
+
+add_user_to_group()
+{
+  echo "Adding user '$user' to the RVM group '${rvm_group_name}'"
+
+  case "$(uname)" in
+    "OpenBSD")
+      usermod -G "$rvm_group_name" "$user"
+      ;;
+    "FreeBSD")
+      pw usermod "$user" -G "$rvm_group_name"
+      ;;
+    "Linux")
+      if [[ -f "/etc/SuSE-release" ]] ; then
+        groupmod -A "$user" "$rvm_group_name"
+      else
+        /usr/sbin/usermod -a -G "$rvm_group_name" "$user"
+      fi
+    ;;
+    "Darwin")
+      dscl . -append "/Groups/$rvm_group_name" GroupMembership "$user"
+      ;;
+    "SunOS")
+      groups="$(id -G "$user") \"$rvm_group_name\""
+      usermod -G "${groups// /, }" "$user"
+  esac
+
+  return 0
+}
+
+add_users_to_rvm_group()
+{
+  # TODO: implement this.  For now we'll use a naieve approach based on homes.
+  user_homes=$(find /home/ -mindepth 1 -maxdepth 1 -type d)
+  for user_home in "${user_homes[@]}" ; do
+    # TODO: Check if user is a login user.
+    # TODO: Skip if user is already in the RVM group.
+    user="${user_home//*\/}"
+    add_user_to_rvm_group $user
+  done
+}
+
+root_canal()
+{
+  true ${rvm_group_name:=rvm}
+
+  if [[ $UID -eq 0 ]] ; then
+    setup_etc_rvmrc
+    setup_etc_profile
+    setup_rvm_path_permissions
+    add_users_to_rvm_group
+  fi
+
+  return 0
+}
+
