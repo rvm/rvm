@@ -411,18 +411,26 @@ __rvm_use()
 
         export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
 
+        # Switch the default alias to the new environment id
         "$rvm_scripts_path/alias" delete default &> /dev/null
-
         "$rvm_scripts_path/alias" create default "$environment_id" >& /dev/null
 
-        \ln -fs "$rvm_environments_path/$environment_id" "$rvm_environments_path/default"
+        for _path in "$rvm_environments_path" "$rvm_wrappers_path" ; do
+          # Remove old default if it exists.
+          [[ -L "$_path/default" ]] && rm -f "$_path/default"
+          # Symlink n the new default
+          \ln -fs "$_path/$environment_id" "$_path/default"
+        done
 
-        \ln -fs "$rvm_wrappers_path/$environment_id" "$rvm_wrappers_path/default"
-
+        # Copy wrapper scripts for the newly set default to the RVM bin path.
         for wrapper in "$rvm_path"/wrappers/default/* ; do
+          cp -f "$wrapper" "$rvm_bin_path/${wrapper##*\/}"
 
-          ln -fs "$wrapper" "$rvm_bin_path/${wrapper##*\/}"
-
+          # If the RVM bin path is different from rvm_path/bin, ensure they are
+          # in sync.
+          if [[ "${rvm_bin_path}" != "${rvm_path}/bin" ]] ; then
+            cp -f "${wrapper}" "${rvm_path}/bin"
+          fi
         done
 
       fi
