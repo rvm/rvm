@@ -29,28 +29,29 @@ Capistrano::Configuration.instance(true).load do
   # full environment.
   _cset(:rvm_path) do
     case rvm_type
-    when :system_wide, :root, :system
+    when :root, :system
       "/usr/local/rvm"
     when :local, :user, :default
       "$HOME/.rvm/"
+    else
+      rvm_type.to_s.empty? ?  "$HOME/.rvm" : rvm_type.to_s
     end
   end
 
   # Let users override the rvm_bin_path
   _cset(:rvm_bin_path) do
     case rvm_type
-    when :system_wide, :root, :system
-      "/usr/local/bin"
+    when :root, :system
+      "/usr/local/rvm/bin"
     when :local, :user, :default
       "$HOME/.rvm/bin"
     else
-      "$HOME/.rvm/bin"
+      rvm_type.to_s.empty? ?  "#{rvm_path}/bin" : rvm_type.to_s
     end
   end
 
-  # Use the default ruby.
+  # Use the default ruby on the server, by default :)
   _cset(:rvm_ruby_string, "default")
-
 end
 
 # E.g, to use ree and rails 3:
