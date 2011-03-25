@@ -457,7 +457,7 @@ install_gemsets()
 
       if [[ ! -s "$destination" ]] ; then
 
-        mkdir -p "$destination_path"
+        [[ ! -d "$destination_path" ]] && mkdir -p "$destination_path"
 
         cp "$gemset_file" "$destination"
 
@@ -472,11 +472,7 @@ install_patchsets()
 {
   if [[ -d patchsets/ ]] ; then
 
-    if [[ ! -d "$rvm_path/patchsets" ]] ; then
-
-      mkdir -p "$rvm_path/patchsets"
-
-    fi
+    [[ ! -d "$rvm_path/patchsets" ]] && mkdir -p "$rvm_path/patchsets"
 
     patchsets=($(builtin cd patchsets ; find \. "${name_opt}" '*' | sed 's/^\.\///'))
 
@@ -488,7 +484,7 @@ install_patchsets()
 
         destination_path="$(dirname "$destination")"
 
-        mkdir -p "$destination_path"
+        [[ ! -d "$destination_path" ]] && mkdir -p "$destination_path"
 
         cp "patchsets/$patchset_file" "$destination"
 
@@ -501,33 +497,37 @@ install_patchsets()
 migrate_old_ruby_installs()
 {
   # Migrate ~/.rvm/ruby-X,jruby-X,... to ~/.rvm/rubies/ for 0.1.0.
-  mkdir -p "${rvm_rubies_path:-"$rvm_rubies_path"}/"
 
-  for ruby in $rvm_path/ruby-* $rvm_path/jruby-* $rvm_path/goruby\
-    $rvm_path/rbx-* $rvm_path/maglev-* $rvm_path/ree-* ; do
+  [[ ! -d "${rvm_rubies_path}" ]] && mkdir -p
 
-    if [[ -d "$ruby" ]] ; then
+  for ruby in $(find ${name_opt} "${rvm_path}" -mindepth 1 -maxdepth 1 -type d) ; do
 
-      mv "$ruby" "${rvm_rubies_path:-"$rvm_rubies_path"}/"
+    case $ruby in
+      ruby-*|jruby-*|rbx-*|maglev-*|ree-*)
+        if [[ -d "$ruby" ]] ; then
 
-      new_path="${rvm_rubies_path:-"$rvm_rubies_path"}/$(basename $ruby)"
+          mv "$ruby" "${rvm_rubies_path}/"
 
-      for file in gem rake ; do
+          new_path="${rvm_rubies_path}/$(basename $ruby)"
 
-        if [[ -s "$new_path/bin/$file" ]] ; then
+          for file in gem rake ; do
 
-          sed -e '1,1s=.*=#!'"${new_path}/bin/ruby=" "${new_path}/bin/${file}" \
-            > "${new_path}/bin/${file}.new"
+            if [[ -s "$new_path/bin/$file" ]] ; then
 
-          mv -f "$new_path/bin/$file.new" "$new_path/bin/$file"
+              sed -e '1,1s=.*=#!'"${new_path}/bin/ruby=" \
+                "${new_path}/bin/${file}" > "${new_path}/bin/${file}.new"
 
-          chmod +x "$new_path/bin/$file"
+              mv -f "$new_path/bin/$file.new" "$new_path/bin/$file"
+
+              chmod +x "$new_path/bin/$file"
+
+            fi
+
+          done
 
         fi
-
-      done
-
-    fi
+        ;;
+    esac
 
   done
 }
