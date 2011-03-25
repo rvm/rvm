@@ -3,6 +3,7 @@
 install_setup()
 {
   set -o errtrace
+
   export PS4='+[${BASH_SOURCE}] : ${LINENO} : ${FUNCNAME[0]:+${FUNCNAME[0]}() $ }'
   export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
@@ -17,9 +18,6 @@ install_setup()
       [[ -s "$file" ]] && source $file
     done
   fi
-
-  set -o noclobber
-  set -o nounset
 
   # TODO: Figure out a much better name for 'rvm_user_install'
   if [[ -z ${rvm_user_install:-} ]]; then
@@ -366,15 +364,19 @@ ensure_scripts_are_executable()
   return 0
 }
 
-
-
 install_binscripts()
 {
   files=(rvm-prompt rvm rvmsudo rvm-shell rvm-auto-ruby)
   for file in "${files[@]}" ; do
-    rm -f "$rvm_bin_path/$file"
-    cp -f "$source_path/binscripts/${file}" "${rvm_bin_path}/${file}"
-    chmod +x "${rvm_bin_path}/$file"
+    # Ensure binscripts are always available in rvm_path/bin first.
+    rm -f "${rvm_path}/bin/${file}"
+
+    cp -f "${source_path}/binscripts/${file}" "${rvm_path}/bin/${file}"
+    chmod +x "${rvm_path}/bin/${file}"
+
+    if [[ "${rvm_bin_path}" != "${rvm_path}/bin" ]] ; then
+      cp -f "${source_path}/binscripts/${file}" "${rvm_bin_path}/${file}"
+    fi
   done
   return 0
 }
@@ -817,13 +819,6 @@ setup_rvm_group_users()
   done
 }
 
-setup_bin_path_rvm()
-{
-  if [[ -n "${rvm_prefix:-}" ]] ; then
-    ln -fs "$rvm_path/bin/rvm" "${rvm_prefix}/bin/rvm"
-  fi
-}
-
 setup_rvmrc()
 {
   if [[ $UID -eq 0 ]] ; then
@@ -879,7 +874,6 @@ root_canal()
     setup_rvm_group
     setup_etc_profile
     setup_rvm_path_permissions
-    setup_bin_path_rvm
     setup_rvm_group_users
   fi
 
