@@ -1,8 +1,6 @@
-diff --git a/gc.c b/gc.c
-index e723969..8b5f8e0 100644
---- a/gc.c
-+++ b/gc.c
-@@ -290,16 +290,12 @@ struct gc_list {
+--- gc.c	(revision 31173)
++++ gc.c	(working copy)
+@@ -291,16 +291,12 @@
      struct gc_list *next;
  };
  
@@ -19,7 +17,7 @@ index e723969..8b5f8e0 100644
      } malloc_params;
      struct {
  	size_t increment;
-@@ -646,10 +642,6 @@ vm_xmalloc(rb_objspace_t *objspace, size_t size)
+@@ -647,10 +643,6 @@
      }
      if (size == 0) size = 1;
  
@@ -30,11 +28,13 @@ index e723969..8b5f8e0 100644
      if ((ruby_gc_stress && !ruby_disable_gc_stress) ||
  	(malloc_increase+size) > malloc_limit) {
  	garbage_collect_with_gvl(objspace);
-@@ -665,12 +657,8 @@ vm_xmalloc(rb_objspace_t *objspace, size_t size)
+@@ -665,13 +657,9 @@
+ 	}
      }
      malloc_increase += size;
- 
+-
 -#if CALC_EXACT_MALLOC_SIZE
++    
      objspace->malloc_params.allocated_size += size;
      objspace->malloc_params.allocations++;
 -    ((size_t *)mem)[0] = size;
@@ -43,23 +43,27 @@ index e723969..8b5f8e0 100644
  
      return mem;
  }
-@@ -691,11 +679,7 @@ vm_xrealloc(rb_objspace_t *objspace, void *ptr, size_t size)
+@@ -691,12 +679,8 @@
+     }
      if (ruby_gc_stress && !ruby_disable_gc_stress)
  	garbage_collect_with_gvl(objspace);
- 
+-
 -#if CALC_EXACT_MALLOC_SIZE
 -    size += sizeof(size_t);
++	
      objspace->malloc_params.allocated_size -= size;
 -    ptr = (size_t *)ptr - 1;
 -#endif
  
      mem = realloc(ptr, size);
      if (!mem) {
-@@ -708,11 +692,7 @@ vm_xrealloc(rb_objspace_t *objspace, void *ptr, size_t size)
+@@ -708,12 +692,8 @@
+         }
      }
      malloc_increase += size;
- 
+-
 -#if CALC_EXACT_MALLOC_SIZE
++    
      objspace->malloc_params.allocated_size += size;
 -    ((size_t *)mem)[0] = size;
 -    mem = (size_t *)mem + 1;
@@ -67,7 +71,7 @@ index e723969..8b5f8e0 100644
  
      return mem;
  }
-@@ -720,14 +700,6 @@ vm_xrealloc(rb_objspace_t *objspace, void *ptr, size_t size)
+@@ -721,14 +701,6 @@
  static void
  vm_xfree(rb_objspace_t *objspace, void *ptr)
  {
@@ -82,7 +86,7 @@ index e723969..8b5f8e0 100644
      free(ptr);
  }
  
-@@ -2994,7 +2966,6 @@ gc_count(VALUE self)
+@@ -2998,7 +2970,6 @@
      return UINT2NUM((&rb_objspace)->count);
  }
  
@@ -90,7 +94,25 @@ index e723969..8b5f8e0 100644
  /*
   *  call-seq:
   *     GC.malloc_allocated_size -> Integer
-@@ -3024,7 +2995,6 @@ gc_malloc_allocations(VALUE self)
+@@ -3008,8 +2979,8 @@
+  *  It returns the allocated size by malloc().
+  */
+ 
+-static VALUE
+-gc_malloc_allocated_size(VALUE self)
++VALUE
++rb_gc_malloc_allocated_size(VALUE self)
+ {
+     return UINT2NUM((&rb_objspace)->malloc_params.allocated_size);
+ }
+@@ -3023,12 +2994,11 @@
+  *  It returns the number of allocated memory object by malloc().
+  */
+ 
+-static VALUE
+-gc_malloc_allocations(VALUE self)
++VALUE
++rb_gc_malloc_allocations(VALUE self)
  {
      return UINT2NUM((&rb_objspace)->malloc_params.allocations);
  }
@@ -98,16 +120,24 @@ index e723969..8b5f8e0 100644
  
  static VALUE
  gc_profile_record_get(void)
-@@ -3182,6 +3152,8 @@ Init_GC(void)
+@@ -3186,6 +3156,8 @@
      rb_define_singleton_method(rb_mGC, "stress", gc_stress_get, 0);
      rb_define_singleton_method(rb_mGC, "stress=", gc_stress_set, 1);
      rb_define_singleton_method(rb_mGC, "count", gc_count, 0);
-+    rb_define_singleton_method(rb_mGC, "malloc_allocated_size", gc_malloc_allocated_size, 0);
-+    rb_define_singleton_method(rb_mGC, "malloc_allocations", gc_malloc_allocations, 0);
++    rb_define_singleton_method(rb_mGC, "malloc_allocated_size", rb_gc_malloc_allocated_size, 0);
++    rb_define_singleton_method(rb_mGC, "malloc_allocations", rb_gc_malloc_allocations, 0);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
  
      rb_mProfiler = rb_define_module_under(rb_mGC, "Profiler");
-@@ -3211,9 +3183,4 @@ Init_GC(void)
+@@ -3196,6 +3168,7 @@
+     rb_define_singleton_method(rb_mProfiler, "result", gc_profile_result, 0);
+     rb_define_singleton_method(rb_mProfiler, "report", gc_profile_report, -1);
+     rb_define_singleton_method(rb_mProfiler, "total_time", gc_profile_total_time, 0);
++    rb_define_singleton_method(rb_mProfiler, "data", gc_profile_record_get, 0);
+ 
+     rb_mObSpace = rb_define_module("ObjectSpace");
+     rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
+@@ -3215,9 +3188,4 @@
      rb_define_method(rb_mKernel, "object_id", rb_obj_id, 0);
  
      rb_define_module_function(rb_mObSpace, "count_objects", count_objects, -1);
