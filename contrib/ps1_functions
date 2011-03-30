@@ -26,19 +26,15 @@
 ps1_identity()
 {
   if [[ $UID -eq 0 ]]  ; then
-    printf " \033[31m\\\u\033[0m"
+    printf " \033[31m\\\u\033[0m@\033[36m\\h\033[35m:\w\033[0m "
   else
-    printf " \033[32m\\\u\033[0m"
+    printf " \033[32m\\\u\033[0m@\033[36m\\h\033[35m:\w\033[0m "
   fi
-
-  printf "@\033[36m\\h\033[35m:\w\033[0m "
-
-  return 0
 }
 
 ps1_git()
 {
-  local branch="" line="" attr=""
+  local branch="" sha1="" line="" attr="" color=0
 
   shopt -s extglob # Important, for our nice matchers :)
 
@@ -47,22 +43,15 @@ ps1_git()
     exit 0
   fi
 
-  # First we determine the current git branch, if any.
-  while read -r line
-  do
-    case "${line}" in
-      [[=*=]][[:space:]]*) # on linux, man 7 regex
-        branch="${line/[[=*=]][[:space:]]/}"
-        ;;
-    esac
-  done < <(git branch 2>/dev/null)
+  branch=$(git symbolic-ref -q HEAD)
+  branch=${branch##refs/heads/}
 
   # Now we display the branch.
   sha1=($(git log --no-color -1 2>/dev/null))
   sha1=${sha1[1]}
   sha1=${sha1:0:7}
 
-  case ${branch} in
+  case "${branch:-"(no branch)"}" in
    production|prod) attr="1;37m\033[" ; color=41 ;; # red
    master|deploy)   color=31                     ;; # red
    stage|staging)   color=33                     ;; # yellow
@@ -80,8 +69,6 @@ ps1_git()
   if [[ $color -gt 0 ]] ; then
     printf " \033[${attr}${color}m(git:${branch}:$sha1)\033[0m "
   fi
-
-  return 0
 }
 
 ps1_rvm()
@@ -130,3 +117,7 @@ ps2_set()
   PS2="  \[\033[0;40m\]\[\033[0;33m\]> \[\033[1;37m\]\[\033[1m\]"
 }
 
+ps4_set()
+{
+  export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+}
