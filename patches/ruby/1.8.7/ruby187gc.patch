@@ -1,5 +1,23 @@
---- gc.c	2009-12-24 03:28:08.000000000 -0500
-+++ gc.c	2010-09-22 10:35:00.000000000 -0400
+--- a/intern.h	(revision 31212)
++++ b/intern.h	(working copy)
+@@ -270,6 +270,15 @@
+ VALUE rb_gc_enable _((void));
+ VALUE rb_gc_disable _((void));
+ VALUE rb_gc_start _((void));
++VALUE rb_gc_enable_stats _((void));
++VALUE rb_gc_disable_stats _((void));
++VALUE rb_gc_allocated_size _((void));
++unsigned long rb_os_live_objects _((void));
++#ifdef HAVE_LONG_LONG
++unsigned long long rb_os_allocated_objects _((void));
++#else
++unsigned long rb_os_allocated_objects _((void));
++#endif
+ /* hash.c */
+ void st_foreach_safe _((struct st_table *, int (*)(ANYARGS), unsigned long));
+ void rb_hash_foreach _((VALUE, int (*)(ANYARGS), VALUE));
+--- a/gc.c	(revision 31212)
++++ b/gc.c	(working copy)
 @@ -22,8 +22,16 @@
  #include <setjmp.h>
  #include <sys/types.h>
@@ -235,18 +253,18 @@
 -static int heap_slots = HEAP_MIN_SLOTS;
 +static int heap_min_slots = 10000;
 +static int heap_slots = 10000;
-+
+ 
+-#define FREE_MIN  4096
 +static int heap_free_min = 4096;
 +static int heap_slots_increment = 10000;
 +static double heap_slots_growth_factor = 1.8;
  
--#define FREE_MIN  4096
 +static long initial_malloc_limit = GC_MALLOC_LIMIT;
 +
 +static int verbose_gc_stats = Qfalse;
 +
 +static FILE* gc_data_file = NULL;
- 
++
  static RVALUE *himem, *lomem;
  
 +static void set_gc_parameters()
@@ -478,17 +496,17 @@
  static void
  free_unused_heaps()
  {
-@@ -1133,13 +1492,23 @@
+@@ -1133,14 +1492,24 @@
      int i;
      unsigned long live = 0;
      unsigned long free_min = 0;
 +    live_objects = 0;
-+
+ 
 +    unsigned long really_freed = 0;
 +    int free_counts[256];
 +    int live_counts[256];
 +    int do_gc_stats = gc_statistics & verbose_gc_stats;
- 
++
      for (i = 0; i < heaps_used; i++) {
          free_min += heaps[i].limit;
      }
@@ -497,13 +515,14 @@
 -        free_min = FREE_MIN;
 +    if (free_min < heap_free_min)
 +        free_min = heap_free_min;
-+
+ 
 +    if (do_gc_stats) {
 +      for (i = 0 ; i< 256; i++) { free_counts[i] = live_counts[i] = 0; }
 +    }
- 
++
      if (ruby_in_compile && ruby_parser_stack_on_heap()) {
  	/* should not reclaim nodes during compilation
+            if yacc's semantic stack is not allocated on machine stack */
 @@ -1171,6 +1540,11 @@
  	p = heaps[i].slot; pend = p + heaps[i].limit;
  	while (p < pend) {
@@ -681,21 +700,3 @@
  
      rb_define_module_function(rb_mObSpace, "define_finalizer", define_final, -1);
      rb_define_module_function(rb_mObSpace, "undefine_finalizer", undefine_final, 1);
---- intern.h	2010-06-08 04:42:55.000000000 -0400
-+++ intern.h	2010-09-22 10:38:48.000000000 -0400
-@@ -270,6 +270,15 @@
- VALUE rb_gc_enable _((void));
- VALUE rb_gc_disable _((void));
- VALUE rb_gc_start _((void));
-+VALUE rb_gc_enable_stats _((void));
-+VALUE rb_gc_disable_stats _((void));
-+VALUE rb_gc_allocated_size _((void));
-+unsigned long rb_os_live_objects _((void));
-+#ifdef HAVE_LONG_LONG
-+unsigned long long rb_os_allocated_objects _((void));
-+#else
-+unsigned long rb_os_allocated_objects _((void));
-+#endif
- /* hash.c */
- void st_foreach_safe _((struct st_table *, int (*)(ANYARGS), unsigned long));
- void rb_hash_foreach _((VALUE, int (*)(ANYARGS), VALUE));

@@ -1,5 +1,5 @@
---- gc.c	2007-03-03 09:30:46.000000000 +0200
-+++ gc.c	2008-01-29 11:30:49.000000000 +0200
+--- a/gc.c	(revision 31212)
++++ b/gc.c	(working copy)
 @@ -22,8 +22,16 @@
  #include <setjmp.h>
  #include <sys/types.h>
@@ -25,9 +25,9 @@
  /* Make alloca work the best possible way.  */
  #ifdef __GNUC__
  # ifndef atarist
-@@ -74,6 +81,20 @@
- static VALUE nomem_error;
- static void garbage_collect();
+@@ -76,6 +83,20 @@
+ 
+ NORETURN(void rb_exc_jump _((VALUE)));
  
 +static unsigned long live_objects = 0;
 +unsigned long rb_os_live_objects()
@@ -46,7 +46,7 @@
  void
  rb_memerror()
  {
-@@ -87,6 +108,10 @@
+@@ -93,6 +114,10 @@
      rb_exc_raise(nomem_error);
  }
  
@@ -57,27 +57,8 @@
  void *
  ruby_xmalloc(size)
      long size;
-@@ -110,6 +135,10 @@
- 	    rb_memerror();
- 	}
-     }
-+    if (gc_statistics) {
-+        gc_allocated_size += size;
-+	gc_num_allocations += 1;
-+    }
+@@ -167,6 +192,8 @@
  
-     return mem;
- }
-@@ -159,8 +188,16 @@
- 	RUBY_CRITICAL(free(x));
- }
- 
-+#if HAVE_LONG_LONG
-+#define GC_TIME_TYPE LONG_LONG
-+#else
-+#define GC_TIME_TYPE long
-+#endif
-+
  extern int ruby_in_compile;
  static int dont_gc;
 +static GC_TIME_TYPE gc_time = 0;
@@ -85,16 +66,17 @@
  static int during_gc;
  static int need_call_final = 0;
  static st_table *finalizer_table = 0;
-@@ -195,7 +232,7 @@
+@@ -201,8 +228,7 @@
   *  Disables garbage collection, returning <code>true</code> if garbage
   *  collection was already disabled.
   *
 - *     GC.disable   #=> false
+- *     GC.disable   #=> true
 + *     GC.disable   #=> false or true
-  *     GC.disable   #=> true
   *
   */
-@@ -209,6 +246,140 @@
+ 
+@@ -215,6 +241,139 @@
      return old;
  }
  
@@ -231,11 +213,10 @@
 +#endif
 +}
 +
-+
  VALUE rb_mGC;
  
  static struct gc_list {
-@@ -300,7 +471,7 @@
+@@ -306,7 +465,7 @@
  static RVALUE *freelist = 0;
  static RVALUE *deferred_final_list = 0;
  
@@ -244,7 +225,7 @@
  static struct heaps_slot {
      void *membase;
      RVALUE *slot;
-@@ -309,13 +480,165 @@
+@@ -315,13 +474,164 @@
  static int heaps_length = 0;
  static int heaps_used   = 0;
  
@@ -252,18 +233,18 @@
 -static int heap_slots = HEAP_MIN_SLOTS;
 +static int heap_min_slots = 10000;
 +static int heap_slots = 10000;
-+
+ 
+-#define FREE_MIN  4096
 +static int heap_free_min = 4096;
 +static int heap_slots_increment = 10000;
 +static double heap_slots_growth_factor = 1.8;
  
--#define FREE_MIN  4096
 +static long initial_malloc_limit = GC_MALLOC_LIMIT;
 +
 +static int verbose_gc_stats = Qfalse;
 +
 +static FILE* gc_data_file = NULL;
- 
++
  static RVALUE *himem, *lomem;
  
 +static void set_gc_parameters()
@@ -409,11 +390,10 @@
 +    return original_str;
 +}
 +
-+
  static void
  add_heap()
  {
-@@ -326,7 +649,7 @@
+@@ -332,7 +642,7 @@
  	struct heaps_slot *p;
  	int length;
  
@@ -422,7 +402,15 @@
  	length = heaps_length*sizeof(struct heaps_slot);
  	RUBY_CRITICAL(
  	    if (heaps_used > 0) {
-@@ -342,10 +665,10 @@
+@@ -344,14 +654,18 @@
+ 	    });
+ 	if (p == 0) rb_memerror();
+     }
++    if (gc_statistics) {
++        gc_allocated_size += size;
++	gc_num_allocations += 1;
++    }
+ 
      for (;;) {
  	RUBY_CRITICAL(p = (RVALUE*)malloc(sizeof(RVALUE)*(heap_slots+1)));
  	if (p == 0) {
@@ -435,7 +423,7 @@
  	    continue;
  	}
          heaps[heaps_used].membase = p;
-@@ -361,8 +684,9 @@
+@@ -367,10 +681,17 @@
      if (lomem == 0 || lomem > p) lomem = p;
      if (himem < pend) himem = pend;
      heaps_used++;
@@ -446,8 +434,16 @@
 +    if (heap_slots <= 0) heap_slots = heap_min_slots;
  
      while (p < pend) {
++    if (do_gc_stats) {
++	int obt = p->as.basic.flags & T_MASK;
++	if (obt) {
++	    free_counts[obt]++;
++	}
++    }
  	p->as.free.flags = 0;
-@@ -387,6 +711,8 @@
+ 	p->as.free.next = freelist;
+ 	freelist = p;
+@@ -402,6 +723,8 @@
      RANY(obj)->file = ruby_sourcefile;
      RANY(obj)->line = ruby_sourceline;
  #endif
@@ -456,7 +452,7 @@
      return obj;
  }
  
-@@ -1015,6 +1341,39 @@
+@@ -1062,6 +1385,39 @@
      }
  }
  
@@ -496,17 +492,17 @@
  static void
  free_unused_heaps()
  {
-@@ -1044,13 +1403,23 @@
+@@ -1093,14 +1449,24 @@
      int i;
      unsigned long live = 0;
      unsigned long free_min = 0;
 +    live_objects = 0;
-+
+ 
 +    unsigned long really_freed = 0;
 +    int free_counts[256];
 +    int live_counts[256];
 +    int do_gc_stats = gc_statistics & verbose_gc_stats;
- 
++
      for (i = 0; i < heaps_used; i++) {
          free_min += heaps[i].limit;
      }
@@ -515,37 +511,25 @@
 -        free_min = FREE_MIN;
 +    if (free_min < heap_free_min)
 +        free_min = heap_free_min;
-+
+ 
 +    if (do_gc_stats) {
 +	for (i = 0 ; i< 256; i++) { free_counts[i] = live_counts[i] = 0; }
 +    }
- 
++
      if (ruby_in_compile && ruby_parser_stack_on_heap()) {
  	/* should not reclaim nodes during compilation
-@@ -1083,6 +1452,9 @@
- 	    if (!(p->as.basic.flags & FL_MARK)) {
- 		if (p->as.basic.flags) {
- 		    obj_free((VALUE)p);
+            if yacc's semantic stack is not allocated on machine stack */
+@@ -1138,6 +1504,9 @@
+ 			p->as.free.flags = T_DEFERRED;
+ 			RDATA(p)->dfree = 0;
+ 		    }
 +		    if (do_gc_stats) {
-+			really_freed++;
++            really_freed++;
 +		    }
- 		}
- 		if (need_call_final && FL_TEST(p, FL_FINALIZE)) {
- 		    p->as.free.flags = FL_MARK; /* remain marked */
-@@ -1090,6 +1462,12 @@
+ 		    p->as.free.flags |= FL_MARK;
+ 		    p->as.free.next = final_list;
  		    final_list = p;
- 		}
- 		else {
-+		    if (do_gc_stats) {
-+			int obt = p->as.basic.flags & T_MASK;
-+			if (obt) {
-+			    free_counts[obt]++;
-+			}
-+		    }
- 		    p->as.free.flags = 0;
- 		    p->as.free.next = freelist;
- 		    freelist = p;
-@@ -1102,7 +1480,10 @@
+@@ -1153,7 +1522,10 @@
  	    }
  	    else {
  		RBASIC(p)->flags &= ~FL_MARK;
@@ -557,7 +541,7 @@
  	    }
  	    p++;
  	}
-@@ -1120,8 +1501,8 @@
+@@ -1171,8 +1543,8 @@
  	}
      }
      if (malloc_increase > malloc_limit) {
@@ -568,7 +552,7 @@
      }
      malloc_increase = 0;
      if (freed < free_min) {
-@@ -1129,6 +1510,20 @@
+@@ -1180,6 +1552,20 @@
      }
      during_gc = 0;
  
@@ -589,7 +573,7 @@
      /* clear finalization list */
      if (final_list) {
  	deferred_final_list = final_list;
-@@ -1323,6 +1718,7 @@
+@@ -1394,6 +1780,7 @@
      struct gc_list *list;
      struct FRAME * volatile frame; /* gcc 2.7.2.3 -O2 bug??  */
      jmp_buf save_regs_gc_mark;
@@ -597,7 +581,7 @@
      SET_STACK_END;
  
  #ifdef HAVE_NATIVETHREAD
-@@ -1339,6 +1735,14 @@
+@@ -1410,6 +1797,14 @@
      if (during_gc) return;
      during_gc++;
  
@@ -612,7 +596,7 @@
      init_mark_stack();
  
      gc_mark((VALUE)ruby_current_node, 0);
-@@ -1414,6 +1818,17 @@
+@@ -1485,6 +1880,17 @@
      } while (!MARK_STACK_EMPTY);
  
      gc_sweep();
@@ -630,7 +614,7 @@
  }
  
  void
-@@ -1595,6 +2010,7 @@
+@@ -1666,6 +2072,7 @@
      if (!rb_gc_stack_start) {
  	Init_stack(0);
      }
@@ -638,7 +622,7 @@
      add_heap();
  }
  
-@@ -2047,6 +2463,35 @@
+@@ -2109,6 +2516,35 @@
      return (VALUE)((long)obj|FIXNUM_FLAG);
  }
  
@@ -674,7 +658,7 @@
  /*
   *  The <code>GC</code> module provides an interface to Ruby's mark and
   *  sweep garbage collection mechanism. Some of the underlying methods
-@@ -2064,6 +2509,16 @@
+@@ -2126,6 +2562,16 @@
      rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
  
@@ -691,7 +675,7 @@
      rb_mObSpace = rb_define_module("ObjectSpace");
      rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
      rb_define_module_function(rb_mObSpace, "garbage_collect", rb_gc_start, 0);
-@@ -2071,6 +2526,8 @@
+@@ -2133,6 +2579,8 @@
      rb_define_module_function(rb_mObSpace, "remove_finalizer", rm_final, 1);
      rb_define_module_function(rb_mObSpace, "finalizers", finals, 0);
      rb_define_module_function(rb_mObSpace, "call_finalizer", call_final, 1);
@@ -700,21 +684,3 @@
  
      rb_define_module_function(rb_mObSpace, "define_finalizer", define_final, -1);
      rb_define_module_function(rb_mObSpace, "undefine_finalizer", undefine_final, 1);
---- intern.h	2007-08-22 05:41:24.000000000 +0300
-+++ intern.h	2008-01-29 13:36:52.000000000 +0200
-@@ -253,6 +253,15 @@
- VALUE rb_gc_enable _((void));
- VALUE rb_gc_disable _((void));
- VALUE rb_gc_start _((void));
-+VALUE rb_gc_enable_stats _((void));
-+VALUE rb_gc_disable_stats _((void));
-+VALUE rb_gc_allocated_size _((void));
-+unsigned long rb_os_live_objects _((void));
-+#ifdef HAVE_LONG_LONG
-+unsigned long long rb_os_allocated_objects _((void));
-+#else
-+unsigned long rb_os_allocated_objects _((void));
-+#endif
- /* hash.c */
- void st_foreach_safe _((struct st_table *, int (*)(ANYARGS), unsigned long));
- void rb_hash_foreach _((VALUE, int (*)(ANYARGS), VALUE));
