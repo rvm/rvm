@@ -1407,38 +1407,36 @@ __rvm_fetch_ruby()
 
       # Use the selected branch.
       (
-        remote="${remote:-origin}"
-
         cd "${rvm_repos_path}/$rvm_ruby_string"
+
+        remote="${remote:-origin}"
+        branch=$(git symbolic-ref -q HEAD 2>/dev/null)
+        branch=${branch##refs/heads/}
 
         git reset --hard HEAD # Ensure we are in a good state.
 
         git fetch "${remote}" # Download the latest updates locally.
 
-        branches="$(git branch)" # Grab a list of the local branches
-
-        case "$branches" in
-          (*\*[[:space:]]${rvm_ruby_repo_branch}*)
-            # On desired branch, pull!
-            git pull "$remote" "${rvm_ruby_repo_branch}"
-            ;;
-
-          (*[[:space:]]${rvm_ruby_repo_branch}*)
-            # Not already on the desired branch, but it does exist locally.
-            git checkout "${rvm_ruby_repo_branch}" # Branch is local, checkout
-            git pull "$remote" "${rvm_ruby_repo_branch}" # Bring local to latest
-            ;;
-
-          *)
-            # Desired branch does not exist locally.
-            if ! git checkout -t "${remote}/${rvm_ruby_repo_branch}" ; then
-              result=$?
-
-              rvm_error "Branch $remote/$rvm_ruby_repo_branch not found."
-              return $result
-            fi
-            ;;
-        esac
+        if [[ "$branch" == "${rvm_ruby_repo_branch}" ]] ; then
+          git pull "${remote}" "${rvm_ruby_repo_branch}"
+        else
+          case "$(git branch 2>/dev/null)" in
+            (*[[:space:]]${rvm_ruby_repo_branch}*)
+              # Not already on the desired branch, but it does exist locally.
+              git checkout "${rvm_ruby_repo_branch}" # Branch is local, checkout
+              git pull "$remote" "${rvm_ruby_repo_branch}" # Bring local to latest
+              ;;
+            *)
+              # Desired branch does not exist locally.
+              if ! git checkout -t "${remote}/${rvm_ruby_repo_branch}" ; then
+                result=$?
+                rvm_error "Branch $remote/$rvm_ruby_repo_branch not found."
+                return $result
+              fi
+              ;;
+          esac
+        fi
+        return $?
       )
       result=$?
 
