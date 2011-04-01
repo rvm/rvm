@@ -118,7 +118,7 @@ module RVM
 
       # Import a gemset file.
       def import(prefix)
-        @parent.gemset_export prefix.to_s.gsub(/\.gems$/, '')
+        @parent.gemset_import prefix.to_s.gsub(/\.gems$/, '')
       end
       alias load import
 

@@ -1,5 +1,73 @@
 #!/usr/bin/env bash
 
+export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
+
+if [[ ${rvm_ignore_rvmrc:-0} -eq 0 ]]; then
+  for rvmrc in /etc/rvmrc "$HOME/.rvmrc" ; do
+    if [[ -f "$rvmrc" ]] ; then
+      if \grep -q '^\s*rvm .*$' $rvmrc ; then
+        printf "\nError: $rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
+        return 1
+      else
+        source "$rvmrc"
+      fi
+    fi
+  done
+fi
+
+if [[ -z "${rvm_path:-}" ]] ; then
+
+  # Set the default sandboxed value.
+  # TODO: Alter the variable names to make sense
+  if [[ -z "${rvm_user_install:-""}" ]]; then
+
+    if [[ $UID -eq 0 || -n "$rvm_prefix" && "$rvm_prefix" != "$HOME"/* ]]; then
+      rvm_user_install=0
+    else
+      rvm_user_install=1
+    fi
+
+  fi
+
+  if [[ -z "${rvm_prefix:-""}" ]] ; then
+
+    if [[ "${rvm_user_install:-0}" = "0" ]] ; then
+
+      rvm_prefix="/usr/local/"
+
+    elif [[ -n "$HOME" ]] ; then
+
+      rvm_prefix="$HOME/."
+
+    else
+
+      echo "No \$rvm_prefix was provided and "
+      echo "$(id | \sed -e's/^[^(]*(//' -e 's/).*//') has no \$HOME defined."
+      echo "Haling loading of RVM."
+      rvm_load_rvm=0
+    fi
+
+  fi
+
+  # Fix rvm_prefix changes.
+  [[ "${rvm_prefix}" != *[/.] && -d "${rvm_prefix/rvm/scripts}" ]]
+
+  rvm_prefix_needs_trailing_slash="$?"
+
+  if [[ "$rvm_prefix" = "/usr/local" || "$rvm_prefix_needs_trailing_slash" = "0" ]]; then
+
+    rvm_prefix="$rvm_prefix/"
+
+  fi
+
+  if [[ -z "${rvm_path:-""}" ]] ; then
+    rvm_path="${rvm_prefix}rvm"
+  fi
+
+  export rvm_path="${rvm_path%%+(\/)}"
+
+fi
+
 true ${rvm_scripts_path:="$rvm_path/scripts"}
 
 __rvm_shell_lookup_script() {
