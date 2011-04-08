@@ -1,7 +1,7 @@
 # == Ruby Version Manager - Ruby API
 #
 # Provides a wrapper around the command line api implemented as part of the api.
-# If you're not familiar with rvm, please read http://rvm.beginrescueend.com/
+# If you're not familiar with rvm, please read https://rvm.beginrescueend.com/
 # first.
 #
 # == Usage
