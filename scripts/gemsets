@@ -929,6 +929,30 @@ gemset_initial()
   return 0
 }
 
+search()
+{
+  gem_name="${2:-}"
+  [[ -n "${gem_name}" ]] || return 0
+
+  true "${rvm_gems_path:="$rvm_path/gems"}"
+
+  gemspecs=($(find "${rvm_gems_path}" -mindepth 3 -iname "${gem_name}*.gemspec"  -type f))
+
+  printf "%-40s %-20s %-20s\n" "environment_id" "name" "version"
+  printf "%s\n" "================================================================================"
+
+  for gemspec in "${gemspecs[@]}" ; do
+    environment_id="${gemspec//${rvm_gems_path}\/}"
+    environment_id="${environment_id//\/*}"
+    ruby_string="${environment_id//@*}"
+    gemset_name="${environment_id//${ruby_string}}"
+    name=${gemspec//*\/}
+    name=${name/%.gemspec}
+    gem_version=${name//*-}
+    printf "%-40s %-20s %-20s\n" "${environment_id}" "${gem_name}" "${gem_version}"
+  done
+}
+
 unset GEM_PATH
 
 if ! command -v gem > /dev/null ; then
@@ -1033,6 +1057,9 @@ case "$action" in
     ;;
   globalcache)
     gemset_globalcache "$2"
+    ;;
+  search)
+    search "$@"
     ;;
   clear)
     rvm_log "gemset cleared."
