@@ -33,7 +33,7 @@ ps1_titlebar()
 
 ps1_identity()
 {
-  if [[ $UID -eq 0 ]]  ; then
+  if (( $UID == 0 )) ; then
     printf "%s" "\[\033[31m\]\\u\[\033[0m\]@\[\033[36m\]\\h\[\033[35m\]:\w\[\033[0m\] "
   else
     printf "%s" "\[\033[32m\]\\u\[\033[0m\]@\[\033[36m\]\\h\[\033[35m\]:\w\[\033[0m\] "
@@ -46,15 +46,15 @@ ps1_git()
 
   shopt -s extglob # Important, for our nice matchers :)
 
-  if ! command -v git >/dev/null 2>&1 ; then
+  command -v git >/dev/null 2>&1 || {
     printf " \033[1;37m\033[41m[git not found]\033[m "
     return 0
-  fi
+  }
 
   branch=$(git symbolic-ref -q HEAD 2>/dev/null)
-  if [[ $? -gt 0 ]] ; then
-    return 0 # Not in a git repo, no need to continue.
-  fi
+
+  (( $? > 0 )) && return 0 # Not in a git repo, no need to continue.
+
   branch=${branch##refs/heads/}
 
   # Now we display the branch.
@@ -77,36 +77,29 @@ ps1_git()
      ;;
   esac
 
-  if [[ $color -gt 0 ]] ; then
+  [[ $color -gt 0 ]] &&
     printf "\[\033[${attr}${color}m\](git:${branch}$(ps1_git_status):$sha1)\[\033[0m\] "
-  fi
 }
 
 ps1_git_status()
 {
   local git_status="$(git status 2>/dev/null)"
 
-  case "${git_status}" in (*deleted:*) printf "%s" "-" ;; esac
-  case "${git_status}" in (*Untracked[[:space:]]files:*) printf "%s" "+" ;; esac
-  case "${git_status}" in (*modified:*) printf "%s" "*" ;; esac
+  [[ "${git_status}" = *deleted* ]]                    && printf "%s" "-"
+  [[ "${git_status}" = *Untracked[[:space:]]files:* ]] && printf "%s" "+"
+  [[ "${git_status}" = *modified:* ]]                  && printf "%s" "*"
 }
 
 ps1_rvm()
 {
-  if command -v rvm-prompt >/dev/null 2>/dev/null ; then
-    printf " $(rvm-prompt) "
-  fi
+  command -v rvm-prompt >/dev/null 2>&1 && printf "%s" " $(rvm-prompt) "
 }
 
 ps1_update()
 {
-  local prompt_char='$'
-  local separator="\n"
-  local notime=0
+  local prompt_char='$' separator="\n" notime=0
 
-  if [[ $UID -eq 0 ]] ; then
-    prompt_char='#'
-  fi
+  (( $UID == 0 )) && prompt_char='#'
 
   while [[ $# -gt 0 ]] ; do
     local token="$1" ; shift
@@ -136,7 +129,7 @@ ps1_update()
     esac
   done
 
-  if [[ $notime -gt 0 ]] ; then
+  if (( notime > 0 )) ; then
     PS1="$(ps1_titlebar)$(ps1_identity)$(ps1_git)$(ps1_rvm)${separator}${prompt_char} "
   else
     PS1="$(ps1_titlebar)\D{%H:%M:%S} $(ps1_identity)$(ps1_git)$(ps1_rvm)${separator}${prompt_char} "
