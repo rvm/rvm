@@ -24,7 +24,8 @@ list_gemsets()
 {
   local all_rubies version versions ruby_version_name current_ruby selected system_ruby system_version string binary
 
-  if [[ "${1:-""}" = "strings" ]]; then
+  if [[ "${1:-""}" = "strings" ]]
+  then
     list_gemset_strings
     return 0
   fi
@@ -35,33 +36,43 @@ list_gemsets()
 
   printf "\nrvm gemsets\n"
 
-  versions=($(builtin cd "${rvm_gems_path:-"$rvm_path/gems"}/" ; find . -maxdepth 1 -mindepth 1 -type d -print 2> /dev/null | awk '/[a-z]*-.*/ {print $NF}'))
+  versions=($(
+  builtin cd "${rvm_gems_path:-"$rvm_path/gems"}/"
+  find . -maxdepth 1 -mindepth 1 -type d -print 2> /dev/null | \
+    awk '/[a-z]*-.*/ {print $NF}'
+  ))
 
-  for version in "${versions[@]//.\/}" ; do
-
+  for version in "${versions[@]//.\/}"
+  do
     ruby_version_name="$(echo "$version" | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
 
-    [[ "$all_rubies" != *"$ruby_version_name"* ]] && continue
+    if [[ "$all_rubies" != *"$ruby_version_name"* ]]
+    then
+      continue
+    fi
 
-    if echo "$version" | grep '^jruby-' >/dev/null 2>&1 ; then
+    if printf "$version" | grep '^jruby-' >/dev/null 2>&1
+    then
       string="[ $("$rvm_rubies_path/$ruby_version_name/bin/ruby" -v | awk '{print $NF}' | sed -e 's/\[//' -e 's/\]//') ]"
 
-    elif [[ -n "$(echo "$version" | awk '/^maglev-|^macruby-/')" ]] ; then
+    elif [[ -n "$(echo "$version" | awk '/^maglev-|^macruby-/')" ]]
+    then
       string="[ x86_64 ]"
-
     else
       string="[ $(file "$rvm_rubies_path/$ruby_version_name/bin/ruby" | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
     fi
 
     printf "\n"
 
-    if [[ "$version" = "$current_ruby" ]]; then
+    if [[ "$version" = "$current_ruby" ]]
+    then
       printf "=> "
     else
       printf "   "
     fi
 
-    if [[ ${rvm_pretty_print_flag:-0} -eq 1 ]] ; then
+    if (( rvm_pretty_print_flag == 1 ))
+    then
       printf "$(tput setaf 2)$version$(tput sgr0) $string"
     else
       printf "$version $string"
@@ -69,24 +80,25 @@ list_gemsets()
 
   done
 
-  if [[ -f "$rvm_config_path/default" && -s "$rvm_config_path/default" ]] ; then
+  if [[ -f "$rvm_config_path/default" && -s "$rvm_config_path/default" ]]
+  then
+    version=$(
+    grep 'MY_RUBY_HOME' "$rvm_config_path/default" | head -1 | awk -F"'" '{print $2}' | xargs basename --
+    )
 
-    version=$(grep 'MY_RUBY_HOME' "$rvm_config_path/default" | head -1 | awk -F"'" '{print $2}' | xargs basename --)
-
-    if [[ -n "$version" ]] ; then
-
+    if [[ -n "$version" ]]
+    then
       printf "\nDefault Ruby (for new shells)\n"
 
       string="[ $(file "$rvm_rubies_path/$version/bin/ruby" | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
 
-      if [[ ${rvm_pretty_print_flag:-0} -eq 1 ]] ; then
+      if (( rvm_pretty_print_flag == 1 ))
+      then
         printf "\n  $(tput setaf 2)$version$(tput sgr0) $string\n"
       else
         printf "\n  $version $string\n"
       fi
-
     fi
-
   fi
 
   printf "\n\n"
@@ -96,28 +108,32 @@ list_gemsets()
 
 list_default()
 {
-
   local version string
 
-  if [[ "${args[0]:-""}" = "string" ]] ; then
-
-    "$rvm_scripts_path/alias" show default 2>/dev/null | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' | xargs basename --
+  if [[ "${args[0]:-""}" = "string" ]]
+  then
+    "$rvm_scripts_path/alias" show default 2>/dev/null | \
+      awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' | \
+      xargs basename --
 
   else
-    if [[ -L "$rvm_rubies_path/default" ]]; then
+    if [[ -L "$rvm_rubies_path/default" ]]
+    then
+      version=$(
+      "$rvm_scripts_path/alias" show default 2>/dev/null | \
+        awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' | \
+        xargs basename --
+      )
 
-      version=$("$rvm_scripts_path/alias" show default 2>/dev/null | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' | xargs basename --)
-
-      if [[ -n "$version" ]] ; then
-
+      if [[ -n "$version" ]]
+      then
         printf "\nDefault Ruby (for new shells)\n"
 
         string="[ $(file "$rvm_rubies_path/$version/bin/ruby" | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | \tr "\n" ' ')]"
 
-        if [[ ${rvm_pretty_print_flag:-0} -eq 1 ]] ; then
-
+        if (( rvm_pretty_print_flag == 1 ))
+        then
           printf "\n   $(tput setaf 2)$version$(tput sgr0) $string\n"
-
         else
           printf "\n   $version $string\n"
         fi
@@ -136,11 +152,17 @@ list_ruby_svn_tags()
 
   while read -r tag
   do
-    prefix="$(echo ${tag/\//} | sed 's#^v1_##' | awk -F'_' '{print "(ruby-)1."$1"."$2}' | sed 's#p$##')"
+    prefix="$(
+    echo ${tag/\//} | \
+      sed 's#^v1_##' | \
+      awk -F'_' '{print "(ruby-)1."$1"."$2}' | \
+      sed 's#p$##'
+    )"
 
     echo "${prefix}-t${tag/\//}"
 
-  done < <(svn list http://svn.ruby-lang.org/repos/ruby/tags/ | awk '/^v1_[8|9]/')
+  done < <(svn list http://svn.ruby-lang.org/repos/ruby/tags/ | \
+    awk '/^v1_[8|9]/')
 
   return 0
 }
@@ -150,8 +172,7 @@ list_ruby_svn_tags()
 list_strings()
 {
   (
-  cd "$rvm_rubies_path"
-
+  builtin cd "$rvm_rubies_path"
   find . -maxdepth 1 -mindepth 1 -type d | sed -e 's#./##g'
   )
 
@@ -165,14 +186,21 @@ list_gemset_strings()
 
   all_rubies="$(list_strings)"
 
-  gemsets=($(builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ; find . -maxdepth 1 -mindepth 1 -type d 2>/dev/null | xargs -n1 basename -- | \grep -v '^\(@\|doc$\|cache$\|system$\)' | sort))
+  gemsets=($(
+    builtin cd "${rvm_gems_path:-"$rvm_path/gems"}"
+    find . -maxdepth 1 -mindepth 1 -type d 2>/dev/null | \
+      xargs -n1 basename -- | \
+      command grep -v '^\(@\|doc$\|cache$\|system$\)' | sort
+    ))
 
-  for gemset in "${gemsets[@]//.\/}" ; do
-
+  for gemset in "${gemsets[@]//.\/}"
+  do
     ruby_name="${gemset//${rvm_gemset_separator:-"@"}*}"
 
-    [[ "$all_rubies" != *"$ruby_name"* ]] && continue
-
+    if [[ "$all_rubies" != *"$ruby_name"* ]]
+    then
+      continue
+    fi
     echo "$gemset"
   done
 
@@ -182,17 +210,17 @@ list_gemset_strings()
 # This is meant to be used with scripting.
 list_known_strings()
 {
-  sed -e 's/#.*$//g' -e 's#\[##g' -e 's#\]##g' < "$rvm_config_path/known" | sort -r | uniq
+  sed -e 's/#.*$//g' -e 's#\[##g' -e 's#\]##g' < "$rvm_config_path/known" | \
+    sort -r | uniq
 
   return $?
 }
 
 list_known()
 {
-  if [[ "${1:-""}" = "strings" ]]; then
-
+  if [[ "${1:-""}" = "strings" ]]
+  then
     list_known_strings
-
     return 0
   fi
 
@@ -210,37 +238,53 @@ list_known()
 
 list_rubies_strings()
 {
-  ( builtin cd "$rvm_rubies_path" ; find -maxdepth 0 -type d | tail -n+2 | xargs -n1 basename -- |  __rvm_strip )
+  (
+  builtin cd "$rvm_rubies_path"
+  find -maxdepth 0 -type d | tail -n+2 | xargs -n1 basename -- |  __rvm_strip
+  )
 
   return $?
 }
 
 list_rubies()
 {
-  local current_ruby rubies version selected system_ruby system_version string binary
+  local current_ruby rubies version selected system_ruby system_version \
+    string binary
 
-  if [[ "${1:-""}" = "strings" ]]; then list_rubies_strings ; return 0 ; fi
+  if [[ "${1:-""}" = "strings" ]]
+  then
+    list_rubies_strings
+    return 0
+  fi
 
-  current_ruby="$(__rvm_environment_identifier | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
+  current_ruby="$(
+  __rvm_environment_identifier | \
+    awk -F"${rvm_gemset_separator:-"@"}" '{print $1}'
+  )"
 
   printf "\nrvm rubies\n"
 
-  rubies=($(builtin cd "$rvm_rubies_path/" ; find . -maxdepth 1 -mindepth 1 -type d 2> /dev/null | awk '/[a-z]*-.*/ {print $NF}'))
+  rubies=($(
+  builtin cd "$rvm_rubies_path/"
+  find . -maxdepth 1 -mindepth 1 -type d 2> /dev/null | \
+    awk '/[a-z]*-.*/ {print $NF}'
+  ))
 
-  for version in "${rubies[@]//.\/}" ; do
+  for version in "${rubies[@]//.\/}"
+  do
+    if [[ ! -x "$rvm_rubies_path/$version/bin/ruby" ]]
+    then
+      continue
+    fi
 
-    [[ ! -x "$rvm_rubies_path/$version/bin/ruby" ]] && continue
-
-    if echo "$version" | grep '^jruby-' >/dev/null 2>&1 ; then
-
+    if echo "$version" | grep '^jruby-' >/dev/null 2>&1
+    then
       string="[ $("$rvm_rubies_path/$version/bin/ruby" -v | awk '{print $NF}' | sed -e 's/\[//' -e 's/\]//') ]"
 
     elif [[ ! -z "$(echo "$version" | awk '/^maglev-|^macruby-/')" ]] ; then
-
       string="[ x86_64 ]"
 
     else
-
       string="[ $(file "$rvm_rubies_path/$version/bin/ruby" | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | tr "\n" ' ')]"
     fi
 
@@ -253,7 +297,8 @@ list_rubies()
     fi
 
     # TODO: Only use tput for interactive terminal sessions.
-    if [[ ${rvm_pretty_print_flag:-0} -eq 1 ]] ; then
+    if (( rvm_pretty_print_flag == 1 ))
+    then
       printf "$(tput setaf 2)$version$(tput sgr0) $string"
     else
       printf "$version $string"
@@ -261,24 +306,25 @@ list_rubies()
 
   done
 
-  if [[ -f "$rvm_config_path/default" ]] && [[ -s "$rvm_config_path/default" ]] ; then
+  if [[ -f "$rvm_config_path/default" && -s "$rvm_config_path/default" ]]
+  then
+    version=$(
+    grep 'MY_RUBY_HOME' "$rvm_config_path/default" | head -n 1 | awk -F"'" '{print $2}' | xargs basename --
+    )
 
-    version=$(grep 'MY_RUBY_HOME' "$rvm_config_path/default" | head -n 1 | awk -F"'" '{print $2}' | xargs basename --)
-
-    if [[ -n "$version" ]] ; then
-
+    if [[ -n "$version" ]]
+    then
       printf "Default Ruby (for new shells)\n"
 
       string="[ $(file "$rvm_rubies_path/$version/bin/ruby" | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | \tr "\n" ' ')]"
 
-      if [[ ${rvm_pretty_print_flag:-0} -eq 1 ]] ; then
+      if (( rvm_pretty_print_flag == 1 ))
+      then
         printf "  $(tput setaf 2)$version$(tput sgr0) $string\n"
       else
         printf "  $version $string\n"
       fi
-
     fi
-
   fi
 
   printf "\n\n"
@@ -294,7 +340,11 @@ action="${args[0]:-""}"
 args=${args[@]:1} # Strip trailing / leading / extra spacing.
 
 
-if [[ -z "$action" ]] ; then list_rubies ; exit 0 ; fi
+if [[ -z "$action" ]]
+then
+  list_rubies
+  exit 0
+fi
 
 case "$action" in
   known)         list_known           ;;
