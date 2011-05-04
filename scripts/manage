@@ -29,7 +29,7 @@ __rvm_check_for_clang()
 # Checks for bison, returns zero iff it is found
 __rvm_check_for_bison()
 {
-  if (( rvm_head_flag > 0 ))
+  if (( ${rvm_head_flag:=0} > 0 ))
   then
     command -v bison > /dev/null
     result=$?
@@ -127,10 +127,18 @@ __rvm_install_source()
 {
   local directory configure_parameters db_configure_flags
 
-  (( rvm_ruby_selected_flag >  0 )) || __rvm_select
+  if (( ${rvm_ruby_selected_flag:=0} == 0 ))
+  then
+    __rvm_select
+  fi
 
   case ${rvm_ruby_string:-""} in
-    ruby-head|1.9.*-head) __rvm_ensure_has_18_compat_ruby || return 1 ;;
+    ruby-head|1.9.*-head)
+      if ! __rvm_ensure_has_18_compat_ruby
+      then
+        return 1
+      fi
+      ;;
   esac
 
   rvm_log "Installing Ruby from source to: $rvm_ruby_home, this may take a while depending on your cpu(s)...\n"
@@ -171,7 +179,7 @@ __rvm_install_source()
     builtin hash -r
   fi
 
-  if (( rvm_static_flag == 1 ))
+  if (( ${rvm_static_flag:=0} == 1 ))
   then
     if [[ -s "ext/Setup" ]]; then
       echo 'option nodynamic' >> ext/Setup
@@ -307,27 +315,36 @@ __rvm_install_source()
 
 __rvm_install_ruby()
 {
-  (( rvm_ruby_selected_flag == 1 )) || __rvm_select
+  if (( ${rvm_ruby_selected_flag:=0} == 0 ))
+  then
+    __rvm_select
+  fi
 
-  if [[ -n "${RUBYOPT:-""}" ]] ; then ruby_options="$RUBYOPT" ; fi
+  if [[ -n "${RUBYOPT:-""}" ]]
+  then
+    ruby_options="$RUBYOPT"
+  fi
 
   unset RUBYOPT
 
   # Check for clang if the flag is set
   __rvm_check_for_clang
   result=$?
-
-  (( result == 0 )) || return $result
+  if (( result > 0 ))
+  then
+    return $result
+  fi
 
   case "$rvm_ruby_interpreter" in
     macruby)
       if [[ "Darwin" = "$(uname)" ]] ; then
 
-        if (( rvm_head_flag == 1 ))
+        if (( ${rvm_head_flag:=0} == 1 ))
         then
-
-          (( rvm_llvm_flag == 0 )) ||
+          if (( ${rvm_llvm_flag:=0} == 1 ))
+          then
             "$rvm_scripts_path/package" llvm install
+          fi
 
           macruby_path="/usr/local/bin"
           # TODO: configure & make variables should be set here.
@@ -440,16 +457,16 @@ RubyWrapper
     ;;
 
     ree)
-      if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.8/')" \
-        && $rvm_head_flag -eq 0 ]] ; then
-
+      if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.8/')" ]] &&
+        (( ${rvm_head_flag:=0} == 0 ))
+      then
         rvm_ruby_url="$(__rvm_db "ree_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
 
         rvm_log "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
 
         builtin cd "${rvm_src_path}"
 
-        if (( rvm_force_flag == 0 )) &&
+        if (( ${rvm_force_flag:=0} == 0 )) &&
           [[ -d "${rvm_src_path}/$rvm_ruby_string" &&
           ! -x "${rvm_src_path}/$rvm_ruby_string/installer" ]]
         then
@@ -535,7 +552,10 @@ RubyWrapper
 
         else
           rvm_ruby_repo_url="$rvm_ruby_url"
-          (( rvm_make_flags_flag == 0 )) || __rvm_make_flags
+          if (( ${rvm_make_flags_flag:=0} >  0 ))
+          then
+            __rvm_make_flags
+          fi
           __rvm_install_source $*
         fi
       fi
@@ -560,7 +580,7 @@ RubyWrapper
       builtin hash -r
 
       if [[ -n "$(printf "${rvm_ruby_version:-""}" | awk '/^1\./')" ]] \
-        && (( rvm_head_flag == 0 ))
+        && (( ${rvm_head_flag:=0} == 0 ))
       then
         rvm_log "$rvm_ruby_string #downloading ($rvm_ruby_package_file), this may take a while depending on your connection..."
 
@@ -623,7 +643,7 @@ RubyWrapper
       rvm_ruby_configure="$rvm_wrappers_path/$ruby/ruby ${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_configure_flags"
       message="$rvm_ruby_string - #configuring"
 
-      if (( rvm_llvm_flag == 0 ))
+      if (( ${rvm_llvm_flag:=0} == 0 ))
       then
         rvm_ruby_configure="$rvm_ruby_configure --disable-llvm"
       else
@@ -641,7 +661,7 @@ RubyWrapper
         exit $result
       fi
 
-      if (( rvm_trace_flag == 1 ))
+      if (( ${rvm_trace_flag:=0} == 1 ))
       then
         rvm_ruby_make="$rvm_wrappers_path/$ruby/rake install --trace"
         message="$rvm_ruby_string - #compiling (with --trace)"
@@ -726,7 +746,7 @@ RubyWrapper
 
       builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
-      if (( rvm_head_flag == 1 ))
+      if (( ${rvm_head_flag:=0} == 1 ))
       then
         __rvm_apply_patches
 
@@ -811,7 +831,7 @@ RubyWrapper
       builtin cd "${rvm_src_path}"
 
       if [[ ! -d "${rvm_src_path}/$rvm_ruby_string" ]] ||
-        (( rvm_force_flag == 1 ))
+        (( ${rvm_force_flag:=0} == 1 ))
       then
         __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string/"
 
@@ -825,7 +845,7 @@ RubyWrapper
         fi
       fi
 
-      if (( rvm_head_flag == 1 ))
+      if (( ${rvm_head_flag:=0} == 1 ))
       then
         builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
@@ -891,7 +911,7 @@ RubyWrapper
 
       builtin cd "$rvm_ruby_home"
 
-      if (( rvm_head_flag == 1 ))
+      if (( ${rvm_head_flag:=0} == 1 ))
       then
         git submodule update --init
 
@@ -932,7 +952,7 @@ RubyWrapper
         printf "mono must be installed and in your path in order to install IronRuby." ; return 1
       fi
 
-      if (( rvm_head_flag == 1 ))
+      if (( ${rvm_head_flag:=0} == 1 ))
       then
         mono_version="$(mono -V | head -n 1 | cut -d ' ' -f5)"
 
@@ -1045,7 +1065,7 @@ RubyWrapper
     ;;
 
     goruby)
-      (( rvm_make_flags_flag == 0 )) || __rvm_make_flags
+      (( ${rvm_make_flags_flag:=0} == 0 )) || __rvm_make_flags
 
       unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
 
@@ -1080,10 +1100,12 @@ RubyWrapper
 
       if [[ -s ./Makefile && -z "$rvm_reconfigure_flag" ]]
       then
-        (( rvm_debug_flag == 0 )) ||
+        if (( ${rvm_debug_flag:=0} > 0 ))
+        then
           rvm_debug "Skipping configure step, Makefile exists so configure must have already been run."
-
-      elif [[ -n "$rvm_ruby_configure" ]] ; then
+        fi
+      elif [[ -n "$rvm_ruby_configure" ]]
+      then
         __rvm_run "configure" "$rvm_ruby_configure"
         result=$?
 
@@ -1160,7 +1182,10 @@ RubyWrapper
         exit $result
       fi
 
-      (( rvm_make_flags_flag == 0 )) || __rvm_make_flags
+      if (( ${rvm_make_flags_flag:=0} == 1 ))
+      then
+        __rvm_make_flags
+      fi
 
       ( __rvm_install_source $* )
       result=$?
@@ -1248,11 +1273,14 @@ __rvm_fetch_from_github()
 
 __rvm_fetch_ruby()
 {
-  (( rvm_ruby_selected_flag == 1 )) || __rvm_select
+  if (( ${rvm_ruby_selected_flag:=0} == 0 ))
+  then
+    __rvm_select
+  fi
 
   rvm_log "$rvm_ruby_string - #fetching "
 
-  if (( rvm_head_flag == 0 )) &&
+  if (( ${rvm_head_flag:=0} == 0 )) &&
     [[ -z "${rvm_ruby_tag:-""}" && -z "${rvm_ruby_revision:-""}" ]]
   then
     rvm_ruby_package_name="${rvm_ruby_package_name:-"$rvm_ruby_string"}"
@@ -1302,7 +1330,7 @@ __rvm_fetch_ruby()
     ( [[ ! -d "${rvm_src_path}/$rvm_ruby_string" ]] || rmdir "${rvm_src_path}/$rvm_ruby_string" 2>/dev/null ) || true
 
     if [[ ! -d "${rvm_src_path}/$rvm_ruby_string" ]] ||
-      (( rvm_force_flag == 1 ))
+      (( ${rvm_force_flag:=0} == 1 ))
     then
       # Especially when forced, we want to ensure the destination is missing.
       __rvm_rm_rf "${rvm_src_path}/${rvm_ruby_string}"
@@ -1591,7 +1619,10 @@ __rvm_uninstall_ruby()
 {
   local dir
 
-  (( rvm_ruby_selected_flag == 1 )) || __rvm_select
+  if (( ${rvm_ruby_selected_flag:=0} == 0 ))
+  then
+    __rvm_select
+  fi
 
   if [[ -n "${rvm_ruby_string:-""}" ]]
   then
@@ -1630,7 +1661,10 @@ __rvm_remove_ruby()
 {
   local dir
 
-  (( rvm_ruby_selected_flag == 1 )) || __rvm_select
+  if (( ${rvm_ruby_selected_flag:=0} == 0 ))
+  then
+    __rvm_select
+  fi
 
   if [[ -n "${rvm_ruby_string:-""}" ]]
   then
@@ -1676,7 +1710,7 @@ __rvm_remove_gemsets()
 {
   local gemset gemsets
 
-  if (( rvm_gems_flag == 1 ))
+  if (( ${rvm_gems_flag:=0} == 1 ))
   then
     rvm_log "Removing $rvm_ruby_string gemsets..."
 
@@ -1738,7 +1772,7 @@ __rvm_remove_aliases()
 
 __rvm_remove_archives()
 {
-  if (( rvm_archive_flag == 1 ))
+  if (( ${rvm_archive_flag:=0} == 1 ))
   then
     rvm_log "Removing $rvm_ruby_string archives..."
     rm -f "${rvm_archives_path}/${rvm_ruby_package_file}.${rvm_archive_extension}"

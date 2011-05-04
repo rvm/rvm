@@ -201,20 +201,31 @@ __rvm_run_with_env()
 
   if [[ -n "$message" ]] ; then rvm_log "$message" ; fi
 
-  (( rvm_debug_flag == 0 )) ||
+  if (( ${rvm_debug_flag:=0} == 1 ))
+  then
     rvm_debug "Executing: $command in environment $environment"
+  fi
 
   path="${rvm_log_path}/$rvm_ruby_string"
 
   log="$path/$name.log"
 
-  [[ -d "$path" ]] || \mkdir -p "$path"
+  if [[ ! -d "$path" ]]
+  then
+    command mkdir -p "$path"
+  fi
 
-  [[ ! -f "$log" ]] && \touch "$log" # for zsh :(
+  if [[ ! -f "$log" ]]
+  then
+    command touch "$log" # for zsh :(
+  fi
 
   printf "[$(date +'%Y-%m-%d %H:%M:%S')] $command # under $environment\n" >> "${log}"
 
-  (( rvm_niceness == 0 )) || command="nice -n $rvm_niceness $command"
+  if (( ${rvm_niceness:=0} > 0 ))
+  then
+    command="nice -n $rvm_niceness $command"
+  fi
 
   (
     rvm_ruby_string="$environment"
@@ -225,8 +236,10 @@ __rvm_run_with_env()
   )
   result=$?
 
-  (( result == 0 )) ||
+  if (( result >  0 ))
+  then
     rvm_error "Error running '$command' under $env_name,\nplease read $log"
+  fi
 
   return ${result:-0}
 }
