@@ -190,46 +190,84 @@ Upgrade Notes
 
 determine_install_path()
 {
-  if [[ -z "${rvm_prefix:-}" ]]
-  then
-    if (( UID == 0 ))
-    then
-      if [[ -s /etc/rvmrc ]]
-      then
-        . /etc/rvmrc
-      fi
+  export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
-      if (( ${rvm_user_install_flag:=0} == 1 ))
+  if (( ${rvm_ignore_rvmrc:=0} == 0 ))
+  then
+    for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
+    do
+      if [[ -f "$rvmrc" ]]
       then
-        rvm_prefix="${HOME}"
-      else
-        rvm_prefix="/usr/local/"
+        if command grep '^\s*rvm .*$' >/dev/null 2>&1 $rvmrc
+        then
+          printf "\nError: $rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
+          return 1
+        else
+          source "$rvmrc"
+        fi
       fi
+    done
+  fi
+
+  if [[ -z "${rvm_path:-}" ]]
+  then
+    # Set the default sandboxed value.
+    # TODO: Alter the variable names to make sense
+    if [[ -z "${rvm_user_install_flag:-}" ]]
+    then
+      if (( UID == 0 )) ||
+        [[ -n "${rvm_prefix:-}" && "${rvm_prefix:-}" != "${HOME}" ]]
+    then
+      rvm_user_install_flag=0
     else
-      rvm_prefix="${HOME}"
+      rvm_user_install_flag=1
     fi
   fi
 
-  if [[ "$rvm_prefix" = "$HOME" ]]
+  if [[ -z "${rvm_prefix:-}" ]]
   then
-    rvm_path="${rvm_prefix}/.rvm"
-  else
-    rvm_path="${rvm_prefix}/rvm"
+    if (( ${rvm_user_install_flag:=0} == 0 ))
+    then
+      rvm_prefix="/usr/local"
+    elif [[ -n "$HOME" ]]
+    then
+      rvm_prefix="$HOME"
+    else
+      echo "No \$rvm_prefix was provided and "
+      echo "$(id | \sed -e's/^[^(]*(//' -e 's/).*//') has no \$HOME defined."
+      echo "Halting loading of RVM."
+      rvm_load_rvm=0
+    fi
   fi
+
+  true "${rvm_prefix/rvm/scripts}" # Fix rvm_prefix changes, older installs.
+
+  if [[ -z "${rvm_path:-}" ]]
+  then
+    if [[ "$rvm_prefix" = "$HOME" ]]
+    then
+      rvm_path="${rvm_prefix}/.rvm"
+    else
+      rvm_path="${rvm_prefix}/rvm"
+    fi
+  fi
+
+  export rvm_path="${rvm_path%%+(\/)}"
+fi
 }
 
 determine_install_or_upgrade()
-{
+{ # TODO: Improve this...
   upgrade_flag=0
-  if grep 'scripts/rvm' "${HOME}"/.bash* >/dev/null 2>&1 \
-    || grep 'scripts/rvm' "${HOME}"/.zsh* >/dev/null 2>&1 ; then
-
-    [[ -d "$rvm_path" ]] &&
-      [[ -s "${rvm_path}/scripts/rvm" ]] &&
-        upgrade_flag=1
-
+  if grep 'scripts/rvm' "${HOME}"/.bash* >/dev/null 2>&1 ||
+    grep 'scripts/rvm' "${HOME}"/.zsh* >/dev/null 2>&1
+  then
+  if [[ -d "$rvm_path" && -s "${rvm_path}/scripts/rvm" ]]
+  then
+    upgrade_flag=1
   fi
-  export upgrade_flag
+fi
+export upgrade_flag
 }
 
 print_install_header()
@@ -238,7 +276,7 @@ print_install_header()
   RVM:  Shell scripts enabling management of multiple ruby environments.
   RTFM: https://rvm.beginrescueend.com/
   HELP: http://webchat.freenode.net/?channels=rvm (#rvm on irc.freenode.net)
-"
+  "
 
   if [[ ${upgrade_flag:-0} -eq 1 ]] ;then
 
@@ -257,31 +295,31 @@ configure_installation()
 
   if [[ -d "$install_source_path/scripts" \
     && -s "$install_source_path/scripts/functions/utility" ]] ; then
-    builtin cd "$install_source_path"
-  fi
+  builtin cd "$install_source_path"
+fi
 
-  # Save scripts path
-  scripts_path=${rvm_scripts_path:-""}
-  rvm_scripts_path="${PWD%%+(\/)}/scripts"
-  # Load scripts.
+# Save scripts path
+scripts_path=${rvm_scripts_path:-""}
+rvm_scripts_path="${PWD%%+(\/)}/scripts"
+# Load scripts.
 
-  source scripts/initialize
-  source scripts/functions/init
-  source scripts/version
+source scripts/initialize
+source scripts/functions/init
+source scripts/version
 
-  # What does this do that scripts/initialize not do?:
-  __rvm_initialize
+# What does this do that scripts/initialize not do?:
+__rvm_initialize
 
-  # Restore Scripts Path
-  rvm_scripts_path=${scripts_path:-"$rvm_path/scripts"}
-  #
-  item="* "
-  question="\n<?>"
-  cwd="${PWD%%+(\/)}"
+# Restore Scripts Path
+rvm_scripts_path=${scripts_path:-"$rvm_path/scripts"}
+#
+item="* "
+question="\n<?>"
+cwd="${PWD%%+(\/)}"
 
-  true "${source_path:=$cwd}"
+true "${source_path:=$cwd}"
 
-  return 0
+return 0
 }
 
 create_install_paths()
@@ -347,22 +385,22 @@ install_rvm_files()
 setup_configuration_files()
 {
   (
-    cd "$rvm_path"
+  cd "$rvm_path"
 
-    [[ -f config/user ]] && mv config/user user/db
+  [[ -f config/user ]] && mv config/user user/db
 
-    if [[ ! -s user/db ]] ; then
-      echo '# User settings, overrides db settings and persists across installs.' \
-        >> user/db
+  if [[ ! -s user/db ]] ; then
+    echo '# User settings, overrides db settings and persists across installs.' \
+      >> user/db
+  fi
+
+  if [[ -s config/rvmrcs ]] ; then
+    mv config/rvmrcs user/rvmrcs
+  else
+    if [[ ! -f user/rvmrcs ]] ; then
+      touch user/rvmrcs
     fi
-
-    if [[ -s config/rvmrcs ]] ; then
-      mv config/rvmrcs user/rvmrcs
-    else
-      if [[ ! -f user/rvmrcs ]] ; then
-        touch user/rvmrcs
-      fi
-    fi
+  fi
   )
 }
 
