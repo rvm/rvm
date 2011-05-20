@@ -2,57 +2,49 @@
 
 # Source a .rvmrc file in a directory after changing to it, if it exists.
 # To disable this fature, set export rvm_project_rvmrc=0 in $HOME/.rvmrc
-if [[ ${rvm_project_rvmrc:-1} -ne 0 ]] ; then
-
+if (( ${rvm_project_rvmrc:-1} > 0 ))
+then
   __rvm_after_cd()
   {
     rvm_hook="after_cd"
-    source "${rvm_scripts_path:-"$rvm_path/scripts"}/hook"
+    if [[ -n "${rvm_scripts_path}" || -n "${rvm_path}" ]]
+    then # TODO: figure out why TF this if is necessary...
+      source "${rvm_scripts_path:-"$rvm_path/scripts"}/hook"
+    fi
     #__rvm_unset_exports
   }
 
-  if [[ -n "${ZSH_VERSION:-}" ]] ; then
-
+  if [[ -n "${ZSH_VERSION:-}" ]]
+  then
     autoload is-at-least
-
     if is-at-least 4.3.4 >/dev/null 2>&1; then
-
       # On zsh, use chpwd_functions
       chpwd_functions=( "${chpwd_functions[@]}" __rvm_project_rvmrc __rvm_after_cd )
-
     else
-
       cd()
       {
         builtin cd "$@"
         local result=$?
-
         __rvm_project_rvmrc
         __rvm_after_cd
-
         return $result
       }
-
     fi
-
   else
-
     cd()
     {
       builtin cd "$@"
       local result=$?
-
       __rvm_project_rvmrc
       __rvm_after_cd
-
       return $result
     }
 
     # This functionality is opt-in by setting rvm_cd_complete_flag=1 in ~/.rvmrc
     # Generic bash cd completion seems to work great for most, so this is only
     # for those that have some issues with that.
-    if [[ ${rvm_cd_complete_flag:-0} = 1 ]] ; then
-
+    if (( ${rvm_cd_complete_flag:-0} == 1 ))
+    then
       # If $CDPATH is set, bash should tab-complete based on directories in those paths,
       # but with the cd function above, the built-in tab-complete ignores $CDPATH. This
       # function returns that functionality.
@@ -78,12 +70,8 @@ if [[ ${rvm_project_rvmrc:-1} -ne 0 ]] ; then
         fi
         declare -x IFS="${sep}";
       }
-
       complete -o bashdefault -o default -o filenames -o dirnames -o nospace -F _rvm_cd_complete cd
-
     fi
-
   fi
-
 fi
 
