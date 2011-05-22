@@ -5,8 +5,6 @@ PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${
 export PS4
 set -o errtrace
 set -o errexit
-rvm_trace_flag=0
-rvm_debug_flag=0
 
 log()  { printf "$*\n" ; return $? ;  }
 
@@ -164,24 +162,30 @@ install_head()
   return 0
 }
 
-case "$*" in
-  *[[:space:]]--trace[[:space:]]*)
-    set -o xtrace
-    export rvm_trace_flag=1
-    ;;
-esac
+# Tracing, if asked for.
+if [[ "$*" =~ --trace ]] || (( ${rvm_trace_flag:-0} > 0 ))
+then
+  set -o xtrace
+  export rvm_trace_flag=1
+fi
 
-export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
+# Variable initialization, remove trailing slashes if they exist on HOME
+true \
+  ${rvm_trace_flag:=0} ${rvm_debug_flag:=0} ${rvm_user_install_flag:=0}\
+  ${rvm_ignore_rvmrc:=0} HOME="${HOME%%+(\/)}"
 
-if (( ${rvm_ignore_rvmrc:=0} == 0 ))
+
+if (( rvm_ignore_rvmrc == 0 ))
 then
   for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
   do
-    if [[ -f "$rvmrc" ]]
+    if [[ -s "$rvmrc" ]]
     then
       if \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
       then
-        printf "\nError: $rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
+        printf "\nError: $rvmrc is for rvm settings only.\n"
+        printf "rvm CLI may NOT be called from within $rvmrc. \n"
+        printf "Skipping the loading of $rvmrc\n"
         return 1
       else
         source "$rvmrc"
@@ -207,7 +211,7 @@ then
 
   if [[ -z "${rvm_prefix:-}" ]]
   then
-    if (( ${rvm_user_install_flag:=0} == 0 ))
+    if (( UID == 0 || rvm_user_install_flag == 0 ))
     then
       rvm_prefix="/usr/local"
     elif [[ -n "$HOME" ]]
@@ -225,7 +229,7 @@ then
 
   if [[ -z "${rvm_path:-}" ]]
   then
-    if [[ "$rvm_prefix" = "$HOME" ]]
+    if [[ "$rvm_prefix" == "$HOME" ]]
     then
       rvm_path="${rvm_prefix}/.rvm"
     else
@@ -233,8 +237,10 @@ then
     fi
   fi
 
-  export rvm_path="${rvm_path%%+(\/)}"
+  rvm_path="${rvm_path%%+(\/)}"
 fi
+
+export HOME rvm_path
 
 # Parse CLI arguments.
 while (( $# > 0 ))
@@ -317,7 +323,7 @@ rvm_archives_path="$rvm_path/archives"
 rvm_releases_url="https://rvm.beginrescueend.com/releases"
 rvm_prefix="$(dirname $rvm_path)/"
 
-for dir in  "$rvm_src_path" "$rvm_archives_path"
+for dir in "$rvm_src_path" "$rvm_archives_path"
 do
   if [[ ! -d "$dir" ]]
   then
@@ -328,19 +334,19 @@ done
 # Perform the actual installation, first we obtain the source using whichever
 # means was specified, if any. Defaults to head.
 case "${version}" in
-  head)
+  (head)
     install_head
     ;;
 
-  latest)
+  (latest)
     fetch_version
     install_release
     ;;
 
-  +([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
+  (+([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
     install_release
     ;;
-  *)
+  (*)
     fail "Something went wrong, unrecognized version '$version'"
     ;;
 esac
@@ -352,6 +358,7 @@ if (( rvm_trace_flag == 1 ))
 then
   flags+=("--trace")
 fi
+
 if (( rvm_debug_flag == 1 ))
 then
   flags+=("--debug")
