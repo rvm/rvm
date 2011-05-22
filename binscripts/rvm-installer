@@ -33,12 +33,12 @@ Actions
 
 fetch_version()
 {
-  version=$(curl -B "${rvm_releases_url}/latest-version.txt" 2>/dev/null)
+  version=$(curl -s -B "${rvm_releases_url}/latest-version.txt" 2>/dev/null)
 }
 
 fetch_md5()
 {
-  md5=$(curl -B "${rvm_releases_url}/rvm-${version}.tar.gz.md5" 2>/dev/null)
+  md5=$(curl -s -B "${rvm_releases_url}/rvm-${version}.tar.gz.md5" 2>/dev/null)
 }
 
 md5_match()
@@ -69,20 +69,22 @@ md5_match()
 
 install_release()
 {
-  archive="$rvm_archives_path/rvm-${version}.tar.gz"
+  local archive url
+
+  archive="${rvm_archives_path}/rvm-${version}.tar.gz"
+  url="${rvm_releases_url}/rvm-${version}.tar.gz"
 
   fetch_md5
 
-  if [[ -s $archive ]] && ! md5_match
+  if [[ -s "${archive}" && -n "${md5}"]] && ! md5_match "${archive}"
   then
     # Remove old installs, if they exist and have incorrect md5.
-    if [[ -f "$rvm_archives_path/rvm-${version}.tar.gz" ]]
+    if [[ -f "${archive}" ]]
     then
-      rm -f "$rvm_archives_path/rvm-${version}.tar.gz"
+      rm -f "${archive}"
     fi
   fi
 
-  url="${rvm_releases_url}/rvm-${version}.tar.gz"
   if ! curl -L "${url}" -o "${archive}"
   then
     fail "Failed to download ${url} to ${archive} using 'curl', error code ($?)"
@@ -102,8 +104,6 @@ Halting installation.
 "
   fi
 
-
-  archive="${rvm_archives_path}/rvm-${version}.tar.gz"
   if tar zxf "${archive}" -C "$rvm_src_path/" --no-same-owner
   then
     cd "$rvm_src_path/rvm-${version}"
@@ -211,17 +211,11 @@ then
 
   if [[ -z "${rvm_prefix:-}" ]]
   then
-    if (( UID == 0 || rvm_user_install_flag == 0 ))
-    then
-      rvm_prefix="/usr/local"
-    elif [[ -n "$HOME" ]]
+    if (( UID > 0 || rvm_user_install_flag == 1 ))
     then
       rvm_prefix="$HOME"
     else
-      echo "No \$rvm_prefix was provided and "
-      echo "$(id | \sed -e's/^[^(]*(//' -e 's/).*//') has no \$HOME defined."
-      echo "Halting loading of RVM."
-      rvm_load_rvm=0
+      rvm_prefix="/usr/local"
     fi
   fi
 
