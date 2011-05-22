@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+shopt -s extglob
+PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+export PS4
+set -o errtrace
+set -o errexit
+rvm_trace_flag=0
+rvm_debug_flag=0
+
 log()  { printf "$*\n" ; return $? ;  }
 
 fail() { log "\nERROR: $*\n" ; exit 1 ; }
@@ -53,9 +61,12 @@ md5_match()
       ;;
   esac
 
-  [[ "$archive_md5" == "$md5" ]]
-
-  return $?
+  if [[ "$archive_md5" == "$md5" ]]
+  then
+    return 0
+  else
+    return 1
+  fi
 }
 
 install_release()
@@ -64,15 +75,23 @@ install_release()
 
   fetch_md5
 
-  if [[ -s $archive ]] && ! md5_match ; then
+  if [[ -s $archive ]] && ! md5_match
+  then
     # Remove old installs, if they exist and have incorrect md5.
-    [[ -f "$rvm_archives_path/rvm-${version}.tar.gz" ]] &&
+    if [[ -f "$rvm_archives_path/rvm-${version}.tar.gz" ]]
+    then
       rm -f "$rvm_archives_path/rvm-${version}.tar.gz"
+    fi
   fi
 
-  curl -L "${rvm_releases_url}/rvm-${version}.tar.gz" -o "$archive"
+  url="${rvm_releases_url}/rvm-${version}.tar.gz"
+  if ! curl -L "${url}" -o "${archive}"
+  then
+    fail "Failed to download ${url} to ${archive} using 'curl', error code ($?)"
+  fi
 
-  if ! md5_match "$archive" ; then
+  if ! md5_match "$archive"
+  then
     fail "ERROR:
 
 Archive package downloaded does not match it's calculated md5 checksum ${md5}:
@@ -85,34 +104,56 @@ Halting installation.
 "
   fi
 
-  tar zxf "${rvm_archives_path}/rvm-${version}.tar.gz" -C "$rvm_src_path/" --no-same-owner
 
-  cd "$rvm_src_path/rvm-${version}"
+  archive="${rvm_archives_path}/rvm-${version}.tar.gz"
+  if tar zxf "${archive}" -C "$rvm_src_path/" --no-same-owner
+  then
+    cd "$rvm_src_path/rvm-${version}"
+  else
+    fail "Failed to extract ${archive} to ${rvm_src_path}/,"\
+      "tar command returned error code $?"
+  fi
 }
 
 install_head()
 {
   local remote="origin"
 
-  if [[ -d "${rvm_src_path}/rvm/.git" ]] ; then
+  if [[ -d "${rvm_src_path}/rvm/.git" ]]
+  then
     builtin cd "${rvm_src_path}/rvm/"
 
-    if [[ -z "$(git branch | awk "/$branch$/")" ]] ; then
-      if ! git checkout -b "$branch" --track "$remote/$branch" 2>/dev/null ; then
+    if [[ -z "$(git branch | awk "/$branch$/")" ]]
+    then
+      if git checkout -b "$branch" --track "$remote/$branch" 2>/dev/null
+      then
+        log "Successfully checked out branch '$branch'"
+      else
         fail "$remote $branch remote branch not found."
       fi
-    elif [[ -z "$(git branch | awk "/\* $branch$/{print \$2}")" ]] ; then
-      if ! git checkout $branch 2>/dev/null ; then
-        fail "Unable to checkout $branch."
+    elif [[ -z "$(git branch | awk "/\* $branch$/{print \$2}")" ]]
+    then
+      if git checkout $branch 2>/dev/null
+      then
+        log "Successfully checked out branch '$branch'"
+      else
+        fail "Unable to checkout branch $branch."
       fi
     fi
 
-    git pull --rebase origin $branch
+    if git pull --rebase $remote $branch
+    then
+      log "Successfully pulled (rebased) from $remote $branch"
+    else
+      fail "Failed pull/rebase $remote $branch"
+    fi
   else
     builtin cd "${rvm_src_path}"
 
-    if ! git clone --depth 1 git://github.com/wayneeseguin/rvm.git ; then
-      if !  git clone https://github.com/wayneeseguin/rvm.git ; then
+    if ! git clone --depth 1 git://github.com/wayneeseguin/rvm.git
+    then
+      if !  git clone https://github.com/wayneeseguin/rvm.git
+      then
         fail "Unable to clone the RVM repository, attempted both git:// and https://"
       fi
     fi
@@ -123,9 +164,12 @@ install_head()
   return 0
 }
 
-shopt -s extglob
-set -o errtrace
-set -o errexit
+case "$*" in
+  *[[:space:]]--trace[[:space:]]*)
+    set -o xtrace
+    export rvm_trace_flag=1
+    ;;
+esac
 
 export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
@@ -193,27 +237,33 @@ then
 fi
 
 # Parse CLI arguments.
-while [[ $# -gt 0 ]] ; do
-  token="$1" ; shift
+while (( $# > 0 ))
+do
+  token="$1"
+  shift
   case "$token" in
-
-    --path)
-      if [[ -n "${1:-}" ]] ; then
-        rvm_path="$1" ; shift
-      else
-        fail "--path must be followed by a path."
-      fi
-      ;;
 
     --trace)
       set -o xtrace
       export rvm_trace_flag=1
       ;;
 
+    --path)
+      if [[ -n "${1:-}" ]]
+      then
+        rvm_path="$1"
+        shift
+      else
+        fail "--path must be followed by a path."
+      fi
+      ;;
+
     --branch) # Install RVM from a given branch
-      if [[ -n "${1:-}" ]] ; then
+      if [[ -n "${1:-}" ]]
+      then
         version="head"
-        branch="$1" ; shift
+        branch="$1"
+        shift
       else
         fail "--branch must be followed by a branchname."
       fi
@@ -226,13 +276,16 @@ while [[ $# -gt 0 ]] ; do
     --version)
       case "$1" in
         +([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
-          version="$1" ; shift
+          version="$1"
+          shift
           ;;
         latest|stable)
-          version="latest" ; shift
+          version="latest"
+          shift
           ;;
         head|master)
-          version="head" ; shift
+          version="head"
+          shift
           branch="master"
           ;;
         *)
@@ -245,12 +298,10 @@ while [[ $# -gt 0 ]] ; do
       version="$token"
       ;;
 
-
     help|usage)
       usage
       exit 0
       ;;
-
   *)
     usage
     exit 1
@@ -261,15 +312,17 @@ done
 
 true "${version:=head}"
 
-export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
-
 rvm_src_path="$rvm_path/src"
 rvm_archives_path="$rvm_path/archives"
 rvm_releases_url="https://rvm.beginrescueend.com/releases"
 rvm_prefix="$(dirname $rvm_path)/"
 
-for dir in  "$rvm_src_path" "$rvm_archives_path" ; do
-  [[ ! -d "$dir" ]] && mkdir -p "$dir/"
+for dir in  "$rvm_src_path" "$rvm_archives_path"
+do
+  if [[ ! -d "$dir" ]]
+  then
+    mkdir -p "$dir"
+  fi
 done
 
 # Perform the actual installation, first we obtain the source using whichever
@@ -294,18 +347,17 @@ esac
 
 # No matter which one we are doing we install the same way, using the RVM
 #   installer script.
-chmod +x ./scripts/install
-
 flags=()
-if (( ${rvm_trace_flag:-0} == 1 ))
+if (( rvm_trace_flag == 1 ))
 then
   flags+=("--trace")
 fi
-if (( ${rvm_debug_flag:-0} == 1 ))
+if (( rvm_debug_flag == 1 ))
 then
   flags+=("--debug")
 fi
 
-# Now we yield to the RVM installer.
-exec ./scripts/install ${flags[*]} --prefix "$rvm_prefix" --path "$rvm_path"
+chmod +x ./scripts/install
 
+# Now we run the RVM installer.
+./scripts/install ${flags[*]} --prefix "$rvm_prefix" --path "$rvm_path"
