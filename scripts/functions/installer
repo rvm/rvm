@@ -402,8 +402,7 @@ install_rvm_files()
 
 setup_configuration_files()
 {
-  (
-  cd "$rvm_path"
+  pushd "$rvm_path"
 
   if [[ -f config/user ]]
   then
@@ -425,30 +424,36 @@ setup_configuration_files()
       touch user/rvmrcs
     fi
   fi
-  )
+  popd
 }
 
 ensure_scripts_are_executable()
 {
   scripts=(monitor match log install color db fetch log set package)
 
-  for script_name in "${scripts[@]}" ; do
-
-    chmod +x "$rvm_scripts_path/$script_name" 2>/dev/null # Hide errors.
-
+  for script_name in "${scripts[@]}"
+  do
+    if [[ -s "$rvm_scripts_path/$script_name" ]]
+    then
+      chmod +x "$rvm_scripts_path/$script_name"
+    fi
   done
   return 0
 }
 
 install_binscripts()
 {
-  files=(rvm-prompt rvm rvmsudo rvm-shell rvm-exec rvm-auto-ruby)
+  files=(rvm-prompt rvm-installer rvm rvmsudo rvm-shell rvm-exec rvm-auto-ruby)
   for file in "${files[@]}"
   do
     # Ensure binscripts are always available in rvm_path/bin first.
-    rm -f "${rvm_path}/bin/${file}"
+    if [[ -f "${rvm_path}/bin/${file}" ]]
+    then
+      rm -f "${rvm_path}/bin/${file}"
+    fi
 
     cp -f "${source_path}/binscripts/${file}" "${rvm_path}/bin/${file}"
+
     chmod +x "${rvm_path}/bin/${file}"
 
     if [[ "${rvm_bin_path}" != "${rvm_path}/bin" ]]
@@ -462,10 +467,11 @@ install_binscripts()
 
 automatic_profile_setup()
 {
-  if [[ ${rvm_auto_flag:-0} -eq 1 ]]
+  true ${rvm_auto_flag:=0} ${rvm_loaded_flag:=0}
+  if (( rvm_auto_flag == 1 ))
   then
     printf "Checking rc files... ($rvm_rc_files)"
-    if [[ ${rvm_loaded_flag:-0} -ne 1 ]]
+    if (( rvm_loaded_flag == 0 ))
     then
       for rcfile in $(printf $rvm_rc_files)
       do
@@ -479,7 +485,6 @@ automatic_profile_setup()
           if ! grep '.profile' "$rcfile" >/dev/null 2>&1
           then
             echo "    Adding profile sourcing line to $rcfile."
-
             printf "
   # rvm install added line:
   [[ -s \"$rvm_path/.profile\" ]] && source \"$rvm_path/.profile\"
@@ -513,7 +518,10 @@ install_gemsets()
       mkdir -p "$rvm_path/gemsets"
     fi
 
-    gemset_files=($(find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'))
+    gemset_files=($(
+    find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
+    ))
+
     for gemset_file in "${gemset_files[@]}"
     do
       cwd="${PWD//\//\\/}\/gemsets\/"
@@ -540,7 +548,10 @@ install_patchsets()
       mkdir -p "$rvm_path/patchsets"
     fi
 
-    patchsets=($(builtin cd patchsets ; find \. "${name_opt}" '*' | sed 's/^\.\///'))
+    patchsets=($(
+    builtin cd patchsets
+    find \. "${name_opt}" '*' | sed 's/^\.\///'
+    ))
 
     for patchset_file in "${patchsets[@]}"
     do
@@ -565,9 +576,9 @@ cleanse_old_environments()
   if [[ -d "$rvm_path/environments" ]]
   then
     # Remove BUNDLE_PATH from environment files
-    environments=(
-      $(find "$rvm_path/environments/" -maxdepth 1 -mindepth 1 -type f)
-    )
+    environments=($(
+    find "$rvm_path/environments/" -maxdepth 1 -mindepth 1 -type f
+    ))
 
     if (( ${#environments[@]} > 0 ))
     then
@@ -584,7 +595,8 @@ cleanse_old_environments()
 
 migrate_old_gemsets()
 {
-  for gemset in "$rvm_path"/gems/*\%* ; do
+  for gemset in "$rvm_path"/gems/*\%*
+  do
     new_path=${gemset/\%/${rvm_gemset_separator:-"@"}}
 
     if [[ -d "$gemset" ]] && [[ ! -d "$new_path" ]]
@@ -671,7 +683,7 @@ install_man_pages()
   printf "\n    Copying manpages into place.\n"
 
   files=($(
-  builtin cd "$install_source_path/man" ;
+  builtin cd "$install_source_path/man"
   find . -maxdepth 2 -mindepth 1 -type f -print
   ))
 
@@ -705,6 +717,7 @@ cleanup_tmp_files()
 
 display_notes()
 {
+  true ${upgrade_flag:=0}
   if [[ $upgrade_flag -eq 0 ]]
   then
     chmod +x ./scripts/notes # Sometimes things don't clone properly :/
@@ -716,7 +729,7 @@ display_notes()
     name="$(git config user.name 2>/dev/null)"
   fi
 
-  if (( ${upgrade_flag:-0} == 1 ))
+  if (( upgrade_flag == 1 ))
   then
     upgrade_notes
     check_rubyopt_conditions
@@ -743,7 +756,9 @@ display_notes()
 setup_rvm_path_permissions()
 {
   chown -R root:"$rvm_group_name" "$rvm_path"
+
   chmod -R g+w "$rvm_path"
+
   if [[ -d "$rvm_path" ]]
   then
     find "$rvm_path" -type d -print0 | xargs -n1 -0 chmod g+s
