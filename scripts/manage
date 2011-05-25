@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 sys=$( uname -s )
-if [[ "${sys}" = AIX ]] ; then
-    name_opt=-name
+if [[ "${sys}" = AIX ]]
+then
+  name_opt=-name
 else
-    name_opt=-iname
+  name_opt=-iname
 fi
 original_ruby_version=${rvm_ruby_version:-""}
 original_ruby_string=${rvm_ruby_string:-""}
@@ -125,9 +126,11 @@ __rvm_apply_patches()
 
 __rvm_install_source()
 {
+  true ${rvm_force_flag:=0} ${rvm_ruby_selected_flag:=0} ${rvm_static_flag:=0}
+
   local directory configure_parameters db_configure_flags
 
-  if (( ${rvm_ruby_selected_flag:=0} == 0 ))
+  if (( rvm_ruby_selected_flag == 0 ))
   then
     __rvm_select
   fi
@@ -145,12 +148,11 @@ __rvm_install_source()
 
   builtin cd "${rvm_src_path}"
 
-  if [[ ${rvm_force_flag:-0} -eq 1 ]] ; then
-
-    for directory in "$rvm_ruby_home" "${rvm_src_path}/$rvm_ruby_string" ; do
-
+  if (( rvm_force_flag == 1 ))
+  then
+    for directory in "$rvm_ruby_home" "${rvm_src_path}/$rvm_ruby_string"
+    do
       __rvm_rm_rf "$directory"
-
     done
   fi
 
@@ -173,15 +175,17 @@ __rvm_install_source()
     return $result
   fi
 
-  if [[ -d "${rvm_path}/usr" ]] ; then
+  if [[ -d "${rvm_path}/usr" ]]
+  then
     export PATH="${rvm_path}/usr/bin:${PATH}"
 
     builtin hash -r
   fi
 
-  if (( ${rvm_static_flag:=0} == 1 ))
+  if (( rvm_static_flag == 1 ))
   then
-    if [[ -s "ext/Setup" ]]; then
+    if [[ -s "ext/Setup" ]]
+    then
       echo 'option nodynamic' >> ext/Setup
       rvm_log "Setting option nodynamic (static)."
     else
@@ -205,32 +209,47 @@ __rvm_install_source()
 
   if [[ -z "${rvm_ruby_configure:-""}" \
     && (! -s "${rvm_src_path}/$rvm_ruby_string/configure" \
-        || "${rvm_src_path}/$rvm_ruby_string/configure.in" -nt "${rvm_src_path}/$rvm_ruby_string/configure") ]] ; then
-
-    if command -v autoconf > /dev/null ; then
-
+        || "${rvm_src_path}/$rvm_ruby_string/configure.in" -nt "${rvm_src_path}/$rvm_ruby_string/configure") ]]
+  then
+    if command -v autoconf > /dev/null
+    then
       __rvm_run "autoconf" "autoconf" "Running autoconf"
-
     else
       rvm_error "rvm requires autoconf to install the selected ruby interpreter however autoconf was not found in the PATH."
       return 1
     fi
   fi
 
-  if [[ -n "${rvm_ruby_configure:-""}" ]] ; then
+  # Ruby 1.9 should now use libyaml which is for Psych.
+  case ${rvm_ruby_string} in
+    ruby-1.9*)
+      source "${rvm_scripts_path}/functions/packages"
+      libyaml # Installs libyaml
+      if [[ -n "${rvm_configure_flags:-}" ]]
+      then
+        rvm_configure_flags="${rvm_configure_flags} --with-libyaml-dir=${rvm_path}/usr"
+      else
+        rvm_configure_flags="--with-libyaml-dir=${rvm_path}/usr"
+      fi
+      ;;
+  esac
 
+  if [[ -n "${rvm_ruby_configure:-""}" ]]
+  then
     __rvm_run "configure" "$rvm_ruby_configure"
     result=$?
 
-    if [[ $result -gt 0 ]] ; then
+    if (( result > 0 ))
+    then
       rvm_error "There has been an error while configuring. Halting the installation."
       return $result
     fi
 
-  elif [[ -s ./configure ]] ; then
-
+  elif [[ -s ./configure ]]
+  then
     # REE stores configure flags differently for head vs. the distributed release.
-    if [[ "ree" != "${rvm_ruby_interpreter:-""}" ]]; then
+    if [[ "ree" != "${rvm_ruby_interpreter:-""}" ]]
+    then
       __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
     fi
 
