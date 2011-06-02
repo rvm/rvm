@@ -31,11 +31,13 @@ __rvm_check_for_clang()
 # Checks for bison, returns zero iff it is found
 __rvm_check_for_bison()
 {
-  if (( ${rvm_head_flag:=0} > 0 ))
+  true ${rvm_head_flag:=0}
+  if (( rvm_head_flag > 0 ))
   then
     command -v bison > /dev/null
     result=$?
-    if [[ $result -gt 0 ]] ; then
+    if (( result > 0 ))
+    then
       rvm_error "\nbison is not available in your path. \nPlease ensure bison is installed before compiling from head.\n"
     fi
   fi
@@ -83,16 +85,18 @@ __rvm_apply_patches()
 
   source_directory="${1:-""}"
 
-  [[ -n "$source_directory" ]] ||
+  if [[ -z "$source_directory" ]]
+  then
     source_directory="${rvm_src_path}/$rvm_ruby_string"
+  fi
 
   (
     builtin cd "$source_directory"
 
     patches=($(__rvm_current_patch_names))
 
-    for patch_name in "${patches[@]}" ; do
-
+    for patch_name in "${patches[@]}"
+    do
       # If set, extract the patch level from the patch name.
       patch_level=1
 
@@ -111,8 +115,10 @@ __rvm_apply_patches()
           __rvm_run "patch.apply.${patch_name/*\/}" \
             "patch -F$patch_fuzziness -p$patch_level -f <\"$full_patch_path\"" \
             "Applying patch '$patch_name' (located at $full_patch_path)"
-
-          (( $? == 0 )) || result=1 # Detect failed patches
+          if (( $? > 0 ))
+          then
+            result=1 # Detect failed patches
+          fi
         fi
 
       else
@@ -322,7 +328,11 @@ __rvm_install_source()
 
 __rvm_install_ruby()
 {
-  if (( ${rvm_ruby_selected_flag:=0} == 0 ))
+  true ${rvm_head_flag:=0} ${rvm_ruby_selected_flag:=0} ${rvm_force_flag:=0}
+
+  local binary
+
+  if (( rvm_ruby_selected_flag == 0 ))
   then
     __rvm_select
   fi
@@ -344,9 +354,9 @@ __rvm_install_ruby()
 
   case "$rvm_ruby_interpreter" in
     macruby)
-      if [[ "Darwin" = "$(uname)" ]] ; then
-
-        if (( ${rvm_head_flag:=0} == 1 ))
+      if [[ "Darwin" = "$(uname)" ]]
+      then
+        if (( rvm_head_flag == 1 ))
         then
           if (( ${rvm_llvm_flag:=0} == 1 ))
           then
@@ -444,17 +454,25 @@ RubyWrapper
 
           file_name="$rvm_ruby_home/bin/$binary_name"
 
-          [[ ! -f "$file_name" ]] || rm -f "$file_name"
+          if [[ -f "$file_name" ]]
+          then
+            rm -f "$file_name"
+          fi
 
           echo "$ruby_wrapper" > "$file_name"
 
-          [[ -x "$file_name" ]] || chmod +x $file_name
+          if [[ ! -x "$file_name" ]]
+          then
+            chmod +x $file_name
+          fi
 
-          if [[ "$binary_name" = "ruby" ]] ; then
+          if [[ "$binary_name" = "ruby" ]]
+          then
             echo "$ruby_wrapper" \
               > "${rvm_bin_path:-"$rvm_bin_path/bin"}/$rvm_ruby_string"
           fi
-        done ; unset binaries
+        done
+        unset binaries
 
         __rvm_irbrc
 
@@ -465,7 +483,7 @@ RubyWrapper
 
     ree)
       if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.8/')" ]] &&
-        (( ${rvm_head_flag:=0} == 0 ))
+        (( rvm_head_flag == 0 ))
       then
         rvm_ruby_url="$(__rvm_db "ree_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
 
@@ -473,7 +491,7 @@ RubyWrapper
 
         builtin cd "${rvm_src_path}"
 
-        if (( ${rvm_force_flag:=0} == 0 )) &&
+        if (( rvm_force_flag == 0 )) &&
           [[ -d "${rvm_src_path}/$rvm_ruby_string" &&
           ! -x "${rvm_src_path}/$rvm_ruby_string/installer" ]]
         then
@@ -513,11 +531,13 @@ RubyWrapper
         # wait, what? v v v TODO: Investigate line smell.
         mkdir -p "${rvm_ruby_home}/lib/ruby/gems/1.8/gems"
 
-        [[ -z "$rvm_configure_flags" ]] ||
+        if [[ -n "$rvm_configure_flags" ]]
+        then
           rvm_configure_flags="${rvm_configure_flags//--/-c --}"
+        fi
 
-        if [[ "Darwin" = "$(uname)" && ("1.8.6" = "$rvm_ruby_version" || "1.8.7" = "$rvm_ruby_version") \
-          && -z "$rvm_ree_options" ]] ; then
+        if [[ "Darwin" = "$(uname)" && ("1.8.6" = "$rvm_ruby_version" || "1.8.7" = "$rvm_ruby_version") && -z "$rvm_ree_options" ]]
+      then
           rvm_ree_options="${rvm_ree_options} --no-tcmalloc"
         fi
 
@@ -569,7 +589,6 @@ RubyWrapper
     ;;
 
     rbx|rubinius)
-
       rvm_log "$rvm_ruby_string installing #dependencies "
 
       if ! __rvm_ensure_has_18_compat_ruby
@@ -580,7 +599,6 @@ RubyWrapper
 
       # TODO: use 'rvm gems load' here:
       unset CFLAGS LDFLAGS ARCHFLAGS # Important.
-
       unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
 
       __rvm_remove_rvm_from_path
@@ -591,7 +609,7 @@ RubyWrapper
       builtin hash -r
 
       if [[ -n "$(printf "${rvm_ruby_version:-""}" | awk '/^1\./')" ]] \
-        && (( ${rvm_head_flag:=0} == 0 ))
+        && (( rvm_head_flag == 0 ))
       then
         rvm_log "$rvm_ruby_string #downloading ($rvm_ruby_package_file), this may take a while depending on your connection..."
 
@@ -698,7 +716,10 @@ RubyWrapper
 
       printf "exec '$rvm_ruby_home/bin/rbx' 'irb' \"\$@\"\n" >> "$file_name"
 
-      [[ -x "$file_name" ]] || chmod +x "$file_name"
+      if [[ ! -x "$file_name" ]]
+      then
+        chmod +x "$file_name"
+      fi
 
       # Install Gem Wrapper on Rubinius.
       file_name="$rvm_ruby_home/bin/gem"
@@ -707,7 +728,10 @@ RubyWrapper
 
       __rvm_inject_ruby_shebang "$file_name"
 
-      [[ ! -x "$file_name" ]] || chmod +x "$file_name"
+      if [[ ! -x "$file_name" ]]
+      then
+        chmod +x "$file_name"
+      fi
 
       unset file_name
 
@@ -722,12 +746,14 @@ RubyWrapper
 
     jruby)
 
-      if ! command -v java > /dev/null; then
-        printf "java must be installed and in PATH in order to install JRuby."
+      if ! command -v java > /dev/null
+      then
+        printf "java must be installed and in PATH for JRuby."
         return 1
       fi
 
-      if [[ "Darwin" = "$(uname)" ]] ; then
+      if [[ "Darwin" = "$(uname)" ]]
+      then
         java_version=$(java -version 2>&1  | awk -F'"' '/ version /{print $2}')
         case "$java_version" in
           1.5.*)
@@ -784,7 +810,7 @@ RubyWrapper
         builtin cd "$rvm_ruby_home/bin/"
         for binary in jirb jruby jgem ; do
           ln -fs "$binary" "${binary#j}"
-        done ; unset binary
+        done
       )
 
       # -server is "a lot slower for short-lived scripts like rake tasks, and takes longer to load"
@@ -986,7 +1012,10 @@ RubyWrapper
         __rvm_fetch_ruby
 
         result=$?
-        (( result == 0 )) || return $result
+        if (( result > 0 ))
+        then
+          return $result
+        fi
 
         builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
@@ -999,7 +1028,10 @@ RubyWrapper
         __rvm_run "rake" "$rvm_ruby_make" "Building IronRuby..."
         unset compatible_ruby
         result=$?
-        (( result == 0 )) || exit $result
+        if (( result > 0 ))
+        then
+          exit $result
+        fi
 
         __rvm_rm_rf "$rvm_ruby_home"/*
 
@@ -1073,7 +1105,10 @@ RubyWrapper
     ;;
 
     goruby)
-      (( ${rvm_make_flags_flag:=0} == 0 )) || __rvm_make_flags
+      if (( ${rvm_make_flags_flag:=0} > 0 ))
+      then
+        __rvm_make_flags
+      fi
 
       unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
 
@@ -1413,7 +1448,7 @@ __rvm_fetch_ruby()
   else # -head
     mkdir -p "${rvm_repos_path}"
 
-    [[ -n "${rvm_ruby_url:-""}" ]] || rvm_ruby_url="$rvm_ruby_repo_url"
+    true ${rvm_ruby_url:="$rvm_ruby_repo_url"}
 
     if echo "$rvm_ruby_url" | grep 'git' >/dev/null 2>&1
     then # Using a  git url.
@@ -1550,7 +1585,8 @@ __rvm_fetch_ruby()
 
       elif [[  "${rvm_ruby_major_version:-""}" = "9" ]]
       then
-        if [[ -z "${rvm_ruby_minor_version:-""}" || "${rvm_ruby_minor_version:-""}" = 3 ]]
+        if [[ -z "${rvm_ruby_minor_version:-""}" ||
+          "${rvm_ruby_minor_version:-""}" = 3 ]]
         then
           true "${rvm_ruby_url:="$rvm_ruby_repo_url/trunk"}"
 
@@ -1567,7 +1603,10 @@ __rvm_fetch_ruby()
 
       rvm_rev=""
 
-      [[ -z "${rvm_ruby_revision:-""}" ]] || rvm_rev="-$rvm_ruby_revision"
+      if [[ -n "${rvm_ruby_revision:-""}" ]]
+      then
+        rvm_rev="-$rvm_ruby_revision"
+      fi
 
       (
         builtin cd "${rvm_repos_path}/$rvm_ruby_string"
@@ -1697,8 +1736,10 @@ __rvm_remove_ruby()
         rvm_log "it seems that $dir/$rvm_ruby_string is already non existent."
       fi
 
-      [[ ! -e "${rvm_bin_path}/$rvm_ruby_string" ]] ||
+      if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
+      then
         rm -f "${rvm_bin_path}/$rvm_ruby_string"
+      fi
 
       __rvm_check_default
 
@@ -1737,7 +1778,10 @@ __rvm_remove_gemsets()
 
     for gemset in "${gemsets[@]}"
     do
-      [[ ! -d "$gemset" ]] || __rvm_rm_rf "$gemset"
+      if [[ -d "$gemset" ]]
+      then
+        __rvm_rm_rf "$gemset"
+      fi
     done
   fi
 }
@@ -1768,7 +1812,10 @@ __rvm_remove_environments()
 
   for environment in "${environments[@]}"
   do
-    [[ ! -e "$environment" ]] || __rvm_rm_rf "$environment"
+    if [[ -e "$environment" ]]
+    then
+      __rvm_rm_rf "$environment"
+    fi
   done
 
   return 0
@@ -1832,7 +1879,7 @@ __rvm_post_install()
     for binary in "${binaries[@]}"
     do
       if [[ -e "$rvm_ruby_home/bin/$binary" ||
-        -e "${rvm_src_path}/$rvm_ruby_string/bin/$binary" ]]
+            -e "${rvm_src_path}/$rvm_ruby_string/bin/$binary" ]]
       then
         if [[ "${rvm_src_path}/$rvm_ruby_string" != "$rvm_ruby_home" &&
           -f "${rvm_src_path}/$rvm_ruby_string/bin/$binary" ]]
@@ -1970,8 +2017,10 @@ __rvm_manage_rubies()
 
       eval "__rvm_${action}_ruby"
       result="$?"
-
-      (( result == 0 || manage_result > 1 )) || manage_result="$result"
+      if (( result > 0 && manage_result == 1 ))
+      then
+        manage_result="$result"
+      fi
 
       if (( result == 0 )) && [[ "$action" = "install" ]]
       then
@@ -1988,39 +2037,38 @@ __rvm_manage_rubies()
   else # all
     if [[ "$action" != "install" && "$action" != "remove" &&
       "$action" != "uninstall" ]]
-  then
-    local ruby_string
+    then
+      local ruby_string
 
-    while read -r ruby_string
-    do # Keep this on second line damnit!
-
-      if [[ -x "$ruby_string" ]]
-      then
-        rvm_ruby_string="$ruby_string"
-
-        eval "__rvm_${action}_ruby"
-        result="$?"
-
-        (( result == 0 || manage_result > 0 )) || manage_result="$result"
-
-        # record as current_manage_string to prevent it being overridden.
-        if (( result == 0 )) && [[ "$action" = "install" ]]
+      while read -r ruby_string
+      do # Keep this on second line damnit!
+        if [[ -x "$ruby_string" ]]
         then
-          __rvm_record_install "$ruby_string"
+          rvm_ruby_string="$ruby_string"
+
+          eval "__rvm_${action}_ruby"
+          result="$?"
+
+          (( result == 0 || manage_result > 0 )) || manage_result="$result"
+
+          # record as current_manage_string to prevent it being overridden.
+          if (( result == 0 )) && [[ "$action" = "install" ]]
+          then
+            __rvm_record_install "$ruby_string"
+          fi
+
+          __rvm_unset_ruby_variables
         fi
+      done < <(builtin cd "$rvm_rubies_path" ; \
+        find . -maxdepth 1 -mindepth 1 -type d 2> /dev/null | sed -e 's#./##g')
 
-        __rvm_unset_ruby_variables
-      fi
-    done < <(builtin cd "$rvm_rubies_path" ; \
-      find . -maxdepth 1 -mindepth 1 -type d 2> /dev/null | sed -e 's#./##g')
-
-  else
-    rvm_warn 'Really? '"$action"' all? See "rvm list known" and limit the selection to something more sane please :)'
+    else
+      rvm_warn 'Really? '"$action"' all? See "rvm list known" and limit the selection to something more sane please :)'
+    fi
   fi
-fi
 
-# TODO: This should return the exit status of the command that got called.
-return $manage_result
+  # TODO: This should return the exit status of the command that got called.
+  return $manage_result
 }
 
 args=($*)
