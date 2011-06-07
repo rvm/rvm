@@ -3,6 +3,8 @@
 # __rvm_select implementation version patch_level
 __rvm_select()
 {
+  true ${rvm_gemset_name:=}
+
   # Set Variable Defaults
   export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
 
@@ -78,6 +80,8 @@ __rvm_select()
       rvm_ruby_interpreter="rbx"
       rvm_ruby_version=${rvm_ruby_version:-$(__rvm_db "rbx_version")}
       rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
+      rbx_url=${rbx_url:-$(__rvm_db "rbx_url")}
+      rvm_ruby_url="${rbx_url}"
 
       #
       # rbx,rbx-head => master
@@ -100,7 +104,6 @@ __rvm_select()
         echo "rubinius-${rvm_ruby_version}-${rvm_ruby_patch_level}.${rvm_archive_extension}" |
         \sed 's#-p*#-#'
         )"
-        __rvm_db "rbx_url" "rvm_ruby_url"
         rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_file"
 
         if [[ -n "${rvm_rbx_opt:-}" ]]
@@ -280,7 +283,7 @@ __rvm_select()
       fi
   esac
 
-  if ! __rvm_gemset_select
+  if [[ -n "${rvm_gemset_name}" ]] && ! __rvm_gemset_select
   then
     return $?
   fi
@@ -571,27 +574,26 @@ __rvm_ruby_string()
   # * rvm_ruby_tag
 
  local ruby_string gemset_name
+
   __rvm_default_flags
 
-  rvm_expanding_aliases=${rvm_expanding_aliases:-0}
+  rvm_expanding_aliases=
 
-  rvm_ruby_version="${rvm_ruby_version:-}"
-  rvm_gemset_name="${rvm_gemset_name:-}"
-  rvm_ruby_interpreter="${rvm_ruby_interpreter:-}"
-  rvm_ruby_version="${rvm_ruby_version:-}"
-  rvm_ruby_patch_level="${rvm_ruby_patch_level:-}"
-  rvm_ruby_revision="${rvm_ruby_revision:-}"
-  rvm_ruby_tag="${rvm_ruby_tag:-}"
+  true \
+    "${rvm_ruby_version:=}" "${rvm_gemset_name:=}" "${rvm_ruby_interpreter:=}"\
+    "${rvm_ruby_version:=}" "${rvm_ruby_tag:=}" "${rvm_ruby_patch_level:=}"\
+    "${rvm_ruby_revision:=}" ${rvm_gemset_separator:="@"} "${rvm_ruby_string:=}"\
+    ${rvm_expanding_aliases:=0} ${rvm_head_flag:=0}
 
-  if echo "$rvm_ruby_string" | \grep "${rvm_gemset_separator:-"@"}" >/dev/null 2>&1
+  if echo "$rvm_ruby_string" | \grep "${rvm_gemset_separator}" >/dev/null 2>&1
   then
-    rvm_gemset_name="${rvm_ruby_string/*${rvm_gemset_separator:-"@"}/}"
-    rvm_ruby_string="${rvm_ruby_string/${rvm_gemset_separator:-"@"}*/}"
+    rvm_gemset_name="${rvm_ruby_string/*${rvm_gemset_separator}/}"
+    rvm_ruby_string="${rvm_ruby_string/${rvm_gemset_separator}*/}"
   fi
 
   # Alias'd rubies
   if (( rvm_expanding_aliases == 0 )) &&
-    [[ -n "${rvm_ruby_string:-}" && "$rvm_ruby_string" != "system" ]]
+    [[ -n "${rvm_ruby_string}" && "$rvm_ruby_string" != "system" ]]
   then
     if expanded_alias_name="$("$rvm_scripts_path/alias" show "$rvm_ruby_string" 2>/dev/null)" \
       && [[ -n "$expanded_alias_name" ]]
@@ -604,9 +606,9 @@ __rvm_ruby_string()
     fi
   fi
 
-  if echo "$rvm_ruby_string" | \grep "${rvm_gemset_separator:-"@"}" >/dev/null 2>&1 ; then
-    rvm_gemset_name="${rvm_ruby_string/*${rvm_gemset_separator:-"@"}/}"
-    rvm_ruby_string="${rvm_ruby_string/${rvm_gemset_separator:-"@"}*/}"
+  if echo "$rvm_ruby_string" | \grep "${rvm_gemset_separator}" >/dev/null 2>&1 ; then
+    rvm_gemset_name="${rvm_ruby_string/*${rvm_gemset_separator}/}"
+    rvm_ruby_string="${rvm_ruby_string/${rvm_gemset_separator}*/}"
   fi
 
   # Stash the ruby string.
@@ -618,8 +620,8 @@ __rvm_ruby_string()
 
   __rvm_unset_ruby_variables
 
-  rvm_ruby_repo_url="${repo_url:-""}"
-  rvm_ruby_repo_branch="${branch_name:-""}"
+  rvm_ruby_repo_url="${repo_url:-}"
+  rvm_ruby_repo_branch="${branch_name:-}"
   rvm_ruby_name="$ruby_name"
 
   if [[ -n "$gemset_name" ]]
@@ -690,8 +692,30 @@ __rvm_ruby_string()
             ;;
 
           (*)
-            rvm_error "Unknown ruby interpreter version: '$string'"
-            return 1
+            if [[ "${rvm_ruby_interpreter}" == "rbx" ]]
+            then
+              case "${string}" in
+                head)
+                  rvm_ruby_version="head"
+                  rvm_head_flag=1
+                  ;;
+                *)
+                  if [[ -z "${rvm_ruby_version}" ]]
+                  then
+                    rvm_ruby_version="${string}"
+                  elif [[ -z "${rvm_ruby_patch_level}" ]]
+                  then
+                    rvm_ruby_patch_level="${string}"
+                  else
+                    rvm_error "Unknown ruby interpreter string component: '$string'"
+                    return 1
+                  fi
+                  ;;
+              esac
+            else
+              rvm_error "Unknown ruby interpreter version: '$string'"
+              return 1
+            fi
             ;;
         esac
         ;;
@@ -771,8 +795,30 @@ __rvm_ruby_string()
       ;;
 
     *)
-      rvm_error "Unknown ruby interpreter string component: '$string'"
-      return 1
+      if [[ "${rvm_ruby_interpreter}" == "rbx" ]]
+      then
+        case "${string}" in
+          head)
+            rvm_ruby_version="head"
+            rvm_head_flag=1
+            ;;
+          *)
+            if [[ -z "${rvm_ruby_version}" ]]
+            then
+              rvm_ruby_version="${string}"
+            elif [[ -z "${rvm_ruby_patch_level}" ]]
+            then
+              rvm_ruby_patch_level="${string}"
+            else
+              rvm_error "Unknown ruby interpreter string component: '$string'"
+              return 1
+            fi
+            ;;
+        esac
+      else
+        rvm_error "Unknown ruby interpreter string component: '$string'"
+        return 1
+      fi
       ;;
     esac
   done
@@ -783,7 +829,7 @@ __rvm_ruby_string()
     case "$rvm_ruby_version" in
       1.[8-9]*) rvm_ruby_interpreter="ruby"    ;;
       0.[5-6]*) rvm_ruby_interpreter="macruby" ;;
-      1.[2-4]*) rvm_ruby_interpreter="rbx"     ;;
+      [1-2].[0-4]*) rvm_ruby_interpreter="rbx"     ;;
       1.[5-7]*) rvm_ruby_interpreter="jruby"   ;;
     esac
   fi
@@ -805,23 +851,23 @@ __rvm_ruby_string()
   fi
 
   # Head
-  if (( ${rvm_head_flag:=0} == 1 ))
+  if (( rvm_head_flag == 1 ))
   then
     rvm_ruby_string="${rvm_ruby_string}-head"
 
-  elif [[ -n "${rvm_ruby_revision:-""}" ]]
+  elif [[ -n "${rvm_ruby_revision:-}" ]]
   then
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_revision}"
 
-  elif [[ -n "${rvm_ruby_tag:-""}" ]]
+  elif [[ -n "${rvm_ruby_tag:-}" ]]
   then
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_tag}"
 
-  elif [[ -n "${rvm_ruby_patch_level:-""}" ]]
+  elif [[ -n "${rvm_ruby_patch_level:-}" ]]
   then
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
 
-  elif [[ -n "${rvm_ruby_user_tag:-""}" ]]
+  elif [[ -n "${rvm_ruby_user_tag:-}" ]]
   then
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_user_tag}"
 

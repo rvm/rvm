@@ -1,5 +1,22 @@
 #!/usr/bin/env bash
 
+file_exists_at_url()
+{
+  local _url="${1:-}"
+  if [[ -n "${_url}" ]]
+  then
+    if curl -slk --head "${_url}" 2>&1 | head -1  | grep '200 OK' >/dev/null 2>&1
+    then
+      return 0
+    else
+      return 1
+    fi
+  else
+    rvm_log "Warning: URL was not passed to __rvm_check_for_tarball"
+    return 1
+  fi
+
+}
 rbx_install()
 {
   rvm_log "$rvm_ruby_string installing #dependencies "
@@ -21,9 +38,18 @@ rbx_install()
 
   builtin hash -r
 
-  if [[ -n "$(printf "${rvm_ruby_version:-""}" | awk '/^1\./')" ]] &&
-    (( rvm_head_flag == 0 ))
+  if [[ -s "${rvm_archives_path}/${rvm_ruby_package_file}" ]] ||
+    [[ -n "${rvm_ruby_url:-}" ]] && file_exists_at_url "${rvm_ruby_url}"
   then
+    rvm_head_flag=0
+  else
+    rvm_head_flag=1
+    rvm_ruby_repo_branch="${rvm_ruby_version}"
+  fi
+
+  if (( rvm_head_flag == 0 ))
+  then
+    # Install from tarball url.
     rvm_log "$rvm_ruby_string #downloading ($rvm_ruby_package_file), this may take a while depending on your connection..."
 
     "$rvm_scripts_path/fetch" "$rvm_ruby_url"
@@ -35,7 +61,7 @@ rbx_install()
       exit $result
     fi
     __rvm_run "extract" \
-      "gunzip < \"${rvm_archives_path}/$(basename $rvm_ruby_package_file)\" | tar xf - -C ${rvm_src_path}" --no-same-owner \
+      "gunzip < \"${rvm_archives_path}/$(basename ${rvm_ruby_package_file})\" | tar xf - -C ${rvm_src_path} --no-same-owner" \
       "$rvm_ruby_string - #extracting"
     result=$?
 
@@ -51,6 +77,7 @@ rbx_install()
     mv "${rvm_src_path}/rubinius-${rvm_ruby_version}" \
       "${rvm_src_path}/$rvm_ruby_string"
   else
+    # Install from repository
     __rvm_db "rubinius_repo_url" "rvm_ruby_repo_url"
     #rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_interpreter-$rvm_ruby_version"
     __rvm_fetch_from_github "rbx"
