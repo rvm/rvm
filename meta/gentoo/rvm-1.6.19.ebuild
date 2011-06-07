@@ -7,7 +7,7 @@ EAPI=2
 inherit eutils
 
 # This should be the first 7 characters of the tagged version's commit.
-VERSION_SHORT_SHA1="e331ba1"
+VERSION_SHORT_SHA1="b9c46d8"
 
 SRC_URI="http://github.com/wayneeseguin/rvm/tarball/${PV} -> ${P}.tar.gz"
 S="${WORKDIR}/wayneeseguin-rvm-${VERSION_SHORT_SHA1}"
