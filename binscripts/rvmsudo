@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 args=()
+sudo_args=()
+command_found=0
 while [[ $# -gt 0 ]] ; do
   token="${1}" ; shift
 
@@ -15,17 +17,30 @@ while [[ $# -gt 0 ]] ; do
       set -o verbose
       shift
       ;;
+  -*) 
+      if [ "$command_found" != 0 ]; then
+        args=("${args[@]}" "$token")
+      else
+        # found a switch for sudo
+        sudo_args=("${args[@]}" "$token")
+      fi
+      ;;
   *)
+    command_found=1
     args=("${args[@]}" "$token")
     ;;
   esac
 done
 
-command="sudo /usr/bin/env PATH='$PATH'"
+if [ "$command_found" != 0 ]; then
+  command="sudo ${sudo_args[@]} /usr/bin/env PATH='$PATH'"
 
-[[ -n "${GEM_HOME:-}" ]] && command="${command} GEM_HOME='$GEM_HOME' "
-[[ -n "${GEM_PATH:-}" ]] && command="${command} GEM_PATH='$GEM_PATH' "
+  [[ -n "${GEM_HOME:-}" ]] && command="${command} GEM_HOME='$GEM_HOME' "
+  [[ -n "${GEM_PATH:-}" ]] && command="${command} GEM_PATH='$GEM_PATH' "
 
-command="${command} ${args[@]}"
+  command="${command} ${args[@]}"
+else
+  command="sudo ${sudo_args[@]}"
+fi
 
 eval "${command}"
