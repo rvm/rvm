@@ -11,7 +11,7 @@ module RVM
       def initialize(command, status, stdout, stderr)
         @command     = command.dup.freeze
         @raw_status  = status
-        @environment = @raw_status["environment"] || {}
+        @environment = (@raw_status ? (@raw_status["environment"] || {}) : {})
         @successful  = (exit_status == 0)
         @stdout      = stdout.freeze
         @stderr      = stderr.freeze
