@@ -18,7 +18,7 @@ index 7fba909..b53e1ea 100644
  dnl build section {
  
 diff --git a/gc.c b/gc.c
-index 564d260..6b1e02c 100644
+index 564d260..27d9177 100644
 --- a/gc.c
 +++ b/gc.c
 @@ -78,6 +78,17 @@ void *alloca ();
@@ -870,7 +870,7 @@ index 564d260..6b1e02c 100644
  		    add_freelist(objspace, p);
  		    free_num++;
  		}
-@@ -1901,16 +2545,24 @@ gc_sweep(rb_objspace_t *objspace)
+@@ -1901,16 +2545,23 @@ gc_sweep(rb_objspace_t *objspace)
  	    else if (BUILTIN_TYPE(p) == T_ZOMBIE) {
  		/* objects to be finalized */
  		/* do nothing remain marked */
@@ -886,7 +886,6 @@ index 564d260..6b1e02c 100644
  	    p++;
  	}
 -	if (final_num + free_num == heaps[i].limit && freed > do_heap_free) {
-+        final += final_num;
 +	if (final_num + free_num == heaps[i].limit && freed > do_heap_free && freed_blocks < max_blocks_to_free) {
  	    RVALUE *pp;
  
@@ -896,7 +895,7 @@ index 564d260..6b1e02c 100644
  	    for (pp = final_list; pp != final; pp = pp->as.free.next) {
  		RDATA(pp)->dmark = (void (*)())(VALUE)&heaps[i];
  		pp->as.free.flags |= FL_SINGLETON; /* freeing page mark */
-@@ -1922,11 +2574,13 @@ gc_sweep(rb_objspace_t *objspace)
+@@ -1922,11 +2573,13 @@ gc_sweep(rb_objspace_t *objspace)
  	else {
  	    freed += free_num;
  	}
@@ -911,7 +910,7 @@ index 564d260..6b1e02c 100644
      }
      malloc_increase = 0;
      if (freed < free_min) {
-@@ -1934,6 +2588,25 @@ gc_sweep(rb_objspace_t *objspace)
+@@ -1934,6 +2587,25 @@ gc_sweep(rb_objspace_t *objspace)
          heaps_increment(objspace);
      }
      during_gc = 0;
@@ -937,7 +936,7 @@ index 564d260..6b1e02c 100644
  
      /* clear finalization list */
      if (final_list) {
-@@ -2140,6 +2813,7 @@ void rb_gc_mark_encodings(void);
+@@ -2140,6 +2812,7 @@ void rb_gc_mark_encodings(void);
  static int
  garbage_collect(rb_objspace_t *objspace)
  {
@@ -945,7 +944,7 @@ index 564d260..6b1e02c 100644
      struct gc_list *list;
      rb_thread_t *th = GET_THREAD();
      INIT_GC_PROF_PARAMS;
-@@ -2162,6 +2836,14 @@ garbage_collect(rb_objspace_t *objspace)
+@@ -2162,6 +2835,14 @@ garbage_collect(rb_objspace_t *objspace)
      during_gc++;
      objspace->count++;
  
@@ -960,7 +959,7 @@ index 564d260..6b1e02c 100644
      GC_PROF_TIMER_START;
      GC_PROF_MARK_TIMER_START;
      SET_STACK_END;
-@@ -2216,6 +2898,19 @@ garbage_collect(rb_objspace_t *objspace)
+@@ -2216,6 +2897,19 @@ garbage_collect(rb_objspace_t *objspace)
  
      GC_PROF_TIMER_STOP;
      if (GC_NOTIFY) printf("end garbage_collect()\n");
@@ -980,7 +979,7 @@ index 564d260..6b1e02c 100644
      return TRUE;
  }
  
-@@ -2298,6 +2993,7 @@ Init_stack(volatile VALUE *addr)
+@@ -2298,6 +2992,7 @@ Init_stack(volatile VALUE *addr)
  void
  Init_heap(void)
  {
@@ -988,7 +987,7 @@ index 564d260..6b1e02c 100644
      init_heap(&rb_objspace);
  }
  
-@@ -2982,6 +3678,49 @@ count_objects(int argc, VALUE *argv, VALUE os)
+@@ -2982,6 +3677,49 @@ count_objects(int argc, VALUE *argv, VALUE os)
      return hash;
  }
  
@@ -1038,7 +1037,7 @@ index 564d260..6b1e02c 100644
  /*
   *  call-seq:
   *     GC.count -> Integer
-@@ -3188,6 +3927,28 @@ Init_GC(void)
+@@ -3188,6 +3926,28 @@ Init_GC(void)
      rb_define_singleton_method(rb_mGC, "count", gc_count, 0);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
  
@@ -1067,7 +1066,7 @@ index 564d260..6b1e02c 100644
      rb_mProfiler = rb_define_module_under(rb_mGC, "Profiler");
      rb_define_singleton_method(rb_mProfiler, "enabled?", gc_profile_enable_get, 0);
      rb_define_singleton_method(rb_mProfiler, "enable", gc_profile_enable, 0);
-@@ -3201,6 +3962,9 @@ Init_GC(void)
+@@ -3201,6 +3961,9 @@ Init_GC(void)
      rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
      rb_define_module_function(rb_mObSpace, "garbage_collect", rb_gc_start, 0);
  
