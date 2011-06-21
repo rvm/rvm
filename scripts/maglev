@@ -2,7 +2,9 @@
 
 source "$rvm_scripts_path/base"
 
-if [[ "$rvm_trace_flag" -eq 2 ]]
+true ${rvm_trace_flag:-0}
+
+if (( rvm_trace_flag == 2 ))
 then
   set -x
   export rvm_trace_flag
@@ -10,51 +12,57 @@ fi
 
 system="$(uname -s)"
 version="MagLev-${1}.${system}"
-gsname="GemStone-${1}.${system}"
-zipfile=${version}.zip
 
 # Check we're on a suitable 64-bit machine
 case "$system" in
   Linux)
-  if [[ "$(uname -sm)" != "Linux x86_64" ]]; then
-    rvm_error "This script only works on a 64-bit Linux OS."
-    echo "The result from \"uname -sm\" is \"`uname -sm`\" not \"Linux x86_64\""
-    exit 1
-  fi
-  ;;
+    if [[ "$(uname -sm)" != "Linux x86_64" ]]
+    then
+      rvm_error "This script only works on a 64-bit Linux OS."
+      echo "The result from \"uname -sm\" is \"$(uname -sm)\" not \"Linux x86_64\""
+      exit 1
+    fi
+    ;;
+
   Darwin)
-  system_version="$(sw_vers -productVersion)"
-  MAJOR="$(echo $system_version | cut -f1 -d.)"
-  MINOR="$(echo $system_version | cut -f2 -d.)"
-  CPU_CAPABLE="$(sysctl hw.cpu64bit_capable | cut -f2 -d' ')"
-  #
-  # Check the CPU and Mac OS profile.
-  if [[ $CPU_CAPABLE -ne 1 || $MAJOR -lt 10 || $MINOR -lt 5 ]] ; then
-    rvm_error "This script requires Mac OS 10.5 or later on a 64-bit Intel CPU."
-    exit 1
-  fi
-  ;;
+    system_version="$(sw_vers -productVersion)"
+    MAJOR="$(echo $system_version | cut -f1 -d.)"
+    MINOR="$(echo $system_version | cut -f2 -d.)"
+    CPU_CAPABLE="$(sysctl hw.cpu64bit_capable | cut -f2 -d' ')"
+    #
+    # Check the CPU and Mac OS profile.
+    if [[ $CPU_CAPABLE -ne 1 || $MAJOR -lt 10 || $MINOR -lt 5 ]]
+    then
+      rvm_error "This script requires Mac OS 10.5 or later on a 64-bit Intel CPU."
+      exit 1
+    fi
+    ;;
+
   SunOS)
-  if [[ "$(uname -p)" != "i386" ]] || [[ "$(isainfo -b)" != "64" ]]; then
-    rvm_error "This script only works on a 64-bit Solaris-x86 OS."
-    exit 1
-  fi
-  ;;
+    if [[ "$(uname -p)" != "i386" || "$(isainfo -b)" != "64" ]]
+    then
+      rvm_error "This script only works on a 64-bit Solaris-x86 OS."
+      exit 1
+    fi
+    ;;
+
   *)
-  rvm_error "This script only works on a 64-bit Linux, Mac OS X, or Solaris-x86 machine"
-  echo "The result from \"uname -sm\" is \"`uname -sm`\""
-  exit 1
-  ;;
+    rvm_error "This script only works on a 64-bit Linux, Mac OS X, or Solaris-x86 machine"
+    echo "The result from \"uname -sm\" is \"$(uname -sm)\""
+    exit 1
+    ;;
 esac
 
 # We should run this as a normal user, not root.
-if [[ `id | cut -f2 -d= | cut -f1 -d\(` -eq 0 ]]; then
+if (( UID == 0 ))
+then
   rvm_error "This script should be run as a normal user, not root."
   exit 1
 fi
 
 # Check that the current directory is writable
-if [[ ! -w "." ]]; then
+if [[ ! -w "." ]]
+then
   rvm_error "This script requires write permission on your current directory."
   \ls -ld $PWD
   exit 1
@@ -73,33 +81,36 @@ rvm_log "Setting up shared memory"
 #
 case "$system" in
   Linux)
-  # use TotalMem: kB because Ubuntu doesn't have Mem: in Bytes
-  totalMemKB=`awk '/MemTotal:/{print($2);}' /proc/meminfo`
-  totalMem=$(($totalMemKB * 1024))
-  # Figure out the max shared memory segment size currently allowed
-  shmmax=`cat /proc/sys/kernel/shmmax`
-  # Figure out the max shared memory currently allowed
-  shmall=`cat /proc/sys/kernel/shmall`
-  ;;
+    # use TotalMem: kB because Ubuntu doesn't have Mem: in Bytes
+    totalMemKB=$(awk '/MemTotal:/{print($2);}' /proc/meminfo)
+    totalMem=$(($totalMemKB * 1024))
+    # Figure out the max shared memory segment size currently allowed
+    shmmax=$(cat /proc/sys/kernel/shmmax)
+    # Figure out the max shared memory currently allowed
+    shmall=$(cat /proc/sys/kernel/shmall)
+    ;;
+
   Darwin)
-  totalMem="`sysctl hw.memsize | cut -f2 -d' '`"
-  # Figure out the max shared memory segment size currently allowed
-  shmmax="`sysctl kern.sysv.shmmax | cut -f2 -d' '`"
-  # Figure out the max shared memory currently allowed
-  shmall="`sysctl kern.sysv.shmall | cut -f2 -d' '`"
-  ;;
+    totalMem="$(sysctl hw.memsize | cut -f2 -d' ')"
+    # Figure out the max shared memory segment size currently allowed
+    shmmax="$(sysctl kern.sysv.shmmax | cut -f2 -d' ')"
+    # Figure out the max shared memory currently allowed
+    shmall="$(sysctl kern.sysv.shmall | cut -f2 -d' ')"
+    ;;
+
   SunOS)
-  # TODO: figure memory needs for SunOS
-  # Investigate project.max-shm-memory
-  totalMemMB="`/usr/sbin/prtconf | \grep Memory | cut -f3 -d' '`"
-  totalMem=$(($totalMemMB * 1048576))
-  shmmax=$(($totalMem / 4))
-  shmall=$(($shmmax / 4096))
-  ;;
+    # TODO: figure memory needs for SunOS
+    # Investigate project.max-shm-memory
+    totalMemMB="$(/usr/sbin/prtconf | \grep Memory | cut -f3 -d' ')"
+    totalMem=$(($totalMemMB * 1048576))
+    shmmax=$(($totalMem / 4))
+    shmall=$(($shmmax / 4096))
+    ;;
+
   *)
-  rvm_error "Can't determine operating system. Check script."
-  exit 1
-  ;;
+    rvm_error "Can't determine operating system. Check script."
+    exit 1
+    ;;
 esac
 totalMemMB=$(($totalMem / 1048576))
 shmmaxMB=$(($shmmax / 1048576))
@@ -113,7 +124,10 @@ echo "  Max shared memory allowed is $shmallMB MB"
 # Figure out the max shared memory segment size (shmmax) we want
 # Use 75% of available memory but not more than 2GB
 shmmaxNew=$(($totalMem * 3/4))
-[[ $shmmaxNew -gt 2147483648 ]] && shmmaxNew=2147483648
+if (( shmmaxNew > 2147483648 ))
+then
+  shmmaxNew=2147483648
+fi
 shmmaxNewMB=$(($shmmaxNew / 1048576))
 
 # Figure out the max shared memory allowed (shmall) we want
@@ -122,56 +136,80 @@ shmmaxNewMB=$(($shmmaxNew / 1048576))
 # but things will certainly break if it's been reset too small
 # so ensure it's at least big enough to hold a fullsize shared memory segment
 shmallNew=$(($shmmaxNew / 4096))
-[[ $shmallNew -lt $shmall ]] && shmallNew=$shmall
+if (( shmallNew < shmall ))
+then
+  shmallNew=$shmall
+fi
 shmallNewMB=$(($shmallNew / 256))
 
 # Increase shmmax if appropriate
-if [[ $shmmaxNew -gt $shmmax ]]; then
+if (( shmmaxNew > shmmax ))
+then
   rvm_log "Increasing max shared memory segment size to $shmmaxNewMB MB"
-  [[ $system = "Darwin" ]] && sudo sysctl -w kern.sysv.shmmax=$shmmaxNew
-  [[ $system = "Linux" ]] && sudo bash -c "echo $shmmaxNew > /proc/sys/kernel/shmmax"
-  [[ $system = "SunOS" ]] && echo "[[Warning]] shmmax must be set manually on SunOS"
+  case "${system}" in
+    Darwin)
+      sudo sysctl -w kern.sysv.shmmax=$shmmaxNew
+      ;;
+    Linux)
+      sudo bash -c "echo $shmmaxNew > /proc/sys/kernel/shmmax"
+      ;;
+    SunOS)
+      echo "[[Warning]] shmmax must be set manually on SunOS"
+      ;;
+  esac
 else
   rvm_log "No need to increase max shared memory segment size"
 fi
 
 # Increase shmall if appropriate
-if [[ $shmallNew -gt $shmall ]]; then
+if (( shmallNew > shmall ))
+then
   rvm_log "Increasing max shared memory allowed to $shmallNewMB MB"
-  [[ $system = "Darwin" ]] && sudo sysctl -w kern.sysv.shmall=$shmallNew
-  [[ $system = "Linux" ]] && sudo bash -c "echo $shmallNew > /proc/sys/kernel/shmall"
-  [[ $system = "SunOS" ]] && echo "[[Warning]]shmall must be set manually on SunOS"
+  case "${system}" in
+    Darwin)
+      sudo sysctl -w kern.sysv.shmall=$shmallNew
+      ;;
+    Linux)
+      sudo bash -c "echo $shmallNew > /proc/sys/kernel/shmall"
+      ;;
+    SunOS)
+      echo "[[Warning]]shmall must be set manually on SunOS"
+      ;;
+  esac
 else
   rvm_log "No need to increase max shared memory allowed"
 fi
 
 # At this point, shared memory settings contain the values we want,
 # put them in sysctl.conf so they are preserved.
-if [[ ! -f /etc/sysctl.conf ]] || [[ "$(\grep -sc "kern.*.shm" /etc/sysctl.conf)" -eq 0 ]] ; then
+if [[ ! -f /etc/sysctl.conf ]] || (( $(\grep -sc "kern.*.shm" /etc/sysctl.conf) == 0 ))
+then
   case "$system" in
     Linux)
       echo "# kernel.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
       echo "kernel.shmmax=$(cat /proc/sys/kernel/shmmax)" >> /tmp/sysctl.conf.$$
       echo "kernel.shmall=$(cat /proc/sys/kernel/shmall)" >> /tmp/sysctl.conf.$$
-    ;;
+      ;;
     Darwin)
       # On Mac OS X Leopard, you must have all five settings in sysctl.conf
       # before they will take effect.
       echo "# kern.sysv.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
       sysctl kern.sysv.shmmax kern.sysv.shmall kern.sysv.shmmin kern.sysv.shmmni \
-      kern.sysv.shmseg  | \tr ":" "=" | \tr -d " " >> /tmp/sysctl.conf.$$
-    ;;
+        kern.sysv.shmseg  | \tr ":" "=" | \tr -d " " >> /tmp/sysctl.conf.$$
+      ;;
     SunOS)
       # Do nothing in SunOS since /etc/sysctl.conf is ignored on Solaris 10.
       # Must configure shared memory settings manually.
-    ;;
+      ;;
     *)
       rvm_error "Can't determine operating system. Check script."
       exit 1
-    ;;
+      ;;
   esac
+
   # Do nothing on SunOS since /etc/sysctl.conf is ignored on Solaris 10.
-  if [[ "$system" != "SunOS" ]]; then
+  if [[ "$system" != "SunOS" ]]
+  then
     rvm_log "Adding the following section to /etc/sysctl.conf"
     cat /tmp/sysctl.conf.$$
     sudo bash -c "cat /tmp/sysctl.conf.$$ >> /etc/sysctl.conf"
@@ -185,7 +223,8 @@ fi
 
 # Now setup for NetLDI in case we ever need it.
 rvm_log "Setting up GemStone netldi service port"
-if [[ $(\grep -sc "^gs64ldi" /etc/services) -eq 0 ]]; then
+if (( $(\grep -sc "^gs64ldi" /etc/services) == 0 ))
+then
   echo '[[Info]] Adding "gs64ldi  50378/tcp" to /etc/services'
   sudo bash -c 'echo "gs64ldi         50378/tcp        # Gemstone netldi"  >> /etc/services'
 else
