@@ -58,9 +58,9 @@ module RVM
 
   require "rvm/errors"
 
-  autoload :Shell,       "rvm/shell"
-  autoload :Environment, "rvm/environment"
-  autoload :Version,     "rvm/version"
+  require "rvm/shell"
+  require "rvm/environment"
+  require "rvm/version"
 
   class << self
 

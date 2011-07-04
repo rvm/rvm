@@ -3,13 +3,14 @@ module RVM
   # For more details, see AbstractWrapper.
   module Shell
 
-    autoload :AbstractWrapper,   'rvm/shell/abstract_wrapper'
-    autoload :SingleShotWrapper, 'rvm/shell/single_shot_wrapper'
+    require 'rvm/shell/utility'
+    require 'rvm/shell/abstract_wrapper'
+    require 'rvm/shell/single_shot_wrapper'
     # Current unimplemented
-    #autoload :PersistingWrapper, 'rvm/shell/persisting_wrapper'
-    autoload :TestWrapper,       'rvm/shell/test_wrapper'
-    autoload :Utility,           'rvm/shell/utility'
-    autoload :Result,            'rvm/shell/result'
+    #require 'rvm/shell/persisting_wrapper'
+    # File missing
+    #require 'rvm/shell/test_wrapper'
+    require 'rvm/shell/result'
 
     # Returns the default shell wrapper class to use
     def self.default_wrapper
