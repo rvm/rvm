@@ -54,7 +54,7 @@
 # RVM::Environment.new, versus RVM.environment
 #
 module RVM
-  VERSION = "1.6.20"
+  VERSION = "1.6.21"
 
   require "rvm/errors"
 
