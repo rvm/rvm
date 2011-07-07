@@ -96,40 +96,42 @@ then
   then
     true ${rvm_scripts_path:="$rvm_path/scripts"}
 
-    if (( ${rvm_loaded_flag:=0} == 0 )) || (( ${rvm_reload_flag:=0} == 1 ))
-    then
-      for script in base version selector cd cli override_gem
-      do
-        if [[ -f "$rvm_scripts_path/$script" ]]
-        then
-          source "$rvm_scripts_path/$script"
-        else
-          printf "WARNING:
-          Could not source '$rvm_scripts_path/$script' as file does not exist.
-          RVM will likely not work as expected.\n"
-        fi
-      done
-
-      rvm_version="$(cat "$rvm_path/VERSION")"
-
-      export rvm_version="${rvm_version/%.}"
-
-      alias rvm-restart="rvm_reload_flag=1 source '${rvm_path}/scripts/rvm'"
-
-      if ! command -v ruby >/dev/null 2>&1 || command -v ruby | \grep -v rvm >/dev/null
+    for script in base version selector cd cli override_gem
+    do
+      if [[ -f "$rvm_scripts_path/$script" ]]
       then
-        if [[ -s "$rvm_path/environments/default" ]]
-        then
-          source "$rvm_path/environments/default"
-        fi
+        source "$rvm_scripts_path/$script"
+      else
+        printf "WARNING:
+        Could not source '$rvm_scripts_path/$script' as file does not exist.
+        RVM will likely not work as expected.\n"
       fi
+    done
 
-      # Makes sure rvm_bin_path is in PATH atleast once.
-      __rvm_conditionally_add_bin_path
+    rvm_version="$(cat "$rvm_path/VERSION")"
 
-      rvm_loaded_flag=1
-      rvm_reload_flag=0
+    export rvm_version="${rvm_version/%.}"
+
+    alias rvm-restart="rvm_reload_flag=1 source '${rvm_path}/scripts/rvm'"
+
+    if ! command -v ruby >/dev/null 2>&1 || command -v ruby | \grep -v rvm >/dev/null
+    then
+      if [[ -s "$rvm_path/environments/default" ]]
+      then
+        source "$rvm_path/environments/default"
+      fi
     fi
+
+    # Makes sure rvm_bin_path is in PATH atleast once.
+    __rvm_conditionally_add_bin_path
+
+    if (( rvm_reload_flag == 1 ))
+    then
+      printf 'RVM reloaded!\n'
+    fi
+
+    rvm_loaded_flag=1
+    rvm_reload_flag=0
   else
     printf "\n\$rvm_path ($rvm_path) does not exist."
   fi
