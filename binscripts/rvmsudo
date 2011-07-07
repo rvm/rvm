@@ -1,46 +1,49 @@
 #!/usr/bin/env bash
 
-args=()
 sudo_args=()
-command_found=0
+
 while [[ $# -gt 0 ]] ; do
-  token="${1}" ; shift
+  token="${1}"
 
+  #rvm trace flag
   case "${token}" in
-    --trace)
-      export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
-      set -o xtrace
-      shift
-      ;;
+  (--trace)
+    export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+    set -o xtrace
+    ;;
 
-    --verbose)
-      set -o verbose
+  #rvm verbose flag
+  (--verbose)
+    set -o verbose
+    ;;
+
+  #not an rvm option, treat as sudo option
+  (-*)
+    sudo_args+=("$token")
+
+    #option with value
+    case "$token" in
+    (-g|-u|-p|-r|-t|-U|-C)
       shift
+      #read & append the value
+      sudo_args+=("$1")
       ;;
-  -*) 
-      if [ "$command_found" != 0 ]; then
-        args=("${args[@]}" "$token")
-      else
-        # found a switch for sudo
-        sudo_args=("${args[@]}" "$token")
-      fi
-      ;;
-  *)
-    command_found=1
-    args=("${args[@]}" "$token")
+    esac
+    ;;
+
+  #no more options skip processing
+  (*)
+    break
     ;;
   esac
+
+  #go to next param
+  shift
 done
 
-if [ "$command_found" != 0 ]; then
-  command="sudo ${sudo_args[@]} /usr/bin/env PATH='$PATH'"
-
-  [[ -n "${GEM_HOME:-}" ]] && command="${command} GEM_HOME='$GEM_HOME' "
-  [[ -n "${GEM_PATH:-}" ]] && command="${command} GEM_PATH='$GEM_PATH' "
-
-  command="${command} ${args[@]}"
+if [[ $# -gt 0 ]]
+then
+  sudo "${sudo_args[@]}" /usr/bin/env $(/usr/bin/env | grep -E '^rvm|^gemset|^PATH|^IRBRC|RUBY|GEM') "$@"
 else
-  command="sudo ${sudo_args[@]}"
+  printf "Usage:\n  $0 [--trace] [--verbose] [sudo-options] command [command-options]\n"
 fi
-
-eval "${command}"
