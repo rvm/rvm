@@ -1,0 +1,54 @@
+diff --git a/gc.c b/gc.c
+index 21b3f6b..7db1ef6 100644
+--- a/gc.c
++++ b/gc.c
+@@ -694,6 +694,7 @@ static int heap_size = 0;
+ 
+ static int heap_free_min = 4096;
+ static int heap_slots_increment = 10000;
++static int initial_heap_slots_increment = 10000;
+ static double heap_slots_growth_factor = 1.8;
+ 
+ static long initial_malloc_limit = GC_MALLOC_LIMIT;
+@@ -771,14 +772,13 @@ static void set_gc_parameters()
+         if (verbose_gc_stats) {
+             fprintf(gc_data_file, "RUBY_HEAP_SLOTS_INCREMENT=%s\n", heap_slots_incr_ptr);
+         }
+-        if (heap_slots_incr_i > 0) {
+-            heap_slots_increment = heap_slots_incr_i;
+-        }
++        heap_slots_increment = heap_slots_incr_i;
++        initial_heap_slots_increment = heap_slots_increment;
+     }
+ 
+     heap_slots_growth_factor_ptr = getenv("RUBY_HEAP_SLOTS_GROWTH_FACTOR");
+     if (heap_slots_growth_factor_ptr != NULL) {
+-        double heap_slots_growth_factor_d = atoi(heap_slots_growth_factor_ptr);
++        double heap_slots_growth_factor_d = atof(heap_slots_growth_factor_ptr);
+         if (verbose_gc_stats) {
+             fprintf(gc_data_file, "RUBY_HEAP_SLOTS_GROWTH_FACTOR=%s\n", heap_slots_growth_factor_ptr);
+         }
+@@ -988,8 +988,13 @@ add_heap()
+     if (lomem == 0 || lomem > p) lomem = p;
+     if (himem < pend) himem = pend;
+     heaps_used++;
+-    heap_slots += heap_slots_increment;
+-    heap_slots_increment *= heap_slots_growth_factor;
++    if (heaps_used == 1)
++      heap_slots = initial_heap_slots_increment;
++    else {
++      heap_slots_increment *= heap_slots_growth_factor;
++      heap_slots += heap_slots_increment;
++    }
++
+     if (heap_slots <= 0) heap_slots = heap_min_slots;
+ 
+     while (p < pend) {
+@@ -1879,6 +1884,7 @@ gc_sweep()
+                         live_counts[i], free_counts[i], obj_type(i));
+             }
+         }
++        rb_gc_dump();
+         fflush(gc_data_file);
+     }
+ 
