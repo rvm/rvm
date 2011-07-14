@@ -14,6 +14,20 @@ __rvm_md5_for()
   return 0
 }
 
+__rvm_md5_for_contents()
+{
+  if command -v md5 > /dev/null; then
+    echo "$1" | cat - "$1" | md5
+  elif command -v md5sum > /dev/null ; then
+    echo "$1" | cat - "$1" | md5sum | awk '{print $1}'
+  else
+    rvm_error "Neither md5 nor md5sum were found in the PATH"
+    return 1
+  fi
+
+  return 0
+}
+
 __rvm_rvmrc_key()
 {
   if [[ ${rvm_always_trust_rvmrc_flag:-0} -eq 1 ]]; then
@@ -36,7 +50,7 @@ __rvm_trust_rvmrc()
 {
   __rvm_reset_rvmrc_trust "$1"
   "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "1" >/dev/null 2>&1
+    "$(__rvm_rvmrc_key "$1")" "$(__rvm_md5_for_contents "$1")" >/dev/null 2>&1
   return $?
 }
 
@@ -88,13 +102,19 @@ __rvm_rvmrc_tools()
 
     trusted)
 
-      local trusted_value="$(__rvm_rvmrc_stored_trust "$rvmrc_path")"
-      if [[ "$trusted_value" = "1" ]]; then
-        echo "The rvmrc at '$rvmrc_path' is currently trusted."
-      elif [[ "$trusted_value" = "0" ]]; then
-        echo "The rvmrc at '$rvmrc_path' is currently untrusted."
+      if [[ -f "$rvmrc_path" ]] ; then
+        local trusted_value="$(__rvm_rvmrc_stored_trust "$rvmrc_path")"
+        if [[ "$trusted_value" = "$(__rvm_md5_for_contents "$rvmrc_path")" ]]; then
+          echo "The rvmrc at '$rvmrc_path' is currently trusted."
+        elif [[ "$trusted_value" = "0" ]]; then
+          echo "The rvmrc at '$rvmrc_path' is currently untrusted."
+        elif [[ -n "$trusted_value" ]]; then
+  	echo "The rvmrc at '$rvmrc_path' contains unreviewed changes."
+        else
+          echo "The trustiworthiness of '$rvmrc_path' is currently unknown."
+        fi
       else
-        echo "The trustiworthiness of '$rvmrc_path' is currently unknown."
+        echo "There is no $rvmrc_path"
       fi
     ;;
 
@@ -123,11 +143,12 @@ __rvm_check_rvmrc_trustworthiness()
   if [[ -n "$1" && ${rvm_trust_rvmrcs_flag:-0} -eq 0 ]] ; then
 
     value="$(__rvm_rvmrc_stored_trust "$1")"
+    md5_for_contents="$(__rvm_md5_for_contents "$1")"
 
-    if [[ -z "$value" ]] ; then
+    if [[ -z "$value" ]] || [[ "$value" != "$md5_for_contents" ]] ; then
       __rvm_ask_to_trust "$1"
     else
-      [[ "$value" = "1" ]]
+      [[ "$md5_for_contents" = "$md5_for_contents" ]]
     fi
 
   fi
