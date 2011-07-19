@@ -70,7 +70,7 @@ __rvm_rvmrc_tools()
 
   local rvmrc_action="$1"
 
-  [[ $# -gt 0 ]] && shift
+  (( $# )) && shift
 
   local rvmrc_path="$(builtin cd "${1:-$PWD}" >/dev/null 2>&1; pwd)/.rvmrc"
 
@@ -184,8 +184,6 @@ __rvm_ask_to_trust()
   = Note: You will be re-prompted each time the .rvmrc file     =
   = changes, and may change the trust setting manually at any   =
   = time.                                                       =
-  =                                                             =
-  = Press 'q' to exit the reader when finished reading the file =
   ===============================================================
 
   (press enter to review the .rvmrc file)
@@ -198,7 +196,7 @@ command cat -v "${_rvmrc}"
 
   printf "
 
-  Examination of  "${_rvmrc}" is now complete.
+  Examination of %s is now complete.
 
   ================================================================
   = Trusting an .rvmrc file means that whenever you cd into this =
@@ -213,27 +211,24 @@ command cat -v "${_rvmrc}"
   = wish to trust this particular .rvmrc?                        =
   ================================================================
 
-  (yes or no)"
+" "$_rvmrc"
 
-  # TODO: Eliminate infinite loop possibility.
-  trusted=""
-  while [[ -z "$trusted" ]]
-  do
-    printf " > "
+  trusted=0
+  while (( ! trusted ));do
+    read -p '  Yes or No: [y/N]? ' response
+    value="$(echo -n "${response,,}" | __rvm_strip)"
 
-    read -r response
-
-    value="$(echo "$response" | tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
-
-    case "$response" in
-      y|yes) trusted=1 ;;
-      n|no)  trusted=0 ;;
-      *) printf "  (yes or no)" ;;
+    case "${value:-n}" in
+      y|yes)
+        trusted=1
+      ;;
+      n|no)
+        break
+      ;;
     esac
   done
 
-  if (( ${trusted:-0} > 0 ))
-  then
+  if (( trusted )); then
     __rvm_trust_rvmrc "$1"
     return 0
   else
