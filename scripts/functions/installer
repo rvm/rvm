@@ -368,7 +368,7 @@ install_rvm_files()
     cp -f "$source_path/${file}" "$rvm_path/${file}"
   done
 
-  directories=(config contrib scripts examples lib hooks help patches)
+  directories=(config contrib scripts examples lib help patches)
 
   for directory in ${directories[@]}
   do
@@ -397,6 +397,41 @@ install_rvm_files()
     done
   done
 
+  return 0
+}
+
+install_rvm_hooks()
+{
+  for entry in $(find hooks 2>/dev/null)
+  do
+    if [[ -f "$source_path/$entry" ]]
+    then
+      # Target is supposed to be a file, remove if it is a directory.
+      if [[ -d "$rvm_path/$entry" ]]
+      then
+        __rvm_rm_rf "$rvm_path/$entry"
+      fi
+      # Source is first level hook (after_use) and target is custom user hook, preserve it
+      if echo "$entry" | \grep -Eq '^hooks/[a-Z]+_[a-Z]+$' &&
+        [[ -f "$rvm_path/$entry" ]] &&
+        ! grep -q "${entry}_\*" "$rvm_path/$entry"
+      then
+        mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
+      fi
+      cp -f "$source_path/$entry" "$rvm_path/$entry"
+    elif [[ -d "$source_path/$entry" ]]
+    then
+      # Target is supposed to be a directory, remove if it is a file.
+      if [[ -f "$rvm_path/$entry" ]]
+      then
+        rm -f "$rvm_path/$entry"
+      fi
+      if [[ ! -d "$rvm_path/$entry" ]]
+      then
+        mkdir -p "$rvm_path/$entry"
+      fi
+    fi
+  done
   return 0
 }
 
@@ -450,14 +485,9 @@ install_binscripts()
 {
   files=(rvm-prompt rvm-installer rvm rvmsudo rvm-shell rvm-exec rvm-auto-ruby)
 
-  if [[ ! -d "${rvm_bin_path:="${rvm_path}/bin"}" ]]
+  if [[ ! -d "${rvm_bin_path}" ]]
   then
     mkdir -p "${rvm_bin_path}"
-  fi
-
-  if [[ ! -d "${rvm_path}/bin" ]]
-  then
-    mkdir -p "${rvm_path}/bin"
   fi
 
   for file in "${files[@]}"
@@ -466,19 +496,16 @@ install_binscripts()
     if [[ -f "${rvm_bin_path}/${file}" ]]
     then
       rm -f "${rvm_bin_path}/${file}"
-      rm -f "${rvm_path}/bin/${file}"
     fi
 
     cp -f "${source_path}/binscripts/${file}" "${rvm_bin_path}/${file}"
-    cp -f "${source_path}/binscripts/${file}" "${rvm_path}/bin/${file}"
 
-    chmod +x "${rvm_bin_path}/${file}" "${rvm_path}/bin/${file}"
+    chmod +x "${rvm_bin_path}/${file}"
 
     if [[ "${source_path}/binscripts" != "${rvm_bin_path}" ]]
     then
       cp -f "${source_path}/binscripts/${file}" "${rvm_bin_path}/${file}"
     fi
-    cp -f "${source_path}/binscripts/${file}" "${rvm_path}/bin/${file}"
   done
 
   return 0
@@ -492,7 +519,7 @@ automatic_profile_setup()
     printf "Checking rc files... ($rvm_rc_files)"
     if (( rvm_loaded_flag == 0 ))
     then
-      for rcfile in $(printf $rvm_rc_files)
+      for rcfile in "${rvm_rc_files[@]}"
       do
         if [[ ! -f $rcfile ]]
         then
@@ -601,7 +628,8 @@ cleanse_old_environments()
 
     if (( ${#environments[@]} > 0 ))
     then
-      for file in "${environments[@]}" ; do
+      for file in "${environments[@]}"
+      do
         if grep 'BUNDLE_PATH' "$file" > /dev/null 2>&1
         then
           grep -v 'BUNDLE_PATH' "$file" > "$file.new"
