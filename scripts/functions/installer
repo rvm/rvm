@@ -368,7 +368,7 @@ install_rvm_files()
     cp -f "$source_path/${file}" "$rvm_path/${file}"
   done
 
-  directories=(config contrib scripts examples lib hooks help patches)
+  directories=(config contrib scripts examples lib help patches)
 
   for directory in ${directories[@]}
   do
@@ -397,6 +397,41 @@ install_rvm_files()
     done
   done
 
+  return 0
+}
+
+install_rvm_hooks()
+{
+  for entry in $(find hooks 2>/dev/null)
+  do
+    if [[ -f "$source_path/$entry" ]]
+    then
+      # Target is supposed to be a file, remove if it is a directory.
+      if [[ -d "$rvm_path/$entry" ]]
+      then
+        __rvm_rm_rf "$rvm_path/$entry"
+      fi
+      # Source is first level hook (after_use) and target is custom user hook, preserve it
+      if echo "$entry" | \grep -Eq '^hooks/[a-Z]+_[a-Z]+$' &&
+        [[ -f "$rvm_path/$entry" ]] &&
+        ! grep -q "${entry}_\*" "$rvm_path/$entry"
+      then
+        mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
+      fi
+      cp -f "$source_path/$entry" "$rvm_path/$entry"
+    elif [[ -d "$source_path/$entry" ]]
+    then
+      # Target is supposed to be a directory, remove if it is a file.
+      if [[ -f "$rvm_path/$entry" ]]
+      then
+        rm -f "$rvm_path/$entry"
+      fi
+      if [[ ! -d "$rvm_path/$entry" ]]
+      then
+        mkdir -p "$rvm_path/$entry"
+      fi
+    fi
+  done
   return 0
 }
 
