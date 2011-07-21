@@ -20,7 +20,7 @@ rubygems_remove()
     ruby="puts Config::CONFIG.values_at('sitelibdir','vendorlibdir').detect { |path| File.directory?(File.join(path.to_s, 'rubygems')) }.to_s"
   fi
   rubygems_path="$(ruby -rrbconfig -e "$ruby")"
-
+  
   # Remove common files installed by ruby gems.
   entries=(
   "${rubygems_path}/ubygems.rb"
@@ -35,6 +35,18 @@ rubygems_remove()
   rvm_log "Installing rubygems dedicated to ${rvm_ruby_string}..."
 }
 
+can_switch_rubygems()
+{
+  case "$rvm_ruby_string" in
+    jruby*|goru*|maglev*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 rubygems_setup()
 {
   __rvm_warn_on_rubyopt
@@ -47,23 +59,6 @@ rubygems_setup()
   then
     __rvm_select
   fi
-
-  case "$rvm_ruby_string" in
-    jruby*|goru*|maglev*)
-      install=0
-      ;;
-    *)
-      install=1
-      ;;
-  esac
-
-  if (( install == 0 ))
-  then
-    rvm_error "Cannot switch to RubyGems ${version} for this interpreter."
-    exit 1
-  fi
-
-  rubygems_remove # First we remove to enforce a good state.
 
   rvm_rubygems_version="$version"
   rvm_gem_package_name="rubygems-${rvm_rubygems_version}"
@@ -100,6 +95,8 @@ rubygems_setup()
       "gunzip < ${rvm_archives_path}/$rvm_gem_package_name.tgz | tar xf - -C ${rvm_src_path}" \
       "Extracting $rvm_gem_package_name ..."
   fi
+
+  rubygems_remove # Remove old gems.
 
   builtin cd "${rvm_src_path}/$rvm_gem_package_name"
 
@@ -141,7 +138,7 @@ then
 fi
 
 #
-# rvm rubygems use X
+# rvm rubygems X
 #
 args=($*)
 version="${args[0]}"
@@ -153,7 +150,8 @@ then
   exit 1
 fi
 
-if ! command -v ruby | grep "rvm" >/dev/null 2>&1
+can_switch_rubygems
+if (( $? == 0 ))
 then
   rvm_error "Rubygems version may only be set for an RVM MRI based Ruby, please select one and rerun."
   exit 1
