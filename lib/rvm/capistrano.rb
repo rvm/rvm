@@ -42,7 +42,7 @@ Capistrano::Configuration.instance(true).load do
   _cset(:rvm_bin_path) do
     case rvm_type
     when :root, :system
-      "/usr/local/bin"
+      "/usr/local/rvm/bin"
     when :local, :user, :default
       "$HOME/.rvm/bin"
     else
