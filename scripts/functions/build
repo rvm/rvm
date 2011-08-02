@@ -99,35 +99,36 @@ __rvm_mono_env()
   return 0
 }
 
-# Returns the first 1.8.7-compatible (partly) ruby for use
+# Returns all mri compatible (partly) ruby for use
+# with things like rbx etc which require a ruby be installed.
+__rvm_mri_rubies()
+{
+  local versions="${1:-"1.8.|ree|1.9."}"
+  find $rvm_rubies_path/ -maxdepth 1 -mindepth 1 -type d -not -type l -printf '%f\n' | grep -E "$versions"
+}
+
+# Returns the first mri compatible (partly) ruby for use
 # with things like rbx etc which require a ruby be installed.
 __rvm_mri_ruby()
 {
-  local rubies ruby_name list=() versions="${1:-"*1.8.*|ree*|*1.9.*"}"
-
-  rubies=( $(
-    cd "$rvm_rubies_path"
-    find . -iname 'r*' -maxdepth 1 -mindepth 1 -type d
-  ) )
-
-  for ruby_name in "${rubies[@]//.\/}"
-  do
-    if [[ ! -L "$rvm_rubies_path/$ruby_name" ]] \
-    && grep -Eq "$versions" <<<"$ruby_name"
-    then
-      list+=("$ruby_name")
-    fi
-  done
-
-  echo "${list[*]}" | tr ' ' '\n' | sort -r | tail -n1
-
+  local versions="${1:-"1.8.|ree|1.9."}"
+  _mri_rubies=( $( __rvm_mri_rubies "$versions" ) )
+  _current_ruby=$(__rvm_environment_identifier)
+  if [[ " ${_mri_rubies[*]} " =~ " ${_current_ruby} " ]]
+  then
+    printf "${_current_ruby}"
+  else
+    for _ruby in ${_mri_rubies[@]}
+    do
+      printf "${_ruby}\n"
+    done | sort | head -n 1
+  fi
   return 0
 }
 
-
 __rvm_ensure_has_mri_ruby()
 {
-  local versions="${1:-"*1.8.*|ree*|*1.9.*"}"
+  local versions="${1:-"1.8.|ree|1.9."}"
   if [[ -z "$(__rvm_mri_ruby $versions)" ]]
   then
     local compat_result=0
