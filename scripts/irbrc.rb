@@ -50,7 +50,7 @@ rvm_ruby_string = ENV["rvm_ruby_string"] || `rvm tools identifier`.strip.split("
 }
 IRB.conf[:PROMPT] ||= {}
 IRB.conf[:PROMPT][:RVM] = @prompt
-IRB.conf[:PROMPT_MODE] = :RVM
+IRB.conf[:PROMPT_MODE] = :RVM if IRB.conf[:PROMPT_MODE] == :DEFAULT
 
 # Load the user's irbrc file, if possible.
 # Report any errors that occur.
