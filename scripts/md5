@@ -6,23 +6,36 @@ then
   export rvm_trace_flag
 fi
 
-args=($*)
-file="${args[0]}"
-md5="${args[1]}"
-args="$(echo ${args[@]:2}) " # Strip trailing / leading / extra spacing.
+_archive="${1}"
+shift
 
-if [[ "$MACHTYPE" =~ darwin ]]
+md5="${1}"
+shift
+
+# Swiped from BDSM
+if command_exists md5
 then
-  command="/sbin/md5 -q"
+  archive_md5=$(md5 -q "${_archive}")
+elif command_exists md5sum
+then
+  archive_md5=$(md5sum "${_archive}" | awk '{print $1')
 else
-  command="md5sum"
+  for _path in /sbin /bin /usr/bin /usr/sbin
+  do
+    if [[ -x "${_path}/md5"]]
+    then
+      archive_md5=$(${_path}/md5 -q "${_archive}")
+    elif [[ -x "${_path}/md5sum"]]
+    then
+      archive_md5=$(${_path}/md5sum "${_archive}" | awk '{print $1')
+    fi
+  done
 fi
 
-file_md5=$($command "$file" | awk '{print $1}')
-
-if [[ "$file_md5" = "$md5" ]]
+if [[ "${archive_md5}" == "${md5}" ]]
 then
   exit 0
 else
   exit 1
 fi
+
