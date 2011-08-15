@@ -1,5 +1,69 @@
 = RVM History, thanks be to Git.
 
+== Release 1.7.0
+  * Since this is not read anyway, I might as well have some fun with it!
+  * Default rvm_project_rvmrc to off, set rvm_project_rvmrc=1 in ~/.rvmrc to enable. Oh wow, you mean you could toggle it??? Yes. Always could. Wow I should have asked!! Yes... yes you should have... Amazing how much you learn by simply asking a question...
+  * Added missing example.
+  * Merge branch 'master' of github.com:wayneeseguin/rvm
+  * RVM History, thanks be to Git.
+  * Merge pull request #364 from jfredett/master
+  * fix typo (doubled 'bison') in arch bootstrap script and in script/notes
+  * Merge pull request #363 from aghecht/master
+  * Adding missing shell functions
+  * Merge pull request #362 from ognevsky/fix-typo-in-implode
+  * Fixed typo in implode
+  * Correcting install messages.
+  * fix local arrays in trusting
+  * fix trusting on zsh
+  * Merge pull request #361 from zaadjis/master
+  * Fixed untrusting rvmrcs.
+  * Copy paste can get you into trouble sometimes ;)
+  * Merge branch 'master' of github.com:wayneeseguin/rvm
+  * Swiped md5 code from BDSM
+  * Merge pull request #359 from agibralter/master
+  * Allow hooks directory or hooks to be symlinked.
+  * Merge pull request #358 from chrismealy/master
+  * Added automake (to get aclocal) to dependencies for Ubuntu.
+  * Merge pull request #357 from tabletcorry/master
+  * Merge branch 'master' of github.com:wayneeseguin/rvm
+  * prevent duplicate suffixing
+  * cleanup.
+  * Cleanly return in case of not in a git repository tree.
+  * Add a check to FQ rvm_path
+  * Merge pull request #356 from dsedivec/master
+  * Allow irb switches to set the prompt mode
+  * Merge pull request #354 from lribeiro/master
+  * Merge pull request #355 from ncreuschling/master
+  * removed duplicate dependency from installation notes
+  * we dont need to depend ant dist to build jruby, ant jar is enough and a lot faster
+  * Merge pull request #353 from MagLev/MagLev-26355
+  * do not require double -- after --name
+  * do not pass args before --
+  * Merge branch 'master' of github.com:wayneeseguin/rvm
+  * do not pass args before --
+  * Updated to MagLev-26355
+  * Merge pull request #352 from meqif/master
+  * Fixed zsh bug when glob_subst is set.
+  * use a local for the file looping over.
+  * Merge branch 'master' of github.com:wayneeseguin/rvm
+  * Added popd hijack.
+  * Merge pull request #351 from goncalossilva/master
+  * added gcdata patch for 1.9.3-preview1
+  * added gcdata patch for 1.9.2-p290
+  * Merge branch 'master' of github.com:wayneeseguin/rvm
+  * cleaning mri detection for other rubies
+  * Merge pull request #349 from deryldoucette/master
+  * remove test output
+  * manual printf as find not allways supports it
+  * fix detection mri rubies
+  * Some cli cleanup.
+  * Fixed errant help message. Was displaying 'rvm package' rather than 'rvm pkg' as it should.
+  * flipNzBit!
+  * Merge pull request #347 from mblair/master
+  * so it's like the others
+  * tyop.
+  * Really? Homebrew? Have another...
+
 == Release 1.6.32
   * Ruby 1.9.3-preview1 is now default 1.9.3
   * Merge pull request #346 from amarshall/rbx-1.2.4
