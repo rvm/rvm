@@ -1,5 +1,114 @@
 #!/usr/bin/env bash
 
+#
+# ## variable_is_nonempty()
+#
+# Test to see if a variable is empty.
+#
+# ### Input Parameters
+#
+# First parameter is a string containing a variable name.
+#
+# ### Stream Outputs
+#
+# None.
+#
+# ### Environmental effects
+#
+# None.
+#
+# ### Return Codes
+#
+# 0 for success.
+#
+# ### Failure Scenarios
+#
+# Fails if no variable name was given as the first argument.
+#
+# ### Usage Examples
+#
+#     user$ variable_is_nonempty asdf
+#     user$ echo $?
+#     1
+#
+#     user$ asdf="w00t! "
+#     user$ variable_is_nonempty asdf
+#     user$ echo $?
+#     0
+#
+variable_is_nonempty()
+{
+  # Store the first parameter, which should be the variable name, in the
+  # variable variable :)
+  local _variable="${1:-}"
+
+  # If the variable name is nonempty
+  if [[ -n "${_variable}" ]]
+  then
+    # If the evaluation of a nonempty test with the variable name used [huh???]
+    eval "[[ -n \"\${${_variable}:-}\" ]]"
+  else
+    # Otherwise no parameters were passed in; this is a programming error.
+    # Send a failure message which also triggers a backtrace enabling the
+    # developer to quickly pinpoint and fix their error.
+    fail "Cannot check if variable is nonempty; no variable was given."
+  fi
+
+}
+
+#
+# ## command\_exists()
+#
+# Checks to see whether a command exists within the current environment and PATH.
+#
+# ### Input Parameters
+#
+# First parameter is a command name.
+#
+# ### Stream Outputs
+#
+# None.
+#
+# ### Environmental effects
+#
+# none.
+#
+# ### return codes
+#
+# 0 if the command was found in the current environment.
+# 1 if the command was not found in the current environment.
+#
+# ### failure scenarios
+#
+# Fails if no command name was given.
+#
+# ### usage examples
+#
+#     user$ command_exists adsf
+#     user$ echo $?
+#     1
+#
+#     user$ command_exists ls
+#     user$ echo $?
+#     0
+#
+command_exists()
+{
+  local _name="${1:-}"
+
+  if variable_is_nonempty _name
+  then
+    if command -v "${_name}" > /dev/null 2>&1
+    then
+      return 0
+    else
+      return 1
+    fi
+  else
+    fail "Cannot test if command exists; no command name was given."
+  fi
+}
+
 if (( ${rvm_trace_flag:=0} == 2 ))
 then
   set -x
@@ -18,16 +127,18 @@ then
   archive_md5=$(md5 -q "${_archive}")
 elif command_exists md5sum
 then
-  archive_md5=$(md5sum "${_archive}" | awk '{print $1')
+  archive_md5="$(md5sum "${archive}")"
+  archive_md5="${archive_md5%% *}"
 else
   for _path in /sbin /bin /usr/bin /usr/sbin
   do
-    if [[ -x "${_path}/md5"]]
+    if [[ -x "${_path}/md5" ]]
     then
       archive_md5=$(${_path}/md5 -q "${_archive}")
-    elif [[ -x "${_path}/md5sum"]]
+    elif [[ -x "${_path}/md5sum" ]]
     then
-      archive_md5=$(${_path}/md5sum "${_archive}" | awk '{print $1')
+      archive_md5="$(${_path}/md5sum "${archive}")"
+      archive_md5="${archive_md5%% *}"
     fi
   done
 fi

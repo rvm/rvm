@@ -47,7 +47,7 @@ __rvm_trust_rvmrc()
 {
   __rvm_reset_rvmrc_trust "$1"
   "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "$(__rvm_md5_for_contents "$1")" >/dev/null 2>&1
+    "$(__rvm_rvmrc_key "$1")" "1;$(__rvm_md5_for_contents "$1")" >/dev/null 2>&1
   return $?
 }
 
@@ -55,7 +55,7 @@ __rvm_untrust_rvmrc()
 {
   __rvm_reset_rvmrc_trust "$1"
   "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "0" >/dev/null 2>&1
+    "$(__rvm_rvmrc_key "$1")" "0;$(__rvm_md5_for_contents "$1")" >/dev/null 2>&1
   return $?
 }
 
@@ -104,16 +104,23 @@ __rvm_rvmrc_tools()
 
       if [[ -f "$rvmrc_path" ]]
       then
-        local trusted_value="$(__rvm_rvmrc_stored_trust "$rvmrc_path")"
-        if [[ "$trusted_value" = "$(__rvm_md5_for_contents "$rvmrc_path")" ]]
-        then
-          echo "The rvmrc at '$rvmrc_path' is currently trusted."
-        elif [[ "$trusted_value" = "0" ]]
-        then
-          echo "The rvmrc at '$rvmrc_path' is currently untrusted."
-        elif [[ -n "$trusted_value" ]]
+        local saveIFS=$IFS
+        IFS=$';'
+        local trust=($(__rvm_rvmrc_stored_trust "$rvmrc_path"))
+        IFS=$saveIFS
+
+        if [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$1")" ]]
         then
           echo "The rvmrc at '$rvmrc_path' contains unreviewed changes."
+
+        elif (( ${trust[${_first}]} == 1 ))
+        then
+          echo "The rvmrc at '$rvmrc_path' is currently trusted."
+
+        elif (( ${trust[${_first}]} == 0 ))
+        then
+          echo "The rvmrc at '$rvmrc_path' is currently untrusted."
+
         else
           echo "The trustiworthiness of '$rvmrc_path' is currently unknown."
         fi
@@ -141,26 +148,26 @@ __rvm_rvmrc_tools()
 
 __rvm_check_rvmrc_trustworthiness()
 {
-  export escape_flag=1
+  export escape_flag=1 _first=${__array_start} _second=$[__array_start + 1]
 
   # Trust when they have the flag... of doom!
   if [[ -n "$1" && ${rvm_trust_rvmrcs_flag:-0} -eq 0 ]]
   then
-    value="$(__rvm_rvmrc_stored_trust "$1")"
-    md5_for_contents="$(__rvm_md5_for_contents "$1")"
+    local saveIFS=$IFS trust
+    IFS=$';'
+    trust=( $( __rvm_rvmrc_stored_trust "$1" ) )
+    IFS=$saveIFS
 
-    if [[ -z "$value" ]] || [[ "$value" != "$md5_for_contents" ]]
+    if [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$1")" ]]
     then
       __rvm_ask_to_trust "$1"
     else
-      [[ "$md5_for_contents" = "$md5_for_contents" ]]
+      (( ${trust[${_first}]} == 1 ))
     fi
 
   fi
   local result=$?
-
   unset escape_flag
-
   return $result
 }
 
