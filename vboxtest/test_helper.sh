@@ -4,7 +4,9 @@
 #
 
 flunk () {
-  echo "[$TEST_CASE:$lineno] $TEST_NAME\n$1\n" 1>&2
+  echo "[$TEST_CASE:$lineno] $TEST_NAME
+$1
+" 1>&2
   return 1
 }
 
@@ -22,10 +24,11 @@ assert_output_equal () {
 
   if [ "$actual" != "$expected" ]
   then
-    echo -e "$expected" > "$0_$2_expected.txt"
-    echo -e "$actual"   > "$0_$2_actual.txt"
+    echo "$expected" > "$0_$2_expected.txt"
+    echo "$actual"   > "$0_$2_actual.txt"
     
-    flunk "unequal stdout:\n$(diff "$0_$2_expected.txt" "$0_$2_actual.txt")"
+    flunk "unequal stdout:
+$(diff "$0_$2_expected.txt" "$0_$2_actual.txt")"
     
     rm "$0_$2_expected.txt" "$0_$2_actual.txt"
     return 1
