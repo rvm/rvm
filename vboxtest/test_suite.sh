@@ -4,8 +4,10 @@
 #  Test Suite Setup
 #
 
-MESSAGES=messages
 RESULTS=results
+MESSAGES=messages
+
+# A helper function to count the number of occurences of a character in a string.
 count_char () {
   grep -o "$1" "$2" | wc -l | tr -d " "
 }
@@ -16,20 +18,18 @@ count_char () {
 
 echo "Started on $(hostname)"
 START_TIME=$SECONDS
-for test_case in $(dirname $0)/**/*_test.sh
-do
-  if [ -f "$test_case" ]
-  then
-    "$test_case" 2>>"$MESSAGES" | tee -a "$RESULTS"
-  fi
-done
+
+# A portable and efficient way of running these tests with find (see
+# http://content.hccfl.edu/pollock/unix/findcmd.htm#exec)
+find "$(dirname $0)/test" -name '*_test.sh' -type f -exec sh -c '
+  for test_case in "$@"
+  do "$test_case"
+  done
+' X '{}' + 2>>"$MESSAGES" | tee -a "$RESULTS"
+
 END_TIME=$SECONDS
 echo
 echo "Finished in $(($END_TIME - $START_TIME))s"
-
-#
-#  Print results
-#
 
 if [ -f "$MESSAGES" ] && [ -f "$RESULTS" ]
 then
