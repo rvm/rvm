@@ -1,18 +1,23 @@
 #!/bin/bash
 ############################################################################
 cd "${0%/$(basename $0)}/.."
+RVM_PROJECT_DIR="$(pwd)"
 
+rvm_path=${RVM_PATH:-$RVM_PROJECT_DIR/rvm-test}
 results_file=${RESULTS_FILE:-results}
 messages_file=${MESSAGES_FILE:-messages}
 
-usage="usage: %s [-R RESULTS_FILE] [-M MESSAGES_FILE] [-h]\n"
+usage="usage: %s [-P RVM_PATH] [-R RESULTS_FILE] [-M MESSAGES_FILE] [-h]\n"
 option="       %s   %s\n"
-while getopts "R:M:h" opt
+while getopts "P:IR:M:h" opt
 do
   case $opt in
+  P  )  rvm_path=$OPTARG ;;
   R  )  results_file=$OPTARG ;;
   M  )  messages_file=$OPTARG ;;
   h  )  printf "$usage" $0
+        printf "$option" "-P" "the rvm path"
+        printf "$option" "-I" "reinstall rvm"
         printf "$option" "-R" "results file"
         printf "$option" "-M" "messages file"
         printf "$option" "-h" "prints this help"
@@ -24,6 +29,14 @@ done
 shift $(($OPTIND - 1))
 
 ############################################################################
+#
+#  RVM Setup
+#
+
+export RVM_PROJECT_DIR
+export rvm_path
+
+./install > /dev/null
 
 #
 #  Run the test cases

@@ -55,3 +55,13 @@ run_test_case () {
   fi
 }
 
+#
+# RVM-specific helpers
+#
+
+initialize_rvm () {
+  source "$rvm_path/scripts/rvm"
+  __rvm_cleanse_variables
+  __rvm_load_rvmrc
+  __rvm_initialize
+}
