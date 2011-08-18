@@ -7,7 +7,7 @@ flunk () {
   echo "[$TEST_CASE:$lineno] $TEST_NAME
 $1
 " 1>&2
-  return 1
+  exit 1
 }
 
 assert_status_equal () {
@@ -26,10 +26,10 @@ assert_output_equal () {
   then
     echo "$expected" > "$0_$2_expected.txt"
     echo "$actual"   > "$0_$2_actual.txt"
-    
+
     flunk "unequal stdout:
 $(diff "$0_$2_expected.txt" "$0_$2_actual.txt")"
-    
+
     rm "$0_$2_expected.txt" "$0_$2_actual.txt"
     return 1
   fi
@@ -41,11 +41,17 @@ assert_equal () {
 }
 
 run_test_case () {
-  for test_name in $(grep -oE "^ *${NAME:-test_\w+} +\(\)" "$1" | tr -d " ()")
-  do
-    if TEST_NAME="$test_name" "$test_name"
-    then printf '.'
-    else printf 'F'
-    fi
-  done
+  if [ "$TEST_NAME" = "" ]
+  then
+    for test_name in $(grep -oE "^ *${NAME:-test_\w+} +\(\)" "$1" | tr -d " ()")
+    do 
+      if TEST_NAME="$test_name" "$1"
+      then printf '.'
+      else printf 'F'
+      fi
+    done
+  else
+    "$TEST_NAME"
+  fi
 }
+
