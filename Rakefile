@@ -118,8 +118,10 @@ namespace :vbox do
 
   desc 'Run the tests remotely (assuming each VM is running)'
   task :remote_test do
-    local_dir = File.expand_path("../vboxtest", __FILE__)
-    sh "'#{File.expand_path("../vboxtest.sh", __FILE__)}' -L '#{local_dir}' #{hosts.join(' ')}"
+    local_dir  = File.expand_path("..", __FILE__)
+    remote_dir = "$(pwd)/rvm"
+    remote_script = "vboxtest/test_suite.sh"
+    sh "'#{File.expand_path("../vboxtest.sh", __FILE__)}' -L '#{local_dir}' -R '#{remote_dir}' -S '#{remote_script}' #{hosts.join(' ')}"
   end
 
   desc 'Run the tests locally'
