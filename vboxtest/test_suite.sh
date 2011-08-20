@@ -59,7 +59,7 @@ echo "Finished in $(($END_TIME - $START_TIME))s"
 
 if [ -f "$messages_file" ] && [ -f "$results_file" ]
 then
-  # A helper function to count the number of occurences of a character in a string.
+  # A helper function to count the number of occurrences of a character in a string.
   count_char () {
     grep -o "$1" "$2" | wc -l | tr -d " "
   }
