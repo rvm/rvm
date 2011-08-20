@@ -25,7 +25,7 @@ echo "Starting doc generation run through."
 find ${rvm_docs_src_dir} -type f -name *.txt | while read rvm_manpage_file; do
 
     # trying to detect manpage name automatically
-    # (just for fun, I don't think, that rvm will ever have more then one manpage :)
+    # (just for fun, I don't think, that rvm will ever have more than one manpage :)
     # The name of the generated manpage is initially specified within the source file in asciidoc format,
     # so we'll do some simple parsing
     # We assume, that it will be specified at one of the 3 (three) first lines
