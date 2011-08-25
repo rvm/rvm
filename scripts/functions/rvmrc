@@ -200,9 +200,38 @@ __rvm_check_rvmrc_trustworthiness()
   return $result
 }
 
+__rvm_display_rvmrc()
+{
+  printf "
+==============================================================================
+= The contents of the .rvmrc file will now be displayed.                     =
+= After reading the file, you will be prompted again for 'yes or no' to set  =
+= the trust level for this particular version of the file.                   =
+=                                                                            =
+= Note: You will be re-prompted each time the .rvmrc file's contents change  =
+= changes, and may change the trust setting manually at any time.            =
+==============================================================================
+(( press a key to review the .rvmrc file ))\n\n"
+
+read -r anykey
+
+command cat -v "${_rvmrc}"
+
+  printf "
+==============================================================================
+= Viewing of %s complete.
+==============================================================================
+= Trusting an .rvmrc file means that whenever you cd into this directory,    =
+= RVM will run this .rvmrc shell script.                                     =
+= Note that if the contents of the file change, you will be re-prompted to   =
+= review the file and adjust its trust settings. You may also change the     =
+= trust settingsmanually at any time with the 'rvm rvmrc' command.           =
+==============================================================================
+\n" "${_rvmrc}"
+}
+
 __rvm_ask_to_trust()
 {
-
   local trusted value anykey _rvmrc="${1}"
 
   if [[ ! -t 0 ]] || (( ${rvm_promptless:=0} == 1 ))
@@ -210,63 +239,30 @@ __rvm_ask_to_trust()
     return 2
   fi
 
-  printf "
-  ===============================================================
-  = NOTICE:                                                     =
-  ===============================================================
-  = RVM has encountered a new or modified .rvmrc file in the    =
-  = current working directory. Resource files may execute       =
-  = arbitrary instructions, so RVM will not use an .rvmrc file  =
-  = that has not been explicitly marked as 'trusted.'           =
-  =                                                             =
-  = Examine the contents of this file carefully to be sure the  =
-  = contents are good before trusting it!                       =
-  =                                                             =
-  = You will now be given a chance to read the .rvmrc file      =
-  = before deciding whether or not its contents are safe. After =
-  = reading the file, you will be prompted 'yes or no' to set   =
-  = the trust level for this particular version of the file.    =
-  =                                                             =
-  = Note: You will be re-prompted each time the .rvmrc file     =
-  = changes, and may change the trust setting manually at any   =
-  = time.                                                       =
-  ===============================================================
-
-  (press enter to review the .rvmrc file)
-
+  printf "==============================================================================
+= NOTICE                                                                     =
+==============================================================================
+= RVM has encountered a new or modified .rvmrc file in the current directory =
+= This is a shell script and therefore may contain any shell commands.       =
+=                                                                            =
+= Examine the contents of this file carefully to be sure the contents are    =
+= safe before trusting it! ( Choose v[iew] below to view the contents )      =
+==============================================================================
 "
-
-read -r anykey
-
-command cat -v "${_rvmrc}"
-
-  printf "
-
-  Examination of %s is now complete.
-
-  ================================================================
-  = Trusting an .rvmrc file means that whenever you cd into this =
-  = directory, RVM will run this .rvmrc script in your shell.    =
-  =                                                              =
-  = If the contents of the file change, you will be re-prompted  =
-  = to review the file and adjust its trust settings. You may    =
-  = also change the trust settings manually at any time with     =
-  = the 'rvm rvmrc' command.                                     =
-  =                                                              =
-  = Now that you have examined the contents of the file, do you  =
-  = wish to trust this particular .rvmrc?                        =
-  ================================================================
-
-" "$_rvmrc"
-
   trusted=0
   while (( ! trusted ))
   do
-    printf "%s" '  Yes or No: [y/N]? '
+    printf "Do you wish to trust this .rvmrc file? (%s)\n" "${_rvmrc}"
+    printf "%s" 'y[es], n[o], v[iew]> '
+
     read response
+
     value="$(echo -n "${response}" | tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
 
     case "${value:-n}" in
+      v|view)
+        __rvm_display_rvmrc
+        ;;
       y|yes)
         trusted=1
       ;;
