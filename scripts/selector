@@ -292,9 +292,29 @@ __rvm_select()
       fi
   esac
 
-  if [[ -n "${rvm_gemset_name}" ]] && ! __rvm_gemset_select
+  if [[ -n "${rvm_gemset_name}" ]] && __rvm_gemset_select
   then
-    return $?
+      :
+  else
+    case $? in
+        1)
+            # ${rvm_gemset_name} is unset
+            return 1
+            ;;
+        2)
+            rvm_warn "Gemset doesn't exist, proceeding with default gemset"
+            ;;
+        3)
+            # Gemsets + Non rvm ruby
+            return 1
+            ;;
+        4)
+            # ${rvm_delete_flag}
+            return 1
+            ;;
+
+
+    esac
   fi
 
   if [[ -n "$rvm_ruby_interpreter" && "system" != "$rvm_ruby_interpreter" && "default" != "$rvm_ruby_interpreter" ]]
@@ -1042,7 +1062,7 @@ __rvm_gemset_select()
       fi
     else
       rvm_error "Gemsets can not be used with non rvm controlled rubies (currently)."
-      return 1
+      return 3
     fi
   fi
 
@@ -1059,11 +1079,11 @@ __rvm_gemset_select()
     then
       rvm_error "Gemset '$rvm_gemset_name' does not exist, rvm gemset create '$rvm_gemset_name' first."
       unset rvm_gemset_name gemset_name
-      return 1
+      return 2
     fi
   elif (( ${rvm_delete_flag:=0} == 1 ))
   then
-    return 1
+    return 4
   fi
 
   if [[ -z "${rvm_ruby_gem_home:-}" && -n "${rvm_ruby_string:-}" ]]
