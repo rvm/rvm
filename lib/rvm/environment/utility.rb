@@ -31,6 +31,10 @@ module RVM
     def self.identifier_to_ruby_string(identifier)
       identifier.gsub(/@.*$/, '')
     end
+    
+    def self.identifier_to_gemset_name(identifier)
+      identifier.gsub(/^.*@/, '')
+    end
 
     # Returns the currentl environment.
     # Note that when the ruby is changed, this is reset - Also,
@@ -92,8 +96,8 @@ module RVM
     end
 
     def ruby_string(result)
-      if result && result[:rvm_ruby_string]
-        result[:rvm_ruby_string]
+      if result && result[:rvm_env_string]
+        Environment.identifier_to_ruby_string result[:rvm_env_string]
       else
         self.class.identifier_to_ruby_string(expanded_name)
       end
