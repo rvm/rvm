@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
-__rvm_environment_identifier()
+__rvm_env_string()
 {
-  local path string
+  local _path _string
 
-  path="${GEM_HOME:-""}"
+  _path="${GEM_HOME:-""}"
 
-  string="${path//*gems\//}"
-  string="${string//\/*/}"
+  _string="${_path//*gems\//}"
+  _string="${_string//\/*/}"
 
-  printf "${string:-system}"
+  printf "${_string:-system}"
 }
 
 __rvm_expand_ruby_string()
@@ -43,15 +43,16 @@ __rvm_expand_ruby_string()
       ;;
 
     current-ruby|gemsets)
-      current_ruby="$(__rvm_environment_identifier \
-        | awk -F"${rvm_gemset_separator:-"@"}" '{print $string}')"
+      current_ruby="$(
+			__rvm_env_string | awk -F"${rvm_gemset_separator:-"@"}" '{print $string}'
+			)"
 
       rvm_silence_logging=1 "$rvm_scripts_path/gemsets" list \
         | \sed "s/^/$current_ruby${rvm_gemset_separator:-"@"}/"
       ;;
 
     current)
-      __rvm_environment_identifier
+      __rvm_env_string
       ;;
 
     aliases)
@@ -80,7 +81,7 @@ __rvm_ensure_has_environment_files()
 {
   local environment_id file_name directory identifier variable value variables
 
-  environment_id="$(__rvm_environment_identifier)"
+  environment_id="$(__rvm_env_string)"
 
   file_name="${rvm_path}/environments/$environment_id"
 
@@ -91,12 +92,11 @@ __rvm_ensure_has_environment_files()
     printf "export PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"\n" \
       > "$file_name"
 
-    for variable in rvm_path RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC \
-      rvm_ruby_string rvm_gemset_name MAGLEV_HOME RBXOPT
+    for variable in rvm_env_string rvm_path rvm_ruby_string rvm_gemset_name \
+			RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC MAGLEV_HOME RBXOPT
     do
       eval "export $variable"
       eval "value=\${${variable}:-""}"
-
       if [[ -n "$value" ]]
       then
         printf "%s='%s' ; export %s\n" "${variable}" "${value}" "${variable}" \
@@ -149,7 +149,7 @@ __rvm_dump_environment()
         && ln -s /dev/null "$dump_environment_file" >/dev/null 2>&1
     else
       "$rvm_scripts_path/environment-convertor" "$dump_environment_type" \
-        "$(__rvm_environment_identifier)" > "$dump_environment_file"
+        "$(__rvm_env_string)" > "$dump_environment_file"
       if (( $? > 0 )) && [[ -f "$dump_environment_file" ]]
       then
         \rm -f "$dump_environment_file"
@@ -197,7 +197,7 @@ __rvm_run_with_env()
   command="${3:-""}"
   message="${4:-""}"
 
-  [[ -n "$environment" ]] || environment="$(__rvm_environment_identifier)"
+  [[ -n "$environment" ]] || environment="$(__rvm_env_string)"
 
   if [[ -n "$message" ]] ; then rvm_log "$message" ; fi
 
