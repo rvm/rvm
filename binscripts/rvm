@@ -21,17 +21,32 @@ then
   done
 fi
 
-if [[ -z "${rvm_path:-""}" ]]
-then
-  if (( UID == 0 ))
-  then
+# This logic is to help detect where rvm is being run from. It's needs
+# to detect user vs system, and mostly survive through various
+# privledge escalation tools (sudo, su, etc)
+#
+# The case to avoid, is trying to source a file that doesn't exist,
+# and causing a fork bomb.
+#
+# if rvm_path is set, use that
+# elsif ${HOME}/.rvm, use that
+# elsif /usr/local/rvm, use that
+# else, fail.
+#
+# And for extra checking, if we can't source what we need, don't re-exec.
+
+if [[ ! -z "${rvm_path:-""}" ]]; then
+    true
+elif (( UID == 0 )); then
     rvm_path="/usr/local/rvm"
-  else
+elif [[ -d "${HOME}/.rvm" ]]; then
     rvm_path="${HOME}/.rvm"
-  fi
+elif [[ -d "/usr/local/rvm" ]]; then
+    rvm_path="/usr/local/rvm"
+else
+    echo "Can't find rvm install"  1>&2
+    exit 1
 fi
 export rvm_path
 
-source "${rvm_scripts_path:="$rvm_path/scripts"}/rvm"
-
-rvm "$@"
+source "${rvm_scripts_path:="$rvm_path/scripts"}/rvm" && rvm "$@"
