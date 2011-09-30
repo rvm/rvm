@@ -4,9 +4,9 @@
 # https://rvm.beginrescueend.com
 # https://github.com/wayneeseguin/rvm
 
-# Is RVM loaded as a shell function already?
-
-export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
+# TODO: Alter the variable names to make sense
+\export HOME rvm_prefix rvm_user_install_flag rvm_path
+HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
 if (( ${rvm_ignore_rvmrc:=0} == 0 ))
 then
@@ -28,59 +28,56 @@ then
   done
 fi
 
+# detect rvm_path if not set
 if [[ -z "${rvm_path:-}" ]]
 then
-  # Set the default sandboxed value.
-  # TODO: Alter the variable names to make sense
-  if [[ -z "${rvm_user_install_flag:-}" ]]
+  if (( UID == 0 ))
   then
-    if (( UID == 0 )) ||
-      [[ -n "${rvm_prefix:-}" && "${rvm_prefix:-}" != "${HOME}" ]]
+    if (( ${rvm_user_install_flag:-0} == 0 ))
     then
       rvm_user_install_flag=0
+      rvm_prefix="/usr/local"
+      rvm_path="${rvm_prefix}/rvm"
     else
       rvm_user_install_flag=1
-    fi
-  fi
-
-  if [[ -z "${rvm_prefix:-}" ]]
-  then
-    true ${rvm_user_install_flag:=0}
-    if (( UID > 0 || rvm_user_install_flag == 1 ))
-    then
       rvm_prefix="$HOME"
-    else
-      rvm_prefix="/usr/local"
+      rvm_path="${rvm_prefix}/.rvm"
     fi
-  fi
-
-  true "${rvm_prefix/rvm/scripts}" # Fix rvm_prefix changes, older installs.
-
-  if [[ "$rvm_prefix" = "$HOME" ]]
-  then
-    rvm_path="${rvm_prefix}/.rvm"
   else
-    rvm_path="${rvm_prefix}/rvm"
+    if [[ -d "$HOME/.rvm" ]]
+    then
+      rvm_user_install_flag=1
+      rvm_prefix="$HOME"
+      rvm_path="${rvm_prefix}/.rvm"
+    else
+      rvm_user_install_flag=0
+      rvm_prefix="/usr/local"
+      rvm_path="${rvm_prefix}/rvm"
+    fi
   fi
 else
-	if [[ -z "${rvm_prefix}" ]]
-		then
-		rvm_prefix=$( dirname $rvm_path )
-	fi	
+  # remove trailing slashes
+  rvm_path="${rvm_path%%/}"
 fi
 
-rvm_path="${rvm_path%%+(\/)}"
-\export rvm_prefix rvm_user_install_flag rvm_path
-
-if [[ -n "${BASH_VERSION:-}" ]]
+# guess rvm_prefix if not set
+if [[ -z "${rvm_prefix}" ]]
 then
-  if type rvm 2>&1 | \grep 'function' >/dev/null
+  rvm_prefix=$( dirname $rvm_path )
+fi
+
+# guess rvm_user_install_flag if not set
+if [[ -z "${rvm_user_install_flag}" ]]
+then
+  if [[ "${rvm_prefix}" == "${HOME}" ]]
   then
-    rvm_loaded_flag=1
+    rvm_user_install_flag=1
   else
-    rvm_loaded_flag=0
+    rvm_user_install_flag=0
   fi
-elif [[ -n "${ZSH_VERSION:-}" ]]
+fi
+
+if [[ -n "${BASH_VERSION:-}" ]] || [[ -n "${ZSH_VERSION:-}" ]]
 then
   if type rvm 2>&1 | \grep 'function' >/dev/null
   then
@@ -89,6 +86,7 @@ then
     rvm_loaded_flag=0
   fi
 else
+  #TODO: Why only bash and zsh mean rvm was loaded ?
   rvm_loaded_flag=0
 fi
 
@@ -147,4 +145,3 @@ then
   # prompt if .rvmrc trust value is not stored.
   rvm_promptless=1 __rvm_project_rvmrc
 fi
-
