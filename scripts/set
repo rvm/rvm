@@ -25,7 +25,7 @@ __rvm_ruby_do()
 
   if [[ "$action" == "exec" ]]
   then
-    command="${args[@]}" # rvm exec is a special case.
+    _command="${args[@]}" # rvm exec is a special case.
   else
     binary="$(echo $action | sed 's#do$##')"
     if [[ -x "$rvm_ruby_home/bin/$binary" ]]
@@ -54,23 +54,19 @@ __rvm_ruby_do()
 
     load_path="$(dirname $(command -v $binary) 2>/dev/null):$rvm_ruby_load_path"
 
-    # TODO: the else case below should be run if $args =~ /\.rb$/
-    if [[ "ruby" == "$(basename $binary)" && "$rvm_benchmark_flag" -ne 1 ]]
-    then
-      case "${args[@]}" in
-        (exec[[:space:]]*)
-          command="$binary $rvm_ruby_mode ${args[@]}"
-          ;;
-        (*[[:space:]]-S[[:space:]]*)
-          command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path ${args[@]}"
+    case "${args[*]}" in
+      (exec[[:space:]]*|*.rb)
+        _command="$binary $rvm_ruby_mode ${args[@]}"
+        ;;
 
-        (*)
-          command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path -S ${args[@]}"
-          ;;
-      esac
-    else
-      command="$binary $rvm_ruby_mode ${args[@]}"
-    fi
+      (*[[:space:]]-S[[:space:]]*)
+        _command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path ${args[@]}"
+        ;;
+
+      (*)
+        _command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path -S ${args[@]}"
+        ;;
+    esac
   fi
 
   if [[ -n "$rvm_json_flag" || -n "$rvm_yaml_flag" || -n "$rvm_summary_flag" ]]
@@ -79,7 +75,7 @@ __rvm_ruby_do()
       mkdir -p "./log/$rvm_ruby_string/"
     fi
     touch "./log/$rvm_ruby_string/$action.log"
-    eval "$command" >> "./log/$rvm_ruby_string/$action.log" 2>&1
+    eval "${_command}" >> "./log/$rvm_ruby_string/$action.log" 2>&1
   else
     if (( ${rvm_verbose_flag:-0} > 0 ))
 		then
@@ -91,7 +87,7 @@ __rvm_ruby_do()
       rvm_log "$current_env: $(ruby -v $rvm_ruby_mode | \tr "\n" ' ')\n"
       unset current_env
     fi
-    eval "$command"
+    eval "${_command}"
   fi
   result=$?
 
@@ -250,9 +246,9 @@ do
   __rvm_ruby_do
 done
 
-if [[ ! -z "$rvm_summary_flag" ]] ; then __rvm_summary ; fi
-if [[ ! -z "$rvm_yaml_flag" ]]    ; then __rvm_yaml    ; fi
-if [[ ! -z "$rvm_json_flag" ]]    ; then __rvm_json    ; fi
+if [[ -n "$rvm_summary_flag" ]] ; then __rvm_summary ; fi
+if [[ -n "$rvm_yaml_flag" ]]    ; then __rvm_yaml    ; fi
+if [[ -n "$rvm_json_flag" ]]    ; then __rvm_json    ; fi
 
 rvm_hook="after_do" ; source "$rvm_scripts_path/hook"
 
