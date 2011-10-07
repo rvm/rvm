@@ -390,6 +390,10 @@ __rvm_install_ruby()
 
   esac
 
+  # Record the Ruby's configuration to a file, key=value format.
+  "$rvm_ruby_home/bin/ruby" -rrbconfig \
+    -e 'File.open(RbConfig::CONFIG["prefix"] + "/config","w") { |file| RbConfig::CONFIG.each_pair{|key,value| file.write("#{key.gsub(/\.|-/,"_")}=\"#{value.gsub("$","\\$")}\"\n")} }' >/dev/null 2>&1
+
   rvm_hook="after_install"
   source "$rvm_scripts_path/hook"
 
@@ -603,11 +607,11 @@ __rvm_fetch_ruby()
       case "$rvm_ruby_interpreter" in
         ruby)
           # Determine Branch
-          if [[ -z "${rvm_ruby_repo_branch:-""}" ]]
+          if [[ -z "${rvm_ruby_repo_branch:-}" ]]
             then
-            if [[ -n "${rvm_ruby_major_version:-""}" ]]
+            if [[ -n "${rvm_ruby_major_version:-}" ]]
             then
-              if [[ -n "${rvm_ruby_minor_version:-""}" ]]
+              if [[ -n "${rvm_ruby_minor_version:-}" ]]
               then
                 rvm_ruby_repo_branch="ruby_1_${rvm_ruby_major_version}_${rvm_ruby_minor_version}"
               else
@@ -677,7 +681,7 @@ __rvm_fetch_ruby()
               git checkout "${rvm_ruby_repo_branch}" # Branch is local, checkout
               git pull "$remote" "${rvm_ruby_repo_branch}" # Bring local to latest
               ;;
-            *)
+            (*)
               # Desired branch does not exist locally.
               if git checkout -t "${remote}/${rvm_ruby_repo_branch}"
               then
@@ -710,7 +714,7 @@ __rvm_fetch_ruby()
         (
           cd "${rvm_repos_path}/$rvm_ruby_string"
 
-          if [[ -z "${rvm_ruby_sha:-""}" ]]
+          if [[ -z "${rvm_ruby_sha:-}" ]]
           then
             [[ "$rvm_ruby_revision" != "head" ]] || rvm_ruby_revision="master"
             git checkout "$rvm_ruby_revision"
@@ -1225,4 +1229,25 @@ __rvm_manage_rubies()
 
   # TODO: This should return the exit status of the command that got called.
   return $manage_result
+}
+
+__rvm_record_ruby_configs()
+{
+  for dir in "$rvm_path/rubies/"*
+  do
+    string=${dir##*/}
+
+    if [[ "${string}" == default ]] ; then continue ; fi
+
+    if [[ -x "${rvm_path}/rubies/${string}/bin/ruby" ]]
+    then
+      if [[ -s "${rvm_path}/rubies/${string}/config" ]]
+      then
+        continue
+      else
+        "${rvm_path}/rubies/${string}/bin/ruby" -rrbconfig \
+          -e 'File.open(RbConfig::CONFIG["prefix"] + "/config","w") { |file| RbConfig::CONFIG.each_pair{|key,value| file.write("#{key.gsub(/\.|-/,"_")}=\"#{value.gsub("$","\\$")}\"\n")} }' >/dev/null 2>&1
+      fi
+    fi
+  done
 }
