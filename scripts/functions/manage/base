@@ -410,17 +410,17 @@ __rvm_fetch_from_github()
 {
   __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
 
-  if [[ ! -d "${rvm_repos_path}/$rvm_ruby_string/.git" ]]
+  if [[ ! -d "${rvm_repos_path}/${rvm_ruby_interpreter}/.git" ]]
   then
-    if [[ -d "${rvm_repos_path}/$rvm_ruby_string" ]]
+    if [[ -d "${rvm_repos_path}/${rvm_ruby_interpreter}" ]]
     then
-      \rm -rf "${rvm_repos_path}/$rvm_ruby_string"
+      \rm -rf "${rvm_repos_path}/${rvm_ruby_interpreter}"
     fi
 
     builtin cd "$rvm_home"
 
     __rvm_run "$1.repo" \
-      "git clone --depth 1 $rvm_ruby_repo_url ${rvm_repos_path}/$rvm_ruby_string" \
+      "git clone --depth 1 $rvm_ruby_repo_url ${rvm_repos_path}/${rvm_ruby_interpreter}" \
       "Cloning $rvm_ruby_repo_url"
     result=$?
 
@@ -430,12 +430,12 @@ __rvm_fetch_from_github()
 
       rvm_log "Could not fetch $rvm_ruby_repo_url - trying $rvm_ruby_repo_http_url"
 
-      __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_http_url ${rvm_repos_path}/$rvm_ruby_string" "Cloning $rvm_ruby_repo_http_url"
+      __rvm_run "$1.repo" "git clone --depth 1 $rvm_ruby_repo_http_url ${rvm_repos_path}/${rvm_ruby_interpreter}" "Cloning $rvm_ruby_repo_http_url"
     fi
   else
     local branch="${rvm_ruby_repo_branch:-"master"}"
 
-    builtin cd "${rvm_repos_path}/$rvm_ruby_string"
+    builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
     __rvm_run "$1.repo" "git reset --hard HEAD ; git pull --rebase origin $branch" "Pulling from origin $branch"
   fi
@@ -443,7 +443,7 @@ __rvm_fetch_from_github()
   (
     remote="origin"
 
-    cd "${rvm_repos_path}/$rvm_ruby_string"
+    cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
     if [[ -z "$(git branch | awk "/$rvm_ruby_repo_branch$/")" ]]
     then
@@ -464,7 +464,7 @@ __rvm_fetch_from_github()
     __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
   fi
 
-  __rvm_run "$1.copy" "\\cp -Rf \"${rvm_repos_path}/${rvm_ruby_string}/\" \"${rvm_src_path}/$rvm_ruby_string\"" "Copying from repo to source..."
+  __rvm_run "$1.copy" "\\cp -Rf \"${rvm_repos_path}/${rvm_ruby_interpreter}/\" \"${rvm_src_path}/$rvm_ruby_string\"" "Copying from repo to source..."
 
   builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
@@ -630,22 +630,16 @@ __rvm_fetch_ruby()
       esac
 
       # Clone if repository does not yet exist locally
-      if [[ ! -d "${rvm_repos_path}/$rvm_ruby_string/.git" ]]
+      if [[ ! -d "${rvm_repos_path}/${rvm_ruby_interpreter}/.git" ]]
       then
-        __rvm_rm_rf "${rvm_repos_path}/$rvm_ruby_string"
+        __rvm_rm_rf "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
         rvm_ruby_repo_http_url="${rvm_ruby_repo_url//git:/https:}"
 
         rvm_log "Cloning from $rvm_ruby_repo_url, this may take a while depending on your connection..."
 
-        if [[ -n "${rvm_ruby_sha:-}" || -n "${rvm_ruby_revision:-}" ]]
-        then
-          git clone "$rvm_ruby_repo_url" \
-            "${rvm_repos_path}/$rvm_ruby_string"
-        else
-          git clone --depth 1 "$rvm_ruby_repo_url" \
-            "${rvm_repos_path}/$rvm_ruby_string"
-        fi
+        # do not use '--depth 1' - we need to allow getting different commits
+        git clone "$rvm_ruby_repo_url" "${rvm_repos_path}/${rvm_ruby_interpreter}"
         result=$?
 
         if (( result > 0 ))
@@ -653,7 +647,7 @@ __rvm_fetch_ruby()
           rvm_log "cloning from $rvm_ruby_repo_url failed, now attempting to clone from $rvm_ruby_repo_http_url, this may take a while depending on your connection..."
 
           git clone "$rvm_ruby_repo_http_url" \
-            "${rvm_repos_path}/$rvm_ruby_string"
+            "${rvm_repos_path}/${rvm_ruby_interpreter}"
           result=$?
 
           if (( result > 0 ))
@@ -667,7 +661,7 @@ __rvm_fetch_ruby()
 
       # Use the selected branch.
       (
-        cd "${rvm_repos_path}/$rvm_ruby_string"
+        cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
         remote="${remote:-origin}"
         branch=$(git symbolic-ref -q HEAD 2>/dev/null)
@@ -718,7 +712,7 @@ __rvm_fetch_ruby()
       if [[ -n "$rvm_ruby_revision" ]]
       then
         (
-          cd "${rvm_repos_path}/$rvm_ruby_string"
+          cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
           [[ "$rvm_ruby_revision" != "head" ]] || rvm_ruby_revision="master"
           git checkout "${rvm_ruby_revision}"
         )
@@ -732,7 +726,7 @@ __rvm_fetch_ruby()
       elif [[ -n "${rvm_ruby_sha:-}" ]]
       then
         (
-          cd "${rvm_repos_path}/$rvm_ruby_string"
+          cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
           git checkout ${rvm_ruby_sha#s}
         )
         result=$?
@@ -780,9 +774,9 @@ __rvm_fetch_ruby()
       fi
 
       (
-        builtin cd "${rvm_repos_path}/$rvm_ruby_string"
+        builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
-        if [[ -d "${rvm_repos_path}/$rvm_ruby_string/.svn" ]]
+        if [[ -d "${rvm_repos_path}/${rvm_ruby_interpreter}/.svn" ]]
         then
           rvm_log "Updating ruby from $rvm_ruby_url"
 
@@ -797,10 +791,10 @@ __rvm_fetch_ruby()
             __rvm_run "svn.checkout" "svn update -q ${rvm_rev/-r/-r }"
           fi
         else
-          __rvm_rm_rf "${rvm_repos_path}/$rvm_ruby_string"
+          __rvm_rm_rf "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
           __rvm_run "svn.checkout" \
-            "svn checkout -q ${rvm_rev/-r/-r } $rvm_ruby_url ${rvm_repos_path}/$rvm_ruby_string" \
+            "svn checkout -q ${rvm_rev/-r/-r } $rvm_ruby_url ${rvm_repos_path}/${rvm_ruby_interpreter}" \
             "Downloading source from ${rvm_ruby_url}."
         fi
       )
@@ -817,7 +811,7 @@ __rvm_fetch_ruby()
 
     __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
 
-    cp -R "${rvm_repos_path}/$rvm_ruby_string" \
+    cp -R "${rvm_repos_path}/${rvm_ruby_interpreter}" \
       "${rvm_src_path}/$rvm_ruby_string"
   fi
 
