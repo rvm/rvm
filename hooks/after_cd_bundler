@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+BUNDLER_BIN_PATH=""
+
+# see BUNDLE_BIN is set in the current directories .bundle/config
+if grep BUNDLE_BIN .bundle/config 2>/dev/null
+then
+  BUNDLER_BIN_PATH=$(grep BUNDLE_BIN .bundle/config | cut -d ' ' -f 2 -)
+  # Expand the bundler stub path
+  eval BUNDLER_BIN_PATH=$BUNDLER_BIN_PATH
+  if [[ $path[1] == $BUNDLER_BIN_PATH ]]
+  then
+    # Already there
+    echo Already on path
+  else
+    if [[ "$PWD" =~ "${BUNDLER_BIN_PATH}" ]]
+    then
+      export PATH=$BUNDLER_BIN_PATH:$PATH
+      export LAST_BUNDLER_BIN_PATH=$BUNDLER_BIN_PATH
+    else
+      # Prompt the user before adding a bin directory in the current (project) directory to the path
+      echo -n "The bundler binstubs directory is in the current directory, this may be unsafe. Are you sure you want to add it to the path(Y/N)? "
+      trusted=0
+      while (( ! trusted ));do
+        printf "%s" '  Yes or No: [y/N]? '
+        read response
+        value="$(echo -n "${response}" | tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
+
+        case "${value:-n}" in
+          y|yes)
+          trusted=1
+          ;;
+          n|no)
+          break
+          ;;
+        esac
+      done
+
+      if (( trusted )); then
+        export PATH=$BUNDLER_BIN_PATH:$PATH
+        export LAST_BUNDLER_BIN_PATH=$BUNDLER_BIN_PATH
+      fi
+    fi
+  fi
+else
+  # There is no BUNDLE_BIN setting
+  if [[ -n "${LAST_BUNDLER_BIN_PATH}" ]]
+  then
+    export PATH
+    PATH=":${PATH}:"
+    PATH="${PATH//:${LAST_BUNDLER_BIN_PATH}:/:}"
+    PATH="${PATH//::/:}"
+    PATH="${PATH#:}"
+    PATH="${PATH%:}"
+  fi
+fi
