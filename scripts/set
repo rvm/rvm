@@ -5,73 +5,29 @@ source "$rvm_scripts_path/base"
 __rvm_attempt_single_exec()
 {
   # Return if we have multiple rubies. or we're not running exec.
-  if [[ "$action" = "exec" && ${#rvm_ruby_strings[@]} -lt 2 ]]; then
-
+  if (( ${#rvm_ruby_strings[@]} == 1 ))
+  then
     __rvm_become "$rvm_ruby_strings"
-
     eval "exec ${args[@]}"
   fi
 
   return 1
 }
 
-# Perform an action using one of a selected ruby's specified binaries.
 __rvm_ruby_do()
 {
   # Return on invalid rubies.
   __rvm_become "$current_set_ruby" || return 1
 
-  rvm_hook="before_do" ; source "$rvm_scripts_path/hook"
+  rvm_hook="before_do"
+  source "$rvm_scripts_path/hook"
 
-  if [[ "$action" == "exec" ]]
-  then
-    _command="${args[@]}" # rvm exec is a special case.
-  else
-    binary="$(echo $action | sed 's#do$##')"
-    if [[ -x "$rvm_ruby_home/bin/$binary" ]]
-    then
-      binary="$rvm_ruby_home/bin/$binary"
-    elif [[ -x "$rvm_ruby_global_gems_path/bin/$binary" ]]
-    then
-      binary="$rvm_ruby_global_gems_path/bin/$binary"
-    elif [[ -x "$rvm_ruby_gem_home/bin/$binary" ]]
-    then
-      binary="$rvm_ruby_gem_home/bin/$binary"
-    elif [[ "system" == "$rvm_ruby_string" ]] && [[ -x "$(command -v $binary)" ]]
-    then
-      binary="$(basename $(command -v $binary) 2>/dev/null)"
-    else
-      rvm_warn "'$binary not found for $rvm_ruby_string' either does not exist or is not executable? :("
-      __rvm_unset_ruby_variables
-      return 1
-    fi
-
-    if [[ ! -z "$rvm_ruby_mode" ]]
-    then
-      rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_mode}"
-      rvm_ruby_mode="--$(echo "$rvm_ruby_mode" | sed 's/^m//')"
-    fi
-
-    load_path="$(dirname $(command -v $binary) 2>/dev/null):$rvm_ruby_load_path"
-
-    case "${args[*]}" in
-      (exec[[:space:]]*|*.rb)
-        _command="$binary $rvm_ruby_mode ${args[@]}"
-        ;;
-
-      (*[[:space:]]-S[[:space:]]*)
-        _command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path ${args[@]}"
-        ;;
-
-      (*)
-        _command="$binary $rvm_ruby_mode $rvm_ruby_require -I$load_path -S ${args[@]}"
-        ;;
-    esac
-  fi
+  _command="${args[@]}" # rvm exec is a special case.
 
   if [[ -n "$rvm_json_flag" || -n "$rvm_yaml_flag" || -n "$rvm_summary_flag" ]]
   then
-    if [[ ! -d "./log/$rvm_ruby_string/" ]] ; then
+    if [[ ! -d "./log/$rvm_ruby_string/" ]]
+    then
       mkdir -p "./log/$rvm_ruby_string/"
     fi
     touch "./log/$rvm_ruby_string/$action.log"
@@ -91,7 +47,7 @@ __rvm_ruby_do()
   fi
   result=$?
 
-  string=$(basename $rvm_ruby_gem_home)
+  string=$rvm_ruby_string #$(basename $rvm_ruby_gem_home)
 
 	if (( result == 0 ))
 	then
@@ -102,7 +58,9 @@ __rvm_ruby_do()
   eval "rubies=(${rubies[*]} $string)"
   eval "statuses=(${statuses[*]} $result)"
   unset string
-  rvm_hook="after_do" ; source "$rvm_scripts_path/hook"
+
+  rvm_hook="after_do"
+  source "$rvm_scripts_path/hook"
   __rvm_unset_ruby_variables
 }
 
@@ -114,15 +72,11 @@ __rvm_summary()
   summary="\nSummary:\n\n"
 
   if [[ ${#successes[*]} -gt 0 ]] ; then
-
     summary="$summary \033[0;32m${#successes[*]} successful: $(echo "${successes[*]}" | sed 's# #, #g')\033[0m\n"
-
   fi
 
   if [[ ${#errors[*]} -gt 0 ]] ; then
-
     summary="$summary \033[0;31m${#errors[*]} errors: $(echo "${errors[*]}" | sed 's# #, #g')\033[0m\n"
-
   fi
 
   total=${#rubies[*]}
@@ -139,32 +93,24 @@ __rvm_summary()
 __rvm_yaml()
 {
   export successes errors statuses
-
   yaml="totals:\n  rubies: ${#rubies[*]}\n  successes: ${#successes[*]}\n  errors: ${#errors[*]}\nsuccesses:"
 
   for var in ${successes[*]} ; do yaml="$yaml\n  - $var" ; done
-
   yaml="$yaml\nerrors:"
 
   for var in ${errors[*]} ; do yaml="$yaml\n  - $var" ; done
-
   yaml="$yaml\nrubies:"
-
   total=${#rubies[*]}
 
   [[ -z "${ZSH_VERSION:-}" ]] ; array_start=$?
 
   for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
-
     if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-
       rvm_debug "${rubies[$index]}: ${statuses[$index]}"
-
     fi
-
     yaml="$yaml\n  \"${rubies[$index]}\": ${statuses[$index]}"
-
-  done ; unset index array_start
+  done
+  unset index array_start
 
   \mkdir -p log
 
@@ -188,17 +134,11 @@ __rvm_json()
   [[ -z "${ZSH_VERSION:-}" ]] ; array_start=$?
 
   for (( index = $array_start ; index < $total + $array_start ; index++ )) ; do
-
     if [[ ${rvm_debug_flag:-0} -gt 0 ]] ; then
-
       rvm_debug "${rubies[$index]}: ${statuses[$index]}"
-
     fi
-
     json="$json\n    {\"${rubies[$index]}\": ${statuses[$index]}}"
-
     if (( $index + 1 < $total + $array_start )) ; then json="$json,  " ; fi
-
   done
 
   json="$json\n  }\n}"
@@ -206,7 +146,6 @@ __rvm_json()
   if [[ ! -d log ]] ; then
     mkdir -p log
   fi
-
   printf "$json" | tee -a log/summary.json
 
   return ${#errors[*]}
@@ -226,19 +165,15 @@ if [[ -z "$action" ]]
 then
   rvm_error "Action must be specified."
   exit 1
-fi
-
-if [[ "$action" == "ruby" ]] && echo "$args" | \grep "^'--[^[:space:]]*'$" >/dev/null 2>&1
+elif [[ "$action" != "do" ]]
 then
-  rvm_warn "You called rvm ruby with the arguments $args which look like use options.
-    Please note that 'rvm ruby' invokes set operations instead."
+  rvm_error "Only 'do' action is allowed."
+  exit 1
 fi
 
-rvm_ruby_strings=$(__rvm_expand_ruby_string "$rvm_ruby_strings")
+rvm_ruby_strings=$( __rvm_expand_ruby_string "$rvm_ruby_strings" )
+rvm_ruby_strings=( ${rvm_ruby_strings//default} ) # No quotes here is intentional.
 
-rvm_ruby_strings=(${rvm_ruby_strings//default}) # No quotes here is intentional.
-
-# Check for a single ruby && exec if present.
 __rvm_attempt_single_exec
 
 for current_set_ruby in ${rvm_ruby_strings[@]}

@@ -186,83 +186,15 @@ __rvm_parse_args()
             ;;
 
 
-          do|ruby|rake|gem|rubydo|rakedo|gemdo)
-            if [[ "do" == "${rvm_action:-""}" ]] ; then rvm_action="ruby" ; fi
-
-            rvm_action=${rvm_token//do}
-
-            if [[ "rake" == "${rvm_action:-""}" || "gem" == "${rvm_action:-""}" || "ruby" == "${rvm_action:-""}" ]] ; then
-
-              if [[ -z "$next_token" ]]
-              then
-                if [[ "gem" == "${rvm_action:-""}" ]]
-                then
-                  rvm_action="error"
-                  rvm_error_message="'rvm $rvm_action' must be followed by arguments."
-                elif [[ "ruby" == "${rvm_action:-""}" ]]
-                then
-                  if echo "${rvm_ruby_strings:-""}" | \grep ','  >/dev/null 2>&1
-                  then
-                    rvm_action="ruby"
-                    rvm_ruby_args=""
-                  else
-                    rvm_action="error"
-                    rvm_error_message="rvm X,Y,Z '$rvm_action' must be followed by arguments."
-                  fi
-                fi
-              elif [[ "-S" == "$next_token" ]]
-              then
-                rvm_action="ruby"
-                rvm_ruby_args="${flag:-""} $next_token $(__rvm_quote_args "$@")"
-                rvm_parse_break=1
-              elif [[ "-e" == "$next_token" ]]
-              then
-                rvm_action="ruby"
-                IFS="\n" ; rvm_ruby_args="${flag:-""} $next_token '$@'" ; IFS=" "
-                rvm_parse_break=1
-              else
-                rvm_ruby_args="$next_token $@"
-                rvm_parse_break=1
-              fi
-            else
-              if match "$next_token" "-*"
-              then
-                unset rvm_ruby_strings
-
-              else
-                if match "$next_token" "[0-9]*"
-                then
-                  rvm_ruby_strings="${1//,/ }"
-                  if (( $# > 0 ))
-                  then
-                    next_token="$1"
-                    shift
-                  else
-                    next_token=""
-                  fi
-                  unset rvm_ruby_interpreter
-
-                else
-                  case "$next_token" in
-                    ruby|rbx|jruby|macruby|ree|kiji|rubinius|maglev|goruby|ironruby)
-                      rvm_ruby_strings=$next_token
-                      rvm_ruby_interpreter=$next_token
-                      if (( $# > 0 ))
-                      then
-                        next_token="$1"
-                        shift
-                      else
-                        next_token=""
-                      fi
-                      ;;
-
-                    *)
-                      unset rvm_ruby_interpreter rvm_ruby_strings
-                      ;;
-                  esac
-                fi
-              fi
+          do)
+            if [[ -z "$next_token" ]]
+            then
+                rvm_action="error"
+                rvm_error_message="'rvm $rvm_action' must be followed by arguments."
             fi
+            rvm_action="$rvm_token"
+            rvm_ruby_args="$next_token $(__rvm_quote_args "$@")"
+            rvm_parse_break=1
             ;;
 
           fetch|version|srcdir|reset|debug|reload|update|monitor|notes|implode|seppuku|question|answer|env|unexport|requirements)
@@ -288,7 +220,7 @@ __rvm_parse_args()
             rvm_parse_break=1
             ;;
 
-          docs|alias|rubygems|exec|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade)
+          docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade)
             rvm_action="$rvm_token"
             rvm_ruby_args="$next_token $(__rvm_quote_args "$@")"
             rvm_parse_break=1
@@ -916,7 +848,7 @@ rvm()
       unset rvm_wrapper_name
       ;;
 
-    ruby|gem|rake|exec)
+    do)
       old_rvm_ruby_string=${rvm_ruby_string:-}
       unset rvm_ruby_string
       export rvm_ruby_strings
