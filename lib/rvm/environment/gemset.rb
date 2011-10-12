@@ -83,7 +83,7 @@ module RVM
       replace_env = options.delete(:replace_env)
       result = rvm(:gemset, :use, gemset, options)
       if result.successful?
-        gemset_name = self.class.identifier_to_gemset_name(result[:GEM_HOME])
+        gemset_name = self.class.identifier_to_gemset_name(result[:rvm_env_string])
         @environment_name = self.class.environment_with_gemset(@environment_name, gemset_name)
         @expanded_name    = nil
         self.class.reset_current!
