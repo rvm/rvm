@@ -49,6 +49,8 @@ elsif cmdline.options[:script]
           @command.cmd_output = %x[#{@command.cmd} 2>&1]
           @command.save!
       end
+      # Don't forget to close the file handle. Thanks Radar!
+      file.close
     else
       # The file wasn't found so display the help and abort.
       cmdline.help
