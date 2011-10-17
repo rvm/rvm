@@ -39,25 +39,27 @@ if cmdline.options[:help] || ARGV[0] == nil
   cmdline.help
   abort
 elsif cmdline.options[:script]
-    # Check if the file exists. If it does, open it in read-only mode and parse.
-    # Then execute each line storing that command's returned data in the database.
-    if FileTest.exist?("ARGV[1]") then
-      file = File.open("ARGV[1]", mode='r')
-      cmds = file.readlines
-      cmds.each do |cmd|
+    # Open the script and parse. Should something go wrong with the file handler
+    # display the help and abort. Wrap in a begin/rescue to handle it gracefully.
+    # This executes each line storing that command's returned data in the database.
+      begin
+        File.foreach(ARGV[1]) do |cmd
+          # Strip off the ending '\n'
+          cmd.strip!
+          # Skip any comment lines
+          next if cmd =~ /^#/ or cmd.empty?
           @command.cmd = cmd
           @command.cmd_output = %x[#{@command.cmd} 2>&1]
           @command.save!
+        end
+      rescue Errno::ENOENT => e
+        # The file wasn't found so display the help and abort.
+        cmdline.help
+        abort
       end
-      # Don't forget to close the file handle. Thanks Radar!
-      file.close
-    else
-      # The file wasn't found so display the help and abort.
-      cmdline.help
-      abort
-    end
 else
-  # All is good so onwards and upwards!
+  # All is good so onwards and upwards! This handles when just a single command,
+  # not a script, is passed
   @command = Command.new("cmd" => ARGV[0])
 end
 
