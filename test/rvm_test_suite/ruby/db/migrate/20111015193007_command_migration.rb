@@ -1,6 +1,7 @@
 class CommandMigration < ActiveRecord::Migration
   def self.up
     create_table :commands do |t|
+      t.references :report
       t.string :sysname     
       t.string :os_type
       t.string  :cmd
