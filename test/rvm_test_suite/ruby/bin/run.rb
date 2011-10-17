@@ -2,7 +2,7 @@
 require 'clint'
 
 # Connect to the database using ActiveRecord
-load File.join(File.dirname(__FILE__), "connect.rb")
+load File.dirname(__FILE__) + "/connect.rb")
 
 # Now load the Model(s)
 Dir[File.dirname(__FILE__) + "/../app/models/*.rb"].each do |filename|
