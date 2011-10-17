@@ -1,17 +1,14 @@
 # Load requirements
 require 'clint'
 
-
-# Populate @current_dir so we don't have to always write out the full path
-# NOTE: We need a better way of doing this
-@current_dir = `PWD`
-
 # Connect to the database using ActiveRecord
-load "#{@current_dir.strip}/bin/connect.rb"
+load File.join(File.dirname(__FILE__), "bin/connect.rb")
 
 # Now load the Model(s)
-load "#{@current_dir.strip}/app/models/commands.rb"
-load "#{@current_dir.strip}/app/models/reports.rb"
+Dir[File.dirname(__FILE__) + "/app/models/*.rb"].each do |filename|
+  # "#{filename}" == filename.to_s == filename - so just call filename
+  load filename
+end
 
 # Now create both a Command and a Reportobject.
 @command = Command.new
