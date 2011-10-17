@@ -11,6 +11,12 @@ load "#{@current_dir.strip}/bin/connect.rb"
 
 # Now load the Model(s)
 load "#{@current_dir.strip}/app/models/commands.rb"
+load "#{@current_dir.strip}/app/models/reports.rb"
+
+# Now create both a Command and a Reportobject.
+@command = Command.new
+@report = Report.new
+
 
 # Create a commandline parser object
 cmdline = Clint.new
