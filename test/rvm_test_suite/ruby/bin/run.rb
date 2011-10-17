@@ -43,7 +43,7 @@ elsif cmdline.options[:script]
     # display the help and abort. Wrap in a begin/rescue to handle it gracefully.
     # This executes each line storing that command's returned data in the database.
       begin
-        File.foreach(ARGV[1]) do |cmd
+        File.foreach(ARGV[1]) do |cmd|
           # Strip off the ending '\n'
           cmd.strip!
           # Skip any comment lines
