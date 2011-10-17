@@ -49,7 +49,13 @@ elsif cmdline.options[:script]
     # display the help and abort. Wrap in a begin/rescue to handle it gracefully.
     # This executes each line storing that command's returned data in the database.
       begin
-        File.foreach(ARGV[1]) do |cmd|
+        # We call ARGV[0] here rather than ARGV[1] because the original ARGV[0] was
+        # --script (or -s). when cmdline.options[:script] gets processed, it gets
+        # dumped and the remaining argument(s) are shifted down in the ARGV array.
+        # So now the script name is ARGV[0] rather than the normal ARGV[1]
+        # We'll have to do this over and over as we keep processing deeper in the
+        # options parsing if there were more options allowed / left.
+        File.foreach(ARGV[0]) do |cmd|
           # Strip off the ending '\n'
           cmd.strip!
           # Skip any comment lines
