@@ -6,7 +6,7 @@ class TestReport < ActiveRecord::Base
   def record_timings(&cmds)
     p cmds.inspect
     self.timings = Benchmark.benchmark(CAPTION) do |x|
-      x.report("Timings: ") { cmds.call }
+      x.report("Timings: ", &cmds)
     end
   end
   
