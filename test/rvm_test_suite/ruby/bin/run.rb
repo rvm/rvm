@@ -63,6 +63,11 @@ if cmdline.options[:help] || ARGV[0] == nil
   cmdline.help
   abort
 elsif cmdline.options[:script]
+    
+    # Capture the system's name and its OS
+    @command.sysname = %x[uname -n].strip
+    @command.os_type = %x[uname -s].strip
+
     # Open the script and parse. Should something go wrong with the file handler
     # display the help and abort. Wrap in a begin/rescue to handle it gracefully.
     # This executes each line storing that command's returned data in the database.
@@ -102,19 +107,21 @@ else
   # All is good so onwards and upwards! This handles when just a single command,
   # not a script, is passed
   @command = Command.new("cmd" => ARGV[0])
+  # Now we execute the command and trap its output, but don't display it on the screen.
+  # We'll show it later on, in the report.
+  @command.cmd_output =  %x[#{@command.cmd} 2>&1]
+
+  # Capture the system's name and its OS
+  @command.sysname = %x[uname -n].strip
+  @command.os_type = %x[uname -s].strip
+
+  # TODO - Add test timings here as well for the singular command capability as well.
+  
+  # And now we save it all to the database.
+  @command.save!
+
 end
 
-
-# Capture the system's name and its OS
-@command.sysname = %x[uname -n].strip
-@command.os_type = %x[uname -s].strip
-
-# Now we execute the command and trap its output, but don't display it on the screen.
-# We'll show it later on, in the report.
-@command.cmd_output =  %x[#{@command.cmd} 2>&1]
-
-# And now we save it all to the database.
-@command.save!
 
 # Now we artistically display a report of everything
 puts "\t\t\t\t*************** [ TESTING REPORT FOR #{@command.sysname} ] ***************\t\t\t\t\n\n"

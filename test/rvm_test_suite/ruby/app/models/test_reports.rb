@@ -4,8 +4,9 @@ class TestReport < ActiveRecord::Base
   attr_accessor :timings
   
   def record_timings(&cmds)
+    p cmds.inspect
     self.timings = Benchmark.benchmark(CAPTION) do |x|
-      x.report("Timings: ") { %x[#{cmds.call}] }
+      x.report("Timings: ") { cmds.call }
     end
   end
   
