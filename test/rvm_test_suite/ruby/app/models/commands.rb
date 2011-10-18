@@ -1,5 +1,5 @@
 class Command < ActiveRecord::Base
-  belongs_to :reports
+  belongs_to :test_report
   
 end
 

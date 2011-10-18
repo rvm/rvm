@@ -14,7 +14,7 @@
 ActiveRecord::Schema.define(:version => 20111016225920) do
 
   create_table "commands", :force => true do |t|
-    t.integer  "report_id"
+    t.integer  "test_report_id"
     t.string   "sysname"
     t.string   "os_type"
     t.string   "cmd"
@@ -23,10 +23,9 @@ ActiveRecord::Schema.define(:version => 20111016225920) do
     t.datetime "updated_at"
   end
 
-  create_table "reports", :force => true do |t|
+  create_table "test_reports", :force => true do |t|
     t.integer  "command_id"
-    t.string   "cmd"
-    t.text     "cmd_output"
+    t.string   "timings"
     t.datetime "created_at"
     t.datetime "updated_at"
   end

@@ -8,6 +8,11 @@ require 'clint'
 
 # ActiveRecord since models are AR backed
 require 'active_record'
+require 'active_support'
+
+# Benchmarking for TestReports
+require 'benchmark'
+include Benchmark
 
 
 # Now, connect to the database using ActiveRecord
@@ -23,7 +28,7 @@ end
 
 # Now create both a Command and a Report object
 @command = Command.new
-@report = Report.new
+@test_report = TestReport.new
 
 
 # Create a commandline parser object
@@ -74,8 +79,19 @@ elsif cmdline.options[:script]
           # Skip any comment lines
           next if cmd =~ /^#/ or cmd.empty?
           @command.cmd = cmd
-          @command.cmd_output = %x[#{@command.cmd} 2>&1]
+          # Generate the timings. This is done by passing in the block to be executed which includes storing the
+          # output in @commands.cmd_output, then recording the returned timings generated within the record_timings call
+          # into @test-report.timings. and save the report.
+          @test_report.timings = @test_report.record_timings { @command.cmd_output = %x[#{@command.cmd} 2>&1] }
+          @test_report.save!
+
+          # now that @test_report has been saved and an ID generated, associate that test report with @command
+          @command.test_reports << @test_report
+          # Now save @command to generate its own ID, and then associate that with @test_report and save the association
+          # to @test_report
           @command.save!
+          @test_report.commands << @command
+          @test_report.save!          
         end
       rescue Errno::ENOENT => e
         # The file wasn't found so display the help and abort.
@@ -92,7 +108,6 @@ end
 # Capture the system's name and its OS
 @command.sysname = %x[uname -n].strip
 @command.os_type = %x[uname -s].strip
-
 
 # Now we execute the command and trap its output, but don't display it on the screen.
 # We'll show it later on, in the report.
