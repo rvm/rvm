@@ -1,16 +1,27 @@
 # Load requirements
+#
+# RubyGems
+require 'rubygems'
+
+# Commandline options parser
 require 'clint'
 
-# Connect to the database using ActiveRecord
-load File.dirname(__FILE__) + "/connect.rb"
+# ActiveRecord since models are AR backed
+require 'active_record'
 
-# Now load the Model(s)
+
+# Now, connect to the database using ActiveRecord
+ActiveRecord::Base.establish_connection(YAML.load_file(File.dirname(__FILE__) + "/../config/database.yml"))
+
+
+# Now load the Model(s).
 Dir[File.dirname(__FILE__) + "/../app/models/*.rb"].each do |filename|
   # "#{filename}" == filename.to_s == filename - so just call filename
   load filename
 end
 
-# Now create both a Command and a Reportobject.
+
+# Now create both a Command and a Report object
 @command = Command.new
 @report = Report.new
 
@@ -18,10 +29,12 @@ end
 # Create a commandline parser object
 cmdline = Clint.new
 
+
 # Define the general usage message
 cmdline.usage do
   $stderr.puts "Usage: #{File.basename(__FILE__)} [-h|--help]  ['rvm command_to_run'] [-s|--script rvm_test_script]"
 end
+
 
 # Define the help message
 cmdline.help do
@@ -29,12 +42,15 @@ cmdline.help do
   $stderr.puts "Note: RVM commandsets not in a scriptfile must be surrounded by '' - e.g. #{File.basename(__FILE__)} 'rvm info'"
 end
 
+
 # Define the potential options
 cmdline.options :help => false, :h => :help
 cmdline.options :script => false, :s => :script
 
+
 # Parse the actual commandline arguments
 cmdline.parse ARGV
+
 
 # If the command options is for help, usage, or there are no arguments
 # then display the help message and abort.
