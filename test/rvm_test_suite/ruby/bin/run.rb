@@ -92,17 +92,18 @@ elsif cmdline.options[:script]
 
           # now that @test_report has been saved and an ID generated, associate that test report with @command
           @command.test_report = @test_report
-          # Now save @command to generate its own ID, and then associate that with @test_report and save the association
-          # to @test_report
+          # Now save @command to generate its own ID, and then associate that with @test_report
           @command.save!
           @test_report.commands << @command
-          @test_report.save!          
         end
       rescue Errno::ENOENT => e
         # The file wasn't found so display the help and abort.
         cmdline.help
         abort
       end
+      # Now that all the commands in the batch have been processed and added to test_report,
+      # now is when to save the Test Report, immediately following the processing of all commands.
+      @test_report.save!          
 else
   # All is good so onwards and upwards! This handles when just a single command,
   # not a script, is passed
