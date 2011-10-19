@@ -122,7 +122,9 @@ elsif cmdline.options[:script]
       puts "Starting on-screen report generation"
       @test_report.commands.each do |command|
         puts "\t\t\t\t*************** [ TESTING REPORT FOR #{command.sysname} ] ***************\t\t\t\t\n\n"
-        puts " COMMAND ID #: #{command.id}\n SYSTEM TYPE: #{command.os_type}\n EXECUTED COMMAND: #{command.cmd}\n COMMAND OUTPUT: #{command.cmd_output}\n"
+        puts " REPORT ID #: #{@test_report.id}\n COMMAND ID #: #{command.id}\n SYSTEM TYPE: #{command.os_type}\n EXECUTED COMMAND: #{command.cmd}\n TIMINGS: "
+        puts "#{command.timings} "
+        puts  "\nCOMMAND OUTPUT: #{command.cmd_output}\n"
         # END OF ALL BATCH PROCESSING
       end
 
