@@ -83,8 +83,9 @@ elsif cmdline.options[:script]
           next if cmd =~ /^#/ or cmd.empty?
           
           # Assign the command found to the cmd variable
-          @test_report.run_command cmd
-
+          @command = @test_report.run_command cmd
+          p @command.inspect
+          
           puts "Before record_timings"
           puts "Command Object is as follows"
           p @command.inspect
@@ -136,7 +137,7 @@ end
 
 
 # Now lets find all the previously stored runs.
-@commands = Command.find :all
+@commands = @test_report.commands.sort
 
 # Next, we sort the commands on the ID field so it displays right.
 @commands.sort! { |old,cur| old.id <=> cur.id }

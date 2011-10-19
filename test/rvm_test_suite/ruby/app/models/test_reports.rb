@@ -11,6 +11,7 @@ class TestReport < ActiveRecord::Base
     command = commands.build
     command.run( cmd )
     command.save
+    self.sysname = command.sysname
   end
   
 end

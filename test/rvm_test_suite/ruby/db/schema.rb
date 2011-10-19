@@ -25,7 +25,7 @@ ActiveRecord::Schema.define(:version => 20111016225920) do
   end
 
   create_table "test_reports", :force => true do |t|
-    t.integer  "command_id"
+    t.string   "sysname"
     t.string   "timings"
     t.datetime "created_at"
     t.datetime "updated_at"
