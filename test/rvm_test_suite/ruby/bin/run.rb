@@ -146,10 +146,7 @@ end
 # since we'll also be storing data from the other machines in the cluster as well.
 # TODO Optmize this with custom SQL in the future.
 @commands.each do |command|
-  unless command.id == @command.id 
-    if command.sysname != @command.sysname
-      break
-    end
+  if command.sysname == %x[uname -n].strip
     puts "SYSTEM: " + "#{command.sysname} - " + "Previous cmd ID: " + command.id.to_s + " - Executed: \"#{command.cmd.to_s}\"" + " at " +  "#{command.updated_at.to_s}"
   end
 end
