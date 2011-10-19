@@ -19,6 +19,7 @@ ActiveRecord::Schema.define(:version => 20111016225920) do
     t.string   "os_type"
     t.string   "cmd"
     t.text     "cmd_output"
+    t.string   "timings"
     t.datetime "created_at"
     t.datetime "updated_at"
   end

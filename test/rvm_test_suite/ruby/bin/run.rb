@@ -98,7 +98,7 @@ elsif cmdline.options[:script]
           puts "Command Object is as follows"
           p @command.inspect
           
-          @test_report.timings = @test_report.record_timings { @command.cmd_output = %x[#{@command.cmd} 2>&1] }
+          @command.timings = @test_report.record_timings { @command.cmd_output = %x[#{@command.cmd} 2>&1] }
           # Save @test_report so its ID is generated. This also saves @command and associates it wiith this @test_report
           puts "After record_timings"
           puts "Saving @test_report"
@@ -122,7 +122,7 @@ elsif cmdline.options[:script]
       puts "Starting on-screen report generation"
       @test_report.commands.each do |command|
         puts "\t\t\t\t*************** [ TESTING REPORT FOR #{command.sysname} ] ***************\t\t\t\t\n\n"
-        puts " COMMAND ID #: #{command.id}\n SYSTEM TYPE: #{command.os_type}\n EXECUTED COMMAND: #{command.cmd}\n COMMAND OUTPUT: #{command.cmd_output}"
+        puts " COMMAND ID #: #{command.id}\n SYSTEM TYPE: #{command.os_type}\n EXECUTED COMMAND: #{command.cmd}\n COMMAND OUTPUT: #{command.cmd_output}\n"
         # END OF ALL BATCH PROCESSING
       end
 
@@ -145,12 +145,12 @@ else
   # Generate the timings. This is done by passing in the block to be executed which includes storing the
   # output in @commands.cmd_output, then recording the returned timings generated within the record_timings call
   # into @test-report.timings. and save the report.
-  @test_report.timings = @test_report.record_timings { @command.cmd_output = %x[#{@command.cmd} 2>&1] }
+  @command.timings = @test_report.record_timings { @command.cmd_output = %x[#{@command.cmd} 2>&1] }
   @test_report.save!
   @command.save
   
   # And now we save it all to the database.
-  @test_report.command_id = @command.id
+  #@test_report.command_id = @command.id
   @test_report.save!
   puts "After @test_report.save - TestReport Object is as follows"
 
@@ -158,7 +158,7 @@ else
   puts "After @test_report.save - Command Object is as follows"
   p @command.inspect
   puts "Timing for command was"
-  puts "#{@command.test_report.inspect}"
+  puts "#{@command.timings.to_s}"
 
 end
 

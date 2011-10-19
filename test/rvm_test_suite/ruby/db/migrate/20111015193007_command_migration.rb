@@ -6,6 +6,7 @@ class CommandMigration < ActiveRecord::Migration
       t.string :os_type
       t.string  :cmd
       t.text  :cmd_output
+      t.string  :timings
       t.timestamps
     end
   end
