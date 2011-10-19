@@ -1,7 +1,7 @@
 class TestReportMigration < ActiveRecord::Migration
   def self.up
     create_table :test_reports do |t|
-      t.references :commands
+      t.references :command
       t.string  :timings
       t.timestamps
     end

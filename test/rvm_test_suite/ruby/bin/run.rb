@@ -27,7 +27,7 @@ end
 
 
 # Now create both a Command and a Report object
-@command = Command.new
+#@command = Command.new
 @test_report = TestReport.new
 
 
@@ -63,11 +63,7 @@ if cmdline.options[:help] || ARGV[0] == nil
   cmdline.help
   abort
 elsif cmdline.options[:script]
-    
-    # Capture the system's name and its OS
-    @command.sysname = %x[uname -n].strip
-    @command.os_type = %x[uname -s].strip
-
+    # PROCESS BATCH FILE
     # Open the script and parse. Should something go wrong with the file handler
     # display the help and abort. Wrap in a begin/rescue to handle it gracefully.
     # This executes each line storing that command's returned data in the database.
@@ -79,63 +75,93 @@ elsif cmdline.options[:script]
         # We'll have to do this over and over as we keep processing deeper in the
         # options parsing if there were more options allowed / left.
         File.foreach(ARGV[0]) do |cmd|
+          
+          # Associate the @command object here to @test_report for tracking
+          @command = @test_report.commands.build
+
           # Strip off the ending '\n'
           cmd.strip!
+          
           # Skip any comment lines
           next if cmd =~ /^#/ or cmd.empty?
+          
+          # Assign the command found to the cmd variable
           @command.cmd = cmd
+          # Capture the system's name and its OS
+          @command.sysname = %x[uname -n].strip
+          @command.os_type = %x[uname -s].strip
+                    
           # Generate the timings. This is done by passing in the block to be executed which includes storing the
           # output in @commands.cmd_output, then recording the returned timings generated within the record_timings call
           # into @test-report.timings. and save the report.
+          puts "Before record_timings"
+          puts "Command Object is as follows"
+          p @command.inspect
+          
           @test_report.timings = @test_report.record_timings { @command.cmd_output = %x[#{@command.cmd} 2>&1] }
-          @test_report.save!
-
-          # now that @test_report has been saved and an ID generated, associate that test report with @command
-          @command.test_report = @test_report
-          # Now save @command to generate its own ID, and then associate that with @test_report
-          @command.save!
-          @test_report.commands << @command
+          # Save @test_report so its ID is generated. This also saves @command and associates it wiith this @test_report
+          puts "After record_timings"
+          puts "Saving @test_report"
+          @test_report.save
+          puts "Command Object is now as follows"
+          p @command.inspect
         end
       rescue Errno::ENOENT => e
         # The file wasn't found so display the help and abort.
         cmdline.help
         abort
       end
+      # BATCH HAS BEEN PROCESSED
       # Now that all the commands in the batch have been processed and added to test_report,
       # now is when to save the Test Report, immediately following the processing of all commands.
-      @test_report.save!          
+      puts "We've processed all commands in the batch file."
+      puts "Saving @test_report completely"
+      @test_report.save!
+      
+      # Now we artistically display a report of every command processed in the batch.
+      puts "Starting on-screen report generation"
+      @test_report.commands.each do |command|
+        puts "\t\t\t\t*************** [ TESTING REPORT FOR #{command.sysname} ] ***************\t\t\t\t\n\n"
+        puts " COMMAND ID #: #{command.id}\n SYSTEM TYPE: #{command.os_type}\n EXECUTED COMMAND: #{command.cmd}\n COMMAND OUTPUT: #{command.cmd_output}"
+        # END OF ALL BATCH PROCESSING
+      end
+
 else
+  # PROCESS SINGLE COMMAND
   # All is good so onwards and upwards! This handles when just a single command,
   # not a script, is passed
-  @command = Command.new("cmd" => ARGV[0])
-
+  @command = @test_report.commands.build("cmd" => ARGV[0])
+  @command.save!
+  puts "Single command execution - Command Object is as follows"
+  p @command.inspect
+  
   # Capture the system's name and its OS
   @command.sysname = %x[uname -n].strip
   @command.os_type = %x[uname -s].strip
-
+  @command.save
+  
+  puts "Before record_timings"
+  p @command.inspect
   # Generate the timings. This is done by passing in the block to be executed which includes storing the
   # output in @commands.cmd_output, then recording the returned timings generated within the record_timings call
   # into @test-report.timings. and save the report.
   @test_report.timings = @test_report.record_timings { @command.cmd_output = %x[#{@command.cmd} 2>&1] }
   @test_report.save!
-
-  # now that @test_report has been saved and an ID generated, associate that test report with @command
-  @command.test_report = @test_report
-  # Now save @command to generate its own ID, and then associate that with @test_report and save the association
-  # to @test_report
-  @command.save!
-  @test_report.commands << @command
+  @command.save
   
   # And now we save it all to the database.
-  @command.save!
-  @test_report.save!          
+  @test_report.command_id = @command.id
+  @test_report.save!
+  puts "After @test_report.save - TestReport Object is as follows"
+
+  p @test_report.inspect
+  puts "After @test_report.save - Command Object is as follows"
+  p @command.inspect
+  puts "Timing for command was"
+  puts "#{@command.test_report.inspect}"
 
 end
 
-
-# Now we artistically display a report of everything
-puts "\t\t\t\t*************** [ TESTING REPORT FOR #{@command.sysname} ] ***************\t\t\t\t\n\n"
-puts " COMMAND ID #: #{@command.id}\n SYSTEM TYPE: #{@command.os_type}\n EXECUTED COMMAND: #{@command.cmd}\n COMMAND OUTPUT: #{@command.cmd_output}"
 
 # Now lets find all the previously stored runs.
 @commands = Command.find :all
