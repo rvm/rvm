@@ -6,5 +6,11 @@ class TestReport < ActiveRecord::Base
       x.report("Timings: ", &cmds)
     end
   end
+
+  def run_command( cmd )
+    command = commands.build
+    command.run( cmd )
+    command.save
+  end
   
 end
