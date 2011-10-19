@@ -10,8 +10,8 @@ class Command < ActiveRecord::Base
   def run( cmd )
     self.cmd = cmd
 
-    self.timings = Benchmark.benchmark(CAPTION) do |x|
-      x.report("Timings: ") do
+    Benchmark.benchmark(CAPTION) do |x|
+      self.timings = x.report("Timings: ") do
 
         self.cmd_output = %x[ #{self.cmd} 2>&1 ]
       end
