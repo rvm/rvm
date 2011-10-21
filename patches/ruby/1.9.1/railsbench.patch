@@ -5,7 +5,7 @@ index bcdc9af..b380842 100644
 @@ -23,8 +23,16 @@
  #include <setjmp.h>
  #include <sys/types.h>
- 
+
 +#ifdef _WIN32
 +#include <string.h>
 +#else
@@ -15,9 +15,9 @@ index bcdc9af..b380842 100644
  #ifdef HAVE_SYS_TIME_H
  #include <sys/time.h>
 +#elif defined(_WIN32)
-+#include <time.h> 
++#include <time.h>
  #endif
- 
+
  #ifdef HAVE_SYS_RESOURCE_H
 @@ -211,11 +219,11 @@ getrusage_time(void)
  	if (objspace->profile.run) {\
@@ -49,12 +49,12 @@ index bcdc9af..b380842 100644
 -    malloc_limit = GC_MALLOC_LIMIT;
 +    malloc_limit = initial_malloc_limit;
      ruby_gc_stress = ruby_initial_gc_stress;
- 
+
      return objspace;
 @@ -405,6 +413,170 @@ int ruby_disable_gc_stress = 0;
  static void run_final(rb_objspace_t *objspace, VALUE obj);
  static int garbage_collect(rb_objspace_t *objspace);
- 
+
 +static unsigned long live_objects = 0;
 +unsigned long rb_os_live_objects()
 +{ return live_objects; }
@@ -225,7 +225,7 @@ index bcdc9af..b380842 100644
 @@ -454,6 +626,10 @@ rb_memerror(void)
      rb_exc_raise(nomem_error);
  }
- 
+
 +long gc_allocated_size = 0;
 +long gc_num_allocations = 0;
 +static int gc_statistics = 0;
@@ -243,11 +243,11 @@ index bcdc9af..b380842 100644
 +    }
      return vm_xmalloc(&rb_objspace, size);
  }
- 
+
 @@ -744,6 +924,13 @@ ruby_xfree(void *x)
        vm_xfree(&rb_objspace, x);
  }
- 
+
 +#if HAVE_LONG_LONG
 +#define GC_TIME_TYPE LONG_LONG
 +#else
@@ -255,7 +255,7 @@ index bcdc9af..b380842 100644
 +#endif
 +static GC_TIME_TYPE gc_time = 0;
 +static int gc_collections = 0;
- 
+
  /*
   *  call-seq:
 @@ -775,7 +962,7 @@ rb_gc_enable(void)
@@ -270,7 +270,7 @@ index bcdc9af..b380842 100644
 @@ -790,6 +977,139 @@ rb_gc_disable(void)
      return old;
  }
- 
+
 +/*
 + *  call-seq:
 + *     GC.enable_stats    => true or false
@@ -331,7 +331,7 @@ index bcdc9af..b380842 100644
 +    gc_time = 0;
 +    gc_allocated_size = 0;
 +    gc_num_allocations = 0;
-+    return Qnil; 
++    return Qnil;
 +}
 +
 +/*
@@ -405,21 +405,21 @@ index bcdc9af..b380842 100644
 +}
 +
  VALUE rb_mGC;
- 
+
  void
 @@ -921,7 +1241,7 @@ init_heap(rb_objspace_t *objspace)
  {
      size_t add, i;
- 
+
 -    add = HEAP_MIN_SLOTS / HEAP_OBJ_LIMIT;
 +    add = heap_min_slots / HEAP_OBJ_LIMIT;
- 
+
      if ((heaps_used + add) > heaps_length) {
      	allocate_heaps(objspace, heaps_used + add);
 @@ -934,12 +1254,12 @@ init_heap(rb_objspace_t *objspace)
      objspace->profile.invoke_time = getrusage_time();
  }
- 
+
 -
  static void
  set_heaps_increment(rb_objspace_t *objspace)
@@ -428,26 +428,26 @@ index bcdc9af..b380842 100644
 +    size_t next_heaps_length = heaps_used * heap_slots_growth_factor;
      heaps_inc = next_heaps_length - heaps_used;
 +    if (next_heaps_length <= 0) next_heaps_length = heap_min_slots;
- 
+
      if (next_heaps_length > heaps_length) {
  	allocate_heaps(objspace, next_heaps_length);
 @@ -980,6 +1300,8 @@ rb_newobj_from_heap(rb_objspace_t *objspace)
      RANY(obj)->line = rb_sourceline();
  #endif
- 
+
 +    live_objects++;
 +    allocated_objects++;
      return obj;
  }
- 
+
 @@ -1671,6 +1993,39 @@ finalize_list(rb_objspace_t *objspace, RVALUE *p)
      }
  }
- 
+
 +static char* obj_type(int tp)
 +{
 +    switch (tp) {
-+	case T_NIL    : return "NIL";   
++	case T_NIL    : return "NIL";
 +	case T_OBJECT : return "OBJECT";
 +	case T_CLASS  : return "CLASS";
 +	case T_ICLASS : return "ICLASS";
@@ -461,13 +461,13 @@ index bcdc9af..b380842 100644
 +	case T_STRUCT : return "STRUCT";
 +	case T_BIGNUM : return "BIGNUM";
 +	case T_FILE   : return "FILE";
-+	    
++
 +	case T_TRUE   : return "TRUE";
 +	case T_FALSE  : return "FALSE";
 +	case T_DATA   : return "DATA";
 +	case T_MATCH  : return "MATCH";
 +	case T_SYMBOL : return "SYMBOL";
-+	    
++
 +	//case T_BLKTAG : return "BLKTAG";
 +	case T_UNDEF  : return "UNDEF";
 +	case T_RATIONAL : return "RATIONAL";
@@ -492,21 +492,21 @@ index bcdc9af..b380842 100644
 +    int free_counts[256];
 +    int live_counts[256];
 +    int do_gc_stats = gc_statistics & verbose_gc_stats;
- 
+
      do_heap_free = (heaps_used * HEAP_OBJ_LIMIT) * 0.65;
      free_min = (heaps_used * HEAP_OBJ_LIMIT)  * 0.2;
- 
+
 -    if (free_min < FREE_MIN) {
 +    if (free_min < heap_free_min) {
  	do_heap_free = heaps_used * HEAP_OBJ_LIMIT;
 -        free_min = FREE_MIN;
 +        free_min = heap_free_min;
 +    }
-+    
++
 +    if (do_gc_stats) {
 +	for (i = 0 ; i< 256; i++) { free_counts[i] = live_counts[i] = 0; }
      }
- 
+
      freelist = 0;
 @@ -1739,6 +2104,9 @@ gc_sweep(rb_objspace_t *objspace)
  		    if (!deferred) {
@@ -558,7 +558,7 @@ index bcdc9af..b380842 100644
  	heaps_increment(objspace);
      }
      during_gc = 0;
-+    
++
 +    if (do_gc_stats) {
 +	fprintf(gc_data_file, "objects processed: %.7d\n", live_objects+freed);
 +	fprintf(gc_data_file, "live objects	: %.7d\n", live_objects);
@@ -572,7 +572,7 @@ index bcdc9af..b380842 100644
 +    }
 +	}
 +    }
- 
+
      /* clear finalization list */
      if (final_list) {
 @@ -1994,6 +2385,7 @@ garbage_collect(rb_objspace_t *objspace)
@@ -581,13 +581,13 @@ index bcdc9af..b380842 100644
      rb_thread_t *th = GET_THREAD();
 +    struct timeval gctv1, gctv2;
      INIT_GC_PROF_PARAMS;
- 
+
      if (GC_NOTIFY) printf("start garbage_collect()\n");
 @@ -2013,6 +2405,14 @@ garbage_collect(rb_objspace_t *objspace)
      }
      during_gc++;
      objspace->count++;
-+    
++
 +    if (gc_statistics) {
 +        gc_collections++;
 +	      gettimeofday(&gctv1, NULL);
@@ -595,14 +595,14 @@ index bcdc9af..b380842 100644
 +	    fprintf(gc_data_file, "Garbage collection started\n");
 +	      }
 +    }
- 
+
      GC_PROF_TIMER_START;
      GC_PROF_MARK_TIMER_START;
 @@ -2060,6 +2460,17 @@ garbage_collect(rb_objspace_t *objspace)
      GC_PROF_SWEEP_TIMER_START;
      gc_sweep(objspace);
      GC_PROF_SWEEP_TIMER_STOP;
-+    
++
 +    if (gc_statistics) {
 +      GC_TIME_TYPE musecs_used;
 +	    gettimeofday(&gctv2, NULL);
@@ -613,7 +613,7 @@ index bcdc9af..b380842 100644
 +    fprintf(gc_data_file, "GC time: %d msec\n", musecs_used / 1000);
 +      }
 +    }
- 
+
      GC_PROF_TIMER_STOP;
      if (GC_NOTIFY) printf("end garbage_collect()\n");
 @@ -2153,6 +2564,7 @@ Init_stack(VALUE *addr)
@@ -623,11 +623,11 @@ index bcdc9af..b380842 100644
 +    set_gc_parameters();
      init_heap(&rb_objspace);
  }
- 
+
 @@ -2868,6 +3280,34 @@ gc_profile_report(int argc, VALUE *argv, VALUE self)
      return Qnil;
  }
- 
+
 +/* call-seq:
 + *  ObjectSpace.live_objects => number
 + *
@@ -647,23 +647,23 @@ index bcdc9af..b380842 100644
 + */
 +static
 +VALUE os_allocated_objects(VALUE self)
-+{ 
++{
 +#if defined(HAVE_LONG_LONG)
-+    return ULL2NUM(allocated_objects); 
++    return ULL2NUM(allocated_objects);
 +#else
-+    return ULONG2NUM(allocated_objects); 
++    return ULONG2NUM(allocated_objects);
 +#endif
 +}
 +
 +
- 
+
  /*
   *  The <code>GC</code> module provides an interface to Ruby's mark and
 @@ -2897,10 +3337,23 @@ Init_GC(void)
      rb_define_singleton_method(rb_mProfiler, "clear", gc_profile_clear, 0);
      rb_define_singleton_method(rb_mProfiler, "result", gc_profile_result, 0);
      rb_define_singleton_method(rb_mProfiler, "report", gc_profile_report, -1);
-+    
++
 +    rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "disable_stats", rb_gc_disable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "clear_stats", rb_gc_clear_stats, 0);
@@ -673,13 +673,13 @@ index bcdc9af..b380842 100644
 +    rb_define_singleton_method(rb_mGC, "time", rb_gc_time, 0);
 +    rb_define_singleton_method(rb_mGC, "dump", rb_gc_dump, 0);
 +    rb_define_singleton_method(rb_mGC, "log", rb_gc_log, 1);
- 
+
      rb_mObSpace = rb_define_module("ObjectSpace");
      rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
      rb_define_module_function(rb_mObSpace, "garbage_collect", rb_gc_start, 0);
 +    rb_define_module_function(rb_mObSpace, "live_objects", os_live_objects, 0);
 +    rb_define_module_function(rb_mObSpace, "allocated_objects", os_allocated_objects, 0);
 +
- 
+
      rb_define_module_function(rb_mObSpace, "define_finalizer", define_final, -1);
      rb_define_module_function(rb_mObSpace, "undefine_finalizer", undefine_final, 1);
