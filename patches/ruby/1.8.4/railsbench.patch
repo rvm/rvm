@@ -3,7 +3,7 @@
 @@ -22,8 +22,16 @@
  #include <setjmp.h>
  #include <sys/types.h>
- 
+
 +#ifdef _WIN32
 +#include <string.h>
 +#else
@@ -13,14 +13,14 @@
  #ifdef HAVE_SYS_TIME_H
  #include <sys/time.h>
 +#elif defined(_WIN32)
-+#include <time.h> 
++#include <time.h>
  #endif
- 
+
  #ifdef HAVE_SYS_RESOURCE_H
 @@ -175,8 +183,17 @@
  	RUBY_CRITICAL(free(x));
  }
- 
+
 +#if HAVE_LONG_LONG
 +#define GC_TIME_TYPE LONG_LONG
 +#else
@@ -47,7 +47,7 @@
 @@ -225,6 +242,104 @@
      return old;
  }
- 
+
 +/*
 + *  call-seq:
 + *     GC.enable_stats    => true or false
@@ -104,7 +104,7 @@
 +{
 +    gc_collections = 0;
 +    gc_time = 0;
-+    return Qnil; 
++    return Qnil;
 +}
 +
 +/*
@@ -147,12 +147,12 @@
 +
 +
  VALUE rb_mGC;
- 
+
  static struct gc_list {
 @@ -308,7 +423,7 @@
  static RVALUE *freelist = 0;
  static RVALUE *deferred_final_list = 0;
- 
+
 -#define HEAPS_INCREMENT 10
 +static int heaps_increment = 10;
  static struct heaps_slot {
@@ -161,12 +161,12 @@
 @@ -316,13 +431,141 @@
  static int heaps_length = 0;
  static int heaps_used   = 0;
- 
+
 -#define HEAP_MIN_SLOTS 10000
 -static int heap_slots = HEAP_MIN_SLOTS;
 +static int heap_min_slots = 10000;
 +static int heap_slots = 10000;
- 
+
 -#define FREE_MIN  4096
 +static int heap_free_min = 4096;
 +
@@ -175,16 +175,16 @@
 +static int verbose_gc_stats = Qfalse;
 +
 +static FILE* gc_data_file = NULL;
- 
+
  static RVALUE *himem, *lomem;
- 
+
 +static void set_gc_parameters()
 +{
 +    char *gc_stats_ptr, *min_slots_ptr, *free_min_ptr,
 +	*heap_incr_ptr, *malloc_limit_ptr, *gc_heap_file_ptr;
 +
 +    gc_data_file = stderr;
-+    
++
 +    gc_stats_ptr = getenv("RUBY_GC_STATS");
 +    if (gc_stats_ptr != NULL) {
 +	int gc_stats_i = atoi(gc_stats_ptr);
@@ -192,10 +192,10 @@
 +	    verbose_gc_stats = Qtrue;
 +	}
 +    }
-+    
++
 +    gc_heap_file_ptr = getenv("RUBY_GC_DATA_FILE");
 +    if (gc_heap_file_ptr != NULL) {
-+	FILE* data_file = fopen(gc_heap_file_ptr, "w"); 
++	FILE* data_file = fopen(gc_heap_file_ptr, "w");
 +	if (data_file != NULL) {
 +	    gc_data_file = data_file;
 +	}
@@ -306,7 +306,7 @@
 @@ -333,7 +576,7 @@
  	struct heaps_slot *p;
  	int length;
- 
+
 -	heaps_length += HEAPS_INCREMENT;
 +	heaps_length += heaps_increment;
  	length = heaps_length*sizeof(struct heaps_slot);
@@ -328,11 +328,11 @@
 @@ -1031,6 +1274,39 @@
      }
  }
- 
+
 +static char* obj_type(int tp)
 +{
 +    switch (tp) {
-+	case T_NIL    : return "NIL";   
++	case T_NIL    : return "NIL";
 +	case T_OBJECT : return "OBJECT";
 +	case T_CLASS  : return "CLASS";
 +	case T_ICLASS : return "ICLASS";
@@ -346,13 +346,13 @@
 +	case T_STRUCT : return "STRUCT";
 +	case T_BIGNUM : return "BIGNUM";
 +	case T_FILE   : return "FILE";
-+	    
++
 +	case T_TRUE   : return "TRUE";
 +	case T_FALSE  : return "FALSE";
 +	case T_DATA   : return "DATA";
 +	case T_MATCH  : return "MATCH";
 +	case T_SYMBOL : return "SYMBOL";
-+	    
++
 +	case T_BLKTAG : return "BLKTAG";
 +	case T_UNDEF  : return "UNDEF";
 +	case T_VARMAP : return "VARMAP";
@@ -368,7 +368,7 @@
 @@ -1039,6 +1315,15 @@
      int i;
      unsigned long live = 0;
- 
+
 +    unsigned long really_freed = 0;
 +    int free_counts[256];
 +    int live_counts[256];
@@ -417,7 +417,7 @@
 -	if (n == heaps[i].limit && freed > FREE_MIN) {
 +	if (n == heaps[i].limit && freed > heap_free_min) {
  	    RVALUE *pp;
- 
+
  	    heaps[i].limit = 0;
 @@ -1108,14 +1405,28 @@
      }
@@ -432,7 +432,7 @@
  	add_heap();
      }
      during_gc = 0;
- 
+
 +    if (do_gc_stats) {
 +	fprintf(gc_data_file, "objects processed: %.7d\n", live+freed);
 +	fprintf(gc_data_file, "live objects     : %.7d\n", live);
@@ -456,12 +456,12 @@
      jmp_buf save_regs_gc_mark;
 +    struct timeval gctv1, gctv2;
      SET_STACK_END;
- 
+
  #ifdef HAVE_NATIVETHREAD
 @@ -1327,6 +1639,14 @@
      if (during_gc) return;
      during_gc++;
- 
+
 +    if (gc_statistics) {
 +        gc_collections++;
 +	gettimeofday(&gctv1, NULL);
@@ -471,7 +471,7 @@
 +    }
 +
      init_mark_stack();
- 
+
      /* mark frame stack */
 @@ -1409,6 +1729,17 @@
  	}
@@ -489,7 +489,7 @@
 +	}
 +    }
  }
- 
+
  void
 @@ -1522,6 +1853,7 @@
      if (!rb_gc_stack_start) {
@@ -498,11 +498,11 @@
 +    set_gc_parameters();
      add_heap();
  }
- 
+
 @@ -1920,6 +2252,14 @@
      rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
- 
+
 +    rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "disable_stats", rb_gc_disable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "clear_stats", rb_gc_clear_stats, 0);
