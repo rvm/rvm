@@ -44,7 +44,7 @@ run_test_case () {
   if [ "$TEST_NAME" = "" ]
   then
     for test_name in $(grep -oE "^ *${NAME:-test_\w+} +\(\)" "$1" | tr -d " ()")
-    do 
+    do
       if TEST_NAME="$test_name" "$1"
       then printf '.'
       else printf 'F'

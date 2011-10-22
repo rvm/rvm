@@ -105,7 +105,7 @@ namespace :vbox do
       end
     end
   end
-  
+
   desc 'Run the tests remotely on each VM'
   task :test do
     begin

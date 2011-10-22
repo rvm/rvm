@@ -31,7 +31,7 @@ module RVM
     def self.identifier_to_ruby_string(identifier)
       identifier.gsub(/@.*$/, '')
     end
-    
+
     def self.identifier_to_gemset_name(identifier)
       identifier.gsub(/^.*@/, '')
     end

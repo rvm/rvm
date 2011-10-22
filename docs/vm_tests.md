@@ -59,10 +59,10 @@ doc/vm_setup. Now to run the tests:
 
     # starts each of the VMs
     rake vbox:start
-    
+
     # copies the test scripts to each vm and runs the test suite on each
     rake vbox:remote_test
-    
+
     # stops each of the VMs
     rake vbox:stop
 
@@ -105,10 +105,10 @@ If you've been consistent about your setup you can reuse a lot of the ssh option
 
     Host ubuntu
     Port 2220
-    
+
     Host debian
     Port 2221
-    
+
     # Defaults used by all hosts
     Host *
     HostName localhost
@@ -128,7 +128,7 @@ A couple ssh options can be used to expedite testing:
     UserKnownHostsFile /dev/null
     StrictHostKeyChecking no
     IdentitiesOnly yes
-    
+
     # setup a master socket so that the full ssh exchange doesn't have
     # to happen every time you connect (which is 3 times per-host).
     ControlMaster auto

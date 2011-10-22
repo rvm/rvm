@@ -5,7 +5,7 @@ index 52b1c23..f774022 100644
 @@ -22,8 +22,16 @@
  #include <setjmp.h>
  #include <sys/types.h>
- 
+
 +#ifdef _WIN32
 +#include <string.h>
 +#else
@@ -15,9 +15,9 @@ index 52b1c23..f774022 100644
  #ifdef HAVE_SYS_TIME_H
  #include <sys/time.h>
 +#elif defined(_WIN32)
-+#include <time.h> 
++#include <time.h>
  #endif
- 
+
  #ifdef HAVE_SYS_RESOURCE_H
 @@ -42,7 +50,6 @@ void rb_io_fptr_finalize _((struct rb_io_t*));
  #ifdef __CYGWIN__
@@ -30,7 +30,7 @@ index 52b1c23..f774022 100644
 @@ -205,8 +212,17 @@ ruby_xfree(x)
  	RUBY_CRITICAL(free(x));
  }
- 
+
 +#if HAVE_LONG_LONG
 +#define GC_TIME_TYPE LONG_LONG
 +#else
@@ -57,7 +57,7 @@ index 52b1c23..f774022 100644
 @@ -255,6 +271,104 @@ rb_gc_disable()
      return old;
  }
- 
+
 +/*
 + *  call-seq:
 + *     GC.enable_stats    => true or false
@@ -114,7 +114,7 @@ index 52b1c23..f774022 100644
 +{
 +    gc_collections = 0;
 +    gc_time = 0;
-+    return Qnil; 
++    return Qnil;
 +}
 +
 +/*
@@ -157,12 +157,12 @@ index 52b1c23..f774022 100644
 +
 +
  VALUE rb_mGC;
- 
+
  static struct gc_list {
 @@ -346,7 +460,7 @@ typedef struct RVALUE {
  static RVALUE *freelist = 0;
  static RVALUE *deferred_final_list = 0;
- 
+
 -#define HEAPS_INCREMENT 10
 +static int heaps_increment = 10;
  static struct heaps_slot {
@@ -171,7 +171,7 @@ index 52b1c23..f774022 100644
 @@ -355,13 +469,165 @@ static struct heaps_slot {
  static int heaps_length = 0;
  static int heaps_used   = 0;
- 
+
 -#define HEAP_MIN_SLOTS 10000
 -static int heap_slots = HEAP_MIN_SLOTS;
 +static int heap_min_slots = 10000;
@@ -182,14 +182,14 @@ index 52b1c23..f774022 100644
 +static double heap_slots_growth_factor = 1.8;
 +
 +static long initial_malloc_limit = GC_MALLOC_LIMIT;
- 
+
 -#define FREE_MIN  4096
 +static int verbose_gc_stats = Qfalse;
 +
 +static FILE* gc_data_file = NULL;
- 
+
  static RVALUE *himem, *lomem;
- 
+
 +static void set_gc_parameters()
 +{
 +    char *gc_stats_ptr, *min_slots_ptr, *free_min_ptr, *heap_slots_incr_ptr,
@@ -340,7 +340,7 @@ index 52b1c23..f774022 100644
 @@ -372,7 +638,7 @@ add_heap()
  	struct heaps_slot *p;
  	int length;
- 
+
 -	heaps_length += HEAPS_INCREMENT;
 +	heaps_length += heaps_increment;
  	length = heaps_length*sizeof(struct heaps_slot);
@@ -368,17 +368,17 @@ index 52b1c23..f774022 100644
 +    heap_slots += heap_slots_increment;
 +    heap_slots_increment *= heap_slots_growth_factor;
 +    if (heap_slots <= 0) heap_slots = heap_min_slots;
- 
+
      while (p < pend) {
  	p->as.free.flags = 0;
 @@ -1102,6 +1369,39 @@ finalize_list(p)
      }
  }
- 
+
 +static char* obj_type(int tp)
 +{
 +    switch (tp) {
-+	case T_NIL    : return "NIL";   
++	case T_NIL    : return "NIL";
 +	case T_OBJECT : return "OBJECT";
 +	case T_CLASS  : return "CLASS";
 +	case T_ICLASS : return "ICLASS";
@@ -392,13 +392,13 @@ index 52b1c23..f774022 100644
 +	case T_STRUCT : return "STRUCT";
 +	case T_BIGNUM : return "BIGNUM";
 +	case T_FILE   : return "FILE";
-+	    
++
 +	case T_TRUE   : return "TRUE";
 +	case T_FALSE  : return "FALSE";
 +	case T_DATA   : return "DATA";
 +	case T_MATCH  : return "MATCH";
 +	case T_SYMBOL : return "SYMBOL";
-+	    
++
 +	case T_BLKTAG : return "BLKTAG";
 +	case T_UNDEF  : return "UNDEF";
 +	case T_VARMAP : return "VARMAP";
@@ -414,7 +414,7 @@ index 52b1c23..f774022 100644
 @@ -1134,12 +1434,21 @@ gc_sweep()
      unsigned long live = 0;
      unsigned long free_min = 0;
- 
+
 +    unsigned long really_freed = 0;
 +    int free_counts[256];
 +    int live_counts[256];
@@ -432,7 +432,7 @@ index 52b1c23..f774022 100644
 +    if (do_gc_stats) {
 +	for (i = 0 ; i< 256; i++) { free_counts[i] = live_counts[i] = 0; }
 +    }
- 
+
      if (ruby_in_compile && ruby_parser_stack_on_heap()) {
  	/* should not reclaim nodes during compilation
 @@ -1174,6 +1483,9 @@ gc_sweep()
@@ -480,7 +480,7 @@ index 52b1c23..f774022 100644
 @@ -1220,6 +1541,20 @@ gc_sweep()
      }
      during_gc = 0;
- 
+
 +    if (do_gc_stats) {
 +	fprintf(gc_data_file, "objects processed: %.7d\n", live+freed);
 +	fprintf(gc_data_file, "live objects	: %.7d\n", live);
@@ -504,12 +504,12 @@ index 52b1c23..f774022 100644
      jmp_buf save_regs_gc_mark;
 +    struct timeval gctv1, gctv2;
      SET_STACK_END;
- 
+
  #ifdef HAVE_NATIVETHREAD
 @@ -1439,6 +1775,14 @@ garbage_collect()
      if (during_gc) return;
      during_gc++;
- 
+
 +    if (gc_statistics) {
 +        gc_collections++;
 +	gettimeofday(&gctv1, NULL);
@@ -519,11 +519,11 @@ index 52b1c23..f774022 100644
 +    }
 +
      init_mark_stack();
- 
+
      gc_mark((VALUE)ruby_current_node, 0);
 @@ -1514,6 +1858,17 @@ garbage_collect()
      } while (!MARK_STACK_EMPTY);
- 
+
      gc_sweep();
 +
 +    if (gc_statistics) {
@@ -537,7 +537,7 @@ index 52b1c23..f774022 100644
 +	}
 +    }
  }
- 
+
  void
 @@ -1695,6 +2050,7 @@ Init_heap()
      if (!rb_gc_stack_start) {
@@ -546,11 +546,11 @@ index 52b1c23..f774022 100644
 +    set_gc_parameters();
      add_heap();
  }
- 
+
 @@ -2163,6 +2519,14 @@ Init_GC()
      rb_define_singleton_method(rb_mGC, "stress=", gc_stress_set, 1);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
- 
+
 +    rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "disable_stats", rb_gc_disable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "clear_stats", rb_gc_clear_stats, 0);
