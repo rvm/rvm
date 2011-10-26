@@ -195,15 +195,12 @@ __rvm_parse_args()
             rvm_action="do"
             rvm_parse_break=1
             case "$rvm_token" in
-              do)
-                rvm_ruby_args="$next_token $(__rvm_quote_args "$@")"
-                ;;
-              exec)
-                rvm_warn "Please note that \`rvm exec ...\` is only an alias to \`rvm do ...\`,\n"\
-                  "it might work different as in earlier versions of RVM and will be shortly removed!"
+              do|exec)
+                # deprecation for exec removed after discsussion with Wayne
                 rvm_ruby_args="$next_token $(__rvm_quote_args "$@")"
                 ;;
               *)
+                # TODO: deprecation issued on 2011.10.11, for RVM 1.9.0
                 rvm_warn "Please note that \`rvm $rvm_token ...\` is only an alias to \`rvm do $rvm_token ...\`,\n"\
                   "it might work different as in earlier versions of RVM and will be shortly removed!"
                 rvm_ruby_args="$rvm_token $next_token $(__rvm_quote_args "$@")"
@@ -340,19 +337,7 @@ __rvm_parse_args()
 
               elif [[ -d $rvm_token && -f $rvm_token/.rvmrc && -s $rvm_token/.rvmrc ]]
               then
-                # This code repeats 8745y4y87hrfrf
-                if __rvm_rvmrc_tools is_trusted $rvm_token
-                then
-                  rvm_action="${rvm_action:-use}"
-                  rvm_ruby_string="$(
-                    __rvm_rvmrc_tools load $rvm_token
-                    rvm current
-                  )"
-                  rvm_ruby_strings="$rvm_ruby_string"
-                else
-                  rvm_action="error"
-                  rvm_error_message="The give path does not contain .rvmrc (or it is not trusted): '$rvm_token' rest of params: '$@'"
-                fi
+                __rvm_rvmrc_tools try_to_read_ruby $rvm_token
 
               else
                 case "$rvm_token" in
@@ -725,19 +710,7 @@ __rvm_parse_args()
       *) # People who are smoking crack.
         if [[ -d $rvm_token && -f $rvm_token/.rvmrc && -s $rvm_token/.rvmrc ]]
         then
-          # This code repeats 8745y4y87hrfrf
-          if __rvm_rvmrc_tools is_trusted $rvm_token
-          then
-            rvm_action="${rvm_action:-use}"
-            rvm_ruby_string="$(
-              __rvm_rvmrc_tools load $rvm_token
-              rvm current
-            )"
-            rvm_ruby_strings="$rvm_ruby_string"
-          else
-            rvm_action="error"
-            rvm_error_message="The give path does not contain .rvmrc (or it is not trusted): '$rvm_token' rest of params: '$@'"
-          fi
+          __rvm_rvmrc_tools try_to_read_ruby $rvm_token
         else
           rvm_action="error"
           rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
@@ -761,7 +734,7 @@ __rvm_parse_args()
 
 rvm()
 {
-  local result
+  local result current_result
 
   if [[ -z "${ZSH_VERSION:-""}" ]] ; then
 
@@ -795,13 +768,9 @@ rvm()
   __rvm_parse_args "$@"
   result=$?
 
-  if (( result > 0 ))
-  then
-    return $result
-  fi
-
   rvm_action="${rvm_action:-usage}"
 
+  [[ $result -gt 0 ]] ||
   case "$rvm_action" in
     use)
       __rvm_use
@@ -998,7 +967,10 @@ rvm()
     false # result
   esac
 
-  result=${result:-$?}
+  # Use the result of first found error
+
+  current_result=$?
+  (( result > 0 )) || result=${current_result}
 
   if [[ ${rvm_reload_flag:-0} -eq 1 ]] ; then
 

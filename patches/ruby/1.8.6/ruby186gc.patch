@@ -3,7 +3,7 @@
 @@ -22,8 +22,16 @@
  #include <setjmp.h>
  #include <sys/types.h>
- 
+
 +#ifdef _WIN32
 +#include <string.h>
 +#else
@@ -13,9 +13,9 @@
  #ifdef HAVE_SYS_TIME_H
  #include <sys/time.h>
 +#elif defined(_WIN32)
-+#include <time.h> 
++#include <time.h>
  #endif
- 
+
  #ifdef HAVE_SYS_RESOURCE_H
 @@ -40,7 +48,6 @@
  #if !defined(setjmp) && defined(HAVE__SETJMP)
@@ -26,9 +26,9 @@
  #ifdef __GNUC__
  # ifndef atarist
 @@ -76,6 +83,20 @@
- 
+
  NORETURN(void rb_exc_jump _((VALUE)));
- 
+
 +static unsigned long live_objects = 0;
 +unsigned long rb_os_live_objects()
 +{ return live_objects; }
@@ -49,7 +49,7 @@
 @@ -93,6 +114,10 @@
      rb_exc_raise(nomem_error);
  }
- 
+
 +long gc_allocated_size = 0;
 +long gc_num_allocations = 0;
 +static int gc_statistics = 0;
@@ -58,7 +58,7 @@
  ruby_xmalloc(size)
      long size;
 @@ -167,6 +192,8 @@
- 
+
  extern int ruby_in_compile;
  static int dont_gc;
 +static GC_TIME_TYPE gc_time = 0;
@@ -75,11 +75,11 @@
 + *     GC.disable   #=> false or true
   *
   */
- 
+
 @@ -215,6 +241,139 @@
      return old;
  }
- 
+
 +/*
 + *  call-seq:
 + *     GC.enable_stats    => true or false
@@ -140,7 +140,7 @@
 +    gc_time = 0;
 +    gc_allocated_size = 0;
 +    gc_num_allocations = 0;
-+    return Qnil; 
++    return Qnil;
 +}
 +
 +/*
@@ -214,12 +214,12 @@
 +}
 +
  VALUE rb_mGC;
- 
+
  static struct gc_list {
 @@ -306,7 +465,7 @@
  static RVALUE *freelist = 0;
  static RVALUE *deferred_final_list = 0;
- 
+
 -#define HEAPS_INCREMENT 10
 +static int heaps_increment = 10;
  static struct heaps_slot {
@@ -228,17 +228,17 @@
 @@ -315,13 +474,164 @@
  static int heaps_length = 0;
  static int heaps_used   = 0;
- 
+
 -#define HEAP_MIN_SLOTS 10000
 -static int heap_slots = HEAP_MIN_SLOTS;
 +static int heap_min_slots = 10000;
 +static int heap_slots = 10000;
- 
+
 -#define FREE_MIN  4096
 +static int heap_free_min = 4096;
 +static int heap_slots_increment = 10000;
 +static double heap_slots_growth_factor = 1.8;
- 
+
 +static long initial_malloc_limit = GC_MALLOC_LIMIT;
 +
 +static int verbose_gc_stats = Qfalse;
@@ -246,7 +246,7 @@
 +static FILE* gc_data_file = NULL;
 +
  static RVALUE *himem, *lomem;
- 
+
 +static void set_gc_parameters()
 +{
 +    char *gc_stats_ptr, *min_slots_ptr, *free_min_ptr, *heap_slots_incr_ptr,
@@ -396,7 +396,7 @@
 @@ -332,7 +642,7 @@
  	struct heaps_slot *p;
  	int length;
- 
+
 -	heaps_length += HEAPS_INCREMENT;
 +	heaps_length += heaps_increment;
  	length = heaps_length*sizeof(struct heaps_slot);
@@ -410,7 +410,7 @@
 +        gc_allocated_size += size;
 +	gc_num_allocations += 1;
 +    }
- 
+
      for (;;) {
  	RUBY_CRITICAL(p = (RVALUE*)malloc(sizeof(RVALUE)*(heap_slots+1)));
  	if (p == 0) {
@@ -432,7 +432,7 @@
 +    heap_slots += heap_slots_increment;
 +    heap_slots_increment *= heap_slots_growth_factor;
 +    if (heap_slots <= 0) heap_slots = heap_min_slots;
- 
+
      while (p < pend) {
 +    if (do_gc_stats) {
 +	int obt = p->as.basic.flags & T_MASK;
@@ -451,15 +451,15 @@
 +    allocated_objects++;
      return obj;
  }
- 
+
 @@ -1062,6 +1385,39 @@
      }
  }
- 
+
 +static char* obj_type(int tp)
 +{
 +    switch (tp) {
-+	case T_NIL    : return "NIL";   
++	case T_NIL    : return "NIL";
 +	case T_OBJECT : return "OBJECT";
 +	case T_CLASS  : return "CLASS";
 +	case T_ICLASS : return "ICLASS";
@@ -473,13 +473,13 @@
 +	case T_STRUCT : return "STRUCT";
 +	case T_BIGNUM : return "BIGNUM";
 +	case T_FILE   : return "FILE";
-+	    
++
 +	case T_TRUE   : return "TRUE";
 +	case T_FALSE  : return "FALSE";
 +	case T_DATA   : return "DATA";
 +	case T_MATCH  : return "MATCH";
 +	case T_SYMBOL : return "SYMBOL";
-+	    
++
 +	case T_BLKTAG : return "BLKTAG";
 +	case T_UNDEF  : return "UNDEF";
 +	case T_VARMAP : return "VARMAP";
@@ -497,7 +497,7 @@
      unsigned long live = 0;
      unsigned long free_min = 0;
 +    live_objects = 0;
- 
+
 +    unsigned long really_freed = 0;
 +    int free_counts[256];
 +    int live_counts[256];
@@ -511,7 +511,7 @@
 -        free_min = FREE_MIN;
 +    if (free_min < heap_free_min)
 +        free_min = heap_free_min;
- 
+
 +    if (do_gc_stats) {
 +	for (i = 0 ; i< 256; i++) { free_counts[i] = live_counts[i] = 0; }
 +    }
@@ -555,7 +555,7 @@
 @@ -1180,6 +1552,20 @@
      }
      during_gc = 0;
- 
+
 +    if (do_gc_stats) {
 +	fprintf(gc_data_file, "objects processed: %.7d\n", live+freed);
 +	fprintf(gc_data_file, "live objects	: %.7d\n", live);
@@ -579,12 +579,12 @@
      jmp_buf save_regs_gc_mark;
 +    struct timeval gctv1, gctv2;
      SET_STACK_END;
- 
+
  #ifdef HAVE_NATIVETHREAD
 @@ -1410,6 +1797,14 @@
      if (during_gc) return;
      during_gc++;
- 
+
 +    if (gc_statistics) {
 +        gc_collections++;
 +	gettimeofday(&gctv1, NULL);
@@ -594,11 +594,11 @@
 +    }
 +
      init_mark_stack();
- 
+
      gc_mark((VALUE)ruby_current_node, 0);
 @@ -1485,6 +1880,17 @@
      } while (!MARK_STACK_EMPTY);
- 
+
      gc_sweep();
 +
 +    if (gc_statistics) {
@@ -612,7 +612,7 @@
 +	}
 +    }
  }
- 
+
  void
 @@ -1666,6 +2072,7 @@
      if (!rb_gc_stack_start) {
@@ -621,11 +621,11 @@
 +    set_gc_parameters();
      add_heap();
  }
- 
+
 @@ -2109,6 +2516,35 @@
      return (VALUE)((long)obj|FIXNUM_FLAG);
  }
- 
+
 +/* call-seq:
 + *  ObjectSpace.live_objects => number
 + *
@@ -645,11 +645,11 @@
 + */
 +static
 +VALUE os_allocated_objects(VALUE self)
-+{ 
++{
 +#if defined(HAVE_LONG_LONG)
-+    return ULL2NUM(allocated_objects); 
++    return ULL2NUM(allocated_objects);
 +#else
-+    return ULONG2NUM(allocated_objects); 
++    return ULONG2NUM(allocated_objects);
 +#endif
 +}
 +
@@ -661,7 +661,7 @@
 @@ -2126,6 +2562,16 @@
      rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
- 
+
 +    rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "disable_stats", rb_gc_disable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "clear_stats", rb_gc_clear_stats, 0);
@@ -681,6 +681,6 @@
      rb_define_module_function(rb_mObSpace, "call_finalizer", call_final, 1);
 +    rb_define_module_function(rb_mObSpace, "live_objects", os_live_objects, 0);
 +    rb_define_module_function(rb_mObSpace, "allocated_objects", os_allocated_objects, 0);
- 
+
      rb_define_module_function(rb_mObSpace, "define_finalizer", define_final, -1);
      rb_define_module_function(rb_mObSpace, "undefine_finalizer", undefine_final, 1);

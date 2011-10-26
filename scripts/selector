@@ -518,52 +518,12 @@ __rvm_use()
     local environment_id="$(__rvm_env_string)"
 
     if (( ${rvm_default_flag:=0} == 1 )) &&
-      [[ "default" != "${rvm_ruby_interpreter:-""}" ]]
+      [[ "default" != "${rvm_ruby_interpreter:-}" ]] &&
+      [[ "system"  != "${rvm_ruby_interpreter:-}" ]]
     then
-      if (( ${rvm_user_install_flag:=0} == 0 ))
-      then
-        # Sets up the default wrappers.
-        "$rvm_scripts_path/wrapper" "$rvm_ruby_string" --no-prefix
-      else
-        "$rvm_scripts_path/wrapper" "$rvm_ruby_string" "default"
-      fi
-
-      if [[ "system" != "$rvm_ruby_interpreter" ]]
-      then
-        RUBY_VERSION="$("$rvm_ruby_home/bin/ruby" -v | \sed 's#^\(.*\) (.*$#\1#')"
-
-        export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
-
-        # Switch the default alias to the new environment id
-        "$rvm_scripts_path/alias" delete default &> /dev/null
-        "$rvm_scripts_path/alias" create default "$environment_id" >& /dev/null
-
-        for _path in "$rvm_environments_path" "$rvm_wrappers_path"
-        do
-          # Remove old default if it exists.
-          [[ -L "$_path/default" ]] && rm -f "$_path/default"
-          # Symlink n the new default
-          \ln -fs "$_path/$environment_id" "$_path/default"
-        done
-
-        # Copy wrapper scripts for the newly set default to the RVM bin path.
-        for wrapper in "$rvm_path"/wrappers/default/*
-        do
-          if [[ -L "$rvm_bin_path/${wrapper##*\/}" ]]
-          then
-            rm -f "$rvm_bin_path/${wrapper##*\/}"
-          fi
-
-          cp -f "$wrapper" "$rvm_bin_path/${wrapper##*\/}"
-
-          # If the RVM bin path is different from rvm_path/bin, ensure they are
-          # in sync.
-          if [[ "${rvm_bin_path}" != "${rvm_path}/bin" ]]
-          then
-            cp -f "${wrapper}" "${rvm_path}/bin/"
-          fi
-        done
-      fi
+      # Switch the default alias to the new environment id
+      "$rvm_scripts_path/alias" delete default &> /dev/null
+      "$rvm_scripts_path/alias" create default "$environment_id" >& /dev/null
     fi
 
     rvm_default_flag=0

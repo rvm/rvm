@@ -70,8 +70,37 @@ alias_show() {
   fi
 }
 
+alias_after_delete_default()
+{
+  rvm_log "Deleting default links/files"
+
+  for _path in $rvm_bin_path/default_* "$rvm_environments_path/default" "$rvm_wrappers_path/default"
+  do
+    [[ -f "$_path" ]] && rm -rf ${_path}
+  done
+
+  for wrapper in "$rvm_path"/wrappers/default/*
+  do
+    wrapper="${wrapper##*\/}"
+
+    if [[ -L "$rvm_bin_path/${wrapper}" ]]
+    then
+      rm -f "$rvm_bin_path/${wrapper}"
+    fi
+
+    rm -f "$rvm_bin_path/${wrapper}"
+
+    # If the RVM bin path is different from rvm_path/bin, ensure they are
+    # in sync.
+    if [[ "${rvm_bin_path}" != "${rvm_path}/bin" ]]
+    then
+      rm -f "${rvm_path}/bin/${wrapper}"
+    fi
+  done
+}
+
 alias_delete() {
-  echo "Deleting alias: $alias_name"
+  rvm_log "Deleting alias: $alias_name"
 
   for link in "$rvm_rubies_path/$alias_name" ; do
     if [[ -L "$link" ]] ; then rm -f $link ; fi
@@ -80,6 +109,55 @@ alias_delete() {
   [[ -s "$rvm_path/config/alias" ]] || return 0
 
   "$rvm_scripts_path"/db "$rvm_path/config/alias" "$alias_name" "delete"
+
+  if [[ "default" == "$alias_name" ]] ; then
+    alias_after_delete_default
+  fi
+}
+
+alias_after_create_default()
+{
+  rvm_log "Creating default links/files"
+
+  environment_id="${final_environment_identifier}"
+
+  if (( ${rvm_user_install_flag:=0} == 0 ))
+  then
+    # Sets up the default wrappers.
+    "$rvm_scripts_path/wrapper" "$rvm_ruby_string" --no-prefix
+  else
+    "$rvm_scripts_path/wrapper" "$rvm_ruby_string" "default"
+  fi
+
+  RUBY_VERSION="$("$rvm_ruby_home/bin/ruby" -v | \sed 's#^\(.*\) (.*$#\1#')"
+
+  export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
+
+  for _path in "$rvm_environments_path" "$rvm_wrappers_path"
+  do
+    # Remove old default if it exists.
+    [[ -L "$_path/default" ]] && rm -f "$_path/default"
+    # Symlink n the new default
+    \ln -fs "$_path/$environment_id" "$_path/default"
+  done
+
+  # Copy wrapper scripts for the newly set default to the RVM bin path.
+  for wrapper in "$rvm_path"/wrappers/default/*
+  do
+    if [[ -L "$rvm_bin_path/${wrapper##*\/}" ]]
+    then
+      rm -f "$rvm_bin_path/${wrapper##*\/}"
+    fi
+
+    cp -f "$wrapper" "$rvm_bin_path/${wrapper##*\/}"
+
+    # If the RVM bin path is different from rvm_path/bin, ensure they are
+    # in sync.
+    if [[ "${rvm_bin_path}" != "${rvm_path}/bin" ]]
+    then
+      cp -f "${wrapper}" "${rvm_path}/bin/"
+    fi
+  done
 }
 
 alias_create() {
@@ -141,6 +219,10 @@ alias_create() {
 
       "$rvm_scripts_path"/db "$rvm_path/config/alias" "$alias_name" "$final_environment_identifier"
 
+      if [[ "default" == "$alias_name" ]] ; then
+        alias_after_create_default
+      fi
+
     else
 
       if [[ -d "$rvm_rubies_path/$alias_name" ]] ; then
@@ -171,6 +253,22 @@ alias_list() {
   done
 }
 
+alias_search_by_target() {
+  local item items target search
+  search="${alias_name}@${gemset_name}"
+
+  items=($(cd "$rvm_rubies_path" ; find . -maxdepth 1 -mindepth 1 -type l | sed -e 's#./##'))
+
+  for item in "${items[@]}"
+  do
+    target=$("$rvm_scripts_path"/db "$rvm_path/config/alias" "$(basename "$item")")
+    if [[ "${search}" == "${target}" ]]
+    then
+      echo "$(basename "$item")"
+    fi
+  done
+}
+
 args=($*)
 action="${args[0]:-""}"
 alias_name="${args[1]:-""}"
@@ -192,17 +290,8 @@ if [[ -n "$alias_name" ]] ; then
 fi
 
 case "$action" in
-  delete)
-    alias_delete
-    ;;
-  create)
-    alias_create
-    ;;
-  list)
-    alias_list
-    ;;
-  show)
-    alias_show
+  delete|create|list|show|search_by_target)
+    alias_${action}
     ;;
   help|usage)
     usage
