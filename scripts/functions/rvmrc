@@ -337,13 +337,6 @@ __rvm_ask_to_trust()
 __rvm_project_rvmrc()
 {
   local working_dir
-# mpapis: removed - it leaves a lot of environment variables in the shell,
-# let me know if it is needed - I have few ideas how to make it working if needed,
-# the only case it is needed - when rvm is not loaded but you use hook ?
-#   if [[ -n "${rvm_scripts_path:+x}" || -n "${rvm_path:+x}" ]]
-#   then
-#     source "${rvm_scripts_path:-"$rvm_path/scripts"}/initialize"
-#   fi
 
   # Get the first argument or the pwd.
   working_dir="${1:-"$PWD"}"
@@ -354,6 +347,7 @@ __rvm_project_rvmrc()
     then
       if [[ -n "${rvm_current_rvmrc:-""}" ]]
       then
+        __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
         if (( ${rvm_project_rvmrc_default:-0} == 1 ))
         then
           __rvm_load_environment "default"
@@ -373,6 +367,7 @@ __rvm_project_rvmrc()
           local rvm_trustworthiness_result=$?
           if  (( $rvm_trustworthiness_result == 0 ))
           then
+            __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
             rvm_previous_environment="$(__rvm_env_string)"
             rvm_current_rvmrc="$working_dir/.rvmrc"
             source "$working_dir/.rvmrc"
@@ -387,8 +382,28 @@ __rvm_project_rvmrc()
       fi
     fi
   done
-
   return $?
+}
+
+__rvm_project_rvmrc_with_env()
+{
+  if [[ -n "${rvm_scripts_path:-}" || -n "${rvm_path:-}" ]]
+  then
+    # Load env - setup all required variables, __rvm_teardown is called on the end
+    __rvm_setup
+    source "${rvm_scripts_path:-"$rvm_path/scripts"}/initialize"
+  fi
+
+  __rvm_project_rvmrc "$@"
+  local result=$?
+
+  if [[ -n "${rvm_scripts_path:-}" || -n "${rvm_path:-}" ]]
+  then
+    # Clean env mess
+    __rvm_teardown
+  fi
+
+  return ${result:-0}
 }
 
 __rvm_set_rvmrc()
