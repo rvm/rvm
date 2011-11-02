@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-export escape_flag=1 _first=${__array_start} _second=$[__array_start + 1]
+export escape_flag _first _second
+escape_flag=1
+_first=${__array_start}
+_second=$[__array_start + 1]
 
 __rvm_md5_for()
 {
@@ -102,16 +105,18 @@ __rvm_rvmrc_stored_trust()
 
 __rvm_rvmrc_tools()
 {
-  export escape_flag=1
+  export escape_flag
+  local rvmrc_action rvmrc_path saveIFS trust
 
-  local rvmrc_action="$1"
+  escape_flag=1
+  rvmrc_action="$1"
 
   if (( $# ))
   then
     shift
   fi
 
-  local rvmrc_path="$(builtin cd "${1:-$PWD}" >/dev/null 2>&1; pwd)/.rvmrc"
+  rvmrc_path="$(builtin cd "${1:-$PWD}" >/dev/null 2>&1; pwd)/.rvmrc"
 
   case "$rvmrc_action" in
 
@@ -138,9 +143,9 @@ __rvm_rvmrc_tools()
 
       if [[ -f "$rvmrc_path" ]]
       then
-        local saveIFS=$IFS
+        saveIFS=$IFS
         IFS=$';'
-        local trust=($(__rvm_rvmrc_stored_trust "$rvmrc_path"))
+        trust=($(__rvm_rvmrc_stored_trust "$rvmrc_path"))
         IFS=$saveIFS
 
         if [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$rvmrc_path")$(__rvm_sha256_for_contents "$rvmrc_path")" ]]
@@ -167,9 +172,9 @@ __rvm_rvmrc_tools()
 
       if [[ -f "$rvmrc_path" ]]
       then
-        local saveIFS=$IFS
+        saveIFS=$IFS
         IFS=$';'
-        local trust=($(__rvm_rvmrc_stored_trust "$rvmrc_path"))
+        trust=($(__rvm_rvmrc_stored_trust "$rvmrc_path"))
         IFS=$saveIFS
 
         if [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$rvmrc_path")$(__rvm_sha256_for_contents "$rvmrc_path")" ]]
@@ -226,10 +231,11 @@ __rvm_rvmrc_tools()
 
 __rvm_check_rvmrc_trustworthiness()
 {
+  local saveIFS trust result
   # Trust when they have the flag... of doom!
   if [[ -n "$1" && ${rvm_trust_rvmrcs_flag:-0} == 0 ]]
   then
-    local saveIFS="$IFS" trust
+    saveIFS="$IFS"
     IFS=$';'
     trust=( $( __rvm_rvmrc_stored_trust "$1" ) )
     IFS="$saveIFS"
@@ -242,7 +248,7 @@ __rvm_check_rvmrc_trustworthiness()
     fi
 
   fi
-  local result=$?
+  result=$?
   unset escape_flag
   return $result
 }
@@ -279,7 +285,8 @@ command cat -v "${_rvmrc}"
 
 __rvm_ask_to_trust()
 {
-  local trusted value anykey _rvmrc="${1}"
+  local trusted value anykey _rvmrc
+  _rvmrc="${1}"
 
   if [[ ! -t 0 ]] || (( ${rvm_promptless:=0} == 1 ))
   then
@@ -336,7 +343,7 @@ __rvm_ask_to_trust()
 # argument is passed, it will be used instead of pwd.
 __rvm_project_rvmrc()
 {
-  local working_dir
+  local working_dir rvm_trustworthiness_result
 
   # Get the first argument or the pwd.
   working_dir="${1:-"$PWD"}"
@@ -364,7 +371,7 @@ __rvm_project_rvmrc()
         if [[ "${rvm_current_rvmrc:-""}" != "$working_dir/.rvmrc" ]]
         then
           __rvm_check_rvmrc_trustworthiness "$working_dir/.rvmrc"
-          local rvm_trustworthiness_result=$?
+          rvm_trustworthiness_result=$?
           if  (( $rvm_trustworthiness_result == 0 ))
           then
             __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
@@ -387,6 +394,8 @@ __rvm_project_rvmrc()
 
 __rvm_project_rvmrc_with_env()
 {
+  local result
+
   if [[ -n "${rvm_scripts_path:-}" || -n "${rvm_path:-}" ]]
   then
     # Load env - setup all required variables, __rvm_teardown is called on the end
@@ -397,7 +406,7 @@ __rvm_project_rvmrc_with_env()
   fi
 
   __rvm_project_rvmrc "$@"
-  local result=$?
+  result=$?
 
   if [[ -n "${rvm_scripts_path:-}" || -n "${rvm_path:-}" ]]
   then
@@ -410,7 +419,7 @@ __rvm_project_rvmrc_with_env()
 
 __rvm_set_rvmrc()
 {
-  local flags
+  local flags identifier
   true ${rvm_verbose_flag:=0}
 
   if [[ "$HOME" != "$PWD" ]]
@@ -426,7 +435,7 @@ __rvm_set_rvmrc()
       rvm_warn ".rvmrc is not empty, moving aside to preserve."
     fi
 
-    local identifier=$(__rvm_env_string)
+    identifier=$(__rvm_env_string)
 
     printf "#!/usr/bin/env bash
 
