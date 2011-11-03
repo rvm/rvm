@@ -159,22 +159,31 @@ __rvm_select()
         arch="$(uname -m)"
       fi
 
-      if (( ${rvm_head_flag:=0} == 1 ))
+      if (( ${rvm_head_flag:=0} == 1 )) || [[ "$rvm_ruby_version" == "head" ]]
       then
+        rvm_head_flag=1
         rvm_ruby_version="head"
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
         rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
         rvm_gemstone_version=$(
-        command curl -s https://raw.github.com/MagLev/maglev/master/version.txt |
-        grep ^GEMSTONE | cut -f2 -d-
+          command curl -s https://raw.github.com/MagLev/maglev/master/version.txt |
+            grep ^GEMSTONE | cut -f2 -d-
         )
         rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
       else
-        rvm_ruby_package_file="MagLev-${rvm_ruby_version}.${system}-${arch}"
+        rvm_ruby_package_file="MagLev-${rvm_ruby_version}" # removed from 1.0: .${system}-${arch}
         rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "maglev_version")"}"
         rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         rvm_ruby_url="${rvm_ruby_url:-"$maglev_url/${rvm_ruby_package_file}.${rvm_archive_extension}"}"
-        rvm_gemstone_package_file="GemStone-${rvm_ruby_version}.${system}-${arch}"
+        rvm_gemstone_version=$(
+          version_tag_commit=$(
+            command curl -s http://github.com/api/v2/yaml/repos/show/MagLev/maglev/tags |
+              awk '/MagLev-'${rvm_ruby_version}':/ {print $2 }'
+          )
+          command curl -s https://raw.github.com/MagLev/maglev/$version_tag_commit/version.txt |
+            grep ^GEMSTONE | cut -f2 -d-
+        )
+        rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
         export MAGLEV_HOME="$rvm_rubies_path/$rvm_ruby_string"
       fi
 
@@ -1073,4 +1082,3 @@ __rvm_gemset_clear()
   export rvm_ruby_gem_home rvm_ruby_global_gems_path GEM_HOME GEM_PATH
   __rvm_use # Now ensure the selection takes effect for the environment.
 }
-

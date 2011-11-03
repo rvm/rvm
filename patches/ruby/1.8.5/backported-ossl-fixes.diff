@@ -5,17 +5,17 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/extconf.rb ruby-1.8.5-p231-fixed/ext/open
  =begin
 -= $RCSfile: extconf.rb,v $ -- Generator for Makefile
 += $RCSfile$ -- Generator for Makefile
-
+ 
  = Info
    'OpenSSL for Ruby 2' project
 @@ -11,7 +11,7 @@
    (See the file 'LICENCE'.)
-
+ 
  = Version
 -  $Id: extconf.rb,v 1.21.2.9 2006/06/20 11:18:15 gotoyuzo Exp $
 +  $Id: extconf.rb 12572 2007-06-18 09:03:15Z technorama $
  =end
-
+ 
  require "mkmf"
 @@ -36,8 +36,6 @@
  message "=== Checking for system dependent stuff... ===\n"
@@ -24,12 +24,12 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/extconf.rb ruby-1.8.5-p231-fixed/ext/open
 -have_header("unistd.h")
 -have_header("sys/time.h")
  have_header("assert.h")
-
+ 
  message "=== Checking for required stuff... ===\n"
 @@ -61,6 +59,8 @@
    exit 1
  end
-
+ 
 +%w"rb_str_set_len rb_block_call".each {|func| have_func(func, "ruby.h")}
 +
  message "=== Checking for OpenSSL features... ===\n"
@@ -64,7 +64,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/openssl_missing.c ruby-1.8.5-p231-fixed/e
   * All rights reserved.
 @@ -22,17 +22,15 @@
  #include "openssl_missing.h"
-
+ 
  #if !defined(HAVE_HMAC_CTX_COPY)
 -int
 +void
@@ -73,7 +73,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/openssl_missing.c ruby-1.8.5-p231-fixed/e
 -    if (!out || !in) return 0;
 +    if (!out || !in) return;
      memcpy(out, in, sizeof(HMAC_CTX));
-
+ 
 -    if (!EVP_MD_CTX_copy(&out->md_ctx, &in->md_ctx)
 -	    || !EVP_MD_CTX_copy(&out->i_ctx, &in->i_ctx)
 -	    || !EVP_MD_CTX_copy(&out->o_ctx, &in->o_ctx))
@@ -98,7 +98,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/openssl_missing.h ruby-1.8.5-p231-fixed/e
 @@ -15,6 +15,10 @@
  extern "C" {
  #endif
-
+ 
 +#ifndef TYPEDEF_D2I_OF
 +typedef char *d2i_of_void();
 +#endif
@@ -109,7 +109,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/openssl_missing.h ruby-1.8.5-p231-fixed/e
 @@ -56,14 +60,33 @@
  	(char *(*)())d2i_PKCS7_RECIP_INFO, (char *)ri)
  #endif
-
+ 
 +#if !defined(HAVE_EVP_MD_CTX_INIT)
  void HMAC_CTX_init(HMAC_CTX *ctx);
 -int HMAC_CTX_copy(HMAC_CTX *out, HMAC_CTX *in);
@@ -122,7 +122,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/openssl_missing.h ruby-1.8.5-p231-fixed/e
 +#if !defined(HAVE_HMAC_CTX_CLEANUP)
  void HMAC_CTX_cleanup(HMAC_CTX *ctx);
 +#endif
-
+ 
 +#if !defined(HAVE_EVP_MD_CTX_CREATE)
  EVP_MD_CTX *EVP_MD_CTX_create(void);
 +#endif
@@ -138,13 +138,13 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/openssl_missing.h ruby-1.8.5-p231-fixed/e
 +#if !defined(HAVE_EVP_MD_CTX_DESTROY)
  void EVP_MD_CTX_destroy(EVP_MD_CTX *ctx);
 +#endif
-
+ 
  #if !defined(HAVE_EVP_CIPHER_CTX_COPY)
  int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, EVP_CIPHER_CTX *in);
 @@ -107,19 +130,54 @@
  #define OPENSSL_cleanse(p, l) memset(p, 0, l)
  #endif
-
+ 
 +#if !defined(HAVE_X509_STORE_SET_EX_DATA)
  void *X509_STORE_get_ex_data(X509_STORE *str, int idx);
  int X509_STORE_set_ex_data(X509_STORE *str, int idx, void *data);
@@ -193,7 +193,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/openssl_missing.h ruby-1.8.5-p231-fixed/e
 +#if !defined(HAVE_PEM_DEF_CALLBACK)
  int PEM_def_callback(char *buf, int num, int w, void *key);
 +#endif
-
+ 
  #if defined(__cplusplus)
  }
 diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/openssl/ossl_hmac.c
@@ -209,7 +209,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
 @@ -57,6 +57,12 @@
      return obj;
  }
-
+ 
 +
 +/*
 + *  call-seq:
@@ -220,25 +220,25 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
  ossl_hmac_initialize(VALUE self, VALUE key, VALUE digest)
  {
 @@ -64,7 +70,7 @@
-
+ 
      StringValue(key);
      GetHMAC(self, ctx);
 -    HMAC_Init_ex(ctx, RSTRING(key)->ptr, RSTRING(key)->len,
 +    HMAC_Init_ex(ctx, RSTRING_PTR(key), RSTRING_LEN(key),
  		 GetDigestPtr(digest), NULL);
-
+ 
      return self;
 @@ -81,12 +87,15 @@
      GetHMAC(self, ctx1);
      SafeGetHMAC(other, ctx2);
-
+ 
 -    if (!HMAC_CTX_copy(ctx1, ctx2)) {
 -	ossl_raise(eHMACError, NULL);
 -    }
 +    HMAC_CTX_copy(ctx1, ctx2);
      return self;
  }
-
+ 
 +/*
 + *  call-seq:
 + *     hmac.update(string) -> self
@@ -248,18 +248,18 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
  ossl_hmac_update(VALUE self, VALUE data)
  {
 @@ -94,7 +103,7 @@
-
+ 
      StringValue(data);
      GetHMAC(self, ctx);
 -    HMAC_Update(ctx, RSTRING(data)->ptr, RSTRING(data)->len);
 +    HMAC_Update(ctx, RSTRING_PTR(data), RSTRING_LEN(data));
-
+ 
      return self;
  }
 @@ -104,9 +113,7 @@
  {
      HMAC_CTX final;
-
+ 
 -    if (!HMAC_CTX_copy(&final, ctx)) {
 -	ossl_raise(eHMACError, NULL);
 -    }
@@ -270,7 +270,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
 @@ -116,6 +123,11 @@
      HMAC_CTX_cleanup(&final);
  }
-
+ 
 +/*
 + *  call-seq:
 + *     hmac.digest -> aString
@@ -282,7 +282,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
 @@ -131,6 +143,11 @@
      return digest;
  }
-
+ 
 +/*
 + *  call-seq:
 + *     hmac.hexdigest -> aString
@@ -294,7 +294,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
 @@ -151,6 +168,27 @@
      return hexdigest;
  }
-
+ 
 +/*
 + *  call-seq:
 + *     hmac.reset -> self
@@ -320,17 +320,17 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
  ossl_hmac_s_digest(VALUE klass, VALUE digest, VALUE key, VALUE data)
  {
 @@ -159,12 +197,17 @@
-
+ 	
      StringValue(key);
      StringValue(data);
 -    buf = HMAC(GetDigestPtr(digest), RSTRING(key)->ptr, RSTRING(key)->len,
 -	       RSTRING(data)->ptr, RSTRING(data)->len, NULL, &buf_len);
 +    buf = HMAC(GetDigestPtr(digest), RSTRING_PTR(key), RSTRING_LEN(key),
 +	       RSTRING_PTR(data), RSTRING_LEN(data), NULL, &buf_len);
-
+ 
      return rb_str_new(buf, buf_len);
  }
-
+ 
 +/*
 + *  call-seq:
 + *     HMAC.digest(digest, key, data) -> aString
@@ -342,7 +342,7 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
 @@ -175,8 +218,8 @@
      StringValue(key);
      StringValue(data);
-
+ 	
 -    buf = HMAC(GetDigestPtr(digest), RSTRING(key)->ptr, RSTRING(key)->len,
 -	       RSTRING(data)->ptr, RSTRING(data)->len, NULL, &buf_len);
 +    buf = HMAC(GetDigestPtr(digest), RSTRING_PTR(key), RSTRING_LEN(key),
@@ -359,12 +359,12 @@ diff -r -u ruby-1.8.5-p231/ext/openssl/ossl_hmac.c ruby-1.8.5-p231-fixed/ext/ope
 +#endif
 +
      eHMACError = rb_define_class_under(mOSSL, "HMACError", eOSSLError);
-
+ 	
      cHMAC = rb_define_class_under(mOSSL, "HMAC", rb_cObject);
 @@ -202,6 +249,7 @@
      rb_define_method(cHMAC, "initialize", ossl_hmac_initialize, 2);
      rb_define_copy_func(cHMAC, ossl_hmac_copy);
-
+ 
 +    rb_define_method(cHMAC, "reset", ossl_hmac_reset, 0);
      rb_define_method(cHMAC, "update", ossl_hmac_update, 1);
      rb_define_alias(cHMAC, "<<", "update");

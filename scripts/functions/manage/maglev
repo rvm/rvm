@@ -23,9 +23,9 @@ maglev_install()
   [ "${system}-${arch}" == "Darwin-x86_64" ] && arch="i386"
 
   true ${rvm_force_flag:=0}
-  if [[ ! -d "${rvm_src_path}/$rvm_ruby_string" ]] || (( rvm_force_flag == 1 ))
+  if [[ ! -d "${rvm_src_path}/$rvm_ruby_string" ]] || (( rvm_force_flag == 1 )) || (( ${rvm_head_flag:=0} == 1 ))
   then
-    __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string/"
+    (( rvm_force_flag == 0 )) || __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string/"
 
     __rvm_fetch_ruby
     result=$?
@@ -66,10 +66,16 @@ maglev_install()
 
   builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
-  mkdir -p "${rvm_src_path}/${rvm_gemstone_package_file}"
+  if [[ -d   ${rvm_src_path}/${rvm_gemstone_package_file} ]]
+  then
+    __rvm_run "gemstone.fix_rights" \
+      "chmod -R u+w ${rvm_src_path}/${rvm_gemstone_package_file}"
+  else
+    mkdir -p "${rvm_src_path}/${rvm_gemstone_package_file}"
+  fi
 
   __rvm_run "gemstone.extract" \
-    "gunzip < \"${rvm_archives_path}/${rvm_gemstone_package_file}.${rvm_archive_extension}\" | tar xf - -C ${rvm_src_path}/ --no-same-owner"
+    "tar xzf \"${rvm_archives_path}/${rvm_gemstone_package_file}.${rvm_archive_extension}\" -C ${rvm_src_path}/ --no-same-owner"
   result=$?
 
   if (( result > 0 ))
@@ -110,12 +116,12 @@ maglev_install()
     git submodule update --init
 
     "$rvm_ruby_home/bin/maglev" force-reload
-
-    ln -fs maglev.demo.key-${system}-${arch} etc/maglev.demo.key
-
-    rvm_log "Bootstrapping a new image"
-    "$rvm_wrappers_path/$compatible_ruby/rake" "build:maglev"
   fi
+
+  ln -fs maglev.demo.key-${system}-${arch} etc/maglev.demo.key
+
+  rvm_log "Bootstrapping a new image"
+  "$rvm_wrappers_path/$compatible_ruby/rake" "build:maglev"
 
   if [[ ! -e ${rvm_ruby_home}/etc/conf.d/maglev.conf ]]
   then

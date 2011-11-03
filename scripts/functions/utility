@@ -79,7 +79,7 @@ __rvm_quote_args()
     if printf "%s" "$quoted_argument" | \grep -vq "^[[:alnum:]]$"; then
 
       quoted_string="$quoted_string '$(printf "%s" "$quoted_argument" \
-        | \sed "s/'/\'\\\'\'/g")'"
+        | \sed "s/'/\'\\\'\'/g")'" #"-fix display quotes
 
     else
       quoted_string="$quoted_string $quoted_argument"
@@ -230,30 +230,57 @@ __rvm_strip()
   return $?
 }
 
+__rvm_remove_from_path()
+{
+  export PATH
+  PATH=":$PATH:"
+  PATH="${PATH//:$1:/:}"
+  PATH="${PATH//::/:}"
+  PATH="${PATH%:}"
+  PATH="${PATH#:}"
+}
+
 __rvm_add_to_path()
 {
   export PATH
 
-  if (( $# != 2 ))
+  if (( $# != 2 )) || [[ -z "$2" ]]
   then
     rvm_error "__rvm_add_to_path requires two parameters"
     return 1
   fi
 
+  __rvm_remove_from_path "$2"
   case "$1" in
-    prepend)
-      PATH="${PATH//$2:/}"
-      PATH="$2:$PATH"
-      ;;
-    append)
-      PATH="${PATH//:$2/}"
-      PATH="$PATH:$2"
-      ;;
+    prepend) PATH="$2:$PATH" ;;
+    append)  PATH="$PATH:$2" ;;
+    #*) anything else will just remove it from PATH - not adding back
   esac
 
   if [[ -n "${rvm_user_path_prefix:-}" ]]
   then
-    PATH="${PATH//${rvm_user_path_prefix}:/}"
+    __rvm_remove_from_path "${rvm_user_path_prefix}"
     PATH="${rvm_user_path_prefix}:$PATH"
   fi
+}
+
+__rvm_detect_xcode_version()
+{
+  typeset version_file
+  version_file=/Developer/Applications/Xcode.app/Contents/version.plist
+
+  if [[ -f $version_file ]]
+  then
+    if [[ -x /usr/libexec/PlistBuddy ]]
+    then
+      /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" $version_file
+    else
+      awk -F"[<>]" '/CFBundleShortVersionString/{ getline ; print $3 }' < $version_file
+    fi
+  fi
+}
+
+__rvm_detect_xcode_version_is()
+{
+  [[ "$(__rvm_detect_xcode_version)" == "$1" ]]
 }

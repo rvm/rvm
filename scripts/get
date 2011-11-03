@@ -96,74 +96,62 @@ get_head()
   __rvm_version
 
   (
-    if [[ ! -d "${rvm_src_path}" ]] ; then
-      \mkdir -p "${rvm_src_path}"
+    [[ -d "${rvm_src_path}/rvm" ]] ||
+      \mkdir -p "${rvm_src_path}/rvm"
+
+    builtin cd "${rvm_src_path}/rvm"
+
+    if [[ ! -d "${rvm_src_path}/rvm/.git" ]] &&
+      ! git clone --depth 1 git://github.com/wayneeseguin/rvm.git . &&
+      ! git clone https://github.com/wayneeseguin/rvm.git .
+    then
+      rvm_error "Could not clone RVM repository, try \`rvm get latest\`."
+      return 1
     fi
 
-    builtin cd "${rvm_src_path}"
-
-    if [[ -d "${rvm_src_path}/rvm/.git" ]] ; then
-
-      builtin cd "${rvm_src_path}/rvm/" && \
-        git pull origin master && \
-        ./scripts/install
-
-    else
-
-      builtin cd "${rvm_src_path}" && \
-        ( git clone --depth 1 git://github.com/wayneeseguin/rvm.git || \
-          git clone https://github.com/wayneeseguin/rvm.git ) && \
-        builtin cd rvm/ && ./scripts/install
+    if ! git fetch --depth 1 origin master
+    then
+      rvm_error "Could not update RVM repository, check your network."
+      return 2
     fi
-  )
+
+    if ! git branch -r --color=never | grep origin/$1 >/dev/null
+    then
+      rvm_error "Branch $1 does not exists at https://github.com/wayneeseguin/rvm/branches."
+      return 3
+    fi
+
+    if ! git branch --color=never | grep " $1\$" >/dev/null &&
+      ! git branch -t -f $1 remotes/origin/$1
+    then
+      rvm_error "Could not create local branch $1."
+      return 4
+    fi
+
+    if ! git checkout $1
+    then
+      rvm_error "Could not checkout branch $1."
+      return 5
+    fi
+
+
+    if ! git pull --depth 1 origin $1
+    then
+      rvm_error "Could not update branch $1."
+      return 6
+    fi
+
+    ./scripts/install
+
+  ) || return $?
 
   rvm_log "\nInstalled RVM HEAD version:"
   ( source $rvm_scripts_path/rvm ; rvm --version )
 
   rvm_hook="after_update"
-
   source "$rvm_scripts_path/hook"
 
   return 0
-}
-
-get_branch()
-{
-  rvm_log "\nOriginal installed RVM version:"
-
-  __rvm_version
-
-  (
-    if [[ ! -d "${rvm_src_path}" ]] ; then
-      \mkdir -p "${rvm_src_path}"
-    fi
-
-    builtin cd "${rvm_src_path}"
-
-    if [[ -d "${rvm_src_path}/rvm/.git" ]] ; then
-
-      builtin cd "${rvm_src_path}/rvm/" && \
-        git pull origin master && \
-        ./scripts/install
-
-    else
-
-      builtin cd "${rvm_src_path}" && \
-        ( git clone --depth 1 git://github.com/wayneeseguin/rvm.git || \
-          git clone https://github.com/wayneeseguin/rvm.git ) && \
-        builtin cd rvm/ && ./scripts/install
-    fi
-  )
-
-  rvm_log "\nInstalled RVM HEAD version:"
-  ( source $rvm_scripts_path/rvm ; rvm --version )
-
-  rvm_hook="after_update"
-
-  source "$rvm_scripts_path/hook"
-
-  return 0
-
 }
 
 args=($*)
@@ -177,16 +165,25 @@ case "$action" in
     ;;
 
   (head|master)
-    get_head
+    get_head master
+    ;;
+
+  (branch)
+    get_head $2
     ;;
 
   ([0-9]*.[0-9]*.[0-9]*)
     get_version "$action"
     ;;
 
-  (help|*)
+  (help)
     get_usage
     true
+    ;;
+
+  (*)
+    get_usage
+    false
     ;;
 esac
 
