@@ -5,11 +5,9 @@ __rvm_setup_compile_environment()
   if [[ "$OSTYPE" == darwin* ]]
   then
     export CC
-    if __rvm_detect_xcode_version_is 4.2 && which clang > /dev/null
-    then
-      true CC: ${CC:=clang}
-
-    elif [[ -x /usr/bin/gcc-4.2 ]]
+    local oldCC
+    oldCC="${CC:-}"
+    if [[ -x /usr/bin/gcc-4.2 ]]
     then
       true CC: ${CC:=/usr/bin/gcc-4.2}
 
@@ -18,12 +16,29 @@ __rvm_setup_compile_environment()
       true CC: ${CC:=gcc-4.2}
 
     fi
+
+    if [[ -z "${CC:-}" ]]
+    then
+      true # sok?
+
+    elif $CC --version | grep LLVM >/dev/null
+    then
+      if [[ "${CC:-}" == "$oldCC" ]]
+      then
+        rvm_error "The provided CC(${CC:-}) is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
+      else
+        rvm_error "The autodetected CC(${CC:-}) is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`, and set CC=/path/to/gcc ."
+      fi
+      exit 1
+    fi
+
   fi
 
   if [[ "Darwin" == "$(uname)" ]]
   then
     rvm_configure_env=()
-    local architectures="${rvm_architectures:-"-arch x86_64"}"
+    local architectures="${rvm_architectures:-"x86_64"}"
+    architectures="${architectures:+-arch }${architectures:-}"
     rvm_configure_env+=(
     "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion |
     awk -F'.' '{print $1"."$2}')"
