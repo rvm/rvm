@@ -96,49 +96,102 @@ get_head()
   __rvm_version
 
   (
+    typeset _repo _name _branch _local_branch
+    case "$1" in
+      (/*)
+        _repo=wayneeseguin
+        _branch=${1#/}
+        ;;
+      (*/)
+        _repo=${1%/}
+        _branch=master
+        ;;
+      (*/*)
+        _repo=${1%/*}
+        _branch=${1#*/}
+        ;;
+      (*)
+        _repo=wayneeseguin
+        _branch=$1
+        ;;
+    esac
+    case ${_repo} in
+      (wayneeseguin)
+        _name=origin
+        _local_branch=${_branch}
+        ;;
+      (*)
+        _name=${_repo}
+        _local_branch=${_repo}/${_branch}
+        ;;
+    esac
+
     [[ -d "${rvm_src_path}/rvm" ]] ||
       \mkdir -p "${rvm_src_path}/rvm"
 
     builtin cd "${rvm_src_path}/rvm"
 
     if [[ ! -d "${rvm_src_path}/rvm/.git" ]] &&
-      ! git clone --depth 1 git://github.com/wayneeseguin/rvm.git . &&
-      ! git clone https://github.com/wayneeseguin/rvm.git .
+      ! git clone --depth 1 git://github.com/wayneeseguin/rvm.git $PWD &&
+      ! git clone https://github.com/wayneeseguin/rvm.git $PWD
     then
-      rvm_error "Could not clone RVM repository, try \`rvm get latest\`."
+      rvm_error "Could not clone master RVM repository, try \`rvm get latest\`."
       return 1
     fi
 
-    if ! git fetch --depth 1 origin master
+    # no warning for referencing branch that matches local and remote
+    # by default first matched (local) is used and it's what we want
+    git config core.warnambiguousrefs false
+
+    if git remote | grep "^${_name}$" >/dev/null
     then
-      rvm_error "Could not update RVM repository, check your network."
-      return 2
+      if ! git fetch --no-tags --depth 1 ${_name}
+      then
+        rvm_error "Could not update RVM repository '${_name}', check your network."
+        return 2
+      fi
+
+    else
+
+      if git remote add ${_name} git://github.com/${_repo}/rvm.git &&
+        git fetch --no-tags --depth 1 ${_name}
+      then
+        true
+      elif git remote set-url ${_name} https://github.com/${_repo}/rvm.git &&
+        git fetch --no-tags --depth 1 ${_name}
+      then
+        true
+      else
+        git remote rm ${_name}
+        rvm_error "Could not find repository '${_repo}', check list of available repositories here https://github.com/wayneeseguin/rvm/network/members."
+        return 3
+      fi
     fi
 
-    if ! git branch -r --color=never | grep origin/$1 >/dev/null
+    if ! git branch -r | grep " ${_name}/${_branch}$" >/dev/null
     then
-      rvm_error "Branch $1 does not exists at https://github.com/wayneeseguin/rvm/branches."
-      return 3
-    fi
-
-    if ! git branch --color=never | grep " $1\$" >/dev/null &&
-      ! git branch -t -f $1 remotes/origin/$1
-    then
-      rvm_error "Could not create local branch $1."
+      rvm_error "Branch ${_branch} does not exists at https://github.com/${_repo}/rvm/branches."
       return 4
     fi
 
-    if ! git checkout $1
+    if ! git branch | grep " ${_local_branch}$" >/dev/null &&
+      ! git branch --track --force ${_local_branch} remotes/${_name}/${_branch}
     then
-      rvm_error "Could not checkout branch $1."
+      rvm_error "Could not create local branch ${_local_branch}."
       return 5
     fi
 
-
-    if ! git pull --depth 1 origin $1
+    if ! git branch | grep "\* ${_local_branch}$" >/dev/null &&
+      ! git checkout --force ${_local_branch}
     then
-      rvm_error "Could not update branch $1."
+      rvm_error "Could not checkout branch ${_local_branch}."
       return 6
+    fi
+
+    if ! git reset --hard ${_name}/${_branch}
+    then
+      rvm_error "Could not update to HEAD of ${_name}/${_branch}."
+      return 7
     fi
 
     ./scripts/install
