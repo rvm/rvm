@@ -19,7 +19,7 @@ disk_usage()
   if [[ -n "$path" && -d "$path" && "$path" != "/" ]]
   then
     printf "%${length}s" "${name} Usage: "
-    du -hs "${path}/" "$@" | awk '{print $1}'
+    du -hs "$@" "${path}/" | awk '{print $1}'
   fi
   return 0
 }
@@ -47,8 +47,19 @@ temporary_disk_usage() { disk_usage "Temporary Files"       "tmp";      }
 total_disk_usage()     { disk_usage "Total Disk"            ".";        }
 others_disk_usage()
 {
-  disk_usage "Other Files" "." --exclude=archives --exclude=repos --exclude=src --exclude=log \
-    --exclude=usr --exclude=rubies --exclude=gems --exclude=wrappers --exclude=tmp 
+  typeset flag filter
+  typeset -a flags
+
+  if du --exclude=* . 2>/dev/null 1>/dev/null
+  then flag="--exclude="
+  else flag="-I "
+  fi
+
+  for filter in archives repos src log usr rubies gems wrappers tmp
+  do flags+=( "${flag}${filter}" )
+  done
+
+  disk_usage "Other Files" "." "${flags[@]}"
 }
 
 case "${1:-help}" in
