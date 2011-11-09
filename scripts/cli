@@ -227,7 +227,8 @@ __rvm_parse_args()
             if [[ "ls" == "$rvm_action" ]]; then rvm_action="list" ; fi
 
             rvm_action="$rvm_token"
-            rvm_ruby_args="$next_token $@"
+            rvm_ruby_args=("$next_token" "$@" ) # params parsing for zsh
+            rvm_ruby_args="${rvm_ruby_args[*]}"
             rvm_parse_break=1
             ;;
 
@@ -335,10 +336,6 @@ __rvm_parse_args()
                     ;;
                 esac
 
-              elif [[ -d $rvm_token && -f $rvm_token/.rvmrc && -s $rvm_token/.rvmrc ]]
-              then
-                __rvm_rvmrc_tools try_to_read_ruby $rvm_token
-
               else
                 case "$rvm_token" in
 
@@ -410,6 +407,10 @@ __rvm_parse_args()
                       rvm_ruby_string=$rvm_token
                       rvm_ruby_strings="$rvm_token"
                       rvm_action="${rvm_action:-use}"
+
+                    elif [[ -d $rvm_token && -f $rvm_token/.rvmrc && -s $rvm_token/.rvmrc ]]
+                    then
+                      __rvm_rvmrc_tools try_to_read_ruby $rvm_token
 
                     else
                       rvm_action="error"
@@ -619,8 +620,10 @@ __rvm_parse_args()
             rvm_pretty_print_flag=1
             ;;
 
-          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--sticky|--create|--gems|--docs)
-            export "rvm_${rvm_token//-/}_flag"=1
+          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--sticky|--create|--gems|--docs|--skip-autoreconf)
+            rvm_token=${rvm_token#--}
+            rvm_token=${rvm_token//-/_}
+            export "rvm_${rvm_token}_flag"=1
             ;;
 
           --dump-environment)
@@ -708,11 +711,12 @@ __rvm_parse_args()
 
         ;;
 
-      *) # People who are smoking crack.
+      *)
         if [[ -d $rvm_token && -f $rvm_token/.rvmrc && -s $rvm_token/.rvmrc ]]
         then
           __rvm_rvmrc_tools try_to_read_ruby $rvm_token
-        else
+
+        else # People who are smoking crack.
           rvm_action="error"
           rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
         fi
@@ -735,7 +739,7 @@ __rvm_parse_args()
 
 rvm()
 {
-  local result current_result
+  local result current_result __rvm_env_unload
 
   if [[ -z "${ZSH_VERSION:-""}" ]] ; then
 
@@ -745,11 +749,13 @@ rvm()
 
   if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
 
-  __rvm_cleanse_variables
-
-  __rvm_load_rvmrc
-
-  __rvm_setup
+  if [[ "${__rvm_env_loaded:-0}" == "0" ]]
+  then
+    __rvm_cleanse_variables
+    __rvm_load_rvmrc
+    __rvm_setup
+    __rvm_env_unload=1
+  fi
 
   __rvm_initialize
 
@@ -994,7 +1000,11 @@ rvm()
     [[ -n "${ZSH_VERSION:-""}" ]] || set +o errtrace
   fi
 
-  __rvm_teardown
+  if [[ "${__rvm_env_unload:-0}" == "1" ]]
+  then
+    __rvm_teardown
+    unset __rvm_env_unload
+  fi
 
   return ${result:-0}
 }

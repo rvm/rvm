@@ -1,60 +1,76 @@
 #!/usr/bin/env bash
 
-#!/usr/bin/env bash
 rvm_base_except="selector"
 source "$rvm_scripts_path/base"
 
 usage()
 {
-  printf "Usage: 'rvm disk-usage {all,archives,repos,sources,logs,pkg,rubies,gemsets}'\n"
+  printf "Usage: 'rvm disk-usage {all,total,archives,repos,sources,logs,pkg,rubies,gemsets,wrappers,tmp,others}'\n"
   printf "       Lists the space rvm uses for a given item.\n"
   exit 1
 }
 
-disk_usage_for_directory()
-{
-  du -hs "${1}/" | awk '{print $1}'
-}
-
 disk_usage()
 {
-  local current_path="$rvm_path/$2"
-  if [[ -n "$current_path" && -d "$current_path" && "$current_path" != "/" ]]; then
-    echo "$1 Usage: $(disk_usage_for_directory "$current_path")"
+  local path name
+  name="$1"
+  path="$2"
+  shift 2
+  if [[ -n "$path" && -d "$path" && "$path" != "/" ]]
+  then
+    printf "%${length}s" "${name} Usage: "
+    du -hs "$@" "${path}/" | awk '{print $1}'
   fi
   return 0
 }
 
 all_disk_usage()
 {
-  archives_disk_usage
-  repos_disk_usage
-  sources_disk_usage
-  logs_disk_usage
-  pkg_disk_usage
-  rubies_disk_usage
-  gemsets_disk_usage
-  total_disk_usage
+  local name
+  export length=30
+  for name in archives repos sources logs pkg \
+    rubies gemsets wrappers temporary others total
+  do
+    ${name}_disk_usage
+  done
 }
 
-total_disk_usage()
+archives_disk_usage()  { disk_usage "Downloaded Archives"   "archives"; }
+repos_disk_usage()     { disk_usage "Repositories"          "repos";    }
+sources_disk_usage()   { disk_usage "Extracted Source Code" "src";      }
+logs_disk_usage()      { disk_usage "Log Files"             "log";      }
+pkg_disk_usage()       { disk_usage "Packages"              "usr";      }
+rubies_disk_usage()    { disk_usage "Rubies"                "rubies";   }
+gemsets_disk_usage()   { disk_usage "Gemsets"               "gems";     }
+wrappers_disk_usage()  { disk_usage "Wrappers"              "wrappers"; }
+temporary_disk_usage() { disk_usage "Temporary Files"       "tmp";      }
+total_disk_usage()     { disk_usage "Total Disk"            ".";        }
+others_disk_usage()
 {
-  echo "Total Disk Usage: $(disk_usage_for_directory "$rvm_path")"
+  typeset flag filter
+  typeset -a flags
+
+  if du --exclude=* . 2>/dev/null 1>/dev/null
+  then flag="--exclude="
+  else flag="-I "
+  fi
+
+  for filter in archives repos src log usr rubies gems wrappers tmp
+  do flags+=( ${flag}${filter} )
+  done
+
+  disk_usage "Other Files" "." "${flags[@]}"
 }
 
-archives_disk_usage() { disk_usage "Downloaded Archives" "archives"; }
-repos_disk_usage()    { disk_usage "Repositories" "repos"; }
-sources_disk_usage()  { disk_usage "Extracted Source Code" "src"; }
-logs_disk_usage()     { disk_usage "Log Files" "log"; }
-pkg_disk_usage()      { disk_usage "Packages" "usr"; }
-rubies_disk_usage()   { disk_usage "Rubies" "rubies"; }
-gemsets_disk_usage()  { disk_usage "Gemsets" "gems"; }
-
-
-# Exit when there is no argument.
-[[ -z "$1" ]] && usage
-
-case "$1" in
-  all|archives|repos|sources|logs|total|pkg|rubies|gemsets) eval "$1_disk_usage" ;;
-  *)        usage ;;
+case "${1:-help}" in
+  all|total|archives|repos|sources|logs|pkg|rubies|gemsets|wrappers|tmp|others)
+    (
+      export length=""
+      cd $rvm_path
+      $1_disk_usage
+    )
+    ;;
+  help|*)
+    usage
+    ;;
 esac

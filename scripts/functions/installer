@@ -157,6 +157,10 @@ Upgrade Notes
     the custom hooks can be easily turned on/off by:
       chmod +x $rvm_path/hooks/after_cd_[hook_name]
       chmod -x $rvm_path/hooks/after_use_[hook_name]
+
+  * If your shell exits on entering directory with freshly checked out sources
+    you should update .rvmrc file, and replace any \`exit \` with \`return \`.
+
 "
 }
 
@@ -795,24 +799,27 @@ setup_rvm_group()
         fi
         ;;
       "Darwin")
-        gid="501" #only gids > 500 show up in user preferences
-        #Find an open gid
-        while true
-        do
-          name=$(dscl . search /groups PrimaryGroupID $gid | cut -f1 -s)
-          if [[ -z "$name" ]]
-          then
-            break
-          fi
-          gid=$[$gid +1]
-        done
-        # Create the group, isn't OSX "fun"?! :)
-        # Yes folks, screw convention!!!
-        #
+        if ! dscl . -read "/Groups/$rvm_group_name" 1>/dev/null 2>&1
+        then
+          gid="501" #only gids > 500 show up in user preferences
+          #Find an open gid
+          while true
+          do
+            name=$(dscl . search /groups PrimaryGroupID $gid | cut -f1 -s)
+            if [[ -z "$name" ]]
+            then
+              break
+            fi
+            gid=$[$gid +1]
+          done
+          # Create the group, isn't OSX "fun"?! :)
+          # Yes folks, screw convention!!!
+          #
 	# We do NOT have to call dscl twice to create the group and then assign the requested GID.
 	# Works under 10.4.x, 10.5.x, and 10.6.x, and 10.7.x to combine the initial creation *and* GID assignment.
 	# Thanks for the assist in determining this, frogor of ##osx-server on freenode! Appreciate the assist!
-        dscl . -create "/Groups/$rvm_group_name" gid "$gid"
+          dscl . -create "/Groups/$rvm_group_name" gid "$gid"
+        fi
         ;;
       "SunOS")
         groupadd "$rvm_group_name"

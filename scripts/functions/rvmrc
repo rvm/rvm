@@ -201,14 +201,16 @@ __rvm_rvmrc_tools()
       if ! __rvm_rvmrc_tools is_trusted $(dirname "$rvmrc_path")
       then
         # subprocess to not mess with current process variables
-        ( __rvm_project_rvmrc "$(dirname "$rvmrc_path")" )
+        ( __rvm_project_rvmrc "$(dirname "$rvmrc_path")" >/dev/null 2>&1 )
       fi
 
       if __rvm_rvmrc_tools is_trusted $(dirname "$rvmrc_path")
       then
         rvm_action="${rvm_action:-use}"
         rvm_ruby_string="$(
-          __rvm_rvmrc_tools load $(dirname "$rvmrc_path")
+          rvm_rvmrc_cwd=""
+          rvm_trust_rvmrcs_flag=1
+          __rvm_project_rvmrc "$(dirname "$rvmrc_path")" >/dev/null 2>&1
           __rvm_env_string
         )"
         rvm_ruby_strings="$rvm_ruby_string"
@@ -324,7 +326,7 @@ __rvm_ask_to_trust()
         break
       ;;
       c|cancel)
-        return 0
+        return 1
       ;;
     esac
   done
@@ -394,27 +396,7 @@ __rvm_project_rvmrc()
 
 __rvm_project_rvmrc_with_env()
 {
-  local result
-
-  if [[ -n "${rvm_scripts_path:-}" || -n "${rvm_path:-}" ]]
-  then
-    # Load env - setup all required variables, __rvm_teardown is called on the end
-    __rvm_cleanse_variables
-    __rvm_load_rvmrc
-    __rvm_setup
-    source "${rvm_scripts_path:-"$rvm_path/scripts"}/initialize"
-  fi
-
-  __rvm_project_rvmrc "$@"
-  result=$?
-
-  if [[ -n "${rvm_scripts_path:-}" || -n "${rvm_path:-}" ]]
-  then
-    # Clean env mess
-    __rvm_teardown
-  fi
-
-  return ${result:-0}
+  __rvm_do_with_env __rvm_project_rvmrc "$@"
 }
 
 __rvm_set_rvmrc()
@@ -470,7 +452,7 @@ else
   if ! rvm --create $flags \"\$environment_id\"
   then
     echo \"Failed to create RVM environment '\${environment_id}'.\"
-    exit 1
+    return 1
   fi
 fi
 
