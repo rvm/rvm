@@ -739,37 +739,29 @@ __rvm_parse_args()
 
 rvm()
 {
-  local result current_result __rvm_env_unload
+  local result current_result
 
-  if [[ -z "${ZSH_VERSION:-""}" ]] ; then
-
-    trap '__rvm_teardown' 0 1 2 3 15
-
-  fi
-
-  if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
-
-  if [[ "${__rvm_env_loaded:-0}" == "0" ]]
+  if [[ -n "${BASH_VERSION:-}" ]]
   then
-    __rvm_cleanse_variables
-    __rvm_load_rvmrc
-    __rvm_setup
-    __rvm_env_unload=1
+    trap '__rvm_teardown' 0 1 2 3 15
   fi
+
+  next_token="$1"
+  [[ $# -eq 0 ]] || shift
 
   __rvm_initialize
+  __rvm_setup
 
   # Check that this is the current version, after rvm_path has been determined.
   disk_version=$(cat "$rvm_path/VERSION")
   disk_version="${disk_version/%.}"
 
-  if [[ -n "${rvm_version:-""}" && "${rvm_version:-""}" != "${disk_version:-""}" \
-    && "reload" != "${next_token:-""}" ]] ; then
-
+  if [[ -n "${rvm_version:-""}" &&
+    "${rvm_version:-""}" != "${disk_version:-""}" &&
+    "reload" != "${next_token:-""}" ]]
+  then
     printf "\nA RVM version ${disk_version} is installed yet ${rvm_version} is loaded.\n Please do one of the following:\n  * 'rvm reload'\n  * open a new shell\n\n"
-
     return 1
-
   fi
 
   __rvm_parse_args "$@"
@@ -987,11 +979,14 @@ rvm()
     rvm_loaded_flag=0
 
     source "$rvm_scripts_path/rvm"
+    unset rvm_reload_flag
 
     # Note: Not using builtin on purpose. Done so we can trigger a reload the rvmrc.
     __rvm_project_rvmrc
 
   fi
+
+  __rvm_teardown
 
   if (( ${rvm_trace_flag:-0} == 1 ))
   then
@@ -1000,12 +995,6 @@ rvm()
     set +o xtrace
 
     [[ -n "${ZSH_VERSION:-""}" ]] || set +o errtrace
-  fi
-
-  if [[ "${__rvm_env_unload:-0}" == "1" ]]
-  then
-    __rvm_teardown
-    unset __rvm_env_unload
   fi
 
   return ${result:-0}
