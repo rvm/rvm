@@ -29,6 +29,27 @@ then
     __rvm_cleanse_variables
   fi
 
+  # Ensure that /etc/rvmrc and $HOME/.rvmrc values take precedence.
+  if (( ${rvm_ignore_rvmrc:=0} == 0 ))
+  then
+    for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
+    do
+      if [[ -f "$rvmrc" ]]
+      then
+        if \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
+        then
+          printf "\nError:
+          $rvmrc is for rvm settings only.
+          rvm CLI may NOT be called from within $rvmrc.
+          Skipping the loading of $rvmrc"
+          return 1
+        else
+          source "$rvmrc"
+        fi
+      fi
+    done
+  fi
+
   if [[ -z "${rvm_path:-}" ]]
   then
     if (( UID == 0 ))
@@ -41,9 +62,6 @@ then
   export rvm_path
 
   true ${rvm_scripts_path:="$rvm_path/scripts"}
-
-  # Ensure that /etc/rvmrc and $HOME/.rvmrc values take precedence.
-  command -v __rvm_load_rvmrc >/dev/null 2>&1 || source "$rvm_scripts_path/functions/init"
 
   #
   # Setup RVM Environment variables.  Each RVM internal path is intended to be
