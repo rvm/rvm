@@ -345,6 +345,13 @@ __rvm_ask_to_trust()
 # argument is passed, it will be used instead of pwd.
 __rvm_project_rvmrc()
 {
+  export __rvm_project_rvmrc_lock
+  : __rvm_project_rvmrc_lock:${__rvm_project_rvmrc_lock:=0}
+  : __rvm_project_rvmrc_lock:$((__rvm_project_rvmrc_lock+=1))
+  if (( __rvm_project_rvmrc_lock > 1 ))
+  then return 0 # no nesting
+  fi
+
   local working_dir rvm_trustworthiness_result
 
   # Get the first argument or the pwd.
@@ -372,16 +379,17 @@ __rvm_project_rvmrc()
       then
         if [[ "${rvm_current_rvmrc:-""}" != "$working_dir/.rvmrc" ]]
         then
-          __rvm_check_rvmrc_trustworthiness "$working_dir/.rvmrc"
-          rvm_trustworthiness_result=$?
-          if  (( $rvm_trustworthiness_result == 0 ))
+          if __rvm_check_rvmrc_trustworthiness "$working_dir/.rvmrc"
           then
             __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
             rvm_previous_environment="$(__rvm_env_string)"
             rvm_current_rvmrc="$working_dir/.rvmrc"
             source "$working_dir/.rvmrc"
+            unset __rvm_project_rvmrc_lock
             return 0
           else
+            rvm_trustworthiness_result=$?
+            unset __rvm_project_rvmrc_lock
             return "$rvm_trustworthiness_result"
           fi
         fi
@@ -391,6 +399,8 @@ __rvm_project_rvmrc()
       fi
     fi
   done
+
+  unset __rvm_project_rvmrc_lock
   return $?
 }
 
