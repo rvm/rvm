@@ -40,6 +40,9 @@ end
 rvm_ruby_string = ENV["rvm_ruby_string"] ||
   ENV['GEM_HOME'].nil? ? `ruby -v | awk '{printf $1"-"$2}'` : ENV['GEM_HOME'].split(/\//).last.split(/@/).first
 
+# cut ruby- ... everyone knows it's ruby
+rvm_ruby_string = $1 if rvm_ruby_string =~ /^ruby-(.*)/
+
 # Set up the prompt to be RVM specific.
 @prompt = {
   :PROMPT_I => "#{rvm_ruby_string} :%03n > ",  # default prompt
