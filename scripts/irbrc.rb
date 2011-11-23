@@ -37,7 +37,8 @@ rescue LoadError
 end
 
 # Calculate the ruby string.
-rvm_ruby_string = ENV["rvm_ruby_string"] || `rvm tools identifier`.strip.split("@", 2)[0]
+rvm_ruby_string = ENV["rvm_ruby_string"] ||
+  ENV['GEM_HOME'].nil? ? `ruby -v | awk '{printf $1"-"$2}'` : ENV['GEM_HOME'].split(/\//).last.split(/@/).first
 
 # Set up the prompt to be RVM specific.
 @prompt = {
@@ -61,4 +62,3 @@ rescue LoadError => load_error
 rescue => exception
   puts "Error : 'load #{ENV["HOME"]}/.irbrc' : #{exception.message}"
 end
-
