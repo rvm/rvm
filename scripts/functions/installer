@@ -170,8 +170,7 @@ Upgrade Notes
     printf "
   * your RVM loading script \`/etc/profile.d/rvm.sh\` is deprecated
     and causes you to have \`umask g+w\` set in your shell,
-    if you did not changed it then just remove it
-    and run \`rvm get head\` again to create proper one.
+    run \`rvm get head --auto\` again to fix your scripts.
 
 "
   fi
@@ -902,7 +901,7 @@ setup_etc_profile()
     executable=0
   fi
 
-  if ! [[ -s "${etc_profile_file}" ]]
+  if ! [[ -s "${etc_profile_file}" ]] || (( ${rvm_auto_flag:-0} == 1 ))
   then
     printf "#
 # RVM profile
@@ -958,7 +957,7 @@ if [ -n \"\${BASH_VERSION:-}\" -o -n \"\${ZSH_VERSION:-}\" ] ; then
     fi
   fi
 fi
-" >> "${etc_profile_file}"
+" > "${etc_profile_file}"
 
     if (( executable )) && [[ ! -x "${etc_profile_file}" ]]
     then
@@ -966,9 +965,16 @@ fi
     fi
 
     if (( add_to_profile_flag )) &&
-      ! grep "${etc_profile_file}" /etc/profile >/dev/null 2>&1
+      ! grep "source ${etc_profile_file}" /etc/profile >/dev/null 2>&1
     then
-      echo "source \"${etc_profile_file}\"" >> /etc/profile
+      printf "\nsource ${etc_profile_file}\n" >> /etc/profile
+    fi
+
+    if [[ -f /etc/zshrc ]] &&
+      ! grep "source /etc/bash" /etc/zshrc &&
+      ! grep "source /etc/profile" /etc/zshrc
+    then
+      printf "\nsource ${etc_profile_file}\n" >> /etc/zshrc
     fi
   fi
   return 0
