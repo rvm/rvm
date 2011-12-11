@@ -8,6 +8,7 @@
 \export HOME rvm_prefix rvm_user_install_flag rvm_path
 HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
+: rvm_stored_umask:${rvm_stored_umask:=$(umask)}
 if (( ${rvm_ignore_rvmrc:=0} == 0 ))
 then
   for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
@@ -77,16 +78,11 @@ then
   fi
 fi
 
-if [[ -n "${BASH_VERSION:-}" ]] || [[ -n "${ZSH_VERSION:-}" ]]
+if [[ -n "${BASH_VERSION:-}" || -n "${ZSH_VERSION:-}" ]] &&
+  type rvm 2>&1 | \grep 'function' >/dev/null
 then
-  if type rvm 2>&1 | \grep 'function' >/dev/null
-  then
-    rvm_loaded_flag=1
-  else
-    rvm_loaded_flag=0
-  fi
+  rvm_loaded_flag=1
 else
-  #TODO: Why only bash and zsh mean rvm was loaded ?
   rvm_loaded_flag=0
 fi
 
@@ -141,10 +137,13 @@ then
   unset rvm_prefix_needs_trailing_slash rvm_rc_files rvm_gems_cache_path \
     rvm_gems_path rvm_project_rvmrc_default rvm_gemset_separator
 else
+  source "${rvm_scripts_path:="$rvm_path/scripts"}/initialize"
   __rvm_setup
 fi
 
-if [[ -t 0 ]] && (( ${rvm_project_rvmrc:-1} > 0 )) && command -v __rvm_project_rvmrc >/dev/null  2>&1
+if [[ -t 0 && ${rvm_project_rvmrc:-1} -gt 0 ]] &&
+  [[ ! " ${FUNCNAME[@]} " =~ " __rvm_project_rvmrc " ]] &&
+  command -v __rvm_project_rvmrc >/dev/null 2>&1
 then
   # Reload the rvmrc, use promptless ensuring shell processes does not
   # prompt if .rvmrc trust value is not stored.

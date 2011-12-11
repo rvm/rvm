@@ -25,6 +25,7 @@ install_setup()
 
   if (( ${rvm_ignore_rvmrc:=0} == 0 ))
   then
+    : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
     for file in /etc/rvmrc "$HOME/.rvmrc"
     do
       if [[ -s "$file" ]]
@@ -119,7 +120,7 @@ fork the project and issue a pull request.
 If you wish to disable the project .rvmrc file functionality, set
 rvm_project_rvmrc=0 in either /etc/rvmrc or ~/.rvmrc.
 
-NOTE: To Multi-User installers, please do NOT forget to add your users to the 'rvm'.
+NOTE: To Multi-User installers, please do NOT forget to add your users to the 'rvm' group.
   The installer no longer auto-adds root or users to the rvm group. Admins must do this.
   Also, please note that group memberships are ONLY evaluated at login time.
   This means that users must log out then back in before group membership takes effect!
@@ -145,10 +146,10 @@ Upgrade Notes
     promised by the note displayed during the review process
 
   * Ruby package dependency list for your OS is given by:
-    rvm notes
+    rvm requirements
 
   * If you encounter any issues with a ruby 'X' your best bet is to:
-    rvm remove X ; rvm install X
+      rvm get head && rvm reinstall X
 
   * If you see the following error message: Unknown alias name: 'default'
     re-set your default ruby, this is due to a change in how default works.
@@ -162,6 +163,18 @@ Upgrade Notes
     you should update .rvmrc file, and replace any \`exit \` with \`return \`.
 
 "
+
+  if [[ -f /etc/profile.d/rvm.sh ]] &&
+    ! grep rvm_stored_umask /etc/profile.d/rvm.sh >/dev/null
+  then
+    printf "
+  * your RVM loading script \`/etc/profile.d/rvm.sh\` is deprecated
+    and causes you to have \`umask g+w\` set in your shell,
+    if you did not changed it then just remove it
+    and run \`rvm get head\` again to create proper one.
+
+"
+  fi
 }
 
 determine_install_path()
@@ -170,6 +183,7 @@ determine_install_path()
 
   if (( ${rvm_ignore_rvmrc:=0} == 0 ))
   then
+    : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
     for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
     do
       if [[ -f "$rvmrc" ]]
@@ -198,16 +212,18 @@ determine_install_path()
 }
 
 determine_install_or_upgrade()
-{ # TODO: Improve this...
+{
+  export upgrade_flag
   upgrade_flag=0
-  if grep 'scripts/rvm' "${HOME}"/.bash* "${HOME}"/.zsh* >/dev/null 2>&1
+  if [[ -f /etc/profile.d/rvm.sh ]] ||
+    grep 'scripts/rvm' "${HOME}"/.bash* >/dev/null 2>&1 ||
+    grep 'scripts/rvm' "${HOME}"/.zsh* >/dev/null 2>&1
   then
     if [[ -d "$rvm_path" && -s "${rvm_path}/scripts/rvm" ]]
     then
       upgrade_flag=1
     fi
   fi
-  export upgrade_flag
 }
 
 print_install_header()
@@ -353,9 +369,9 @@ install_rvm_hooks()
         __rvm_rm_rf "$rvm_path/$entry"
       fi
       # Source is first level hook (after_use) and target is custom user hook, preserve it
-      if echo "$entry" | \grep -Eq '^hooks/[[:alpha:]]+_[[:alpha:]]+$' &&
+      if echo "$entry" | \grep -E '^hooks/[[:alpha:]]+_[[:alpha:]]+$' >/dev/null &&
         [[ -f "$rvm_path/$entry" ]] &&
-        ! grep -q "$(basename ${entry})_\*" "$rvm_path/$entry"
+        ! grep "$(basename ${entry})_\*" "$rvm_path/$entry" >/dev/null
       then
         mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
       fi
@@ -384,7 +400,7 @@ install_rvm_hooks()
 
   #fix broken copy of after_use to after_use_custom
   if [[ -f "$rvm_path/hooks/after_use_custom" ]] &&
-    grep -q "after_use_\*" "$rvm_path/hooks/after_use_custom"
+    grep "after_use_\*" "$rvm_path/hooks/after_use_custom" >/dev/null
   then
     rm -f "$rvm_path/hooks/after_use_custom"
   fi
@@ -401,6 +417,11 @@ setup_configuration_files()
     mv config/user user/db
   fi
 
+  if [[ -f config/installs ]]
+  then
+    mv config/installs user/installs
+  fi
+
   if [[ ! -s user/db ]]
   then
     echo '# User settings, overrides db settings and persists across installs.' \
@@ -415,6 +436,11 @@ setup_configuration_files()
     then
       touch user/rvmrcs
     fi
+  fi
+
+  if [[ ! -f user/md5 ]]
+  then
+    touch user/md5
   fi
 
   # Prune old (keyed-by-hash) trust entries
@@ -464,6 +490,13 @@ install_binscripts()
       cp -f "${source_path}/binscripts/${file}" "${rvm_bin_path}/${file}"
     fi
   done
+
+  # optional binscript
+  file=rake
+  if ! [[ -f "${rvm_bin_path}/${file}" ]]
+  then
+    cp -f "${source_path}/binscripts/${file}" "${rvm_bin_path}/${file}"
+  fi
 
   return 0
 }
@@ -559,14 +592,20 @@ install_patchsets()
     for patchset_file in "${patchsets[@]}"
     do
       destination="$rvm_path/patchsets/$patchset_file"
-      if [[ ! -s "$destination" ]]
+      if [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
       then
-        destination_path="$(dirname "$destination")"
+        destination_path="${destination%/*}"
 
         if [[ ! -d "$destination_path" ]]
         then
           mkdir -p "$destination_path"
         fi
+
+        if [[ -f "$destination" ]]
+        then
+          rm -f "$destination"
+        fi
+
         cp "patchsets/$patchset_file" "$destination"
       fi
     done
@@ -872,6 +911,7 @@ setup_etc_profile()
 #
 if [ -n \"\${BASH_VERSION:-}\" -o -n \"\${ZSH_VERSION:-}\" ] ; then
 
+  : rvm_stored_umask:\${rvm_stored_umask:=\$(umask)}
   # Load user rvmrc configurations, if exist
   for file in /etc/rvmrc \"\$HOME/.rvmrc\" ; do
     [[ -s \"\$file\" ]] && source \$file

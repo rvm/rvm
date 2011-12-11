@@ -318,10 +318,12 @@ gemset_empty()
   if [[ -n "${gemsets[$__array_start]}" ]]
   then
     rvm_gemset_name="${gemsets[$__array_start]}"
+    rvm_gemset_name="${rvm_gemset_name#default}"
+    ruby_at_gemset="$rvm_ruby_string${rvm_gemset_name:+${rvm_gemset_separator:-"@"}}${rvm_gemset_name}"
+    gemdir="${rvm_gems_path:-"$rvm_path/gems"}/${ruby_at_gemset}"
+  else
+    gemdir="${rvm_ruby_gem_home}"
   fi
-
-  ruby_at_gemset="$rvm_ruby_string${rvm_gemset_separator:-"@"}$rvm_gemset_name"
-  gemdir="${rvm_gems_path:-"$rvm_path/gems"}/${ruby_at_gemset}"
 
   if [[ ${rvm_force_flag:-0} -gt 0 ]]
   then
@@ -459,11 +461,11 @@ gemset_rename()
     return 1
   fi
 
-  source_path="$(rvm_silence_logging=1 rvm "@$source_name" gem env gemdir)"
+  source_path="$(rvm_silence_logging=1 rvm_gemset_name=${source_name} __rvm_use "${rvm_ruby_string}@${source_name}" ; gem env gemdir)"
 
   if [[ -z "$source_path" || ! -d "$source_path" ]]
   then
-    rvm_error "'$source_name' does not exist."
+    rvm_error "gemset '$source_name' does not exist."
     return 1
   fi
 
@@ -724,7 +726,7 @@ __rvm_parse_gems_args()
 # Install a gem
 gem_install()
 {
-  local gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string gem_action
+  local gem gem_prefix gem_name gem_version gem_file_name gem_postfix cache_file gem_file_name gem_string gem_action _command
 
   result=0
 
@@ -802,12 +804,12 @@ gem_install()
     if [[ -n "$rvm_ruby_gem_home" &&
       "$rvm_ruby_gem_home" != "${rvm_gems_path:-"$rvm_path/gems"}" ]]
     then
-      command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix gem install $gems_args $rvm_gem_options $gem_postfix $vars"
+      _command="GEM_HOME='$rvm_ruby_gem_home' GEM_PATH='$rvm_ruby_gem_home' $gem_prefix gem install $gems_args $rvm_gem_options $gem_postfix $vars"
     else
-      command="$gem_prefix gem install --ignore-dependencies $gems_args $rvm_gem_options -q $gem $gem_postfix $vars"
+      _command="$gem_prefix gem install --ignore-dependencies $gems_args $rvm_gem_options -q $gem $gem_postfix $vars"
     fi
     unset -f gem
-    __rvm_run "gem.install" "$command" "installing ${gem_name} ${gem_version}..."
+    __rvm_run "gem.install" "$_command" "installing ${gem_name} ${gem_version}..."
     result=$?
     if (( result == 0 ))
     then
@@ -825,16 +827,16 @@ gemset_info()
 {
   if (( ${rvm_user_flag:-0} == 1 ))
   then
-    (rvm system ; gem env | grep "\- $HOME" | awk '{print $NF}')
+    (__rvm_use system ; gem env | grep "\- $HOME" | awk '{print $NF}')
   elif [[ ${rvm_system_flag:-0} == 1 ]]
   then
-    (rvm system ; gem env $action system)
-  elif [[ -n "${rvm_ruby_string:-""}" ]]
-  then
-    (rvm "$rvm_ruby_string" ; gem env $action)
-  elif [[ -n "${GEM_HOME:-""}" ]]
-  then
-    echo "$GEM_HOME"
+    (__rvm_use system ; gem env $action system)
+#  elif [[ -n "${rvm_ruby_string:-""}${rvm_gemset_name:+${rvm_gemset_separator:-"@"}}${rvm_gemset_name:-}" ]]
+#  then
+#    (__rvm_use "${rvm_ruby_string:-""}${rvm_gemset_name:+${rvm_gemset_separator:-"@"}}${rvm_gemset_name:-}" ; gem env $action)
+#  elif [[ -n "${GEM_HOME:-""}" ]]
+#  then
+#    echo "$GEM_HOME"
   else
     gem env $action
   fi

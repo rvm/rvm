@@ -76,11 +76,10 @@ __rvm_quote_args()
 
   for quoted_argument in "$@"; do
 
-    if printf "%s" "$quoted_argument" | \grep -vq "^[[:alnum:]]$"; then
-
+    if printf "%s" "$quoted_argument" | \grep -v "^[[:alnum:]]$" >/dev/null
+    then
       quoted_string="$quoted_string '$(printf "%s" "$quoted_argument" \
         | \sed "s/'/\'\\\'\'/g")'" #"-fix display quotes
-
     else
       quoted_string="$quoted_string $quoted_argument"
     fi
@@ -112,11 +111,11 @@ __rvm_quote_args_with_shift()
 # Run a specified command and log it.
 __rvm_run()
 {
-  local name log temp_log_path command message
+  local name log temp_log_path _command message
   true ${rvm_debug_flag:=0} ${rvm_niceness:=0}
 
   name="${1:-}"
-  command="${2:-}"
+  _command="${2:-}"
   message="${3:-}"
 
   if [[ -n "$message" ]]
@@ -126,7 +125,7 @@ __rvm_run()
 
   if (( rvm_debug_flag > 0 ))
   then
-    rvm_debug "Executing: $command"
+    rvm_debug "Executing: $_command"
   fi
 
   if [[ -n "${rvm_ruby_string:-}" ]]
@@ -149,19 +148,19 @@ __rvm_run()
   fi
 
   # TODO: Allow an 'append_flag' setting?
-  printf "[$(date +'%Y-%m-%d %H:%M:%S')] $command\n" > "$log"
+  printf "[$(date +'%Y-%m-%d %H:%M:%S')] $_command\n" > "$log"
 
   if (( rvm_niceness > 0 ))
   then
-    command="nice -n $rvm_niceness $command"
+    _command="nice -n $rvm_niceness $_command"
   fi
 
-  eval "$command" >> "$log" 2>&1
+  eval "$_command" >> "$log" 2>&1
   result=$?
 
   if (( result > 0 ))
   then
-    rvm_error "Error running '$command', please read $log"
+    rvm_error "Error running '$_command', please read $log"
   fi
 
   return ${result}

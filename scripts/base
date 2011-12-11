@@ -2,6 +2,27 @@
 
 # Base is a collection of general files + commonly included setup functions.
 
+: rvm_trace_flag:${rvm_trace_flag:=0}
+if (( rvm_trace_flag > 0 ))
+then
+  set -o xtrace
+  # set -o errexit
+
+  if [[ -z "${ZSH_VERSION:-}" ]]
+  then
+    #  set -o errtrace
+    #  set -o pipefail
+
+    export PS4
+    PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+  fi
+
+elif [[ ${rvm_debug_flag:-0} > 0 ]]
+then
+  rvm_debug_flag=0
+
+fi
+
 export __array_start rvm_path >/dev/null
 
 #
@@ -14,6 +35,27 @@ else
   __array_start=0
 fi
 
+if (( ${rvm_ignore_rvmrc:=0} == 0 ))
+then
+  : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
+  for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
+  do
+    if [[ -f "$rvmrc" ]]
+    then
+      if \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
+      then
+        printf "\nError:
+        $rvmrc is for rvm settings only.
+        rvm CLI may NOT be called from within $rvmrc.
+        Skipping the loading of $rvmrc"
+        return 1
+      else
+        source "$rvmrc"
+      fi
+    fi
+  done
+fi
+
 #
 # Load general scripts and functions
 #
@@ -21,7 +63,6 @@ fi
 # Load the general scripts.
 # Use rvm_base_except="selector", for example, to override the loading.
 #
-
 if [[ -z "${rvm_path:-}" ]]
 then
   if (( UID == 0 ))

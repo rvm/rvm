@@ -118,51 +118,111 @@ Halting installation.
 
 install_head()
 {
-  local remote="origin"
+  typeset _repo _name _branch _local_branch
+  case "$1" in
+    (/*)
+      _repo=wayneeseguin
+      _branch=${1#/}
+      ;;
+    (*/)
+      _repo=${1%/}
+      _branch=master
+      ;;
+    (*/*)
+      _repo=${1%/*}
+      _branch=${1#*/}
+      ;;
+    (*)
+      _repo=wayneeseguin
+      _branch=$1
+      ;;
+  esac
+  case ${_repo} in
+    (wayneeseguin)
+      _name=origin
+      _local_branch=${_branch}
+      ;;
+    (*)
+      _name=${_repo}
+      _local_branch=${_repo}/${_branch}
+      ;;
+  esac
 
-  if [[ -d "${rvm_src_path}/rvm/.git" ]]
+  [[ -d "${rvm_src_path}/rvm" ]] ||
+    \mkdir -p "${rvm_src_path}/rvm"
+
+  builtin cd "${rvm_src_path}/rvm"
+
+  if [[ ! -d "${rvm_src_path}/rvm/.git" ]] &&
+    ! git clone --depth 1 git://github.com/wayneeseguin/rvm.git $PWD &&
+    ! git clone https://github.com/wayneeseguin/rvm.git $PWD
   then
-    builtin cd "${rvm_src_path}/rvm/"
+    log "Could not clone master RVM repository, try \`rvm get latest\`."
+    return 1
+  fi
 
-    if [[ -z "$(git branch | awk "/$branch$/")" ]]
+  # no warning for referencing branch that matches local and remote
+  # by default first matched (local) is used and it's what we want
+  git config core.warnambiguousrefs false
+
+  if git remote | grep "^${_name}$" >/dev/null
+  then
+    if ! git fetch --no-tags --depth 1 ${_name}
     then
-      if git checkout -b "$branch" --track "$remote/$branch" 2>/dev/null
-      then
-        log "Successfully checked out branch '$branch'"
-      else
-        fail "$remote $branch remote branch not found."
-      fi
-    elif [[ -z "$(git branch | awk "/\* $branch$/{print \$2}")" ]]
-    then
-      if git checkout $branch 2>/dev/null
-      then
-        log "Successfully checked out branch '$branch'"
-      else
-        fail "Unable to checkout branch $branch."
-      fi
+      log "Could not update RVM repository '${_name}', check your network."
+      return 2
     fi
 
-    if git pull --rebase $remote $branch
-    then
-      log "Successfully pulled (rebased) from $remote $branch"
-    else
-      fail "Failed pull/rebase $remote $branch"
-    fi
   else
-    builtin cd "${rvm_src_path}"
 
-    if ! git clone --depth 1 git://github.com/wayneeseguin/rvm.git
+    if git remote add ${_name} git://github.com/${_repo}/rvm.git &&
+      git fetch --no-tags --depth 1 ${_name}
     then
-      if !  git clone https://github.com/wayneeseguin/rvm.git
-      then
-        fail "Unable to clone the RVM repository, attempted both git:// and https://"
-      fi
+      true
+    elif git remote set-url ${_name} https://github.com/${_repo}/rvm.git &&
+      git fetch --no-tags --depth 1 ${_name}
+    then
+      true
+    else
+      git remote rm ${_name}
+      log "Could not find repository '${_repo}', check list of available repositories here https://github.com/wayneeseguin/rvm/network/members."
+      return 3
     fi
   fi
 
-  builtin cd "${rvm_src_path}/rvm/"
+  if ! git branch -r | grep " ${_name}/${_branch}$" >/dev/null
+  then
+    log "Branch ${_branch} does not exists at https://github.com/${_repo}/rvm/branches."
+    return 4
+  fi
 
-  return 0
+  if ! git branch | grep " ${_local_branch}$" >/dev/null &&
+    ! git branch --track --force ${_local_branch} remotes/${_name}/${_branch}
+  then
+    if [[ "${_local_branch}" == "master" ]]
+    then
+      log "Could not create local branch ${_local_branch}, cleaning sources, please try again."
+      builtin cd "${rvm_src_path}"
+      __rvm_rm_rf "${rvm_src_path}/rvm"
+      return 5
+    else
+      log "Could not create local branch ${_local_branch}."
+      return 5
+    fi
+  fi
+
+  if ! git branch | grep "\* ${_local_branch}$" >/dev/null &&
+    ! git checkout --force ${_local_branch}
+  then
+    log "Could not checkout branch ${_local_branch}."
+    return 6
+  fi
+
+  if ! git reset --hard remotes/${_name}/${_branch}
+  then
+    log "Could not update to HEAD of ${_name}/${_branch}."
+    return 7
+  fi
 }
 
 # Tracing, if asked for.
@@ -249,25 +309,37 @@ do
       case "$1" in
         +([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
           version="$1"
-          shift
           ;;
-        latest|stable)
+        latest)
           version="latest"
-          shift
+          ;;
+        stable)
+          version="head"
+          branch="stable"
           ;;
         head|master)
           version="head"
-          shift
           branch="master"
           ;;
         *)
           fail "--version must be followed by a vaild version number x.y.z"
           ;;
       esac
+      shift
       ;;
 
     +([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
       version="$token"
+      ;;
+
+    stable)
+      version="head"
+      branch="stable"
+      ;;
+
+    head|master)
+      version="head"
+      branch="master"
       ;;
 
     help|usage)
@@ -305,7 +377,7 @@ done
 # means was specified, if any. Defaults to head.
 case "${version}" in
   (head)
-    install_head
+    install_head ${branch:-master} || exit $?
     ;;
 
   (latest)
@@ -338,4 +410,3 @@ chmod +x ./scripts/install
 
 # Now we run the RVM installer.
 ./scripts/install ${flags[*]} --path "$rvm_path"
-

@@ -65,7 +65,7 @@ __rvm_parse_args()
             fi
             ;;
 
-          install|uninstall|reinstall)
+          install|uninstall|reinstall|try_install)
             export ${rvm_token}_flag=1
             rvm_action=$rvm_token
             _string="$*"
@@ -103,6 +103,12 @@ __rvm_parse_args()
               fi
 
               if [[ -n "$next_token" ]] ; then rvm_gemset_name="$next_token" ; else rvm_gemset_name="" ; fi
+
+              if [[ -z "${rvm_gemset_name:-}" ]]
+              then
+                rvm_error "Gemset was not given.\n  Usage:\n    rvm gemset use <gemsetname>\n"
+                return 1
+              fi
 
               case "$rvm_gemset_name" in
                 *${rvm_gemset_separator:-"@"}*)
@@ -235,6 +241,12 @@ __rvm_parse_args()
           docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade)
             rvm_action="$rvm_token"
             rvm_ruby_args="$next_token $(__rvm_quote_args "$@")"
+            rvm_parse_break=1
+            ;;
+
+          user)
+            rvm_action="tools"
+            rvm_ruby_args="$rvm_token $next_token $(__rvm_quote_args "$@")"
             rvm_parse_break=1
             ;;
 
@@ -591,6 +603,11 @@ __rvm_parse_args()
             if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
             ;;
 
+          --autoconf-flags)
+            rvm_autoconf_flags="$next_token"
+            if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
+            ;;
+
           --proxy)
             rvm_proxy="$next_token"
             if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
@@ -620,7 +637,7 @@ __rvm_parse_args()
             rvm_pretty_print_flag=1
             ;;
 
-          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--sticky|--create|--gems|--docs|--skip-autoreconf)
+          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--sticky|--create|--gems|--docs|--skip-autoreconf|--18|--19|--force-autoconf)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
             export "rvm_${rvm_token}_flag"=1
@@ -739,37 +756,29 @@ __rvm_parse_args()
 
 rvm()
 {
-  local result current_result __rvm_env_unload
+  local result current_result
 
-  if [[ -z "${ZSH_VERSION:-""}" ]] ; then
-
-    trap '__rvm_teardown' 0 1 2 3 15
-
-  fi
-
-  if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
-
-  if [[ "${__rvm_env_loaded:-0}" == "0" ]]
+  if [[ -n "${BASH_VERSION:-}" ]]
   then
-    __rvm_cleanse_variables
-    __rvm_load_rvmrc
-    __rvm_setup
-    __rvm_env_unload=1
+    trap '__rvm_teardown_final' 0 1 2 3 15
   fi
+
+  next_token="$1"
+  [[ $# -eq 0 ]] || shift
 
   __rvm_initialize
+  __rvm_setup
 
   # Check that this is the current version, after rvm_path has been determined.
   disk_version=$(cat "$rvm_path/VERSION")
   disk_version="${disk_version/%.}"
 
-  if [[ -n "${rvm_version:-""}" && "${rvm_version:-""}" != "${disk_version:-""}" \
-    && "reload" != "${next_token:-""}" ]] ; then
-
+  if [[ -n "${rvm_version:-""}" &&
+    "${rvm_version:-""}" != "${disk_version:-""}" &&
+    "reload" != "${next_token:-""}" ]]
+  then
     printf "\nA RVM version ${disk_version} is installed yet ${rvm_version} is loaded.\n Please do one of the following:\n  * 'rvm reload'\n  * open a new shell\n\n"
-
     return 1
-
   fi
 
   __rvm_parse_args "$@"
@@ -780,7 +789,12 @@ rvm()
   [[ $result -gt 0 ]] ||
   case "$rvm_action" in
     use)
-      __rvm_use
+      if [[ "${rvm_is_not_a_shell_function:-0}" == "1" ]]
+      then
+        printf "\n$(tput setaf 1)RVM is not a function, selecting rubies with '$(tput setaf 2)rvm use ...$(tput setaf 1)' will not work.$(tput sgr0)\n\n"
+      else
+        __rvm_use
+      fi
       ;;
     srcdir)
       __rvm_source_dir
@@ -901,7 +915,9 @@ rvm()
     gemset)
 
       if [[ ${rvm_use_flag:-0} -eq 1 ]] ; then
-        __rvm_gemset_select && __rvm_gemset_use
+        __rvm_gemset_select &&
+          rvm_log "Using ${GEM_HOME%@*} with gemset ${rvm_gemset_name:-default}" &&
+          __rvm_gemset_use
       else
         export rvm_ruby_strings
 
@@ -939,6 +955,23 @@ rvm()
         "$rvm_scripts_path"/manage "$rvm_action" "${rvm_ruby_strings//*-- }"
       else
         "$rvm_scripts_path"/manage "$rvm_action"
+      fi
+      ;;
+    try_install)
+      export rvm_path
+      if [[ -n "${rvm_ruby_strings}" ]]
+      then
+        local save_ruby
+        selected_ruby="$( __rvm_select && echo $rvm_env_string )"
+        if "$rvm_scripts_path"/list strings | grep "^${selected_ruby}$" > /dev/null
+        then
+          rvm_log "Already installed ${selected_ruby}"
+        else
+          "$rvm_scripts_path"/manage install "${selected_ruby}"
+        fi
+      else
+        rvm_error "Can not use or install all rubies."
+        false #report error
       fi
       ;;
 
@@ -985,26 +1018,24 @@ rvm()
     rvm_loaded_flag=0
 
     source "$rvm_scripts_path/rvm"
+    unset rvm_reload_flag
 
     # Note: Not using builtin on purpose. Done so we can trigger a reload the rvmrc.
     __rvm_project_rvmrc
 
   fi
 
-  if (( ${rvm_trace_flag:-0} == 1 ))
+  __rvm_teardown
+
+  : rvm_trace_flag:${rvm_trace_flag:=0}
+  if (( rvm_trace_flag > 0 ))
   then
-    rvm_trace_flag=0
     set +o verbose
     set +o xtrace
 
     [[ -n "${ZSH_VERSION:-""}" ]] || set +o errtrace
   fi
-
-  if [[ "${__rvm_env_unload:-0}" == "1" ]]
-  then
-    __rvm_teardown
-    unset __rvm_env_unload
-  fi
+  unset rvm_trace_flag
 
   return ${result:-0}
 }

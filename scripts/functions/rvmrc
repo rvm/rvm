@@ -311,7 +311,12 @@ __rvm_ask_to_trust()
     printf "Do you wish to trust this .rvmrc file? (%s)\n" "${_rvmrc}"
     printf "%s" 'y[es], n[o], v[iew], c[ancel]> '
 
-    read response
+    if [[ -z "$MC_SID" ]] #check if we're running in MC's subshell
+    then
+      read response
+    else
+      value=c
+    fi
 
     value="$(echo -n "${response}" | tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
 
@@ -345,6 +350,13 @@ __rvm_ask_to_trust()
 # argument is passed, it will be used instead of pwd.
 __rvm_project_rvmrc()
 {
+  export __rvm_project_rvmrc_lock
+  : __rvm_project_rvmrc_lock:${__rvm_project_rvmrc_lock:=0}
+  : __rvm_project_rvmrc_lock:$((__rvm_project_rvmrc_lock+=1))
+  if (( __rvm_project_rvmrc_lock > 1 ))
+  then return 0 # no nesting
+  fi
+
   local working_dir rvm_trustworthiness_result
 
   # Get the first argument or the pwd.
@@ -372,16 +384,17 @@ __rvm_project_rvmrc()
       then
         if [[ "${rvm_current_rvmrc:-""}" != "$working_dir/.rvmrc" ]]
         then
-          __rvm_check_rvmrc_trustworthiness "$working_dir/.rvmrc"
-          rvm_trustworthiness_result=$?
-          if  (( $rvm_trustworthiness_result == 0 ))
+          if __rvm_check_rvmrc_trustworthiness "$working_dir/.rvmrc"
           then
             __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
             rvm_previous_environment="$(__rvm_env_string)"
             rvm_current_rvmrc="$working_dir/.rvmrc"
             source "$working_dir/.rvmrc"
+            unset __rvm_project_rvmrc_lock
             return 0
           else
+            rvm_trustworthiness_result=$?
+            unset __rvm_project_rvmrc_lock
             return "$rvm_trustworthiness_result"
           fi
         fi
@@ -391,6 +404,8 @@ __rvm_project_rvmrc()
       fi
     fi
   done
+
+  unset __rvm_project_rvmrc_lock
   return $?
 }
 
@@ -431,6 +446,11 @@ environment_id=\"$identifier\"
 # Uncomment following line if you want options to be set only for given project.
 #
 # PROJECT_JRUBY_OPTS=( --1.9 )
+#
+# The variable PROJECT_JRUBY_OPTS requires the following to be run in shell:
+#
+#    chmod +x \${rvm_path}/hooks/after_use_jruby_opts
+#
 
 #
 # First we attempt to load the desired environment directly from the environment
@@ -468,11 +488,22 @@ fi
 # fi
 
 # If you use bundler, this might be useful to you:
-# if command -v bundle && [[ -s Gemfile ]]
+# if [[ -s Gemfile ]] && ! command -v bundle >/dev/null
+# then
+#   printf \"The rubygem 'bundler' is not installed. Installing it now.\\\\n\"
+#   gem install bundler
+# fi
+# if [[ -s Gemfile ]] && command -v bundle
 # then
 #   bundle install
 # fi
 
+if [[ \$- == *i* ]] # check for interactive shells
+then
+    echo \"Using: \$(tput setaf 2)\$GEM_HOME\$(tput sgr0)\" # show the user the ruby and gemset they are using in green
+else 
+	echo \"Using: \$GEM_HOME\" # don't use colors in interactive shells
+fi
 
 " >> .rvmrc
 

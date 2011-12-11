@@ -4,7 +4,7 @@ source "$rvm_scripts_path/base"
 
 usage()
 {
-  echo "Usage: rvm tools {identifier,path-identifier,strings}" 1>&2
+  echo "Usage: rvm tools {identifier,path-identifier,strings,user}" 1>&2
   exit 1
 }
 
@@ -21,11 +21,12 @@ tools_path_identifier()
     return 1
   fi
 
-  source "$rvm_scripts_path/rvm" >/dev/null 2>&1
   builtin cd "$1"
-  rvm_promptless=1 __rvm_project_rvmrc_with_env >/dev/null 2>&1
+  __rvm_do_with_env_before
+  rvm_promptless=1 __rvm_project_rvmrc >/dev/null 2>&1
   rvmrc_result="$?"
   __rvm_env_string
+  __rvm_do_with_env_after
   exit $rvmrc_result
 }
 
@@ -42,6 +43,114 @@ tools_strings()
   done
 }
 
+tools_user_usage()
+{
+  typeset msg
+
+  for msg in "$@"
+  do
+    rvm_error "$msg"
+  done
+
+  rvm_error "Usage: rvm user [gemsets] [rubies] [hooks] [pkgs] [wrappers] [all]"
+}
+
+tools_user_setup()
+{
+  typeset name path
+  name="rvm_${1}_path"
+
+  # detect name in config
+  if [[ -f $HOME/.rvmrc ]] && grep "^export ${name}=" $HOME/.rvmrc > /dev/null
+  then
+    # if defined read path
+    path="$( grep "^export ${name}=" $HOME/.rvmrc | sed "s/^export ${name}=//" )"
+  else
+    # if not defined - define it
+    path="${HOME}/.rvm/${1}"
+    echo "export ${name}=${path}" >> $HOME/.rvmrc
+  fi
+
+  # ensure the defined path exists
+  [[ -d "${path}" ]] || mkdir -p "${path}"
+
+  # create empty db files for rvm_user_path
+  if [[ "$1" == "user" ]]
+  then
+    for file in db md5
+    do
+      [[ -f "${path}/${file}" ]] || touch "${path}/${file}"
+    done
+  fi
+}
+
+tools_user()
+{
+  typeset item dir
+  typeset -a selection
+
+  for item in "$@"
+  do
+    case "$item" in
+      all)     selection+=( gemsets rubies hooks pkgs wrappers userdb ) ;;
+      rubies)  selection+=( rubies  ) ;;
+      gemsets) selection+=( gemsets ) ;;
+      hooks)   selection+=( hooks   ) ;;
+      pkgs)    selection+=( pkgs    ) ;;
+      userdb)  selection+=( userdb  ) ;;
+      *)
+        tools_user_usage "Unrecognized option '$item'."
+        exit 1
+        ;;
+    esac
+  done
+
+  if (( ${#selection[@]} == 0 ))
+  then
+    tools_user_usage
+    exit 1
+  fi
+
+  if [[ ! -w "${HOME}" ]] || [[ -d "${HOME}/.rvm" && ! -w "${HOME}/.rvm" ]]
+  then
+    tools_user_usage "Directory '${HOME}' or '${HOME}/.rvm' is not writable for current user."
+    exit 1
+  fi
+
+  if [[ -f "${HOME}/.rvmrc" && ! -w "${HOME}/.rvmrc" ]]
+  then
+    tools_user_usage "Configuration file '${HOME}/.rvmrc' is not writable for current user."
+    exit 1
+  fi
+
+  for item in "${selection[@]}"
+  do
+    case "$item" in
+      rubies)
+        for dir in archives bin environments gems gems_cache log repos rubies rubygems src tmp wrappers user
+        do
+          tools_user_setup $dir
+        done
+        ;;
+      gemsets)
+        for dir in environments gems gems_cache wrappers
+        do
+          tools_user_setup $dir
+        done
+        ;;
+      hooks)
+        tools_user_setup hooks
+        ;;
+      pkgs)
+        tools_user_setup usr
+        ;;
+      userdb)
+        tools_user_setup user
+        ;;
+    esac
+  done
+}
+
 args=($*)
 action="${args[0]}"
 args="$(echo ${args[@]:1})" # Strip trailing / leading / extra spacing.
@@ -52,6 +161,7 @@ case "$action" in
   identifier)      tools_identifier ;;
   path-identifier) tools_path_identifier "$args" ;;
   strings)         tools_strings "$args" ;;
+  user)            tools_user "$args" ;;
   *)               usage ;;
 esac
 
