@@ -56,22 +56,17 @@ __rvm_setup_compile_environment()
 }
 
 # Attempt to override the Darwin build settings for rubies
-# This should only be used in extreme edge cases that
-# will not work via the default way.
 __rvm_make_flags()
 {
-  [[ -n "${rvm_architectures:-}" ]] || return 0
-
   # This is only an issue with Darwin :/
-  if [[ "$MACHTYPE" == *darwin* ]]
+  if [[ "$MACHTYPE" == *darwin*  && -n "${rvm_architectures:-}" ]]
   then
-    # \ls /usr/lib/gcc/x86_64-apple-darwin10
     # Set the build & host type
     if [[ "Power Macintosh" == "$(/usr/sbin/sysctl -n hw.machine)" ]]
     then
       true # Do nothing ?
-    elif [[ "$(/usr/sbin/sysctl -n hw.cpu64bit_capable)" = 1 || \
-      "$(/usr/sbin/sysctl -n hw.optional.x86_64)" = 1 ]]
+    elif [[ "$(/usr/sbin/sysctl -n hw.cpu64bit_capable)" == 1 || \
+      "$(/usr/sbin/sysctl -n hw.optional.x86_64)" == 1 ]]
     then
       #   64 bit capable
       if [[ "x86_64" == "${rvm_architectures:-""}" ]]
@@ -85,32 +80,7 @@ __rvm_make_flags()
         rvm_configure_flags="${rvm_configure_flags} \
           --build=i386-apple-darwin$(uname -r) \
           --host=i386-apple-darwin$(uname -r)"
-      # else
-      #   rvm_architectures="x86_64"
-      #   rvm_configure_flags="${rvm_configure_flags} \
-      #     --build=x86_64-apple-darwin$(uname -r) \
-      #     --host=x86_64-apple-darwin$(uname -r)"
       fi
-    fi
-
-    if [[ -n "${rvm_architectures:-""}" ]]
-    then
-      export ARCHFLAGS="-arch ${rvm_architectures}"
-      # Use the latest sdk available.
-      if [[ -z "${rvm_sdk:-""}" ]]
-      then
-        rvm_sdk="$(
-        /usr/bin/basename -a /Developer/SDKs/* | awk '/^M/' | \sort | \tail -n 1
-        )"
-      fi
-
-      CFLAGS="${CFLAGS:-"-isysroot /Developer/SDKs/$rvm_sdk $ARCHFLAGS"}"
-      LDFLAGS="${LDFLAGS:-"-Wl,-syslibroot /Developer/SDKs/$rvm_sdk $ARCHFLAGS"}"
-      export CFLAGS LDFLAGS
-
-      # CXXFLAGS="-mmacosx-version-min="$(sw_vers -productVersion \
-      # | awk -F'.' '{print $1"."$2}')" -isysroot /Developer/SDKs/$rvm_sdk "
-      # export CXXFLAGS
     fi
   fi
 
