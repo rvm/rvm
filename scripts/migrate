@@ -21,7 +21,7 @@ usage()
 
 confirm()
 {
-  local confirmation_response
+  typeset confirmation_response
 
   printf "$1 (Y/n): "
 
@@ -45,24 +45,27 @@ expand_ruby_name()
 
 migrate_rubies()
 {
-  local origin_gemset destination_gemset gemset_name migrate_ruby_name migrate_alias_name migrate_new_alias_name binaries origin_wrappers_path full_bin_path expanded_symlink linked_binary_name new_wrapper_destination
+  typeset origin_gemset destination_gemset gemset_name migrate_ruby_name \
+    migrate_alias_name migrate_new_alias_name binaries origin_wrappers_path \
+    full_bin_path expanded_symlink linked_binary_name new_wrapper_destination
 
   expanded_source="$(expand_ruby_name "$source_ruby")"
   expanded_destination="$(expand_ruby_name "$destination_ruby")"
 
-  if [[ -z "$expanded_source" ]]; then
+  if [[ -z "$expanded_source" ]]
+  then
     die_with_error "Could not expand source ruby '$source_ruby'"
-
-  elif [[ -z "$expanded_destination" ]]; then
+  elif [[ -z "$expanded_destination" ]]
+  then
     die_with_error "Could not expand destination ruby '$destination_ruby'"
-
-  elif [[ "$expanded_destination" == "$expanded_source" ]]; then
+  elif [[ "$expanded_destination" == "$expanded_source" ]]
+  then
     die_with_error "Source and Destination Ruby are the same ($expanded_destination)"
-
-  elif [[ ! -d "$rvm_rubies_path/$expanded_source" ]]; then
+  elif [[ ! -d "$rvm_rubies_path/$expanded_source" ]]
+  then
     die_with_error "Ruby '$expanded_source' is not installed - please install it first."
-
-  elif [[ ! -d "$rvm_rubies_path/$expanded_destination" ]]; then
+  elif [[ ! -d "$rvm_rubies_path/$expanded_destination" ]]
+  then
     die_with_error "Ruby '$expanded_destination' is not installed - please install it first."
   fi
 
@@ -72,7 +75,8 @@ migrate_rubies()
 
   echo "Moving gemsets..."
 
-  while read -r origin_gemset; do
+  while read -r origin_gemset
+  do
     [[ "$origin_gemset" == "$expanded_source" || "$origin_gemset" == "${expanded_source}${rvm_gemset_separator:-"@"}"* ]] || continue
 
     destination_gemset="$expanded_destination"
@@ -83,7 +87,8 @@ migrate_rubies()
       ;;
     esac
 
-    if [[ -n "$gemset_name" ]]; then
+    if [[ -n "$gemset_name" ]]
+    then
       destination_gemset="${destination_gemset}${rvm_gemset_separator:-"@"}${gemset_name}"
     fi
 
@@ -106,63 +111,50 @@ migrate_rubies()
   done < <("$rvm_scripts_path/list" gemsets strings | \grep "^$expanded_source")
 
 
-  if confirm 'Do you wish to move over aliases?' ; then
-
-    while read -r alias_pair; do
-
+  if confirm 'Do you wish to move over aliases?'
+  then
+    while read -r alias_pair
+    do
       migrate_ruby_name="${alias_pair/*=/}"
-
       migrate_alias_name="${alias_pair/=*/}"
-
-      if [[ "$migrate_ruby_name" == "$expanded_source" || "$migrate_ruby_name" == "${expanded_source}${rvm_gemset_separator:-"@"}"* ]]; then
-
+      if [[ "$migrate_ruby_name" == "$expanded_source" || \
+        "$migrate_ruby_name" == "${expanded_source}${rvm_gemset_separator:-"@"}"* ]]
+      then
         migrate_new_alias_name="${migrate_ruby_name/$expanded_source/$expanded_destination}"
-
         echo "Updating alias $migrate_alias_name to point to $migrate_new_alias_name"
-
         "$rvm_scripts_path/alias" delete "$migrate_alias_name" >/dev/null 2>&1
-
         "$rvm_scripts_path/alias" create "$migrate_alias_name" "$migrate_new_alias_name" >/dev/null 2>&1
       fi
-
     done < "$rvm_path/config/alias"
-
   fi
 
-  if confirm "Do you wish to move over wrappers?" ; then
-
+  if confirm "Do you wish to move over wrappers?"
+  then
     origin_wrappers_path="$rvm_wrappers_path/$expanded_source"
-
     binaries=($(cd "${rvm_bin_path}" ; find . -maxdepth 1 -mindepth 1 -type f))
 
-    for binary_name in "${binaries[@]//.\/}" ; do
-
+    for binary_name in "${binaries[@]//.\/}"
+    do
       full_bin_path="${rvm_bin_path}/$binary_name"
-
-      [[ ! -L "$full_bin_path" ]] && continue
+      [[ -L "$full_bin_path" ]] || continue
 
       expanded_symlink="$(readlink "$full_bin_path")"
-
-      [[ "$expanded_symlink" != "$origin_wrappers_path/"* ]] && continue
+      [[ "$expanded_symlink" == "$origin_wrappers_path/"* ]] || continue
 
       linked_binary_name="$(basename "$expanded_symlink")"
-
       [[ "$binary_name" == "$linked_binary_name-$expanded_source" || "$binary_name" == "$expanded_source" ]] && continue
 
       new_wrapper_destination="${expanded_symlink/$expanded_source/$expanded_destination}"
-
       ln -sf "$new_wrapper_destination" "$full_bin_path"
     done
   fi
 
-  if confirm "Do you also wish to completely remove $expanded_source (inc. archive)?" ; then
-
+  if confirm "Do you also wish to completely remove $expanded_source (inc. archive)?"
+  then
     __rvm_run_with_env "rvm.remove" "$expanded_source" "rvm remove $expanded_source --archive --gems"
-
   fi
 
   echo "Successfully migrated $expanded_source to $expanded_destination"
-
 }
 
 args=($*)
