@@ -33,56 +33,36 @@ __rvm_setup_compile_environment()
     fi
 
   fi
-
-  if [[ "Darwin" == "$(uname)" ]]
-  then
-    rvm_configure_env=()
-    local architectures="${rvm_architectures:-"x86_64"}"
-    architectures="${architectures:+-arch }${architectures:-}"
-    rvm_configure_env+=(
-    "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion |
-    awk -F'.' '{print $1"."$2}')"
-    )
-    rvm_configure_env+=("CFLAGS='$architectures -g -Os -pipe -no-cpp-precomp'")
-    rvm_configure_env+=("CCFLAGS='$architectures -g -Os -pipe'")
-    rvm_configure_env+=("CXXFLAGS='$architectures -g -Os -pipe'")
-    rvm_configure_env+=("LDFLAGS='$architectures -bind_at_load'")
-    rvm_configure_env+=(
-    "LDSHARED='cc $architectures -dynamiclib -undefined suppress -flat_namespace'"
-    )
-  fi
-  rvm_configure_env="${rvm_configure_env[*]}"
-  export rvm_configure_env
 }
 
 # Attempt to override the Darwin build settings for rubies
 __rvm_make_flags()
 {
-  # This is only an issue with Darwin :/
-  if [[ "$MACHTYPE" == *darwin*  && -n "${rvm_architectures:-}" ]]
-  then
-    # Set the build & host type
-    if [[ "Power Macintosh" == "$(/usr/sbin/sysctl -n hw.machine)" ]]
-    then
-      true # Do nothing ?
-    elif [[ "$(/usr/sbin/sysctl -n hw.cpu64bit_capable)" == 1 || \
-      "$(/usr/sbin/sysctl -n hw.optional.x86_64)" == 1 ]]
-    then
-      #   64 bit capable
-      if [[ "x86_64" == "${rvm_architectures:-""}" ]]
-      then
-        rvm_configure_flags="${rvm_configure_flags} \
-          --build=x86_64-apple-darwin$(uname -r) \
-          --host=x86_64-apple-darwin$(uname -r)"
+  [[ "Darwin" == "$(uname)" && -n "${rvm_architectures:-}" ]] || return 0
 
-      elif [[ "i386" == "${rvm_architectures:-""}" ]]
-      then
-        rvm_configure_flags="${rvm_configure_flags} \
-          --build=i386-apple-darwin$(uname -r) \
-          --host=i386-apple-darwin$(uname -r)"
-      fi
-    fi
-  fi
+  typeset -gxa rvm_configure_env
+  typeset architecture
+
+  case "${rvm_architectures}" in
+    (*,*) architecture="universal" ;;
+    (*) architecture="${rvm_architectures}" ;;
+  esac
+
+  rvm_configure_env+=(
+    "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | awk -F'.' '{print $1"."$2}')"
+  )
+  rvm_configure_env+=("CFLAGS='-arch $architecture -g -Os -pipe -no-cpp-precomp'")
+  rvm_configure_env+=("CCFLAGS='-arch $architecture -g -Os -pipe'")
+  rvm_configure_env+=("CXXFLAGS='-arch $architecture -g -Os -pipe'")
+  rvm_configure_env+=("LDFLAGS='-arch $architecture -bind_at_load'")
+  rvm_configure_env+=(
+    "LDSHARED='cc -arch $architecture -dynamiclib -undefined suppress -flat_namespace'"
+  )
+  rvm_configure_env="${rvm_configure_env[*]}"
+
+  #--build=x86_64-apple-darwin$(uname -r)
+  #--host=x86_64-apple-darwin$(uname -r)
+  rvm_configure_flags="${rvm_configure_flags} --target=${architecture}-apple-darwin$(uname -r)"
 
   return 0
 }
