@@ -2,70 +2,56 @@
 
 __rvm_setup_compile_environment()
 {
-  if [[ "$OSTYPE" == darwin* ]]
+  [[ "Darwin" == "$(uname)" ]] || return 0
+
+  export CC
+  typeset oldCC
+  oldCC="${CC:-}"
+
+  if [[ -x /usr/bin/gcc-4.2 ]]
   then
-    export CC
-    local oldCC
-    oldCC="${CC:-}"
-    if [[ -x /usr/bin/gcc-4.2 ]]
-    then
-      true CC: ${CC:=/usr/bin/gcc-4.2}
-
-    elif which gcc-4.2 > /dev/null
-    then
-      true CC: ${CC:=gcc-4.2}
-
-    fi
-
-    if [[ -z "${CC:-}" ]]
-    then
-      true # sok?
-
-    elif $CC --version | grep LLVM >/dev/null
-    then
-      if [[ "${CC:-}" == "$oldCC" ]]
-      then
-        rvm_error "The provided CC(${CC:-}) is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
-      else
-        rvm_error "The autodetected CC(${CC:-}) is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`, and set CC=/path/to/gcc ."
-      fi
-      exit 1
-    fi
-
+    true CC: ${CC:=/usr/bin/gcc-4.2}
+  elif which gcc-4.2 > /dev/null
+  then
+    true CC: ${CC:=gcc-4.2}
   fi
-}
 
-# Attempt to override the Darwin build settings for rubies
-__rvm_make_flags()
-{
-  [[ "Darwin" == "$(uname)" && -n "${rvm_architectures:-}" ]] || return 0
+  if [[ -n "${CC:-}" ]] && $CC --version | grep LLVM >/dev/null
+  then
+    if [[ "${CC:-}" == "$oldCC" ]]
+    then
+      rvm_error "The provided CC(${CC:-}) is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
+    else
+      rvm_error "The autodetected CC(${CC:-}) is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`, and set CC=/path/to/gcc ."
+    fi
+    exit 1
+  fi
+
+  [[ -n "${rvm_architectures:-}" ]] || return 0
 
   export -a rvm_configure_env
-  typeset architecture target
+  typeset architectures architecture
 
-  case "${rvm_architectures}" in
-    (*,*)  target="universal"            ;;
-    (i386) target="i686"                 ;;
-    (*)    target="${rvm_architectures}" ;;
-  esac
-  target="${target}-apple-darwin$(uname -r)"
-  architecture="${rvm_architectures}"
+  for architecture in ${rvm_architectures}
+  do architectures="-arch ${architecture}"
+  done
 
   rvm_configure_env+=(
     "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | awk -F'.' '{print $1"."$2}')"
   )
-  rvm_configure_env+=("CFLAGS='-arch $architecture -g -Os -pipe -no-cpp-precomp'")
-  rvm_configure_env+=("CCFLAGS='-arch $architecture -g -Os -pipe'")
-  rvm_configure_env+=("CXXFLAGS='-arch $architecture -g -Os -pipe'")
-  rvm_configure_env+=("LDFLAGS='-arch $architecture -bind_at_load'")
+  rvm_configure_env+=("CFLAGS='${architectures} -g -Os -pipe -no-cpp-precomp'")
+  rvm_configure_env+=("CCFLAGS='${architectures} -g -Os -pipe'")
+  rvm_configure_env+=("CXXFLAGS='${architectures} -g -Os -pipe'")
+  rvm_configure_env+=("LDFLAGS='${architectures} -bind_at_load'")
   rvm_configure_env+=(
-    "LDSHARED='cc -arch $architecture -dynamiclib -undefined suppress -flat_namespace'"
+    "LDSHARED='cc ${architectures} -dynamiclib -undefined suppress -flat_namespace'"
   )
   rvm_configure_env="${rvm_configure_env[*]}"
 
-  rvm_configure_flags="${rvm_configure_flags} --target=${target} --build=${target} --host=${target}"
-
-  return 0
+  : rvm_patch_names:${rvm_patch_names:=""}:
+  if ! [[ "${rvm_patch_names}" =~ *osx-arch-fix* ]]
+  then rvm_patch_names="osx-arch-fix ${rvm_patch_names}"
+  fi
 }
 
 __rvm_mono_env()
