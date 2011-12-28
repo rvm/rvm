@@ -52,44 +52,53 @@ tools_user_usage()
     rvm_error "$msg"
   done
 
-  rvm_error "Usage: rvm user [gemsets] [rubies] [hooks] [pkgs] [wrappers] [all]"
+  rvm_error "Usage: rvm user [gemsets] [rubies] [hooks] [pkgs] [wrappers] [all] [--skel]"
 }
 
 tools_user_setup()
 {
-  typeset name path
-  name="rvm_${1}_path"
+  typeset target eval_target name path
+  target="$1"
+  name="rvm_${2}_path"
 
   # detect name in config
-  if [[ -f $HOME/.rvmrc ]] && grep "^export ${name}=" $HOME/.rvmrc > /dev/null
+  if [[ -f "${target}/.rvmrc" ]] && grep "^export ${name}=" "${target}/.rvmrc" > /dev/null
   then
     # if defined read path
-    path="$( grep "^export ${name}=" $HOME/.rvmrc | sed "s/^export ${name}=//" )"
+    path="$( grep "^export ${name}=" "${target}/.rvmrc" | sed "s/^export ${name}=//" )"
   else
     # if not defined - define it
-    path="${HOME}/.rvm/${1}"
-    echo "export ${name}=${path}" >> $HOME/.rvmrc
+    path="\${HOME}/.rvm/${2}"
+    echo "export ${name}=\"${path}\"" >> "${target}/.rvmrc"
   fi
 
-  # ensure the defined path exists
-  [[ -d "${path}" ]] || mkdir -p "${path}"
+  # subprocess cause we change the HOME
+  (
+    # set home to target, so --skel works fine
+    HOME="${target}"
+    # resolve the stored path
+    eval "path=\"${path}\""
 
-  # create empty db files for rvm_user_path
-  if [[ "$1" == "user" ]]
-  then
-    for file in db md5
-    do
-      [[ -f "${path}/${file}" ]] || touch "${path}/${file}"
-    done
-  fi
+    # ensure the defined path exists
+    [[ -d "${path}" ]] || mkdir -p "${path}"
+
+    # create empty db files for rvm_user_path
+    if [[ "$1" == "user" ]]
+    then
+      for file in db md5
+      do
+        [[ -f "${path}/${file}" ]] || touch "${path}/${file}"
+      done
+    fi
+  )
 }
 
 tools_user()
 {
-  typeset item dir
+  typeset item dir target
   typeset -a selection
 
-  for item in "$@"
+  for item in $@
   do
     case "$item" in
       all)     selection+=( gemsets rubies hooks pkgs wrappers userdb ) ;;
@@ -98,6 +107,7 @@ tools_user()
       hooks)   selection+=( hooks   ) ;;
       pkgs)    selection+=( pkgs    ) ;;
       userdb)  selection+=( userdb  ) ;;
+      --skel)  rvm_skel_flag=1        ;;
       *)
         tools_user_usage "Unrecognized option '$item'."
         exit 1
@@ -111,15 +121,23 @@ tools_user()
     exit 1
   fi
 
-  if [[ ! -w "${HOME}" ]] || [[ -d "${HOME}/.rvm" && ! -w "${HOME}/.rvm" ]]
+  if [[ ${rvm_skel_flag:-0} == 1 ]] && (( UID ))
   then
-    tools_user_usage "Directory '${HOME}' or '${HOME}/.rvm' is not writable for current user."
+    tools_user_usage "The --skel flag should be run as root: rvmsudo rvm user $@."
     exit 1
   fi
 
-  if [[ -f "${HOME}/.rvmrc" && ! -w "${HOME}/.rvmrc" ]]
+  [[ ${rvm_skel_flag:-0} == 1 ]] && target=/etc/skel || target="${HOME}"
+
+  if [[ ! -w "${target}" ]] || [[ -d "${target}/.rvm" && ! -w "${target}/.rvm" ]]
   then
-    tools_user_usage "Configuration file '${HOME}/.rvmrc' is not writable for current user."
+    tools_user_usage "Directory '${target}' or '${target}/.rvm' is not writable for current user."
+    exit 1
+  fi
+
+  if [[ -f "${target}/.rvmrc" && ! -w "${target}/.rvmrc" ]]
+  then
+    tools_user_usage "Configuration file '${target}/.rvmrc' is not writable for current user."
     exit 1
   fi
 
@@ -129,23 +147,23 @@ tools_user()
       rubies)
         for dir in archives bin environments gems gems_cache log repos rubies rubygems src tmp wrappers user
         do
-          tools_user_setup $dir
+          tools_user_setup "${target}" $dir
         done
         ;;
       gemsets)
         for dir in environments gems gems_cache wrappers
         do
-          tools_user_setup $dir
+          tools_user_setup "${target}" $dir
         done
         ;;
       hooks)
-        tools_user_setup hooks
+        tools_user_setup "${target}" hooks
         ;;
       pkgs)
-        tools_user_setup usr
+        tools_user_setup "${target}" usr
         ;;
       userdb)
-        tools_user_setup user
+        tools_user_setup "${target}" user
         ;;
     esac
   done
