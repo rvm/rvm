@@ -1,26 +1,105 @@
 #!/usr/bin/env bash
 
- printf "%b" "\n\033[32mSYSTEM NOTES:\033[0m"
+if [[ "$1" == "initial" ]]
+then
+  notes_type=Upgrade
+  PAGER=cat
+  new_notes()
+  {
+    typeset file
+    file="$rvm_path/config/displayed-notes.txt"
+    rm -f "${file}"
+    tee "${file}" > /dev/null
+  }
+elif [[ "$1" == "upgrade" ]]
+then
+  notes_type=Upgrade
+  PAGER=cat
+  new_notes()
+  {
+    typeset file
+    file="$rvm_path/config/displayed-notes.txt"
+    touch "${file}"
+    tee "${file}.new" | (
+      diff --normal - "${file}" && \
+        printf "  * No new notes to display.\n" >&2 || true
+    ) | sed '/^[^<]/ d ; s/^< //'
+    mv -f "${file}.new" "${file}"
+  }
+else
+  notes_type=Installation
+  new_notes()
+  {
+    cat
+  }
+fi
 
- printf "%b" "\n
-If you do not wish to enable reading of per-project .rvmrc files, simply set:
-        export rvm_project_rvmrc=0
-within either your /etc/rvmrc or \$HOME/.rvmrc file, then log out and back in.
+if [[ "$1" == "upgrade" ]]
+then
+  printf "%b" "
+$notes_type Notes:
+
+"
+fi
+
+# this block groups generated and static notes, 
+# to add generated msgs put them bellow in code
+# for general messages put them in help/upgrade-notes.txt
+{
+  if [[ -z "$1" ]]
+  then
+    printf "%b" "
+$notes_type Notes:
+
+"
+  fi
+
+  if [[ "$rvm_path" == "/usr/local/rvm" ]] || (( UID == 0 ))
+  then
+    printf "%b" "
+  * Please do NOT forget to add your users to the 'rvm' group.
+    The installer no longer auto-adds root or users to the rvm group. Admins must do this.
+    Also, please note that group memberships are ONLY evaluated at login time.
+    This means that users must log out then back in before group membership takes effect!
+
+"
+  fi
+
+  cat "$rvm_path/help/upgrade-notes.txt" | sed \
+   -e "s/\${SHELL}/${SHELL//\//\/}/"
+  printf "\n"
+
+  if [[ -f /etc/profile.d/rvm.sh ]] &&
+    ! grep rvm_stored_umask /etc/profile.d/rvm.sh >/dev/null
+  then
+    printf "%b" "
+  * WARNING: your RVM loading script \`/etc/profile.d/rvm.sh\` is deprecated
+    and causes you to have \`umask g+w\` set in your shell,
+    run \`rvm get head --auto\` again to fix your scripts.
+
+"
+  fi
+
+  if [[ -n "${RUBYOPT:-""}" ]]
+  then
+    printf "%b" "
+  * WARNING: You have RUBYOPT set in your current environment.
+    This may cause rubies to not work as you expect them to as it is not supported
+    by all of them If errors show up, please try unsetting RUBYOPT first.
+
+"
+  fi
+} | new_notes | "${PAGER:-cat}"
+
+printf "%b" \
+"
+# RVM:  Shell scripts enabling management of multiple ruby environments.
+# RTFM: https://rvm.beginrescueend.com/
+# HELP: http://webchat.freenode.net/?channels=rvm (#rvm on irc.freenode.net)
+# Screencast: http://screencasts.org/episodes/how-to-use-rvm
 "
 
- printf "%b" "\n
-In case your shell exits on entering directory with freshly checked out sources
-you should update .rvmrc file, and replace any \`exit \` with \`return \`.
-"
+printf "%b" "
+# $(tput setaf 2)In case of any issues read output of 'rvm requirements' and/or 'rvm notes'$(tput sgr0)
 
-  printf "%b" "\n
-You _must_ read 'rvm requirements' for additional OS specific requirements for
-various rubies, and native-extension gems. Expect failures until those are met!
 "
-
-printf "%b" "\n
-For screen users, please do not forget to read https://rvm.beginrescueend.com/workflow/screen/.
-You will need to add 'shell -${SHELL}' to your \$HOME/.screenrc to properly load RVM.
-"
-
-echo ""
