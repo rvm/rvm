@@ -2,20 +2,50 @@
 
 # Logging functions
 
+# check if user wants colors and if output goes to terminal
+# rvm_pretty_print_flag:
+# - 0|no    - disabled always
+# - 1|auto  - automatic depending if the output goes to terminal (default)
+# - 2|force - forced always
+# to select which terminal output should be checked use first param:
+# - stdout - for stdout (default)
+# - stderr - for stderr
+# - number - for the given terminal fd
+# - else   - for both stdout and stderr
 rvm_pretty_print()
 {
-  (( ${rvm_pretty_print_flag:=0} == 1 )) && [[ "$-" =~ i || -t 1 ]] || return $?
+  case "${rvm_pretty_print_flag:=auto}" in
+    (0|no)
+      return 1
+      ;;
+    (1|auto)
+      case "$1" in
+        (stdout)      [[ -t 1           ]] || return $? ;;
+        (stderr)      [[ -t 2           ]] || return $? ;;
+        ([[:digit:]]) [[ -t $1          ]] || return $? ;;
+        (*)           [[ -t 1  && -t 2  ]] || return $? ;;
+      esac
+      ;;
+    (2|force)
+      return 0
+      ;;
+  esac
 }
 
-if rvm_pretty_print
+if rvm_pretty_print stdout
 then
-  eval "rvm_log()   { printf \"%b\" \"\$(tput setaf 2)\$*\$(tput sgr0)\n\" ; }"
-  eval "rvm_debug() { printf \"%b\" \"\$(tput setaf 5)DEBUG: \$*\$(tput sgr0)\n\" ; }"
-  eval "rvm_warn()  { printf \"%b\" \"\$(tput setaf 3)WARN: \$*\$(tput sgr0)\n\" ; }"
-  eval "rvm_error() { printf \"%b\" \"\$(tput setaf 1)ERROR: \$*\$(tput sgr0)\n\" >&2 ; }"
+  eval "rvm_log()   { printf \"%b\" \"$(tput setaf 2)\$*$(tput sgr0)\n\" ; }"
+  eval "rvm_debug() { printf \"%b\" \"$(tput setaf 5)DEBUG: \$*$(tput sgr0)\n\" ; }"
+  eval "rvm_warn()  { printf \"%b\" \"$(tput setaf 3)WARN: \$*$(tput sgr0)\n\" ; }"
 else
   rvm_log()   { printf "%b" "$*\n" ; }
   rvm_debug() { printf "%b" "DEBUG: $*\n" ; }
   rvm_warn()  { printf "%b" "WARN: $*\n" ; }
+fi
+
+if rvm_pretty_print stderr
+then
+  eval "rvm_error() { printf \"%b\" \"$(tput setaf 1)ERROR: \$*$(tput sgr0)\n\" >&2 ; }"
+else
   rvm_error() { printf "%b" "ERROR: $*\n" >&2 ; }
 fi
