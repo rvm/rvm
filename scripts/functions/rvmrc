@@ -69,7 +69,7 @@ __rvm_sha256_for_contents()
 
 __rvm_rvmrc_key()
 {
-  printf "$1" | tr '[#/.=]' _
+  printf "%b" "$1" | tr '[#/.=]' _
   return $?
 }
 
@@ -106,7 +106,7 @@ __rvm_rvmrc_stored_trust()
 __rvm_rvmrc_tools()
 {
   export escape_flag
-  local rvmrc_action rvmrc_path saveIFS trust
+  typeset rvmrc_action rvmrc_path saveIFS trust
 
   escape_flag=1
   rvmrc_action="$1"
@@ -119,28 +119,21 @@ __rvm_rvmrc_tools()
   rvmrc_path="$(builtin cd "${1:-$PWD}" >/dev/null 2>&1; pwd)/.rvmrc"
 
   case "$rvmrc_action" in
-
     reset)
-
       __rvm_reset_rvmrc_trust "$rvmrc_path"
       echo "Reset trust for $rvmrc_path"
-    ;;
-
+      ;;
     trust)
-
       __rvm_trust_rvmrc "$rvmrc_path"
       echo "Marked $rvmrc_path as trusted"
-    ;;
+      ;;
 
     untrust)
-
       __rvm_untrust_rvmrc "$rvmrc_path"
       echo "Marked $rvmrc_path as untrusted"
-
-    ;;
+      ;;
 
     trusted)
-
       if [[ -f "$rvmrc_path" ]]
       then
         saveIFS=$IFS
@@ -151,25 +144,21 @@ __rvm_rvmrc_tools()
         if [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$rvmrc_path")$(__rvm_sha256_for_contents "$rvmrc_path")" ]]
         then
           echo "The rvmrc at '$rvmrc_path' contains unreviewed changes."
-
         elif [[ "${trust[${_first}]}" == '1' ]]
         then
           echo "The rvmrc at '$rvmrc_path' is currently trusted."
-
         elif [[ "${trust[${_first}]}" == '0' ]]
         then
           echo "The rvmrc at '$rvmrc_path' is currently untrusted."
-
         else
           echo "The trustiworthiness of '$rvmrc_path' is currently unknown."
         fi
       else
         echo "There is no $rvmrc_path"
       fi
-    ;;
+      ;;
 
     is_trusted)
-
       if [[ -f "$rvmrc_path" ]]
       then
         saveIFS=$IFS
@@ -189,13 +178,12 @@ __rvm_rvmrc_tools()
       else
         return 1
       fi
-    ;;
+      ;;
 
     load)
-
       rvm_rvmrc_cwd="" rvm_trust_rvmrcs_flag=1  \
         __rvm_project_rvmrc "$(dirname "$rvmrc_path")"
-    ;;
+      ;;
 
     try_to_read_ruby)
       if ! __rvm_rvmrc_tools is_trusted $(dirname "$rvmrc_path")
@@ -223,17 +211,16 @@ __rvm_rvmrc_tools()
     *)
       echo "Usage: rvm rvmrc {trust,untrust,trusted,load,reset,is_trusted,try_to_read_ruby}"
       return 1
-    ;;
+      ;;
   esac
 
   unset escape_flag
-
   return $?
 }
 
 __rvm_check_rvmrc_trustworthiness()
 {
-  local saveIFS trust result
+  typeset saveIFS trust result
   # Trust when they have the flag... of doom!
   if [[ -n "$1" && ${rvm_trust_rvmrcs_flag:-0} == 0 ]]
   then
@@ -257,7 +244,7 @@ __rvm_check_rvmrc_trustworthiness()
 
 __rvm_display_rvmrc()
 {
-  printf "
+  printf "%b" "
 ==============================================================================
 = The contents of the .rvmrc file will now be displayed.                     =
 = After reading the file, you will be prompted again for 'yes or no' to set  =
@@ -272,7 +259,7 @@ read -r anykey
 
 command cat -v "${_rvmrc}"
 
-  printf "
+  printf "%b" "
 ==============================================================================
 = Viewing of %s complete.
 ==============================================================================
@@ -287,7 +274,7 @@ command cat -v "${_rvmrc}"
 
 __rvm_ask_to_trust()
 {
-  local trusted value anykey _rvmrc
+  typeset trusted value anykey _rvmrc
   _rvmrc="${1}"
 
   if [[ ! -t 0 ]] || (( ${rvm_promptless:=0} == 1 ))
@@ -295,7 +282,7 @@ __rvm_ask_to_trust()
     return 2
   fi
 
-  printf "==============================================================================
+  printf "%b" "==============================================================================
 = NOTICE                                                                     =
 ==============================================================================
 = RVM has encountered a new or modified .rvmrc file in the current directory =
@@ -308,8 +295,8 @@ __rvm_ask_to_trust()
   trusted=0
   while (( ! trusted ))
   do
-    printf "Do you wish to trust this .rvmrc file? (%s)\n" "${_rvmrc}"
-    printf "%s" 'y[es], n[o], v[iew], c[ancel]> '
+    printf "Do you wish to trust this .rvmrc file? (%b)\n" "${_rvmrc}"
+    printf "%b" 'y[es], n[o], v[iew], c[ancel]> '
 
     if [[ -z "$MC_SID" ]] #check if we're running in MC's subshell
     then
@@ -326,13 +313,13 @@ __rvm_ask_to_trust()
         ;;
       y|yes)
         trusted=1
-      ;;
+        ;;
       n|no)
         break
-      ;;
+        ;;
       c|cancel)
         return 1
-      ;;
+        ;;
     esac
   done
 
@@ -357,13 +344,13 @@ __rvm_project_rvmrc()
   then return 0 # no nesting
   fi
 
-  local working_dir rvm_trustworthiness_result
+  typeset working_dir rvm_trustworthiness_result
 
   # Get the first argument or the pwd.
   working_dir="${1:-"$PWD"}"
 
-  while : ; do
-
+  while :
+  do
     if [[ -z "$working_dir" || "$HOME" == "$working_dir" || "/" == "$working_dir" ]]
     then
       if [[ -n "${rvm_current_rvmrc:-""}" ]]
@@ -389,6 +376,7 @@ __rvm_project_rvmrc()
             __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
             rvm_previous_environment="$(__rvm_env_string)"
             rvm_current_rvmrc="$working_dir/.rvmrc"
+            __rvm_ensure_is_a_function
             source "$working_dir/.rvmrc"
             unset __rvm_project_rvmrc_lock
             return 0
@@ -416,7 +404,7 @@ __rvm_project_rvmrc_with_env()
 
 __rvm_set_rvmrc()
 {
-  local flags identifier
+  typeset flags identifier
   true ${rvm_verbose_flag:=0}
 
   if [[ "$HOME" != "$PWD" ]]
@@ -434,13 +422,23 @@ __rvm_set_rvmrc()
 
     identifier=$(__rvm_env_string)
 
-    printf "#!/usr/bin/env bash
+    printf "%b" "#!/usr/bin/env bash
 
 # This is an RVM Project .rvmrc file, used to automatically load the ruby
 # development environment upon cd'ing into the directory
 
 # First we specify our desired <ruby>[@<gemset>], the @gemset name is optional.
 environment_id=\"$identifier\"
+
+#
+# Uncomment the following lines if you want to verify rvm version per project
+#
+# rvmrc_rvm_version=\"${rvm_version}\" # 1.10.1 seams as a safe start
+# eval \"\$(echo \${rvm_version}.\${rvmrc_rvm_version} | awk -F. '{print \"[[ \"\$1*65536+\$2*256+\$3\" -ge \"\$4*65536+\$5*256+\$6\" ]]\"}' )\" || {
+#   echo \"This .rvmrc file requires at least RVM \${rvmrc_rvm_version}, aborting loading.\"
+#   return 1
+# }
+#
 
 #
 # Uncomment following line if you want options to be set only for given project.
@@ -490,7 +488,7 @@ fi
 # If you use bundler, this might be useful to you:
 # if [[ -s Gemfile ]] && ! command -v bundle >/dev/null
 # then
-#   printf \"The rubygem 'bundler' is not installed. Installing it now.\\\\n\"
+#   printf \"%b\" \"The rubygem 'bundler' is not installed. Installing it now.\\\\n\"
 #   gem install bundler
 # fi
 # if [[ -s Gemfile ]] && command -v bundle

@@ -6,13 +6,20 @@ export PS4
 set -o errtrace
 set -o errexit
 
-log()  { printf "$*\n" ; return $? ;  }
+log()  { printf "%b\n" "$*" ; return $? ;  }
 
 fail() { log "\nERROR: $*\n" ; exit 1 ; }
 
+if [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] && \
+  tar --help | \grep -- --no-same-owner >/dev/null
+then
+  rvm_tar_options="${rvm_tar_options:-} --no-same-owner"
+  rvm_tar_options="${rvm_tar_options## }"
+fi
+
 usage()
 {
-  printf "
+  printf "%b" "
 
 Usage
 
@@ -26,7 +33,20 @@ Options
 
 Actions
 
-  help - Display CLI help (this output)
+  stable - Install RVM stable branch from wayneeseguin rvm repo.
+  help   - Display CLI help (this output)
+
+Branches:
+
+  branch <branch>
+  branch /<branch>
+  branch <repo>/
+  branch <repo>/<branch>
+
+  Defaults:
+
+    branch: master
+    repo:   wayneeseguin
 
 "
 }
@@ -139,10 +159,28 @@ install_head()
   esac
 
   log "Downloading RVM from ${_repo} branch ${_branch}"
-  if ! curl -L https://github.com/${_repo}/rvm/tarball/${_branch} -o ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz
+  if curl -L https://github.com/${_repo}/rvm/tarball/${_branch} -o ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz
   then
-    log "Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'."
-    return 1
+    true
+  else
+    typeset ret=$?
+    case $ret in
+      (60)
+        log "
+Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'.
+  Make sure your certificates are up to date as described above.
+  To continue in insecure mode run 'echo insecure >> ~/.curlrc'.
+"
+        return 60
+        ;;
+      (*)
+        log "
+Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'.
+  curl returned status '$ret'.
+"
+        return 1
+        ;;
+    esac
   fi
 
   [[ -d "${rvm_src_path}/rvm" ]] || \mkdir -p "${rvm_src_path}/rvm"
@@ -153,7 +191,7 @@ install_head()
   fi
 
   rm -rf ${rvm_src_path}/rvm/*
-  if ! tar xzf ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz
+  if ! tar xzf ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz ${rvm_tar_options:-}
   then
     log "Could not extract RVM sources."
     return 3
@@ -188,9 +226,11 @@ then
     then
       if \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
       then
-        printf "\nError: $rvmrc is for rvm settings only.\n"
-        printf "rvm CLI may NOT be called from within $rvmrc. \n"
-        printf "Skipping the loading of $rvmrc\n"
+        printf "%b" "
+Error: $rvmrc is for rvm settings only.
+rvm CLI may NOT be called from within $rvmrc.
+Skipping the loading of $rvmrc
+"
         return 1
       else
         source "$rvmrc"
@@ -243,8 +283,11 @@ do
       fi
       ;;
 
-    --user-install)
-      rvm_user_install_flag=1
+    --user-install|--auto)
+      token=${token#--}
+      token=${token//-/_}
+      export "rvm_${token}_flag"=1
+      printf "%b" "Turning on ${token/_/ } mode.\n"
       ;;
 
     --version)
@@ -339,13 +382,15 @@ esac
 #   installer script.
 flags=()
 if (( rvm_trace_flag == 1 ))
-then
-  flags+=("--trace")
+then flags+=("--trace")
 fi
 
 if (( rvm_debug_flag == 1 ))
-then
-  flags+=("--debug")
+then flags+=("--debug")
+fi
+
+if (( rvm_auto_flag == 1 ))
+then flags+=("--auto")
 fi
 
 chmod +x ./scripts/install

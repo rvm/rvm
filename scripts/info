@@ -7,7 +7,8 @@ source "$rvm_scripts_path/version"
 
 version_for()
 {
-  local binary=${1:-""}
+  typeset binary
+  binary=${1:-""}
 
   if command -v "$binary" >/dev/null ; then
     $binary --version | head -n1
@@ -28,13 +29,47 @@ info_system()
 "
 }
 
+print_part()
+{
+  (( $1 )) || return
+  typeset ret
+  ret="$1 $2"
+  (( $1 == 1 )) || ret="${ret}s"
+  printf "$ret "
+}
+
 info_rvm()
 {
+  typeset installed_at years months days hours minutes seconds part
   rvm_info="
   rvm:
     version:      \"$(__rvm_version | \tr "\n" ' ' | __rvm_strip)\"
 "
 
+  rvm_info="${rvm_info}    updated:      \""
+  installed_at="$(cat ~/.rvm/installed.at)"
+  if [[ -n "${installed_at:-}" ]] && (( installed_at ))
+  then
+    seconds="$(( $(date +%s) - installed_at ))"
+    if (( seconds ))
+    then
+      minutes="$(( seconds / 60 % 60 ))"
+      hours="$(( seconds / 3600 % 24 ))"
+      days="$(( seconds / 86400 % 31 ))"
+      months="$(( seconds / 2678400 % 12 ))"
+      years="$(( seconds / 31536000 ))"
+      seconds="$(( seconds % 60 ))"
+      for part in year month day hour minute second
+      do eval "rvm_info=\"\${rvm_info}\$(print_part \${${part}s} ${part})\""
+      done
+      rvm_info="${rvm_info}ago"
+    else
+      rvm_info="${rvm_info}just now"
+    fi
+  else
+    rvm_info="${rvm_info}can not read installation time\n"
+  fi
+  rvm_info="${rvm_info}\"\n"
 }
 
 info_ruby()
@@ -44,11 +79,11 @@ info_ruby()
   if [[ $? -eq 0 ]] && [[ -x "$ruby" ]] ; then full_version="$($ruby -v)" ; fi
   rvm_info="
   ruby:
-    interpreter:  \"$(printf "${full_version}" | awk '{print $1}')\"
-    version:      \"$(printf "${full_version}" | awk '{print $2}')\"
-    date:         \"$(printf "${full_version}" | sed 's/^.*(\([0-9]\{4\}\(-[0-9][0-9]\)\{2\}\).*$/\1/')\"
-    platform:     \"$(printf "${full_version}" | sed 's/^.*\[//' | sed 's/\].*$//')\"
-    patchlevel:   \"$(printf "${full_version}" | sed 's/^.*(//' | sed 's/).*$//')\"
+    interpreter:  \"$(printf "%b" "${full_version}" | awk '{print $1}')\"
+    version:      \"$(printf "%b" "${full_version}" | awk '{print $2}')\"
+    date:         \"$(printf "%b" "${full_version}" | sed 's/^.*(\([0-9]\{4\}\(-[0-9][0-9]\)\{2\}\).*$/\1/')\"
+    platform:     \"$(printf "%b" "${full_version}" | sed 's/^.*\[//' | sed 's/\].*$//')\"
+    patchlevel:   \"$(printf "%b" "${full_version}" | sed 's/^.*(//' | sed 's/).*$//')\"
     full_version: \"${full_version}\"
 "
 
@@ -100,7 +135,7 @@ info_debug()
 
 $(__rvm_version)
   $("$rvm_scripts_path/info" "$rvm_ruby_string" "" )
-  PATH:\n$(printf "$PATH" | awk -F":" '{print $1":"$2":"$3":"$4":"$5}' )
+  PATH:\n$(printf "%b" "$PATH" | awk -F":" '{print $1":"$2":"$3":"$4":"$5}' )
   uname -a: $(uname -a)
   permissions: $(\ls -la "$rvm_path" "$rvm_rubies_path")
 "
@@ -142,13 +177,13 @@ $(__rvm_version)
 info_sections()
 {
 
-  for section in $(printf "${sections//,/ }") ; do
+  for section in $(printf "%b" "${sections//,/ }") ; do
 
     rvm_info=""
 
     "info_${section}"
 
-    printf "$rvm_info"
+    printf "%b" "$rvm_info"
 
   done
 
@@ -184,22 +219,27 @@ fi
 
 if [[ "${rvm_is_not_a_shell_function:-0}" == "1" ]]
 then
-  printf "\n$(tput setaf 1)RVM is not a function, selecting rubies with '$(tput setaf 2)rvm use ...$(tput setaf 1)' will not work.$(tput sgr0)\n"
+  if rvm_pretty_print stderr
+  then
+    printf "%b" "\n$(tput setaf 1)RVM is not a function, selecting rubies with '$(tput setaf 2)rvm use ...$(tput setaf 1)' will not work.$(tput sgr0)\n" >&2
+  else
+    printf "%b" "\nRVM is not a function, selecting rubies with 'rvm use ...' will not work.\n" >&2
+  fi
 fi
 
 if [[ -z "$ruby_strings" ]] ; then
 
-  printf "\n$(__rvm_env_string):\n"
+  printf "%b" "\n$(__rvm_env_string):\n"
 
   info_sections
 
 else
 
-  for ruby_string in $(printf ${ruby_strings//,/ }) ; do
+  for ruby_string in $(printf "%b" ${ruby_strings//,/ }) ; do
 
     __rvm_become "$ruby_string"
 
-    printf "\n$(__rvm_env_string):\n"
+    printf "%b" "\n$(__rvm_env_string):\n"
 
     info_sections
 

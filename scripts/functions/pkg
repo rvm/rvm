@@ -3,9 +3,6 @@
 install_package()
 {
   __rvm_db "${package}_url" "package_url"
-
-  if [[ ! -z "$rvm_make_flags_flag" ]] ; then __rvm_make_flags ; fi
-
   (
     builtin cd "$rvm_src_path"
 
@@ -20,7 +17,7 @@ install_package()
           || (result=$? && return $result)
 
         __rvm_run "$package/extract" \
-          "tar mzxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path --no-same-owner" \
+          "tar mzxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-}" \
           "Extracting $package-$version.$archive_format to $rvm_src_path"
         ;;
 
@@ -31,7 +28,7 @@ install_package()
           || (result=$? && return $result)
 
         __rvm_run "$package/extract" \
-          "tar mjxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path --no-same-owner "\
+          "tar mjxf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-} "\
           "Extracting $package-$version.$archive_format to $rvm_src_path"
 
         ;;
@@ -48,7 +45,7 @@ install_package()
         ;;
 
       *)
-        printf "\nUnrecognized archive format '$archive_format'" ; return 1
+        printf "%b" "\nUnrecognized archive format '$archive_format'" ; return 1
 
     esac
 
@@ -89,31 +86,30 @@ install_package()
 
     unset configure_flags
 
-    if [[ "$action" == "uninstall" ]] ; then
-
+    if [[ "$action" == "uninstall" ]]
+    then
       __rvm_run "$package/make.uninstall" \
         "make uninstall" \
-        "Uninstalling $package from $rvm_usr_path"
-
+        "Uninstalling $package from $rvm_usr_path" && \
+      builtin cd "$rvm_src_path" && \
+      __rvm_run "$package/rm_src.uninstall" \
+        "rm -rf $rvm_src_path/$package-$version" \
+        "Removing ${package}-${version} from $rvm_src_path" && \
+      touch "$rvm_path/config/packages"
+      "$rvm_scripts_path/db" \
+        "$rvm_path/config/packages" "${package}" delete
     else
-
       __rvm_run "$package/make" \
         "make $rvm_make_flags" \
-        "Compiling $package in $rvm_src_path/$package-$version."
-
+        "Compiling $package in $rvm_src_path/$package-$version." && \
       __rvm_run "$package/make.install" \
         "make install" \
-        "Installing $package to $rvm_usr_path"
-
+        "Installing $package to $rvm_usr_path" && \
+      touch "$rvm_path/config/packages"
+      "$rvm_scripts_path/db" \
+        "$rvm_path/config/packages" "${package}" "${version}"
     fi
-
-    touch "$rvm_path/config/packages"
-    "$rvm_scripts_path/db" \
-      "$rvm_path/config/packages" "${package}" "${version}"
   )
-  result=$?
-
-  return ${result:-0}
 }
 
 readline()
@@ -147,13 +143,13 @@ openssl()
   package="openssl" ; version="0.9.8n" ; archive_format="tar.gz"
   if [[ "Darwin" == "$(uname)" ]] ; then
 
-    if [[ ! -z "$rvm_archflags" ]]; then
+    if [[ -n "$rvm_architectures" ]]; then
 
-      if match "$rvm_archflags" "64"; then
+      if match "$rvm_architectures" "64"; then
         hw_cpu64bit=1
       fi
 
-      if match "$rvm_archflags" "ppc"; then
+      if match "$rvm_architectures" "ppc"; then
         hw_machine="Power Macintosh"
       fi
     else
@@ -251,6 +247,12 @@ libyaml()
   fi
   install_package
 }
+libyaml_installed()
+{
+  typeset path
+  path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
+  [[ -f "${path}/include/yaml.h" ]] && \find "${path}" -name libyaml.so | \grep '.*' >/dev/null
+}
 
 glib()
 {
@@ -273,8 +275,8 @@ mono()
 
 llvm()
 {
-  package="llvm" ; version="89156"
-  if [[ ! -z "$rvm_make_flags_flag" ]] ; then __rvm_make_flags ; fi
+  package="llvm"
+  version="89156"
   (
     builtin cd $rvm_src_path
     if [[ ! -d "$rvm_src_path/llvm/.svn" ]] ; then

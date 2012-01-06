@@ -1,5 +1,36 @@
 #!/usr/bin/env bash
 
+transform_configure_flags()
+{
+  typeset flag path
+  typeset -a new_flags
+
+  for flag in ${rvm_configure_flags}
+  do
+    case "${flag}" in
+      --with-opt-dir=*)
+        new_flags+=( "${flag}" )
+        ;;
+
+      --with-*-dir=*)
+        path="${flag#*=}"
+        flag="${flag%-dir=*}"
+
+        new_flags+=( "${flag}" )
+
+        if ! [[ " ${new_flags[*]} " =~ " --with-opt-dir=${path} " ]]
+        then new_flags+=( "--with-opt-dir=${path}" )
+        fi
+        ;;
+
+      *)
+        new_flags+=( "${flag}" )
+        ;;
+    esac
+  done
+
+  rvm_configure_flags="${new_flags[*]}"
+}
 
 ruby_install()
 {
@@ -10,10 +41,32 @@ ruby_install()
     exit $result
   fi
 
-  if (( ${rvm_make_flags_flag:=0} == 1 ))
-  then
-    __rvm_make_flags
-  fi
+  case ${rvm_ruby_string:-""} in
+    ruby-1.8*|ree*|ruby-1.9*)
+      true # carry on then, nothing to see here :P
+      ;;
+    ruby-head|1.9.*-head)
+      if ! __rvm_ensure_has_mri_ruby "1.8.|ree"
+      then
+        return 1
+      fi
+      ;;
+  esac
+
+  case ${rvm_ruby_string} in
+    ruby-1.9*)
+      # Ruby 1.9 should now use libyaml which is for Psych.
+      if ! libyaml_installed
+      then libyaml # Installs libyaml
+      fi
+      rvm_configure_flags="${rvm_configure_flags:-} --with-libyaml-dir=${rvm_path}/usr"
+
+      # In some cases ruby does not allow --with-<lib>-dir,
+      # so we transform it to --with-<lib> --with-opt-dir=...
+      # see https://github.com/wayneeseguin/rvm/issues/674
+      transform_configure_flags
+      ;;
+  esac
 
   ( __rvm_install_source $* )
   result=$?

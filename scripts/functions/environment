@@ -2,19 +2,19 @@
 
 __rvm_env_string()
 {
-  local _path _string
+  typeset _path _string
 
   _path="${GEM_HOME:-""}"
 
   _string="${_path//*gems\//}"
   _string="${_string//\/*/}"
 
-  printf "${_string:-system}"
+  printf "%b" "${_string:-system}"
 }
 
 __rvm_expand_ruby_string()
 {
-  local string current_ruby
+  typeset string current_ruby
 
   string="$1"
 
@@ -37,12 +37,11 @@ __rvm_expand_ruby_string()
       ;;
 
     current-ruby|gemsets)
-      current_ruby="$(
-			__rvm_env_string | awk -F"${rvm_gemset_separator:-@}" '{print $string}'
-			)"
+      current_ruby="$(__rvm_env_string)"
+      current_ruby="${current_ruby%@*}"
 
-      rvm_silence_logging=1 "$rvm_scripts_path/gemsets" list \
-        | \sed "s/^/$current_ruby${rvm_gemset_separator:-@}/"
+      rvm_silence_logging=1 "$rvm_scripts_path/gemsets" list strings \
+        | \sed "s/ (default)//; s/^/$current_ruby${rvm_gemset_separator:-@}/ ; s/@default// ;"
       ;;
 
     current)
@@ -54,7 +53,7 @@ __rvm_expand_ruby_string()
       ;;
 
     *)
-      echo "$string" | tr "," "\n" | __rvm_strip
+      __rvm_ruby_strings_exist $( echo "$string" | tr "," "\n" | __rvm_strip )
       ;;
 
   esac
@@ -63,7 +62,9 @@ __rvm_expand_ruby_string()
 __rvm_become()
 {
   # set rvm_rvmrc_flag=0 to not create .rvmrc in random places of code
-  local string="$1" rvm_rvmrc_flag=0
+  typeset string rvm_rvmrc_flag
+  string="$1"
+  rvm_rvmrc_flag=0
 
   [[ -n "$string" ]] && rvm_ruby_string="$string"
 
@@ -74,7 +75,7 @@ __rvm_become()
 
 __rvm_ensure_has_environment_files()
 {
-  local environment_id file_name directory identifier variable value variables
+  typeset environment_id file_name directory identifier variable value variables
 
   environment_id="$(__rvm_env_string)"
 
@@ -87,7 +88,9 @@ __rvm_ensure_has_environment_files()
 
   if [[ ! -s "$file_name" ]] || ! grep 'rvm_env_string=' "$file_name" >/dev/null
   then
-    printf "export PATH ; PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"\n" \
+    rm -f "$file_name"
+    printf "%b" \
+      "export PATH ; PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"\n" \
       > "$file_name"
 
     for variable in rvm_env_string rvm_path rvm_ruby_string rvm_gemset_name \
@@ -97,9 +100,9 @@ __rvm_ensure_has_environment_files()
       eval "value=\${${variable}:-""}"
       if [[ -n "$value" ]]
       then
-        printf "export %s ; %s='%s'\n" "${variable}" "${variable}" "${value}" >> "$file_name"
+        printf "export %b ; %b='%b'\n" "${variable}" "${variable}" "${value}" >> "$file_name"
       else
-        printf "unset %s\n" "${variable}" >> "$file_name"
+        printf "unset %b\n" "${variable}" >> "$file_name"
       fi
     done
   fi
@@ -131,7 +134,7 @@ __rvm_ensure_has_environment_files()
 __rvm_dump_environment()
 {
   # Note: This assumes that there is a ','
-  local dump_environment_file dump_environment_type rvm_dump_environment_flag
+  typeset dump_environment_file dump_environment_type rvm_dump_environment_flag
 
   dump_environment_file="${rvm_dump_environment_flag/,*/}"
 
@@ -187,7 +190,7 @@ __rvm_bin_script()
 # Runs a command in a given env.
 __rvm_run_with_env()
 {
-  local name environment _command message log path
+  typeset name environment _command message log path
 
   name="${1:-""}"
   environment="${2:-""}"
@@ -217,7 +220,7 @@ __rvm_run_with_env()
     command touch "$log" # for zsh :(
   fi
 
-  printf "[$(date +'%Y-%m-%d %H:%M:%S')] $_command # under $environment\n" >> "${log}"
+  printf "%b"  "[$(date +'%Y-%m-%d %H:%M:%S')] $_command # under $environment\n" >> "${log}"
 
   if (( ${rvm_niceness:=0} > 0 ))
   then
@@ -268,7 +271,7 @@ __rvm_setup()
     setopt no_nomatch
   fi
   # NOTE: the same set is located below - maker kjfdngkjd
-  export __rvm_env_loaded rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_tag rvm_ruby_version rvm_user_install_flag rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_action rvm_ruby_package_file rvm_ruby_name rvm_static_flag rvm_export_args rvm_ruby_name rvm_ruby_args rvm_default_flag rvm_gems_cache_path rvm_gemset_separator rvm_archives_path rvm_docs_path rvm_environments_path rvm_examples_path rvm_gems_path rvm_gemsets_path rvm_help_path rvm_lib_path rvm_log_path rvm_patches_path rvm_repos_path rvm_rubies_path rvm_scripts_path rvm_src_path rvm_tmp_path rvm_user_path rvm_usr_path rvm_wrappers_path rvm_expanding_aliases rvm_loaded_flag rvm_llvm_flag rvm_architectures rvm_skip_autoreconf_flag rvm_18_flag rvm_19_flag rvm_force_autoconf_flag rvm_autoconf_flags rvm_patch_names
+  export __rvm_env_loaded rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_tag rvm_ruby_version rvm_user_install_flag rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_action rvm_ruby_package_file rvm_ruby_name rvm_static_flag rvm_export_args rvm_ruby_name rvm_ruby_args rvm_default_flag rvm_gems_cache_path rvm_gemset_separator rvm_archives_path rvm_docs_path rvm_environments_path rvm_examples_path rvm_gems_path rvm_gemsets_path rvm_help_path rvm_lib_path rvm_log_path rvm_patches_path rvm_repos_path rvm_rubies_path rvm_scripts_path rvm_src_path rvm_tmp_path rvm_user_path rvm_usr_path rvm_wrappers_path rvm_expanding_aliases rvm_loaded_flag rvm_llvm_flag rvm_architectures rvm_skip_autoreconf_flag rvm_18_flag rvm_19_flag rvm_force_autoconf_flag rvm_autoconf_flags rvm_patch_names detected_rvm_ruby_name rvm_tar_options
 }
 
 __rvm_teardown()
@@ -330,7 +333,7 @@ __rvm_teardown()
   # a corrupt PATH, breaking the RVM installation.
   #
   # NOTE: the same set is located above - maker kjfdngkjd
-  unset __rvm_env_loaded rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_tag rvm_ruby_version rvm_user_install_flag rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_action rvm_ruby_package_file rvm_ruby_name rvm_static_flag rvm_export_args rvm_ruby_name rvm_ruby_args rvm_default_flag rvm_gems_cache_path rvm_gemset_separator rvm_archives_path rvm_docs_path rvm_environments_path rvm_examples_path rvm_gems_path rvm_gemsets_path rvm_help_path rvm_lib_path rvm_log_path rvm_patches_path rvm_repos_path rvm_rubies_path rvm_scripts_path rvm_src_path rvm_tmp_path rvm_user_path rvm_usr_path rvm_wrappers_path rvm_expanding_aliases rvm_loaded_flag rvm_llvm_flag rvm_architectures rvm_skip_autoreconf_flag rvm_18_flag rvm_19_flag rvm_force_autoconf_flag rvm_autoconf_flags rvm_patch_names
+  unset __rvm_env_loaded rvm_ruby_strings rvm_head_flag rvm_prior_cc next_token rvm_error_message rvm_gems_cache_path rvm_gems_path rvm_gemset_name rvm_man_path rvm_parse_break rvm_rc_files rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_log_path rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_tag rvm_ruby_version rvm_user_install_flag rvm_token rvm_ruby_load_path rvm_path_flag rvm_ruby_require rvm_action rvm_ruby_package_file rvm_ruby_name rvm_static_flag rvm_export_args rvm_ruby_name rvm_ruby_args rvm_default_flag rvm_gems_cache_path rvm_gemset_separator rvm_archives_path rvm_docs_path rvm_environments_path rvm_examples_path rvm_gems_path rvm_gemsets_path rvm_help_path rvm_lib_path rvm_log_path rvm_patches_path rvm_repos_path rvm_rubies_path rvm_scripts_path rvm_src_path rvm_tmp_path rvm_user_path rvm_usr_path rvm_wrappers_path rvm_expanding_aliases rvm_loaded_flag rvm_llvm_flag rvm_architectures rvm_skip_autoreconf_flag rvm_18_flag rvm_19_flag rvm_force_autoconf_flag rvm_autoconf_flags rvm_patch_names detected_rvm_ruby_name rvm_tar_options
 
   if (( ${rvm_dump_environment_flag:=0} == 1 ))
   then
@@ -365,7 +368,7 @@ __rvm_do_with_env_after()
 
 __rvm_do_with_env()
 {
-  local result
+  typeset result
 
   __rvm_do_with_env_before
 
@@ -384,5 +387,24 @@ __rvm_conditionally_do_with_env()
     "$@"
   else
     __rvm_do_with_env "$@"
+  fi
+}
+
+__rvm_ensure_is_a_function()
+{
+  if [[ ${rvm_reload_flag:=0} == 1 ]] || ! is_a_function rvm
+  then
+    for script in version selector cd cli override_gem
+    do
+      if [[ -f "$rvm_scripts_path/$script" ]]
+      then
+        source "$rvm_scripts_path/$script"
+      else
+        printf "%b" \
+"WARNING:
+        Could not source '$rvm_scripts_path/$script' as file does not exist.
+        RVM will likely not work as expected.\n"
+      fi
+    done
   fi
 }
