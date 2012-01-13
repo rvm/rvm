@@ -19,12 +19,14 @@ rvm_pretty_print()
       return 1
       ;;
     (1|auto)
+      [[ "${TERM:-dumb}" != "dumb" ]] && \
       case "$1" in
         (stdout)      [[ -t 1           ]] || return $? ;;
         (stderr)      [[ -t 2           ]] || return $? ;;
         ([[:digit:]]) [[ -t $1          ]] || return $? ;;
         (*)           [[ -t 1  && -t 2  ]] || return $? ;;
-      esac
+      esac || \
+      return $?
       ;;
     (2|force)
       return 0
@@ -32,20 +34,37 @@ rvm_pretty_print()
   esac
 }
 
-if rvm_pretty_print stdout
-then
-  eval "rvm_log()   { printf \"%b\" \"$(tput setaf 2)\$*$(tput sgr0)\n\" ; }"
-  eval "rvm_debug() { printf \"%b\" \"$(tput setaf 5)DEBUG: \$*$(tput sgr0)\n\" ; }"
-  eval "rvm_warn()  { printf \"%b\" \"$(tput setaf 3)WARN: \$*$(tput sgr0)\n\" ; }"
-else
-  rvm_log()   { printf "%b" "$*\n" ; }
-  rvm_debug() { printf "%b" "DEBUG: $*\n" ; }
-  rvm_warn()  { printf "%b" "WARN: $*\n" ; }
-fi
+rvm_error_clr="$(  "${rvm_scripts_path:-${rvm_pat}/scripts}/color" "${rvm_error_color:-red}"     )"
+rvm_warn_clr="$(   "${rvm_scripts_path:-${rvm_pat}/scripts}/color" "${rvm_warn_color:-yellow}"   )"
+rvm_debug_clr="$(  "${rvm_scripts_path:-${rvm_pat}/scripts}/color" "${rvm_debug_color:-magenta}" )"
+rvm_notify_clr="$( "${rvm_scripts_path:-${rvm_pat}/scripts}/color" "${rvm_notify_color:-green}"  )"
+rvm_reset_clr="$(  "${rvm_scripts_path:-${rvm_pat}/scripts}/color" "${rvm_reset_color:-reset}"   )"
 
-if rvm_pretty_print stderr
-then
-  eval "rvm_error() { printf \"%b\" \"$(tput setaf 1)ERROR: \$*$(tput sgr0)\n\" >&2 ; }"
-else
-  rvm_error() { printf "%b" "ERROR: $*\n" >&2 ; }
-fi
+rvm_error()
+{
+  if rvm_pretty_print stderr
+  then printf "%b" "${rvm_error_clr:-}$*${rvm_reset_clr:-}\n"
+  else printf "%b" "$*\n"
+  fi >&2
+}
+rvm_warn()
+{
+  if rvm_pretty_print stdout
+  then printf "%b" "${rvm_warn_clr:-}$*${rvm_reset_clr:-}\n"
+  else printf "%b" "$*\n"
+  fi
+}
+rvm_debug()
+{
+  if rvm_pretty_print stdout
+  then printf "%b" "${rvm_debug_clr:-}$*${rvm_reset_clr:-}\n"
+  else printf "%b" "$*\n"
+  fi
+}
+rvm_log()
+{
+  if rvm_pretty_print stdout
+  then printf "%b" "${rvm_notify_clr:-}$*${rvm_reset_clr:-}\n"
+  else printf "%b" "$*\n"
+  fi
+}
