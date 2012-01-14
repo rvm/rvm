@@ -129,15 +129,9 @@ determine_install_path()
 determine_install_or_upgrade()
 {
   export upgrade_flag
-  upgrade_flag=0
-  if [[ -f /etc/profile.d/rvm.sh ]] ||
-    grep 'scripts/rvm' "${HOME}"/.bash* >/dev/null 2>&1 ||
-    grep 'scripts/rvm' "${HOME}"/.zsh* >/dev/null 2>&1
-  then
-    if [[ -d "$rvm_path" && -s "${rvm_path}/scripts/rvm" ]]
-    then
-      upgrade_flag=1
-    fi
+  if [[ -d "$rvm_path" && -s "${rvm_path}/scripts/rvm" ]]
+  then upgrade_flag=1
+  else upgrade_flag=0
   fi
 }
 
@@ -407,48 +401,6 @@ install_binscripts()
   fi
 
   return 0
-}
-
-automatic_profile_setup()
-{
-  true ${rvm_auto_flag:=0} ${rvm_loaded_flag:=0}
-  if (( rvm_auto_flag == 1 ))
-  then
-    printf "%b" "Checking rc files... ($rvm_rc_files)"
-    if (( rvm_loaded_flag == 0 ))
-    then
-      for rcfile in ${rvm_rc_files[@]}
-      do
-        if [[ ! -f $rcfile ]]
-        then
-          touch "$rcfile"
-        fi
-
-        if [[ -s "${HOME}/.profile" ]]
-        then
-          if ! grep '.profile' "$rcfile" >/dev/null 2>&1
-          then
-            echo "    Adding profile sourcing line to $rcfile."
-            printf "%b" "
-  # rvm install added line:
-  [[ -s \"$rvm_path/.profile\" ]] && source \"$rvm_path/.profile\"
-  " >> "$rcfile"
-
-          fi
-        fi
-
-        if ! grep 'source.*\/scripts\/rvm' "$rcfile" >/dev/null 2>&1
-        then
-          echo "    Adding rvm loading line to $rcfile."
-          printf "%b" "
-  # rvm install added:
-  [[ -s \"$rvm_scripts_path/rvm\" ]] && . \"$rvm_scripts_path/rvm\"
-  " >> "$rcfile"
-
-        fi
-      done
-    fi
-  fi
 }
 
 install_gemsets()
@@ -933,35 +885,54 @@ setup_rvmrc()
 
 setup_user_profile()
 {
+  (( UID > 0 )) || return 0
+
   export user_profile_file
-  typeset etc_profile_file
+  typeset etc_profile_file user_profile_pattern
+  etc_profile_file="/etc/profile.d/rvm.sh"
 
-  if (( UID > 0 ))
+  if [[ -n "${ZSH_VERSION:-}" ]]
   then
-    if [[ -n "${ZSH_VERSION:-}" ]]
+    user_profile_file="$HOME/.zshenv"
+    user_profile_patern=".zsh"
+  else
+    user_profile_file="$HOME/.bash_profile"
+    user_profile_pattern=".bash"
+  fi
+
+  if (( rvm_auto_flag == 0 )) && [[ -s "${etc_profile_file}" ]]
+  then
+    if \grep '\/scripts\/rvm' "$HOME"/${user_profile_pattern}* >/dev/null 2>&1
     then
-      user_profile_file="$HOME/.zshenv"
+      echo "    RVM sourcing line found in: $(
+        \grep -l '\/scripts\/rvm' "$HOME"/${user_profile_pattern}* | tr "\n" ' '
+      )${etc_profile_file}."
     else
-      user_profile_file="$HOME/.bashrc"
+      echo "    Not adding rvm loading line to ${user_profile_file} as ${etc_profile_file} already loads rvm."
     fi
 
-    if [[ -d /etc/profile.d ]]
+  elif (( rvm_auto_flag == 1 )) || \
+    ! [[ -f "${user_profile_file}" ]] || \
+    ! \grep '\/scripts\/rvm' "$HOME"/${user_profile_pattern}* >/dev/null 2>&1
+  then
+
+    if [[ -f "${user_profile_file}" ]] && \
+      grep '\/scripts\/rvm' "$user_profile_file" >/dev/null 2>&1
     then
-      etc_profile_file="/etc/profile.d/rvm.sh"
-    else
-      etc_profile_file="/etc/profile"
+      echo "    Removing rvm loading line from '${user_profile_file}'."
+      sed -i "/\/scripts\/rvm/ d" "$user_profile_file"
     fi
 
-    if [[ -f "${user_profile_file}" ]] &&
-      ! grep 'source.*\/scripts\/rvm' "$user_profile_file" >/dev/null 2>&1
-    then
-      if [[ ! -s "${etc_profile_file}" ]]
-      then
-        printf "%b" "
+    echo "    Adding rvm loading line to '${user_profile_file}'."
+    touch "$user_profile_file"
+    printf "%b" "
 [[ -s \"$HOME/.rvm/scripts/rvm\" ]] && source \"$HOME/.rvm/scripts/rvm\" # Load RVM into a shell session *as a function*
 " >> "$user_profile_file"
-      fi
-    fi
+
+  else
+    echo "    RVM sourcing line found in: $(
+      \grep -l '\/scripts\/rvm' "$HOME"/${user_profile_pattern}* || echo "*** not found ***" | tr "\n" ' '
+    )."
   fi
 
   return 0
