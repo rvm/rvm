@@ -2,7 +2,7 @@
 
 jruby_install()
 {
-  if ! command -v java > /dev/null
+  if ! builtin command -v java > /dev/null
   then
     printf "%b" "java must be installed and in PATH for JRuby."
     return 1
@@ -35,12 +35,20 @@ jruby_install()
 
   builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
-  __rvm_compatibility_flag_configuration -Djruby.default.ruby.version=
-
   if [[ -n ${rvm_configure_flags:-} ]] || (( ${rvm_head_flag:=0} ))
   then
     __rvm_apply_patches
-    __rvm_run "ant.jar" "ant jar ${rvm_configure_flags}" "$rvm_ruby_string - #ant jar"
+    __rvm_run "ant.jar" "ant jar" "$rvm_ruby_string - #ant jar"
+    if [[ -n ${rvm_configure_flags:-} ]]
+    then
+      __rvm_run "ant.jar.flags" "ant jar ${rvm_configure_flags}" "$rvm_ruby_string - #ant jar ${rvm_configure_flags}"
+    fi
+  fi
+
+  if (( ${rvm_head_flag:=0} ))
+  then
+    __rvm_run "ant.cext" "ant cext  ${rvm_configure_flags}" "$rvm_ruby_string - #ant cext" || \
+      rvm_warn "cext is know to fail please report here: https://jira.codehaus.org/browse/JRUBY"
   fi
 
   mkdir -p "$rvm_ruby_home/bin/"

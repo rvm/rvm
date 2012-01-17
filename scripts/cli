@@ -659,6 +659,12 @@ __rvm_parse_args()
             rvm_pretty_print_flag=auto
             ;;
 
+          --1.8|--1.9)
+            rvm_token=${rvm_token#--}
+            rvm_token=${rvm_token//\./}
+            export "rvm_${rvm_token}_flag"=1
+            ;;
+
           --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--sticky|--create|--gems|--docs|--skip-autoreconf|--18|--19|--force-autoconf|--auto)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
@@ -818,7 +824,7 @@ rvm()
       then
         if rvm_pretty_print stderr
         then
-          printf "%b" "\n$(tput setaf 1)RVM is not a function, selecting rubies with '$(tput setaf 2)rvm use ...$(tput setaf 1)' will not work.$(tput sgr0)\n" >&2
+          printf "%b" "\n${rvm_error_clr:-}RVM is not a function, selecting rubies with '${rvm_notify_clr:-}rvm use ...${rvm_error_clr:-}' will not work.${rvm_reset_clr:-}\n" >&2
         else
           printf "%b" "\nRVM is not a function, selecting rubies with 'rvm use ...' will not work.\n" >&2
         fi
@@ -926,14 +932,10 @@ rvm()
       unset rvm_ruby_string
       export rvm_ruby_strings
 
-      case $- in
-        (*i*)
-          eval "'$rvm_scripts_path/set' '$rvm_action' $rvm_ruby_args" ; result=$?
-          ;;
-        (*)
-          eval exec "$rvm_scripts_path/set" "$rvm_action" $rvm_ruby_args
-          ;;
-      esac
+      if [[ "${rvm_is_not_a_shell_function:-0}" == "1" ]]
+      then eval exec "$rvm_scripts_path/set" "$rvm_action" $rvm_ruby_args
+      else eval "'$rvm_scripts_path/set' '$rvm_action' $rvm_ruby_args" ; result=$?
+      fi
 
       # Restore the state pre-sets.
       [[ -n "$old_rvm_ruby_string" ]] && rvm_ruby_string=$old_rvm_ruby_string
@@ -1002,10 +1004,10 @@ rvm()
           rvm_log "Already installed ${selected_ruby}.
 To reinstall use:
 
-    rvm reinstall ${selected_ruby}
+    rvm reinstall ${rvm_ruby_strings}
 "
         else
-          "$rvm_scripts_path"/manage install "${selected_ruby}"
+          "$rvm_scripts_path"/manage install "${rvm_ruby_strings}"
         fi
       else
         rvm_error "Can not use or install all rubies."
