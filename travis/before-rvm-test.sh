@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 ./install
+rvm-smile
 git submodule init
 git submodule update
 (
