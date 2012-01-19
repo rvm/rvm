@@ -162,74 +162,55 @@ alias_after_create_default()
   done
 }
 
-alias_create() {
-
+alias_create()
+{
   alias_name="${alias_name:-""}"
+  rvm_ruby_string="$rvm_environment_identifier"
 
-      rvm_ruby_string="$rvm_environment_identifier"
+  rvm_expanding_aliases=1
+  __rvm_become
+  unset rvm_expanding_aliases
 
-        rvm_expanding_aliases=1
-
-        __rvm_become
-
-        unset rvm_expanding_aliases
-
-  if [[ "default" != "$alias_name" ]] && alias_conflicts_with_ruby "$alias_name"; then
+  if [[ "default" != "$alias_name" ]] && alias_conflicts_with_ruby "$alias_name"
+  then
     # Force it to an empty alias name to trigger the usage.
     alias_name=""
   fi
 
-  if [[ -z "${rvm_environment_identifier:-""}" || -z "$alias_name" ]] ; then
-
+  if [[ -z "${rvm_environment_identifier:-""}" || -z "$alias_name" ]]
+  then
     rvm_error "usage: 'rvm alias [alias_name] [ruby_string]'"
+    return 1
 
-    result=1
   else
-
-      if [[ -z "$rvm_ruby_string" ]]; then
-
-        rvm_error "Unknown ruby string '$rvm_ruby_string' specified"
-
-        result=1
-
-        return $result
-      fi
-
-    if [[ "default" == "$alias_name" ]] ; then
-      rvm_alias=""
+    if [[ -z "$rvm_ruby_string" ]]
+    then
+      rvm_error "Unknown ruby string '$rvm_ruby_string' specified"
+      return 1
     fi
 
-    if [[ -z "$rvm_alias" ]] ; then
+    if [[ "default" == "$alias_name" ]]
+    then rvm_alias=""
+    fi
 
+    if [[ -z "$rvm_alias" ]]
+    then
       final_environment_identifier="${rvm_ruby_string:-$(__rvm_env_string)}"
 
       rvm_log "Creating alias $alias_name for $final_environment_identifier."
-
       ln -fs "$rvm_rubies_path/$rvm_ruby_string" "$rvm_rubies_path/$alias_name"
 
       rvm_log "Recording alias $alias_name for $final_environment_identifier."
-
       "$rvm_scripts_path"/db "$rvm_path/config/alias" "$alias_name" "$final_environment_identifier"
 
-      if [[ "default" == "$alias_name" ]] ; then
-        alias_after_create_default
-      fi
-
+      [[ "default" != "$alias_name" ]] || alias_after_create_default
     else
 
-      if [[ -d "$rvm_rubies_path/$alias_name" ]] ; then
-
-        rvm_error "$rvm_rubies_path/$alias_name is taken and is *not* able to be an alias name."
-
-        result=1
-
-      else
-
-        rvm_error "$rvm_rubies_path/$alias_name is already aliased."
-
-        result=1
-
+      if [[ -d "$rvm_rubies_path/$alias_name" ]]
+      then rvm_error "$rvm_rubies_path/$alias_name is taken and is *not* able to be an alias name."
+      else rvm_error "$rvm_rubies_path/$alias_name is already aliased."
       fi
+      return 1
     fi
   fi
 }
