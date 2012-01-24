@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+rvm alias delete default
+hash -r
 ./install
 rvm-smile
 git submodule init
