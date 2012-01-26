@@ -298,7 +298,7 @@ __rvm_select()
       ;;
 
     ext)
-      if [[ -z "${rvm_ruby_name:-""}" ]]
+      if [[ -z "${rvm_ruby_name:-${detected_rvm_ruby_name:-}}" ]]
       then
         rvm_error "External ruby name was not specified!"
       fi
@@ -370,10 +370,17 @@ __rvm_select()
     esac
   fi
 
-  rvm_ruby_package_name="${rvm_ruby_package_name:-${rvm_ruby_string//-n*}}"
-  rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_string"
-  rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
-  rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
+  if [[ "${rvm_ruby_interpreter}" == ext ]]
+  then
+    rvm_ruby_home="$rvm_externals_path/$rvm_ruby_string"
+    rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
+    rvm_ruby_binary="$( readlink $rvm_ruby_home/bin/ruby )"
+  else
+    rvm_ruby_package_name="${rvm_ruby_package_name:-${rvm_ruby_string//-n*}}"
+    rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_string"
+    rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
+    rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
+  fi
 
   if [[ "maglev" == "$rvm_ruby_interpreter" ]]
   then
@@ -714,14 +721,13 @@ __rvm_ruby_string()
         rvm_ruby_tag=""
         rvm_ruby_revision=""
         rvm_ruby_version=""
-        rvm_gemset_name=""
         rvm_head_flag=0
 
         unset strings[__array_start]
         strings=( ${strings[@]} )
         strings="${strings[*]}"
         rvm_ruby_name="${strings// /-}"
-        return 0
+        break
         ;;
 
       (nightly)
@@ -874,7 +880,7 @@ __rvm_ruby_string()
 
   # Unspecified version
   rvm_ruby_version="${rvm_ruby_version:-}"
-  if [[ -z "${rvm_ruby_version:-}" ]] && (( ${rvm_head_flag:=0} == 0 ))
+  if [[ -z "${rvm_ruby_version:-}" && "${rvm_ruby_interpreter}" != "ext" ]] && (( ${rvm_head_flag:=0} == 0 ))
   then
     rvm_ruby_version="${rvm_ruby_version:-"$(
     __rvm_db "${rvm_ruby_interpreter}_version"
@@ -892,6 +898,10 @@ __rvm_ruby_string()
   if (( ${rvm_head_flag:=0} == 1 ))
   then
     rvm_ruby_string="${rvm_ruby_string}-head"
+
+  elif [[ "${rvm_ruby_interpreter}" == "ext" ]]
+  then
+    true # skip checking for external rubies
 
   elif [[ -n "${rvm_ruby_revision:-}" ]]
   then
