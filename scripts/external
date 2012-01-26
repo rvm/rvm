@@ -4,7 +4,33 @@ source "$rvm_scripts_path/base"
 
 external_automount()
 {
-  external_mount_uniq $(which -a ruby)
+  external_mount_uniq $(
+    __rvm_remove_rvm_from_path
+    which -a ruby
+  )
+}
+
+external_grep_existing()
+{
+  typeset IFS
+  typeset -a existing
+  IFS="|"
+  existing=( $(
+    for ext in $rvm_externals_path/*
+    do
+      if [[ -L "$ext" ]]
+      then
+        readlink "$ext"
+      fi
+    done
+  ) )
+  : existing:${existing[@]}:
+  if (( ${#existing[@]} > 0 ))
+  then
+    grep -vE "${existing[@]}" -
+  else
+    cat -
+  fi
 }
 
 external_mount_uniq()
@@ -13,7 +39,6 @@ external_mount_uniq()
   typeset -a ruby_paths
 
   ruby_paths=( $(
-    __rvm_remove_rvm_from_path
     for ruby_path in "$@"
     do
       if [[ -d "${ruby_path}" && -x "${ruby_path}/bin/ruby" ]] && "${ruby_path}/bin/ruby" -rrbconfig -e "" >/dev/null 2>&1
@@ -23,18 +48,18 @@ external_mount_uniq()
       then
         "${ruby_path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']" 2>/dev/null
       fi
-    done | sort -u
+    done | sort -u | external_grep_existing
   ) )
-
-  for ruby_path in ${ruby_paths[@]}
-  do
-    ( external_mount "${ruby_path}" ) || exit $? 
-  done
 
   if (( ${#ruby_paths[@]} == 0 ))
   then
-    rvm_error "The given paths '$*' do not point to a ruby installation."
+    rvm_error "The given paths '$*' either do not point to a ruby installation or are already mounted."
     exit 1
+  else
+    for ruby_path in ${ruby_paths[@]}
+    do
+      ( external_mount "${ruby_path}" ) || exit $?
+    done
   fi
 }
 
@@ -98,6 +123,8 @@ external_mount()
 
   "$ruby_path" -rrbconfig \
     -e 'File.open("'"$rvm_rubies_path/$rvm_ruby_string/config"'","w") { |file| RbConfig::CONFIG.each_pair{|key,value| file.write("#{key.gsub(/\.|-/,"_")}=\"#{value.gsub("$","\\$")}\"\n")} }' >/dev/null 2>&1
+
+  __rvm_record_install "$rvm_ruby_string"
 }
 
 external_select_name()

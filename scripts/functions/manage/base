@@ -807,7 +807,7 @@ __rvm_check_default()
     | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
 
   if [[ -n "$current_ruby_interpreter" &&
-        "$current_ruby_interpreter" = "$default_ruby_interpreter" ]]
+        "$current_ruby_interpreter" == "$default_ruby_interpreter" ]]
   then
     __rvm_run_with_env 'default.restore' 'system' \
       'rvm use system --default' 'Removing default ruby interpreter'
@@ -832,22 +832,25 @@ __rvm_uninstall_ruby()
       if [[ -d "$dir/$rvm_ruby_string" ]]
       then
         rvm_log "Removing $dir/$rvm_ruby_string..."
-
         __rvm_rm_rf "$dir/$rvm_ruby_string"
       else
         rvm_log "$dir/$rvm_ruby_string has already been removed."
       fi
-
-      if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
-      then
-        rm -f "${rvm_bin_path}/$rvm_ruby_string"
-      fi
     done
 
+    if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
+    then
+      rm -f "${rvm_bin_path}/$rvm_ruby_string"
+    fi
+
+    if [[ -d "${rvm_externals_path}/$rvm_ruby_string" ]]
+    then
+      rvm_log "Removing ${rvm_externals_path}/$rvm_ruby_string..."
+      __rvm_rm_rf "${rvm_externals_path}/$rvm_ruby_string"
+    fi
+
     __rvm_remove_install_record "$rvm_ruby_string"
-
     __rvm_remove_gemsets
-
     __rvm_check_default
   else
     rvm_error "Cannot uninstall unknown package '$rvm_ruby_string'"
@@ -878,16 +881,18 @@ __rvm_remove_ruby()
       else
         rvm_log "it seems that $dir/$rvm_ruby_string is already non existent."
       fi
-
-      if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
-      then
-        rm -f "${rvm_bin_path}/$rvm_ruby_string"
-      fi
-
-      __rvm_check_default
-
     done
+    if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
+    then
+      rm -f "${rvm_bin_path}/$rvm_ruby_string"
+    fi
 
+    if [[ -d "${rvm_externals_path}/$rvm_ruby_string" ]]
+    then
+      rvm_log "Removing ${rvm_externals_path}/$rvm_ruby_string..."
+      __rvm_rm_rf "${rvm_externals_path}/$rvm_ruby_string"
+    fi
+    __rvm_check_default
     __rvm_remove_install_record "$rvm_ruby_string"
     __rvm_remove_gemsets
     __rvm_remove_archives
@@ -925,7 +930,7 @@ __rvm_remove_gemsets()
   then
     rvm_log "Removing $rvm_ruby_string gemsets..."
 
-    gemsets=( $(find "${rvm_gems_path:-"$rvm_path/gems"}" -maxdepth 1 "${name_opt}" "${rvm_ruby_string}*" -type d))
+    gemsets=( $(find -L "${rvm_gems_path:-"$rvm_path/gems"}" -maxdepth 1 "${name_opt}" "${rvm_ruby_string}*" -type d))
 
     for gemset in "${gemsets[@]}"
     do
