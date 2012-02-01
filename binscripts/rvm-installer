@@ -6,12 +6,25 @@ export PS4
 set -o errtrace
 set -o errexit
 
+export rvm_tar
+export rvm_uname
+
+rvm_uname=$(uname)
+case "$rvm_uname" in
+    OpenBSD)
+        rvm_tar=gtar
+        ;;
+    *)
+        rvm_tar=tar
+        ;;
+esac
+
 log()  { printf "%b\n" "$*" ; return $? ;  }
 
 fail() { log "\nERROR: $*\n" ; exit 1 ; }
 
 if [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] && \
-  tar --help | \grep -- --no-same-owner >/dev/null
+  $rvm_tar --help | \grep -- --no-same-owner >/dev/null
 then
   rvm_tar_options="${rvm_tar_options:-} --no-same-owner"
   rvm_tar_options="${rvm_tar_options## }"
@@ -65,7 +78,7 @@ md5_match()
 {
   local archive="$1"
 
-  case "$(uname)" in
+  case "$rvm_uname" in
     Darwin|FreeBSD)
       archive_md5="$(/sbin/md5 -q "${archive}")"
       ;;
@@ -127,12 +140,12 @@ Halting installation.
 "
   fi
 
-  if tar zxf "${archive}" -C "$rvm_src_path/" --no-same-owner
+  if $rvm_tar zxf "${archive}" -C "$rvm_src_path/" --no-same-owner
   then
     cd "$rvm_src_path/rvm-${version}"
   else
     fail "Failed to extract ${archive} to ${rvm_src_path}/,"\
-      "tar command returned error code $?"
+      "$rvm_tar command returned error code $?"
   fi
 }
 
@@ -191,7 +204,7 @@ Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'.
   fi
 
   rm -rf ${rvm_src_path}/rvm/*
-  if ! tar xzf ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz ${rvm_tar_options:-}
+  if ! $rvm_tar xzf ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz ${rvm_tar_options:-}
   then
     log "Could not extract RVM sources."
     return 3
