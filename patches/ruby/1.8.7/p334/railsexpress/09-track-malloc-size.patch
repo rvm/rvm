@@ -1,0 +1,120 @@
+diff --git a/gc.c b/gc.c
+index a3cbe91..30a1219 100644
+--- a/gc.c
++++ b/gc.c
+@@ -79,6 +79,17 @@ void *alloca ();
+ 
+ static unsigned long malloc_increase = 0;
+ static unsigned long malloc_limit = GC_MALLOC_LIMIT;
++
++#ifdef HAVE_LONG_LONG
++static unsigned LONG_LONG gc_allocated_size = 0;
++static unsigned LONG_LONG gc_num_allocations = 0;
++#else
++static unsigned long gc_allocated_size = 0;
++static unsigned long gc_num_allocations = 0;
++#endif
++static int gc_statistics = 0;
++
++
+ static void run_final();
+ static VALUE nomem_error;
+ static void garbage_collect();
+@@ -163,6 +174,11 @@ ruby_xmalloc(size)
+     }
+     malloc_increase += size;
+ 
++    if (gc_statistics) {
++        gc_allocated_size += size;
++	gc_num_allocations += 1;
++    }
++
+     return mem;
+ }
+ 
+@@ -220,7 +236,6 @@ ruby_xfree(x)
+ 
+ extern int ruby_in_compile;
+ static int dont_gc;
+-static int gc_statistics = 0;
+ static GC_TIME_TYPE gc_time = 0;
+ static int gc_collections = 0;
+ static int verbose_gc_stats = Qfalse;
+@@ -329,11 +344,55 @@ rb_gc_clear_stats()
+ {
+     gc_collections = 0;
+     gc_time = 0;
++    gc_allocated_size = 0;
++    gc_num_allocations = 0;
+     return Qnil;
+ }
+ 
+ /*
+  *  call-seq:
++ *     GC.allocated_size    => Integer
++ *
++ *  Returns the size of memory (in bytes) allocated since GC statistics collection
++ *  was enabled.
++ *
++ *     GC.allocated_size    #=> 35
++ *
++ */
++VALUE
++rb_gc_allocated_size()
++{
++#if HAVE_LONG_LONG
++    return ULL2NUM(gc_allocated_size);
++#else
++    return ULONG2NUM(gc_allocated_size);
++#endif
++}
++
++/*
++ *  call-seq:
++ *     GC.num_allocations    => Integer
++ *
++ *  Returns the number of memory allocations since GC statistics collection
++ *  was enabled.
++ *
++ *     GC.num_allocations    #=> 150
++ *
++ */
++VALUE
++rb_gc_num_allocations()
++{
++#if HAVE_LONG_LONG
++    return ULL2NUM(gc_num_allocations);
++#else
++    return ULONG2NUM(gc_num_allocations);
++#endif
++}
++
++/*
++
++/*
++ *  call-seq:
+  *     GC.collections    => Integer
+  *
+  *  Returns the number of garbage collections performed while GC statistics collection
+@@ -2753,6 +2812,8 @@ Init_GC()
+     rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
+     rb_define_singleton_method(rb_mGC, "disable_stats", rb_gc_disable_stats, 0);
+     rb_define_singleton_method(rb_mGC, "clear_stats", rb_gc_clear_stats, 0);
++    rb_define_singleton_method(rb_mGC, "allocated_size", rb_gc_allocated_size, 0);
++    rb_define_singleton_method(rb_mGC, "num_allocations", rb_gc_num_allocations, 0);
+     rb_define_singleton_method(rb_mGC, "collections", rb_gc_collections, 0);
+     rb_define_singleton_method(rb_mGC, "time", rb_gc_time, 0);
+     rb_define_singleton_method(rb_mGC, "dump", rb_gc_dump, 0);
+diff --git a/intern.h b/intern.h
+index 49e1827..78bf699 100644
+--- a/intern.h
++++ b/intern.h
+@@ -272,6 +272,8 @@ VALUE rb_gc_disable _((void));
+ VALUE rb_gc_start _((void));
+ void rb_gc_before_fork _((void));
+ void rb_gc_after_fork _((void));
++VALUE rb_gc_allocated_size _((void));
++VALUE rb_gc_num_allocations _((void));
+ /* hash.c */
+ void st_foreach_safe _((struct st_table *, int (*)(ANYARGS), unsigned long));
+ void rb_hash_foreach _((VALUE, int (*)(ANYARGS), VALUE));

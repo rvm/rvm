@@ -1,0 +1,111 @@
+diff --git a/gc.c b/gc.c
+index 30a1219..5b42b90 100644
+--- a/gc.c
++++ b/gc.c
+@@ -96,6 +96,26 @@ static void garbage_collect();
+ 
+ int ruby_gc_stress = 0;
+ 
++static unsigned long live_objects = 0;
++unsigned long rb_os_live_objects()
++{
++    return live_objects;
++}
++
++#if defined(HAVE_LONG_LONG)
++static unsigned LONG_LONG allocated_objects = 0;
++unsigned LONG_LONG rb_os_allocated_objects()
++{
++    return allocated_objects;
++}
++#else
++static unsigned long allocated_objects = 0;
++unsigned long rb_os_allocated_objects()
++{
++    return allocated_objects;
++}
++#endif
++
+ NORETURN(void rb_exc_jump _((VALUE)));
+ 
+ void
+@@ -987,6 +1007,8 @@ rb_newobj()
+     RANY(obj)->file = ruby_sourcefile;
+     RANY(obj)->line = ruby_sourceline;
+ #endif
++    live_objects++;
++    allocated_objects++;
+     return obj;
+ }
+ 
+@@ -1825,6 +1847,7 @@ gc_sweep()
+         add_heap();
+     }
+     during_gc = 0;
++    live_objects = live;
+ 
+     if (do_gc_stats) {
+         fprintf(gc_data_file, "objects processed: %.7d\n", live+freed);
+@@ -2790,6 +2813,35 @@ rb_obj_id(VALUE obj)
+     return (VALUE)((long)obj|FIXNUM_FLAG);
+ }
+ 
++/* call-seq:
++ *  ObjectSpace.live_objects => number
++ *
++ * Returns the count of objects currently allocated in the system. This goes
++ * down after the garbage collector runs.
++ */
++static
++VALUE os_live_objects(VALUE self)
++{
++    return ULONG2NUM(live_objects);
++}
++
++/* call-seq:
++ *  ObjectSpace.allocated_objects => number
++ *
++ * Returns the count of objects allocated since the Ruby interpreter has
++ * started.  This number can only increase. To know how many objects are
++ * currently allocated, use ObjectSpace::live_objects
++ */
++static
++VALUE os_allocated_objects(VALUE self)
++{
++#if defined(HAVE_LONG_LONG)
++    return ULL2NUM(allocated_objects);
++#else
++    return ULONG2NUM(allocated_objects);
++#endif
++}
++
+ /*
+  *  The <code>GC</code> module provides an interface to Ruby's mark and
+  *  sweep garbage collection mechanism. Some of the underlying methods
+@@ -2833,6 +2885,9 @@ Init_GC()
+     rb_define_module_function(rb_mObSpace, "finalizers", finals, 0);
+     rb_define_module_function(rb_mObSpace, "call_finalizer", call_final, 1);
+ 
++    rb_define_module_function(rb_mObSpace, "live_objects", os_live_objects, 0);
++    rb_define_module_function(rb_mObSpace, "allocated_objects", os_allocated_objects, 0);
++
+     rb_define_module_function(rb_mObSpace, "define_finalizer", define_final, -1);
+     rb_define_module_function(rb_mObSpace, "undefine_finalizer", undefine_final, 1);
+ 
+diff --git a/intern.h b/intern.h
+index 78bf699..86b4395 100644
+--- a/intern.h
++++ b/intern.h
+@@ -274,6 +274,12 @@ void rb_gc_before_fork _((void));
+ void rb_gc_after_fork _((void));
+ VALUE rb_gc_allocated_size _((void));
+ VALUE rb_gc_num_allocations _((void));
++unsigned long rb_os_live_objects _((void));
++#ifdef HAVE_LONG_LONG
++unsigned LONG_LONG rb_os_allocated_objects _((void));
++#else
++unsigned long rb_os_allocated_objects _((void));
++#endif
+ /* hash.c */
+ void st_foreach_safe _((struct st_table *, int (*)(ANYARGS), unsigned long));
+ void rb_hash_foreach _((VALUE, int (*)(ANYARGS), VALUE));
