@@ -893,54 +893,80 @@ setup_user_profile()
   (( UID > 0 )) || return 0
 
   export user_profile_file
-  typeset etc_profile_file user_profile_pattern
-  etc_profile_file="/etc/profile.d/rvm.sh"
+  export -a user_login_files user_rc_files
+  typeset -a search_list target_rc target_login found_rc found_login
+  typeset etc_profile_file profile_file
 
-  if [[ -n "${ZSH_VERSION:-}" ]]
+  etc_profile_file="/etc/profile.d/rvm.sh"
+  search_list=(
+    ~/.profile
+    ~/.bashrc ~/.bash_profile ~/.bash_login
+    ~/.zshenv ~/.zprofile ~/.zshrc ~/.zlogin
+  )
+  target_rc=( ~/.bashrc )
+  [[ -f ~/.zshenv ]] &&
+    target_rc+=( ~/.zshenv ) || target_rc+=( ~/.zshrc )
+  [[ -f ~/.bash_profile ]] &&
+    target_login+=( ~/.bash_profile ) || target_login+=( ~/.bash_login )
+  [[ -f ~/.zprofile ]] &&
+    target_login+=( ~/.zprofile ) || target_login+=( ~/.zlogin )
+
+  for profile_file in ${search_list[@]}
+  do
+    [[ -f $profile_file ]] &&
+      \grep PATH=.*\$HOME/.rvm/bin $profile_file >/dev/null &&
+      found_rc+=( $profile_file ) || true
+  done
+
+  for profile_file in ${search_list[@]}
+  do
+    [[ -f $profile_file ]] &&
+      \grep source.*scripts/rvm $profile_file >/dev/null &&
+      found_login+=( $profile_file ) || true
+  done
+
+  if (( rvm_auto_flag == 1 && ${#found_rc[@]} > 0 ))
   then
-    user_profile_file="$HOME/.zshenv"
-    user_profile_patern=".zsh"
+    printf "%b" "    Removing rvm PATH line from ${found_rc[*]}.\n"
+    sed -i '/PATH.*\/rvm\/bin/ d' ${found_rc[@]}
+    found_rc=()
+  fi
+  if (( rvm_auto_flag == 1 || ${#found_rc[@]} == 0 ))
+  then
+    printf "%b" "    Adding rvm PATH line to ${target_rc[*]}.\n"
+    for profile_file in ${target_rc[@]}
+    do
+      touch $profile_file
+      printf "%b" "
+PATH=\$PATH:\$HOME/.rvm/bin # Add RVM to PATH for scripting
+" >> $profile_file
+    done
+    user_rc_files=( ${target_rc[@]} )
   else
-    user_profile_file="$HOME/.bash_profile"
-    if [[ ! -f "${user_profile_file}" &&  -f "$HOME/.profile" ]]
-    then user_profile_file="$HOME/.profile"
-    fi
-    user_profile_pattern=".bash"
+    printf "%b" "    RVM PATH line found in ${found_rc[*]}.\n"
+    user_rc_files=( ${found_rc[@]} )
   fi
 
-  if (( rvm_auto_flag == 0 )) && [[ -s "${etc_profile_file}" ]]
+  if (( rvm_auto_flag == 1 && ${#found_login[@]} > 0 ))
   then
-    if \grep '\/scripts\/rvm' "$HOME"/${user_profile_pattern}* >/dev/null 2>&1
-    then
-      echo "    RVM sourcing line found in: $(
-        \grep -l '\/scripts\/rvm' "$HOME"/${user_profile_pattern}* | tr "\n" ' '
-      )${etc_profile_file}."
-    else
-      echo "    Not adding rvm loading line to ${user_profile_file} as ${etc_profile_file} already loads rvm."
-    fi
-
-  elif (( rvm_auto_flag == 1 )) || \
-    ! [[ -f "${user_profile_file}" ]] || \
-    ! \grep '\/scripts\/rvm' "$HOME"/${user_profile_pattern}* >/dev/null 2>&1
+    printf "%b" "    Removing rvm loading line from ${found_login[*]}.\n"
+    sed -i '/source.*scripts\/rvm/ d' ${found_login[@]}
+    found_rc=()
+  fi
+  if (( rvm_auto_flag == 1 || ${#found_login[@]} == 0 ))
   then
-
-    if [[ -f "${user_profile_file}" ]] && \
-      grep '\/scripts\/rvm' "$user_profile_file" >/dev/null 2>&1
-    then
-      echo "    Removing rvm loading line from '${user_profile_file}'."
-      sed -i "/\/scripts\/rvm/ d" "$user_profile_file"
-    fi
-
-    echo "    Adding rvm loading line to '${user_profile_file}'."
-    touch "$user_profile_file"
+    printf "%b" "    Adding rvm loading line to ${target_login[*]}.\n"
+    for profile_file in ${target_login[@]}
+    do
+      touch $profile_file
     printf "%b" "
 [[ -s \"$HOME/.rvm/scripts/rvm\" ]] && source \"$HOME/.rvm/scripts/rvm\" # Load RVM into a shell session *as a function*
-" >> "$user_profile_file"
-
+" >> $profile_file
+    done
+    user_login_files=( ${target_login[@]} )
   else
-    echo "    RVM sourcing line found in: $(
-      \grep -l '\/scripts\/rvm' "$HOME"/${user_profile_pattern}* || echo "*** not found ***" | tr "\n" ' '
-    )."
+    printf "%b" "    RVM sourcing line found in ${found_login[*]}.\n"
+    user_login_files=( ${found_login[@]} )
   fi
 
   return 0
