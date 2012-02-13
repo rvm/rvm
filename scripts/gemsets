@@ -899,14 +899,18 @@ gemset_pristine()
 {
   if ( unset -f gem ; builtin command -v gem > /dev/null )
   then
-    typeset _gem
+    typeset _gem _version
     typeset -a _failed
-    for _gem in $( gem list | sed '/\*\*\*/ d ; /^$/ d' )
+    while read _gem _version
     do
-      if ! gem pristine ${_gem}
+      if ! gem pristine ${_gem} --version ${_version}
       then _failed+=( ${_gem} )
       fi
-    done
+    done < <(
+      GEM_PATH="$GEM_HOME" gem list |
+        sed '/\*\*\*/ d ; /^$/ d; s/ //g;' |
+        awk -F '[(),]' '{for(i=2;i<NF;i++) print $1" "$i }'
+    )
     if (( ${#_failed[@]} > 0 ))
     then
       rvm_error "'gem pristine ${_failed[*]}' failed, you need to fix this gems manually."
