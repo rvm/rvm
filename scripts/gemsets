@@ -901,23 +901,28 @@ gemset_pristine()
   then
     typeset _gem _version
     typeset -a _failed
+    rvm_log "Restoring gems to pristine condition..."
+
     while read _gem _version
     do
-      if ! gem pristine ${_gem} --version ${_version}
-      then _failed+=( ${_gem} )
+      if ! gem pristine ${_gem} --version ${_version} | sed '1 d'
+      then _failed+=( "${_gem} --version ${_version}" )
       fi
     done < <(
       GEM_PATH="$GEM_HOME" gem list |
         sed '/\*\*\*/ d ; /^$/ d; s/ //g;' |
         awk -F '[(),]' '{for(i=2;i<NF;i++) print $1" "$i }'
     )
+
     if (( ${#_failed[@]} > 0 ))
     then
       rvm_error "'gem pristine ${_failed[*]}' failed, you need to fix this gems manually."
       return 1
     else
+      rvm_log "Restoring gems to pristine condition - worked for all gems"
       return 0
     fi
+
   else
     rvm_error "'gem' command not found in PATH."
     return 1
