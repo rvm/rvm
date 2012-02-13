@@ -899,16 +899,23 @@ gemset_pristine()
 {
   if ( unset -f gem ; builtin command -v gem > /dev/null )
   then
-    if gem list | sed '/\*\*\*/ d ; /^$/ d' | grep '.*' >/dev/null
+    typeset _gem
+    typeset -a _failed
+    for _gem in $( gem list | sed '/\*\*\*/ d ; /^$/ d' )
+    do
+      if ! gem pristine ${_gem}
+      then _failed+=( ${_gem} )
+      fi
+    done
+    if (( ${#_failed[@]} > 0 ))
     then
-      gem pristine --all
-      return $?
+      rvm_error "'gem pristine ${_failed[*]}' failed, you need to fix this gems manually."
+      return 1
     else
-      # pristine fails if no gems available, this breaks few internal rvm commands
-      true
+      return 0
     fi
   else
-    rvm_error "'gem' command not found in PATH"
+    rvm_error "'gem' command not found in PATH."
     return 1
   fi
 }
