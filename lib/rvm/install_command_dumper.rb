@@ -21,7 +21,7 @@ def normalize_argument(arg)
 end
 
 def arguments_for_install
-  if ruby?(:ruby, :ree, :goruby)
+  if ruby?(:ruby, :ree, :goruby, :tcs)
     begin
       require 'rbconfig'
       require 'shellwords'
