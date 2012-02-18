@@ -32,11 +32,33 @@ transform_configure_flags()
   rvm_configure_flags="${new_flags[*]}"
 }
 
+# 1.9.3-p125+
+__clang_ready()
+{
+  typeset _patch_level
+  case ${rvm_ruby_string} in
+    ruby-1.9.3*)
+      _patch_level="${rvm_ruby_patch_level:-p0}"
+      _patch_level="${_patch_level#p}"
+      (( _patch_level >= 125 )) && return 0 || true
+      ;;
+    ruby-2*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 ruby_install()
 {
+  typeset result
+
   __rvm_check_for_bison # && Run like hell...
-  if (( $? > 0 ))
+  if __rvm_check_for_bison
   then
+    true
+  else
+    result=$?
     rvm_log "Bison required but not found. Halting."
     exit $result
   fi
@@ -46,9 +68,9 @@ ruby_install()
       true # carry on then, nothing to see here :P
       ;;
     ruby-head|1.9.*-head)
-      if ! __rvm_ensure_has_mri_ruby "1.8.|ree"
-      then
-        return 1
+      if __rvm_ensure_has_mri_ruby "1.8.|ree"
+      then true
+      else return $?
       fi
       ;;
   esac
@@ -68,6 +90,30 @@ ruby_install()
       ;;
   esac
 
+  # OSX, LLVM, MRI-1.9.3-p125+
+  # and if user did not decided to use particular compiler choose clang on 1.9
+  if [[ "$MACHTYPE" == *darwin* ]] &&
+    ! which gcc-4.2 > /dev/null &&
+    __clang_ready &&
+    ! [[ " ${rvm_configure_flags:-}" =~ " --with-gcc=" ]]
+  then
+    rvm_configure_flags="${rvm_configure_flags:-""} --with-gcc=clang"
+  fi
+
+  if ! __clang_ready &&
+    [[ " ${rvm_configure_flags:-} " =~ " --with-gcc=clang" ]]
+  then
+    rvm_warn "Building '${rvm_ruby_string}' using clang - but it's not supported, expect errors."
+  fi
+
   ( __rvm_install_source $* )
   result=$?
+
+  if ! __clang_ready &&
+    [[ " ${rvm_configure_flags:-} " =~ " --with-gcc=clang" ]]
+  then
+    rvm_warn "Ruby '${rvm_ruby_string}' was build using clang - but it's not supported, expect errors."
+  fi
+
+  return ${result:-0}
 }
