@@ -1,35 +1,45 @@
 #!/usr/bin/env bash
 
+# show the user selected compiler or return 1
+__rvm_selected_compiler()
+{
+  if [[ " ${rvm_configure_flags:-}" =~ " --with-gcc=" ]]
+  then
+    typeset __compiler
+    __compiler="${rvm_configure_flags}"
+    __compiler="${__compiler#*--with-gcc=}"
+    __compiler="${__compiler% *}"
+    echo "${__compiler}"
+  elif [[ -n "${CC:-}" ]]
+  then
+    echo "${CC}"
+  else
+    return 1
+  fi
+}
+
+__rvm_compiler_is_llvm()
+{
+  $(__rvm_selected_compiler || which gcc 2>/dev/null ) --version | grep -i llvm >/dev/null
+}
+
 __rvm_setup_compile_environment()
 {
-  if ! [[ " ${rvm_configure_flags:-} " =~ " --with-gcc=clang " ]]
+  if [[ "Darwin" == "$(uname)" ]] && ! __rvm_selected_compiler > /dev/null
   then
     export CC
-    typeset oldCC
-    oldCC="${CC:-}"
-
-    if [[ "Darwin" == "$(uname)" ]]
+    # override CC if gcc-4.2 available (OSX)
+    if [[ -x /usr/bin/gcc-4.2 ]]
     then
-      # override CC if gcc-4.2 available (OSX)
-      if [[ -x /usr/bin/gcc-4.2 ]]
-      then
-        : CC:${CC:=/usr/bin/gcc-4.2}:
-      elif which gcc-4.2 > /dev/null
-      then
-        : CC:${CC:=gcc-4.2}:
-      fi
-    fi
-
-    if [[ -n "${CC:-}" ]] && $CC --version | grep LLVM >/dev/null
+      CC=/usr/bin/gcc-4.2
+    elif which gcc-4.2 > /dev/null
     then
-      if [[ "${CC:-}" == "$oldCC" ]]
-      then
-        rvm_error "The provided CC(${CC:-}) is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
-      else
-        rvm_error "The autodetected CC(${CC:-}) is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`, and set CC=/path/to/gcc ."
-      fi
-      exit 1
+      CC=gcc-4.2
     fi
+  fi
+
+  if [[ "${rvm_patch_names:-}" =~ *debug* ]]
+  then rvm_force_autoconf_flag=1
   fi
 
   [[ -n "${rvm_architectures:-}" ]] || return 0
@@ -60,6 +70,30 @@ __rvm_setup_compile_environment()
 
     if ! [[ "${rvm_patch_names:-}" =~ *osx-arch-fix* ]]
     then rvm_patch_names="osx-arch-fix ${rvm_patch_names:-}"
+    fi
+  fi
+}
+
+__rvm_check_for_compiler()
+{
+  if __rvm_selected_compiler > /dev/null &&
+    ! builtin command -v $(__rvm_selected_compiler) >/dev/null
+  then
+    rvm_error "You requested building with '$(__rvm_selected_compiler)' but it is not in your path."
+    return 1
+  fi
+}
+
+# Checks for bison, returns zero iff it is found
+__rvm_check_for_bison()
+{
+  true ${rvm_head_flag:=0}
+  if (( rvm_head_flag > 0 ))
+  then
+    if ! builtin command -v bison > /dev/null
+    then
+      rvm_error "\nbison is not available in your path. \nPlease ensure bison is installed before compiling from head.\n"
+      return 1
     fi
   fi
 }
