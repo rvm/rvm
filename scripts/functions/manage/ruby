@@ -55,8 +55,7 @@ ruby_install()
 
   __rvm_check_for_bison # && Run like hell...
   if __rvm_check_for_bison
-  then
-    true
+  then true
   else
     result=$?
     rvm_log "Bison required but not found. Halting."
@@ -90,29 +89,23 @@ ruby_install()
       ;;
   esac
 
-  # OSX, LLVM, MRI-1.9.3-p125+
-  # and if user did not decided to use particular compiler choose clang on 1.9
-  if [[ "$MACHTYPE" == *darwin* ]] &&
-    ! which gcc-4.2 > /dev/null &&
-    __clang_ready &&
-    ! [[ " ${rvm_configure_flags:-}" =~ " --with-gcc=" ]]
+  if ! __clang_ready && __rvm_compiler_is_llvm
   then
-    rvm_configure_flags="${rvm_configure_flags:-""} --with-gcc=clang"
-  fi
-
-  if ! __clang_ready &&
-    [[ " ${rvm_configure_flags:-} " =~ " --with-gcc=clang" ]]
-  then
-    rvm_warn "Building '${rvm_ruby_string}' using clang - but it's not supported, expect errors."
+    if __rvm_selected_compiler > /dev/null
+    then
+      rvm_warn "Building '${rvm_ruby_string}' using clang - but it's not (fully) supported, expect errors."
+    else
+      rvm_error "The provided compiler '$(__rvm_selected_compiler)' is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
+      exit 1
+    fi
   fi
 
   ( __rvm_install_source $* )
   result=$?
 
-  if ! __clang_ready &&
-    [[ " ${rvm_configure_flags:-} " =~ " --with-gcc=clang" ]]
+  if ! __clang_ready &&__rvm_compiler_is_llvm
   then
-    rvm_warn "Ruby '${rvm_ruby_string}' was build using clang - but it's not supported, expect errors."
+    rvm_warn "Ruby '${rvm_ruby_string}' was build using clang - but it's not (fully) supported, expect errors."
   fi
 
   return ${result:-0}
