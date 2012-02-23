@@ -29,7 +29,7 @@ __rvm_select()
 
   # Set Variable Defaults
   export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
-  export rvm_env_string rvm_action rvm_alias_expanded rvm_archive_extension rvm_bin_flag rvm_bin_path rvm_clang_flag rvm_configure_flags rvm_debug_flag rvm_default_flag rvm_delete_flag rvm_docs_type rvm_dump_environment_flag rvm_error_message rvm_expanding_aliases rvm_file_name rvm_gemdir_flag rvm_gemset_name rvm_gemstone_package_file rvm_gemstone_url rvm_head_flag rvm_hook rvm_install_args rvm_install_on_use_flag rvm_llvm_flag rvm_loaded_flag rvm_make_flags rvm_niceness rvm_nightly_flag rvm_only_path_flag rvm_parse_break rvm_patch_names rvm_patch_original_pwd rvm_pretty_print_flag rvm_prior_cc rvm_proxy rvm_quiet_flag rvm_ree_options rvm_reload_flag rvm_remove_flag rvm_ruby_alias rvm_ruby_aliases rvm_ruby_args rvm_ruby_binary rvm_ruby_bits rvm_ruby_configure rvm_ruby_file rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_global_gems_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_load_path rvm_ruby_major_version rvm_ruby_make rvm_ruby_make_install rvm_ruby_minor_version rvm_ruby_mode rvm_ruby_name rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_patch rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_require rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_sha rvm_ruby_string rvm_ruby_strings rvm_ruby_tag rvm_ruby_url rvm_ruby_user_tag rvm_ruby_version rvm_script_name rvm_sdk rvm_silent_flag rvm_sticky_flag rvm_system_flag rvm_token rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_wrapper_name rvm_architectures
+  export rvm_env_string rvm_action rvm_alias_expanded rvm_archive_extension rvm_bin_flag rvm_bin_path rvm_configure_flags rvm_debug_flag rvm_default_flag rvm_delete_flag rvm_docs_type rvm_dump_environment_flag rvm_error_message rvm_expanding_aliases rvm_file_name rvm_gemdir_flag rvm_gemset_name rvm_gemstone_package_file rvm_gemstone_url rvm_head_flag rvm_hook rvm_install_args rvm_install_on_use_flag rvm_llvm_flag rvm_loaded_flag rvm_make_flags rvm_niceness rvm_nightly_flag rvm_only_path_flag rvm_parse_break rvm_patch_names rvm_patch_original_pwd rvm_pretty_print_flag rvm_proxy rvm_quiet_flag rvm_ree_options rvm_reload_flag rvm_remove_flag rvm_ruby_alias rvm_ruby_aliases rvm_ruby_args rvm_ruby_binary rvm_ruby_bits rvm_ruby_configure rvm_ruby_file rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_global_gems_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_load_path rvm_ruby_major_version rvm_ruby_make rvm_ruby_make_install rvm_ruby_minor_version rvm_ruby_mode rvm_ruby_name rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_patch rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_require rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_sha rvm_ruby_string rvm_ruby_strings rvm_ruby_tag rvm_ruby_url rvm_ruby_user_tag rvm_ruby_version rvm_script_name rvm_sdk rvm_silent_flag rvm_sticky_flag rvm_system_flag rvm_token rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_wrapper_name rvm_architectures
 
   if [[ -z "${rvm_ruby_string:-}" ]]
   then # First we build rvm_ruby_string from components if it is empty.
@@ -76,11 +76,18 @@ __rvm_select()
           __rvm_db "macruby_repo_url" "rvm_ruby_repo_url"
           rvm_ruby_url="$rvm_ruby_repo_url"
 
-        elif [[ "nightly" == "${rvm_ruby_version:-""}" ]]
+        elif [[ "nightly" == "${rvm_ruby_version:-}" ]]
         then
           __rvm_db "macruby_nightly_url" "rvm_ruby_url"
           rvm_ruby_package_name="${rvm_ruby_interpreter}_nightly-${rvm_ruby_version}"
           rvm_ruby_package_file="$rvm_ruby_package_name"
+
+        elif [[ -n "${rvm_ruby_version:-}" ]]
+        then
+          __rvm_db "macruby_url" "rvm_ruby_url"
+          rvm_ruby_package_name="MacRuby%20${rvm_ruby_version}.zip"
+          rvm_ruby_package_file="$rvm_ruby_package_name"
+          rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_name"
 
         else
           __rvm_db "macruby_version" "rvm_ruby_version"
@@ -225,32 +232,20 @@ __rvm_select()
       rvm_ruby_interpreter=ree
       rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "ree_version")"}
 
-      if [[ -n "${rvm_ruby_patch_level:-0}" ]] ; then
+      case "$rvm_ruby_version" in
+        1.8.*) true ;; # all good!
+        *) rvm_error "Unknown Ruby Enterprise Edition version: $rvm_ruby_version" ;;
+      esac
+
+      if [[ -n "${rvm_ruby_patch_level:-0}" ]]
+      then
         rvm_ruby_patch_level="$(echo $rvm_ruby_patch_level | \sed 's#^p##')"
       fi
 
-      if (( ${rvm_head_flag:=0} == 0 ))
-      then
-        if [[ -n "${rvm_ruby_revision:-""}" ]]
-        then
-          rvm_ruby_patch_level="" ; rvm_ruby_package_file=""
-          rvm_ruby_package_name="ree-$rvm_ruby_version-$rvm_ruby_revision"
-
-        else
-          rvm_ruby_package_file="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
-          rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")/$rvm_ruby_package_file.tar.gz"
-        fi
-      fi
-
-      case "$rvm_ruby_version" in
-        1.8.*)
-          : # all good!
-          ;;
-
-        *)
-          rvm_error "Unknown Ruby Enterprise Edition version: $rvm_ruby_version"
-          ;;
-      esac
+      rvm_ruby_package_file="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
+      rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_${rvm_ruby_patch_level}_url")"
+      rvm_ruby_url="${rvm_ruby_url:-$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")}"
+      rvm_ruby_url="${rvm_ruby_url}/$rvm_ruby_package_file.tar.gz"
       ;;
 
     kiji)
@@ -299,6 +294,13 @@ __rvm_select()
         then
           rvm_archive_extension="tar.bz2"
         fi
+      fi
+      ;;
+
+    ext)
+      if [[ -z "${rvm_ruby_name:-${detected_rvm_ruby_name:-}}" ]]
+      then
+        rvm_error "External ruby name was not specified!"
       fi
       ;;
 
@@ -368,10 +370,17 @@ __rvm_select()
     esac
   fi
 
-  rvm_ruby_package_name="${rvm_ruby_package_name:-${rvm_ruby_string//-n*}}"
-  rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_string"
-  rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
-  rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
+  if [[ "${rvm_ruby_interpreter}" == ext ]]
+  then
+    rvm_ruby_home="$rvm_externals_path/$rvm_ruby_string"
+    rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
+    rvm_ruby_binary="$( readlink $rvm_ruby_home/bin/ruby )"
+  else
+    rvm_ruby_package_name="${rvm_ruby_package_name:-${rvm_ruby_string//-n*}}"
+    rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_string"
+    rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
+    rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
+  fi
 
   if [[ "maglev" == "$rvm_ruby_interpreter" ]]
   then
@@ -711,6 +720,21 @@ __rvm_ruby_string()
         return 0
         ;;
 
+      (ext|external)
+        rvm_ruby_interpreter="ext"
+        rvm_ruby_patch_level=""
+        rvm_ruby_tag=""
+        rvm_ruby_revision=""
+        rvm_ruby_version=""
+        rvm_head_flag=0
+
+        unset strings[__array_start]
+        strings=( ${strings[@]} )
+        strings="${strings[*]}"
+        rvm_ruby_name="${strings// /-}"
+        break
+        ;;
+
       (nightly)
         rvm_ruby_version="nightly"
         rvm_nightly_flag=1
@@ -861,7 +885,7 @@ __rvm_ruby_string()
 
   # Unspecified version
   rvm_ruby_version="${rvm_ruby_version:-}"
-  if [[ -z "${rvm_ruby_version:-}" ]] && (( ${rvm_head_flag:=0} == 0 ))
+  if [[ -z "${rvm_ruby_version:-}" && "${rvm_ruby_interpreter}" != "ext" ]] && (( ${rvm_head_flag:=0} == 0 ))
   then
     rvm_ruby_version="${rvm_ruby_version:-"$(
     __rvm_db "${rvm_ruby_interpreter}_version"
@@ -879,6 +903,10 @@ __rvm_ruby_string()
   if (( ${rvm_head_flag:=0} == 1 ))
   then
     rvm_ruby_string="${rvm_ruby_string}-head"
+
+  elif [[ "${rvm_ruby_interpreter}" == "ext" ]]
+  then
+    true # skip checking for external rubies
 
   elif [[ -n "${rvm_ruby_revision:-}" ]]
   then

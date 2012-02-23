@@ -32,11 +32,32 @@ transform_configure_flags()
   rvm_configure_flags="${new_flags[*]}"
 }
 
+# 1.9.3-p125+
+__clang_ready()
+{
+  typeset _patch_level
+  case ${rvm_ruby_string} in
+    ruby-1.9.3*)
+      _patch_level="${rvm_ruby_patch_level:-p0}"
+      _patch_level="${_patch_level#p}"
+      (( _patch_level >= 125 )) && return 0 || true
+      ;;
+    ruby-1.9.3-head*|ruby-2*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 ruby_install()
 {
+  typeset result
+
   __rvm_check_for_bison # && Run like hell...
-  if (( $? > 0 ))
-  then
+  if __rvm_check_for_bison
+  then true
+  else
+    result=$?
     rvm_log "Bison required but not found. Halting."
     exit $result
   fi
@@ -46,9 +67,9 @@ ruby_install()
       true # carry on then, nothing to see here :P
       ;;
     ruby-head|1.9.*-head)
-      if ! __rvm_ensure_has_mri_ruby "1.8.|ree"
-      then
-        return 1
+      if __rvm_ensure_has_mri_ruby "1.8.|ree"
+      then true
+      else return $?
       fi
       ;;
   esac
@@ -68,6 +89,24 @@ ruby_install()
       ;;
   esac
 
+  if ! __clang_ready && __rvm_compiler_is_llvm
+  then
+    if __rvm_selected_compiler > /dev/null
+    then
+      rvm_warn "Building '${rvm_ruby_string}' using clang - but it's not (fully) supported, expect errors."
+    else
+      rvm_error "The provided compiler '$(__rvm_found_compiler)' is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
+      exit 1
+    fi
+  fi
+
   ( __rvm_install_source $* )
   result=$?
+
+  if ! __clang_ready &&__rvm_compiler_is_llvm
+  then
+    rvm_warn "Ruby '${rvm_ruby_string}' was build using clang - but it's not (fully) supported, expect errors."
+  fi
+
+  return ${result:-0}
 }

@@ -23,8 +23,14 @@ log()  { printf "%b\n" "$*" ; return $? ;  }
 
 fail() { log "\nERROR: $*\n" ; exit 1 ; }
 
+if [[ -z "${rvm_tar_command:-}" ]] && builtin command -v gtar >/dev/null
+then
+  rvm_tar_command=gtar
+else
+  rvm_tar_command=tar
+fi
 if [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] && \
-  $rvm_tar --help | \grep -- --no-same-owner >/dev/null
+  $rvm_tar_command --help | \grep -- --no-same-owner >/dev/null
 then
   rvm_tar_options="${rvm_tar_options:-} --no-same-owner"
   rvm_tar_options="${rvm_tar_options## }"
@@ -140,12 +146,12 @@ Halting installation.
 "
   fi
 
-  if $rvm_tar zxf "${archive}" -C "$rvm_src_path/" --no-same-owner
+  if $rvm_tar_command xzf "${archive}" -C "$rvm_src_path/" ${rvm_tar_options:-}
   then
     cd "$rvm_src_path/rvm-${version}"
   else
     fail "Failed to extract ${archive} to ${rvm_src_path}/,"\
-      "$rvm_tar command returned error code $?"
+      "$rvm_tar_command command returned error code $?"
   fi
 }
 
@@ -204,7 +210,7 @@ Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'.
   fi
 
   rm -rf ${rvm_src_path}/rvm/*
-  if ! $rvm_tar xzf ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz ${rvm_tar_options:-}
+  if ! $rvm_tar_command xzf ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz ${rvm_tar_options:-}
   then
     log "Could not extract RVM sources."
     return 3

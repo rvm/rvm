@@ -239,11 +239,13 @@ gemset_list()
     printf "%b" "\n"
   fi
 
+  # on first use __rvm_ensure_has_environment_files will be called
   return 0
 }
 
 gemset_after_delete_cleanup()
 {
+  typeset rvm_gemset_name ruby_at_gemset gemdir
   rvm_gemset_name=$1
   ruby_at_gemset=$2
   gemdir=$3
@@ -258,7 +260,10 @@ gemset_after_delete_cleanup()
     do
       $rvm_scripts_path/alias delete ${item}
     done
+
+    find "${rvm_bin_path:=$rvm_path/bin}" \( -name \*${ruby_at_gemset} -or -lname \*${ruby_at_gemset}/\* \) -delete
   )
+  rm -rf "${rvm_wrappers_path:="$rvm_path/wrappers"}/${ruby_at_gemset}"
 }
 
 gemset_delete()
@@ -302,7 +307,7 @@ gemset_delete()
         return 2
       fi
     else
-      rvm_log "$gemdir already does not exist."
+      rvm_log "$gemdir did not previously exist. Ignoring."
     fi
   else
     rvm_error "A gemset name must be specified in order to delete a gemset."
@@ -354,7 +359,7 @@ gemset_empty()
       rvm_log "Not doing anything, phew... close call that one eh?"
     fi
   else
-    rvm_log "$gemdir already does not exist."
+    rvm_log "$gemdir did not previously exist. Ignoring."
   fi
   return 0
 }
@@ -894,16 +899,34 @@ gemset_pristine()
 {
   if ( unset -f gem ; builtin command -v gem > /dev/null )
   then
-    if gem list | sed '/\*\*\*/ d ; /^$/ d' | grep '.*' >/dev/null
+    typeset _gem _version
+    typeset -a _failed
+    rvm_log "Restoring gems to pristine condition..."
+
+    while read _gem _version
+    do
+      printf "%b" "${_gem}-${_version} " | tee /dev/stderr
+      if ! gem pristine ${_gem} --version ${_version} >/dev/null
+      then _failed+=( "${_gem} --version ${_version}" )
+      fi
+    done < <(
+      GEM_PATH="$GEM_HOME" gem list |
+        sed '/\*\*\*/ d ; /^$/ d; s/ //g;' |
+        awk -F '[(),]' '{for(i=2;i<NF;i++) print $1" "$i }'
+    )
+
+    if (( ${#_failed[@]} > 0 ))
     then
-      gem pristine --all
-      return $?
+      printf "%b" "\n"
+      rvm_error "'gem pristine ${_failed[*]}' failed, you need to fix this gems manually."
+      return 1
     else
-      # pristine fails if no gems available, this breaks few internal rvm commands
-      true
+      rvm_log "finished."
+      return 0
     fi
+
   else
-    rvm_error "'gem' command not found in PATH"
+    rvm_error "'gem' command not found in PATH."
     return 1
   fi
 }
@@ -917,9 +940,9 @@ gemset_initial()
 
   rvm_log "Importing initial gemsets for $(__rvm_env_string)."
 
-  if [[ ! -d "$rvm_gemsets_path/${rvm_ruby_string//-//}" ]]
+  if [[ ! -d "$rvm_gemsets_path/${rvm_ruby_string//-//}/cache" ]]
   then
-    mkdir -p "$rvm_gemsets_path/${rvm_ruby_string//-//}" 2>/dev/null
+    mkdir -p "$rvm_gemsets_path/${rvm_ruby_string//-//}/cache" 2>/dev/null
   fi
 
   paths=($(__rvm_ruby_string_paths_under "$rvm_gemsets_path"))

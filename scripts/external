@@ -1,0 +1,240 @@
+#!/usr/bin/env bash
+
+source "$rvm_scripts_path/base"
+
+external_automount()
+{
+  external_mount_uniq $(
+    __rvm_remove_rvm_from_path
+    which -a ruby
+  )
+}
+
+external_grep_existing()
+{
+  typeset IFS
+  typeset -a existing
+  IFS="|"
+  existing=( $(
+    for ext in $rvm_externals_path/*
+    do
+      if [[ -L "$ext" ]]
+      then
+        readlink "$ext"
+      fi
+    done
+  ) )
+  : existing:${existing[@]}:
+  if (( ${#existing[@]} > 0 ))
+  then
+    grep -vE "${existing[@]}" -
+  else
+    cat -
+  fi
+}
+
+external_mount_uniq()
+{
+  typeset ruby_path
+  typeset -a ruby_paths
+
+  ruby_paths=( $(
+    for ruby_path in "$@"
+    do
+      if [[ -d "${ruby_path}" && -x "${ruby_path}/bin/ruby" ]] && "${ruby_path}/bin/ruby" -rrbconfig -e "" >/dev/null 2>&1
+      then
+        echo "${ruby_path}"
+      elif [[ ! -d "${ruby_path}" &&  -x "${ruby_path}" ]]
+      then
+        "${ruby_path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']" 2>/dev/null
+      fi
+    done | sort -u | external_grep_existing
+  ) )
+
+  if (( ${#ruby_paths[@]} == 0 ))
+  then
+    rvm_error "The given paths '$*' either do not point to a ruby installation or are already mounted."
+    exit 1
+  else
+    for ruby_path in ${ruby_paths[@]}
+    do
+      ( external_mount "${ruby_path}" ) || exit $?
+    done
+  fi
+}
+
+external_mount()
+{
+  typeset path ruby_path prefix_path
+  path="$1"
+  if [[ ! -d "${path}" && -x "${path}" ]] && "${path}" --version | grep ruby >/dev/null
+  then
+    ruby_path="${path}"
+    prefix_path="$("${path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']")"
+  elif [[ -d "${path}" && -x "${path}/bin/ruby" ]] && "${path}/bin/ruby" --version | grep ruby >/dev/null
+  then
+    ruby_path="${path}/bin/ruby"
+    prefix_path="$("${ruby_path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']")"
+    if [[ "${path}" != "${prefix_path}" ]]
+    then
+      rvm_error "The given path '$path' contains ruby but it has different prefix '$prefix_path'."
+      exit 2
+    fi
+  else
+    rvm_error "The given path '$path' does not point to a ruby installation."
+    exit 3
+  fi
+  
+  if [[ -z "${rvm_ruby_name:-}" ]]
+  then
+    if ! external_select_name "${ruby_path}" "${prefix_path}" ||
+      [[ -z "${rvm_ruby_name:-}" ]]
+    then
+      rvm_error "No name selected for ruby in '$prefix_path'."
+      exit 4
+    fi
+  fi
+
+  old_gem_home=$(
+    unset GEM_HOME
+    "${prefix_path}/bin/gem" env gemhome
+  )
+  rvm_ruby_string="ext-${rvm_ruby_name}"
+  echo "Mounting '${rvm_ruby_string}' from '${prefix_path}'"
+
+  mkdir -p "$rvm_externals_path"
+  ln -nfs "${prefix_path}" "$rvm_externals_path/$rvm_ruby_string"
+  mkdir -p "$rvm_rubies_path/$rvm_ruby_string/bin"
+  ln -nfs "${ruby_path}" "$rvm_rubies_path/$rvm_ruby_string/bin/ruby"
+
+  __rvm_use
+
+  mkdir -p "$rvm_gems_path/$rvm_ruby_string@global"
+  ln -nfs "${old_gem_home}" "$rvm_gems_path/$rvm_ruby_string"
+
+  __rvm_bin_script
+
+  (
+    export rvm_gemset_name=global
+    __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
+      "'$rvm_scripts_path/gemsets' initial" \
+      "$rvm_ruby_string - #importing default gemsets ($rvm_gemsets_path/)"
+  )
+
+  "$ruby_path" -rrbconfig \
+    -e 'File.open("'"$rvm_rubies_path/$rvm_ruby_string/config"'","w") { |file| RbConfig::CONFIG.each_pair{|key,value| file.write("#{key.gsub(/\.|-/,"_")}=\"#{value.gsub("$","\\$")}\"\n")} }' >/dev/null 2>&1
+
+  __rvm_record_install "$rvm_ruby_string"
+}
+
+external_select_name()
+{
+  typeset proposed_name ruby_version ruby_path prefix_path
+  export rvm_ruby_name
+    ruby_path="$1"
+  prefix_path="$2"
+  ruby_version="$( "${ruby_path}" --version)"
+  if [[ -x "${ruby_path}" ]] &&
+    proposed_name="$( external_propose_name "$ruby_version" )" &&
+    [[ -n "${proposed_name:-}" ]]
+  then
+    echo "Found '${ruby_version}' in '${prefix_path}'"
+    printf "\n# Please enter name [${proposed_name}]: "
+    read rvm_ruby_name
+    printf "\n"
+    : rvm_ruby_name:${rvm_ruby_name:=${proposed_name}}:
+  else
+    echo "Name not found for '${ruby_path}' in '${prefix_path}'"
+    false
+  fi
+}
+
+external_propose_name()
+{
+  typeset parts __tmp1 __tmp2
+  parts="$( echo "$1" | sed 's/[()]//g; s/\[.*\]//;' )"
+  case "${parts}" in
+    (*Ruby[[:space:]]Enterprise[[:space:]]Edition*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${parts##* }"
+      printf "ree-${__tmp1}-${__tmp2}"
+      ;;
+    (ruby[[:space:]]*patchlevel[[:space:]]*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${parts##*patchlevel }"
+      __tmp2="${__tmp2%% *}"
+      printf "ruby-${__tmp1}-p${__tmp2}"
+      ;;
+    (ruby[[:space:]][[:digit:]].[[:digit:]].[[:digit:]]p[[:digit:]]*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${__tmp1##+([[:digit:]\.])}"
+      __tmp1="${__tmp1%${__tmp2}}"
+      printf "ruby-${__tmp1}-${__tmp2}"
+      ;;
+    (ruby[[:space:]]*revision[[:space:]]*|ruby[[:space:]]*trunk[[:space:]]*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${parts##*trunk }"
+      __tmp2="${__tmp2##*revision }"
+      __tmp2="${__tmp2%% *}"
+      printf "ruby-${__tmp1}-r${__tmp2}"
+      ;;
+    (ruby[[:space:]]*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${__tmp1##+([[:digit:]\.])}"
+      __tmp1="${__tmp1%${__tmp2}}"
+      printf "ruby-${__tmp1}-${__tmp2}"
+      ;;
+    (jruby[[:space:]]*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${parts#* }"
+      __tmp2="${__tmp2#* }"
+      __tmp2="${__tmp2%% *}"
+      __tmp2="${__tmp2#ruby-}"
+      __tmp2="${__tmp2//-/_}"
+      printf "jruby-${__tmp1}-default_${__tmp2}"
+      ;;
+    (maglev[[:space:]]*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${parts#* }"
+      __tmp2="${__tmp2#* }"
+      __tmp2="${__tmp2#* }"
+      __tmp2="${__tmp2%% *}"
+      printf "maglev-${__tmp1}-default_${__tmp2}"
+      ;;
+    (rubinius[[:space:]]*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${parts#* }"
+      __tmp2="${__tmp2#* }"
+      __tmp2="${__tmp2%% *}"
+      printf "rbx-${__tmp1}-default_${__tmp2}"
+      ;;
+    (*)
+      false
+      ;;
+  esac
+}
+
+args=( "$@" )
+action="${args[__array_start]}"
+unset args[__array_start]
+args=( "${args[@]}" )
+
+case "${action}" in
+  (automount)
+    external_$action
+    ;;
+  (mount|*_name)
+    external_mount_uniq "${args[@]}"
+    ;;
+  (*)
+    echo "Wrong action '$action'"
+    ;;
+esac

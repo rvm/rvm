@@ -1,30 +1,5 @@
 #!/usr/bin/env bash
 
-__rvm_check_for_clang()
-{
-  if (( ${rvm_clang_flag:=0} == 1 )) && ! builtin command -v clang >/dev/null
-  then
-    rvm_error "\nYou passed the --clang option and clang is not in your path. \nPlease try again or do not use --clang.\n"
-    return 1
-  fi
-}
-
-# Checks for bison, returns zero iff it is found
-__rvm_check_for_bison()
-{
-  true ${rvm_head_flag:=0}
-  if (( rvm_head_flag > 0 ))
-  then
-    builtin command -v bison > /dev/null
-    result=$?
-    if (( result > 0 ))
-    then
-      rvm_error "\nbison is not available in your path. \nPlease ensure bison is installed before compiling from head.\n"
-    fi
-  fi
-  return ${result:-0}
-}
-
 # Emits a number of patches to STDOUT, each on a new name
 # Expands patchsets etc.
 __rvm_current_patch_names()
@@ -268,10 +243,24 @@ __rvm_install_source()
     return $result
   fi
 
+  : rvm_configure_flags:${rvm_configure_flags:=}:
+  case "${rvm_configure_flags}" in
+    (*--program-suffix=*)
+      typeset program_suffix
+      program_suffix="${rvm_configure_flags#*--program-suffix=}"
+      program_suffix="${program_suffix%%[\' ]*}"
+      __rvm_run "link.ruby" "ln -s \"$rvm_ruby_home/bin/ruby${program_suffix}\" \
+        \"$rvm_ruby_home/bin/ruby\"" "$rvm_ruby_string - #linking ruby${program_suffix} -> ruby "
+      ;;
+  esac
+
   export GEM_HOME="$rvm_ruby_gem_home"
   export GEM_PATH="$rvm_ruby_gem_path"
 
-  "$rvm_scripts_path/rubygems" ${rvm_rubygems_version:-latest}
+  (
+    __rvm_use
+    "$rvm_scripts_path/rubygems" ${rvm_rubygems_version:-latest}
+  )
   result=$?
 
   __rvm_bin_script
@@ -315,18 +304,14 @@ https://rvm.beginrescueend.com/rubies/named/
   fi
 
   if [[ -n "${RUBYOPT:-""}" ]]
-  then
-    ruby_options="$RUBYOPT"
+  then ruby_options="$RUBYOPT"
   fi
 
   unset RUBYOPT
 
-  # Check for clang if the flag is set
-  __rvm_check_for_clang
-  result=$?
-  if (( result > 0 ))
-  then
-    return $result
+  if __rvm_check_for_compiler
+  then true # sok
+  else return $?
   fi
 
   case "${rvm_ruby_interpreter}" in
@@ -372,8 +357,6 @@ https://rvm.beginrescueend.com/rubies/named/
     RUBYOPT="$ruby_options"
     export RUBYOPT
   fi
-
-  return ${result:-0}
 }
 
 __rvm_fetch_from_github()
@@ -408,7 +391,8 @@ __rvm_fetch_from_github()
 
     builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
-    __rvm_run "$1.repo" "git reset --hard HEAD ; git pull --rebase origin $branch" "Pulling from origin $branch"
+    __rvm_run "$1.clean" "git checkout -f master ; git reset --hard HEAD ; rm -fr .git/rebase-apply" "Cleaning git repo"
+    __rvm_run "$1.fetch" "git fetch origin" "Fetching from origin"
   fi
 
   (
@@ -428,6 +412,8 @@ __rvm_fetch_from_github()
         rvm_error "Branch $remote/$rvm_ruby_repo_branch not found."
       fi
     fi
+
+    __rvm_run "$1.pull" "git pull origin $branch" "Pulling from origin $branch"
   )
 
   if [[ -n "${rvm_ruby_string}" ]]
@@ -507,7 +493,7 @@ __rvm_fetch_ruby()
       case "$rvm_archive_extension" in
         tar.gz|tgz)
           __rvm_run "extract" \
-            "$rvm_tar xzf \"${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension\" -C ${rvm_tmp_path:-/tmp}/rvm_src_$$ ${rvm_tar_options:-}" \
+            "$rvm_tar_command xzf \"${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension\" -C ${rvm_tmp_path:-/tmp}/rvm_src_$$ ${rvm_tar_options:-}" \
             "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string"
           result=$?
 
@@ -531,7 +517,7 @@ __rvm_fetch_ruby()
           ;;
         tar.bz2)
           __rvm_run "extract" \
-            "$rvm_tar xjf ${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension -C ${rvm_tmp_path:-/tmp}/rvm_src_$$ ${rvm_tar_options:-}" \
+            "$rvm_tar_command xjf ${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension -C ${rvm_tmp_path:-/tmp}/rvm_src_$$ ${rvm_tar_options:-}" \
             "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string"
           result=$?
 
@@ -796,7 +782,7 @@ __rvm_check_default()
     | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
 
   if [[ -n "$current_ruby_interpreter" &&
-        "$current_ruby_interpreter" = "$default_ruby_interpreter" ]]
+        "$current_ruby_interpreter" == "$default_ruby_interpreter" ]]
   then
     __rvm_run_with_env 'default.restore' 'system' \
       'rvm use system --default' 'Removing default ruby interpreter'
@@ -821,22 +807,25 @@ __rvm_uninstall_ruby()
       if [[ -d "$dir/$rvm_ruby_string" ]]
       then
         rvm_log "Removing $dir/$rvm_ruby_string..."
-
         __rvm_rm_rf "$dir/$rvm_ruby_string"
       else
         rvm_log "$dir/$rvm_ruby_string has already been removed."
       fi
-
-      if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
-      then
-        rm -f "${rvm_bin_path}/$rvm_ruby_string"
-      fi
     done
 
+    if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
+    then
+      rm -f "${rvm_bin_path}/$rvm_ruby_string"
+    fi
+
+    if [[ -d "${rvm_externals_path}/$rvm_ruby_string" ]]
+    then
+      rvm_log "Removing ${rvm_externals_path}/$rvm_ruby_string..."
+      __rvm_rm_rf "${rvm_externals_path}/$rvm_ruby_string"
+    fi
+
     __rvm_remove_install_record "$rvm_ruby_string"
-
     __rvm_remove_gemsets
-
     __rvm_check_default
   else
     rvm_error "Cannot uninstall unknown package '$rvm_ruby_string'"
@@ -867,16 +856,18 @@ __rvm_remove_ruby()
       else
         rvm_log "it seems that $dir/$rvm_ruby_string is already non existent."
       fi
-
-      if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
-      then
-        rm -f "${rvm_bin_path}/$rvm_ruby_string"
-      fi
-
-      __rvm_check_default
-
     done
+    if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
+    then
+      rm -f "${rvm_bin_path}/$rvm_ruby_string"
+    fi
 
+    if [[ -d "${rvm_externals_path}/$rvm_ruby_string" ]]
+    then
+      rvm_log "Removing ${rvm_externals_path}/$rvm_ruby_string..."
+      __rvm_rm_rf "${rvm_externals_path}/$rvm_ruby_string"
+    fi
+    __rvm_check_default
     __rvm_remove_install_record "$rvm_ruby_string"
     __rvm_remove_gemsets
     __rvm_remove_archives
@@ -914,7 +905,7 @@ __rvm_remove_gemsets()
   then
     rvm_log "Removing $rvm_ruby_string gemsets..."
 
-    gemsets=( $(find "${rvm_gems_path:-"$rvm_path/gems"}" -maxdepth 1 "${name_opt}" "${rvm_ruby_string}*" -type d))
+    gemsets=( $(find -L "${rvm_gems_path:-"$rvm_path/gems"}" -maxdepth 1 "${name_opt}" "${rvm_ruby_string}*" -type d))
 
     for gemset in "${gemsets[@]}"
     do
@@ -1008,10 +999,9 @@ __rvm_remove_binaries()
 
 __rvm_post_install()
 {
-  typeset rvm_ruby_aliases ruby_alias binary
-
-  if [[ "$rvm_ruby_interpreter" != "jruby" ]]
-  then
+  case "$rvm_ruby_interpreter" in
+  (jruby|ree) true ;; #skip
+  (*)
     (( ${#binaries[@]} > 0 )) || binaries=(gem irb erb ri rdoc testrb rake)
 
     rvm_log "$rvm_ruby_string - adjusting #shebangs for (${binaries[@]})."
@@ -1039,7 +1029,8 @@ __rvm_post_install()
     done
 
     binaries=(gem irb erb ri rdoc testrb rake)
-  fi
+    ;;
+  esac
 
   # Import the initial gemsets.
   __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
@@ -1049,18 +1040,6 @@ __rvm_post_install()
   __rvm_irbrc
 
   __rvm_generate_default_docs
-
-  if [[ -n "$rvm_ruby_aliases" ]]
-  then
-    rvm_log "Setting up aliases for $rvm_ruby_string"
-
-    while read -r ruby_alias
-    do
-      rvm_log "Aliasing $rvm_ruby_string to $ruby_alias"
-      "$rvm_scripts_path/alias" delete "$ruby_alias" > /dev/null 2>&1
-      "$rvm_scripts_path/alias" create "$ruby_alias" "$rvm_ruby_string" > /dev/null 2>&1
-    done < <(printf "%b" "$rvm_ruby_string" | \tr ' ' '\n' | sort -u)
-  fi
 }
 
 __rvm_generate_default_docs()
@@ -1137,9 +1116,6 @@ __rvm_manage_rubies()
 
   rvm_ruby_gem_home="${rvm_ruby_gem_home:-""//${rvm_gemset_separator:-"@"}*}"
   rvm_ruby_string="${rvm_ruby_string:-""//${rvm_gemset_separator:-"@"}*}"
-
-  # TODO: See if this can work, currently errors out on 'cannot find i386' libs.
-  # __rvm_setup_compile_environment
 
   # Given list of ruby strings.
   if [[ -n "${rubies_string:-""}" ]]
