@@ -24,4 +24,4 @@ Other implementations allowing to install ruby versions:
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
 
 # To add a new implementation click "Edit this file" here: 
-# https://github.com/wayneeseguin/rvm/blob/master/help/alt
+# https://github.com/wayneeseguin/rvm/blob/master/help/alt.md
