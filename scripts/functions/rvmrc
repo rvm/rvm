@@ -134,7 +134,11 @@ __rvm_rvmrc_tools()
   elif [[ -f "${rvmrc_path}/.rbenv-version" ]]
   then rvmrc_path="${rvmrc_path}/.rbenv-version"
 
-  else rvmrc_path="${rvmrc_path}/.rvmrc"
+  elif [[ -f "${rvmrc_path}/Gemfile" ]]
+  then rvmrc_path="${rvmrc_path}/Gemfile"
+
+  else
+    rvmrc_path="${rvmrc_path}/.rvmrc"
   fi
 
   case "$rvmrc_action" in
@@ -404,13 +408,16 @@ __rvm_project_rvmrc()
 
       elif [[ -f "$working_dir/.rbenv-version" ]]
       then found_file="$working_dir/.rbenv-version"
+
+      elif [[ -f "$working_dir/Gemfile" ]]
+      then found_file="$working_dir/Gemfile"
       fi
 
       if [[ -n "${found_file}" ]]
       then
         if [[ "${rvm_current_rvmrc:-""}" != "${found_file}" ]]
         then
-          if __rvm_load_project_config "${found_file}"
+          if __rvm_conditionally_do_with_env __rvm_load_project_config "${found_file}"
           then true
           else
             rvm_trustworthiness_result=$?
@@ -431,6 +438,7 @@ __rvm_project_rvmrc()
 
 __rvm_load_project_config()
 {
+  : rvm_autoinstall_bundler_flag:${rvm_autoinstall_bundler_flag:=0}
   case "$1" in
     (*/.rvmrc)
       if __rvm_check_rvmrc_trustworthiness "$1"
@@ -468,17 +476,46 @@ __rvm_load_project_config()
       done
 
       _bundle_install="$(sed -n '/^ruby-bundle-install=/ {s/ruby-bundle-install=//;p;}' < "$1")"
-      if [[ -n "${_bundle_install}" ]]
+      if [[ -n "${_bundle_install}" ]] || [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
       then
-        if [[ "${_bundle_install}" == true ]]
+        if [[ "${_bundle_install}" == true ]] # prevent file named true for Gemfile
         then
-          bundle install
+          bundle install --gemfile="$(dirname $1)/Gemfile"
 
         elif [[ -f "${_bundle_install}" ]]
         then
-          bundle install "${_bundle_install}"
+          bundle install --gemfile="${_bundle_install}"
+
+        elif [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
+        then
+          bundle install --gemfile="$(dirname $1)/Gemfile"
 
         fi | grep -vE '^Using|Your bundle is complete'
+      fi
+      ;;
+
+    (*/Gemfile)
+      typeset _bundler_version
+      __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
+      rvm_previous_environment="$(__rvm_env_string)"
+      rvm_current_rvmrc="$1"
+      __rvm_ensure_is_a_function
+
+      rvm_ruby_string="$(sed -n '/^#ruby=/ {s/#ruby=//;p;}' < "$1")"
+      rvm_gemset_name="$(sed -n '/^#ruby-gemset=/ {s/#ruby-gemset=//;p;}' < "$1")"
+      rvm_create_flag=1 __rvm_use
+
+      # TODO: read #env.* # how to sanitize ?
+
+      if [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
+      then
+        _bundler_version="$(sed -n '/^#ruby-bundler-version=/ {s/#ruby-bundler-version=//;p;}' < "$1")"
+        if ! gem list | \grep "^bundler " | \grep "${_bundler_version}" > /dev/null
+        then
+          [[ -z "${_bundler_version}" ]] || _bundler_version=" -v ${_bundler_version}"
+          gem install "bundler${_bundler_version}"
+        fi
+        bundle install --gemfile="$1" | grep -vE '^Using|Your bundle is complete'
       fi
       ;;
 
@@ -491,6 +528,17 @@ __rvm_load_project_config()
       rvm_ruby_string="$(cat "$1")"
       rvm_create_flag=1 __rvm_use
       # "$(dirname $1)/.rbenv-vars" ... can we support those without licensing ?
+
+      if [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "$(dirname $1)/Gemfile" ]]
+      then
+        _bundler_version="$(sed -n '/^#ruby-bundler-version=/ {s/#ruby-bundler-version=//;p;}' < "$1")".strip
+        if ! gem list | \grep "^bundler " | \grep "${_bundler_version}" > /dev/null
+        then
+          [[ -z "${_bundler_version}" ]] || _bundler_version=" -v ${_bundler_version}"
+          gem install "bundler${_bundler_version}"
+        fi
+        bundle install --gemfile="$(dirname $1)/Gemfile" | grep -vE '^Using|Your bundle is complete'
+      fi
       ;;
 
     (*)
