@@ -4,6 +4,7 @@ Other implementations allowing to switch ruby environment:
 
 - https://github.com/vertiginous/pik (Windows)
 - https://github.com/kwatch/versionswitcher
+- https://github.com/jayferd/ry
 - https://github.com/niw/rubies
 - https://github.com/hmans/rbfu
 - https://github.com/sam/rb-switch
@@ -20,6 +21,7 @@ Other implementations allowing to install ruby versions:
   most distributions come with ruby 1.8 already installed
 - https://github.com/vertiginous/pik (Windows)
 - https://github.com/kwatch/versionswitcher
+- https://github.com/jayferd/ry
 - https://github.com/sstephenson/ruby-build
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
 
