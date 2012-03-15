@@ -1,4 +1,4 @@
-# RVM is not the only Ruby enVironment Manager.
+# RVM is not the only Ruby enVironment Manager
 
 Other implementations allowing to switch ruby environment:
 
@@ -13,7 +13,7 @@ Other implementations allowing to switch ruby environment:
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
 
 
-# RVM is not the only Ruby Version Manager.
+# RVM is not the only Ruby Version Manager
 
 Other implementations allowing to install ruby versions:
 
@@ -26,7 +26,9 @@ Other implementations allowing to install ruby versions:
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
 
 
-# RVM is supported by the following IDE products
+# RVM IDE support
+
+RVM is supported by the following IDE products:
 
 - [RubyMine](http://www.jetbrains.com/ruby/)
 - Vim [rvm.vim](https://github.com/tpope/vim-rvm)
