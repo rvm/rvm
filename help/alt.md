@@ -8,7 +8,7 @@ Other implementations allowing to switch ruby environment:
 - https://github.com/niw/rubies
 - https://github.com/hmans/rbfu
 - https://github.com/sam/rb-switch
-- https://github.com/sstephenson/rbenv  (supported by RubyMine http://youtrack.jetbrains.com/issue/RUBY-9161)
+- https://github.com/sstephenson/rbenv
 - https://github.com/cpetschnig/switch-ruby
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
 
