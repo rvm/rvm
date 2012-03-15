@@ -25,13 +25,13 @@ Other implementations allowing to install ruby versions:
 - https://github.com/sstephenson/ruby-build
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
 
+
 # RVM is supported by the following IDE products
 
-- RubyMine
-- Vim [rvm.vim][rvm.vim-github]
+- [RubyMine](http://www.jetbrains.com/ruby/)
+- Vim [rvm.vim](https://github.com/tpope/vim-rvm)
 
 
-# To add a new implementation click "Edit this file" here:
-# https://github.com/wayneeseguin/rvm/blob/master/help/alt.md
-
-[rvm.vim-github]: https://github.com/tpope/vim-rvm
+# Editing
+To add a new implementation click "Edit this file" here:
+https://github.com/wayneeseguin/rvm/blob/master/help/alt.md
