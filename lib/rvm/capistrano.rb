@@ -16,7 +16,11 @@ Capistrano::Configuration.instance(true).load do
   set :default_shell do
     shell = File.join(rvm_bin_path, "rvm-shell")
     ruby = rvm_ruby_string.to_s.strip
-    shell = "rvm_path=#{rvm_path} #{shell} '#{ruby}'" unless ruby.empty?
+    if "#{ruby}" == "release_path"
+      shell = "rvm_path=#{rvm_path} #{shell} --path '#{release_path}'"
+    else
+      shell = "rvm_path=#{rvm_path} #{shell} '#{ruby}'" unless ruby.empty?
+    end
     shell
   end
 
