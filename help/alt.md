@@ -17,7 +17,7 @@ Other implementations allowing to switch ruby environment:
 
 Other implementations allowing to install ruby versions:
 
-- you can use your system to install ruby, 
+- you can use your system to install ruby,
   most distributions come with ruby 1.8 already installed
 - https://github.com/vertiginous/pik (Windows)
 - https://github.com/kwatch/versionswitcher
@@ -31,7 +31,7 @@ Other implementations allowing to install ruby versions:
 - Vim [rvm.vim][rvm.vim-github]
 
 
-# To add a new implementation click "Edit this file" here: 
+# To add a new implementation click "Edit this file" here:
 # https://github.com/wayneeseguin/rvm/blob/master/help/alt.md
 
 [rvm.vim-github]: https://github.com/tpope/vim-rvm
