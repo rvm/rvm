@@ -63,6 +63,7 @@ Capistrano::Configuration.instance(true).load do
 
   # Let users set the (re)install for ruby.
   _cset(:rvm_install_ruby, :install)
+  _cset(:rvm_install_ruby_threads, "$(cat /proc/cpuinfo | grep vendor_id | wc -l)")
 
   namespace :rvm do
     desc <<-EOF
@@ -86,6 +87,10 @@ Capistrano::Configuration.instance(true).load do
 
       set :rvm_install_ruby, :reinstall
 
+      By default ruby is compiled using all CPU cores, change with:
+
+      set :rvm_install_ruby_threads, :reinstall
+
       By default BASH is used for installer, change with:
 
       set :rvm_install_shell, :zsh
@@ -95,7 +100,7 @@ Capistrano::Configuration.instance(true).load do
       if %w( release_path default ).include? "#{ruby}"
         raise "ruby can not be installed when using :rvm_ruby_string => :#{ruby}"
       else
-        run "#{File.join(rvm_bin_path, "rvm")} #{rvm_install_ruby} #{ruby}", :shell => "#{rvm_install_shell}"
+        run "#{File.join(rvm_bin_path, "rvm")} #{rvm_install_ruby} #{ruby} -j #{rvm_install_ruby_threads}", :shell => "#{rvm_install_shell}"
         if gemset
           run "#{File.join(rvm_bin_path, "rvm")} #{ruby} do rvm gemset create #{gemset}", :shell => "#{rvm_install_shell}"
         end
