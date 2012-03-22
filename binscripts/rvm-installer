@@ -33,12 +33,13 @@ Usage
 
 Options
 
-  --branch <name>               - Install RVM head, from named branch
-  --version <head|latest|x.y.z> - Install RVM version [head|latest|x.y.z]
-  --trace                       - used to debug the installer script
+  --version <latest|latest-x|latest-x.y|x.y.z> - Install RVM version [latest|x.y.z]
+  --branch <name>  - Install RVM head, from named branch
+  --trace          - used to debug the installer script
 
 Actions
 
+  master - Install RVM master branch from wayneeseguin rvm repo (Default).
   stable - Install RVM stable branch from wayneeseguin rvm repo.
   help   - Display CLI help (this output)
 
@@ -57,95 +58,32 @@ Branches:
 "
 }
 
+#Searches for highest available version for the given pattern
+# fetch_version 1.10. -> 1.10.3
+# fetch_version 1. -> 1.11.0
+# fetch_version "" -> 2.0.1
 fetch_version()
 {
-  version=$(curl -s -B "${rvm_releases_url}/latest-version.txt" 2>/dev/null)
-}
-
-fetch_md5()
-{
-  md5=$(curl -s -B "${rvm_releases_url}/rvm-${version}.tar.gz.md5" 2>/dev/null)
-}
-
-md5_match()
-{
-  local archive
-  archive="$1"
-
-  case "$(uname)" in
-    Darwin|FreeBSD)
-      archive_md5="$(/sbin/md5 -q "${archive}")"
-      ;;
-
-    OpenBSD)
-      archive_md5="$(/bin/md5 -q "${archive}")"
-      ;;
-
-    Linux|*)
-      archive_md5="$(md5sum "${archive}")"
-      archive_md5="${archive_md5%% *}"
-      ;;
-  esac
-
-  if [[ "$archive_md5" == "$md5" ]]
-  then
-    return 0
-  else
-    return 1
-  fi
+  curl -s https://api.github.com/repos/wayneeseguin/rvm/tags |
+    sed -n '/"name": / {s/^.*".*": "\(.*\)".*$/\1/; p;}' |
+    sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n |
+    grep "^${1:-}" | tail -n 1
 }
 
 install_release()
 {
-  local archive url
-
-  archive="${rvm_archives_path}/rvm-${version}.tar.gz"
-  url="${rvm_releases_url}/rvm-${version}.tar.gz"
-
-  fetch_md5
-
-  if [[ -s "${archive}" && -n "${md5}" ]] && ! md5_match "${archive}"
-  then
-    # Remove old installs, if they exist and have incorrect md5.
-    if [[ -f "${archive}" ]]
-    then
-      rm -f "${archive}"
-    fi
-  fi
-
-  if curl -L "${url}" -o "${archive}"
-  then
-    true
-  else
-    fail "Failed to download ${url} to ${archive} using 'curl', error code ($?)"
-  fi
-
-  if ! md5_match "$archive"
-  then
-    fail "ERROR:
-
-Archive package downloaded does not match its calculated md5 checksum ${md5}:
-
-  $rvm_archives_path/rvm-${version}.tar.gz
-
-Retry the installation and/or check your networking setup.
-
-Halting installation.
-"
-  fi
-
-  if $rvm_tar_command xzf "${archive}" -C "$rvm_src_path/" ${rvm_tar_options:-}
-  then
-    cd "$rvm_src_path/rvm-${version}"
-  else
-    fail "Failed to extract ${archive} to ${rvm_src_path}/,"\
-      "$rvm_tar_command command returned error code $?"
-  fi
+  typeset _version
+  _version=$1
+  log "Downloading RVM version ${_version}"
+  get_and_unpack \
+    https://github.com/wayneeseguin/rvm/tarball/${_version} \
+    rvm-${_version}.tar.gz \
+    wayneeseguin-rvm-
 }
 
 install_head()
 {
-  typeset _repo _name _branch _local_branch
+  typeset _repo _branch
   case "$1" in
     (/*)
       _repo=wayneeseguin
@@ -164,9 +102,21 @@ install_head()
       _branch=$1
       ;;
   esac
-
   log "Downloading RVM from ${_repo} branch ${_branch}"
-  if curl -L https://github.com/${_repo}/rvm/tarball/${_branch} -o ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz
+  get_and_unpack \
+    https://github.com/${_repo}/rvm/tarball/${_branch} \
+    ${_repo}-rvm-${_branch}.tgz \
+    ${_repo}-rvm-
+}
+
+get_and_unpack()
+{
+  typeset _url _file _patern
+  _url=$1
+  _file=$2
+  _patern=$3
+
+  if curl -L ${_url} -o ${rvm_archives_path}/${_file}
   then
     true
   else
@@ -174,7 +124,7 @@ install_head()
     case $ret in
       (60)
         log "
-Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'.
+Could not download '${_url}'.
   Make sure your certificates are up to date as described above.
   To continue in insecure mode run 'echo insecure >> ~/.curlrc'.
 "
@@ -182,7 +132,7 @@ Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'.
         ;;
       (*)
         log "
-Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'.
+Could not download '${_url}'.
   curl returned status '$ret'.
 "
         return 1
@@ -198,18 +148,18 @@ Could not download 'https://github.com/${_repo}/rvm/tarball/${_branch}'.
   fi
 
   rm -rf ${rvm_src_path}/rvm/*
-  if ! $rvm_tar_command xzf ${rvm_archives_path}/${_repo}-rvm-${_branch}.tgz ${rvm_tar_options:-}
+  if ! $rvm_tar_command xzf ${rvm_archives_path}/${_file} ${rvm_tar_options:-}
   then
     log "Could not extract RVM sources."
     return 3
   fi
 
-  if ! mv ${_repo}-rvm-*/* .
+  if ! mv ${_patern}*/* .
   then
     log "Could not move RVM sources path."
     return 4
   fi
-  rm -rf ${_repo}-rvm-*
+  rm -rf ${_patern}*
 }
 
 # Tracing, if asked for.
@@ -298,40 +248,22 @@ do
       ;;
 
     --version)
-      case "$1" in
-        +([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
-          version="$1"
-          ;;
-        latest)
-          version="latest"
-          ;;
-        stable)
-          version="head"
-          branch="stable"
-          ;;
-        head|master)
-          version="head"
-          branch="master"
-          ;;
-        *)
-          fail "--version must be followed by a vaild version number x.y.z"
-          ;;
-      esac
+      version="$1"
       shift
       ;;
 
-    +([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
-      version="$token"
-      ;;
-
-    stable)
-      version="head"
-      branch="stable"
-      ;;
-
-    head|master)
+    head)
       version="head"
       branch="master"
+      ;;
+
+    stable|master)
+      version="head"
+      branch="$token"
+      ;;
+
+    latest|latest-*|+([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
+      version="$token"
       ;;
 
     help|usage)
@@ -373,13 +305,17 @@ case "${version}" in
     ;;
 
   (latest)
-    fetch_version
-    install_release
+    install_release $(fetch_version "")
+    ;;
+
+  (latest-*)
+    install_release $(fetch_version "${version#latest-}")
     ;;
 
   (+([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
-    install_release
+    install_release ${version}
     ;;
+
   (*)
     fail "Something went wrong, unrecognized version '$version'"
     ;;
@@ -400,7 +336,6 @@ if (( rvm_auto_flag == 1 ))
 then flags+=("--auto")
 fi
 
-chmod +x ./scripts/install
-
 # Now we run the RVM installer.
+chmod +x ./scripts/install
 ./scripts/install ${flags[*]} --path "$rvm_path"
