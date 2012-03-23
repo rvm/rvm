@@ -1,107 +1,15 @@
 #!/usr/bin/env bash
 
 source "$rvm_scripts_path/base"
-source "$rvm_scripts_path/version"
 
 get_usage()
 {
   cat -v "$rvm_help_path/get"
 }
 
-#
-# TODO: There is a lot of redundency in the get_X() functions, reduce it.
-#
-
-get_latest()
+get_via_installer()
 {
-  typeset version_url stable_version archive current
-
-  version_url="https://rvm.beginrescueend.com/releases/stable-version.txt"
-
-  stable_version=$(curl -s -B $version_url)
-
-  current=${rvm_version}
-
-  rvm_warn "
-\`rvm get latest\` is deprecated, please use \`rvm get stable\`.
-
-    stable = latest + patches
-"
-
-  if [ $stable_version != $current ]
-  then
-
-    [[ ! -d "$rvm_src_path" ]] && mkdir -p "$rvm_src_path/"
-    [[ ! -d "$rvm_archives_path" ]] && mkdir -p "$rvm_archives_path/"
-
-    get_version $stable_version
-
-  else
-    echo "You already have the latest version!"
-  fi
-}
-
-get_version()
-{
-  version="$1"
-
-  md5=$(curl -s -B https://rvm.beginrescueend.com/releases/rvm-${version}.tar.gz.md5 2>/dev/null)
-
-  echo "rvm-${version}"
-
-  archive="$rvm_archives_path/rvm-${version}.tar.gz"
-
-  curl -L "https://rvm.beginrescueend.com/releases/rvm-${version}.tar.gz" \
-    -o "$archive"
-  case "$(uname)" in
-    Darwin|FreeBSD)
-      archive_md5="$(/sbin/md5 -q "${archive}")"
-      ;;
-    OpenBSD)
-      archive_md5="$(/bin/md5 -q "${archive}")"
-      ;;
-    Linux|*)
-      archive_md5="$(md5sum "${archive}")"
-      archive_md5="${archive_md5%% *}"
-      ;;
-  esac
-
-  if [[ "$archive_md5" != "$md5" ]]; then
-    printf "%b" "ERROR:
-    Archive package rvm-${version}.tar.gz downloaded does not match its md5 checksum ${md5}.
-    Aborting RVM Installation.
-  "
-    exit 1
-  fi
-
-  $rvm_tar_command xzf "${rvm_path}/archives/rvm-${version}.tar.gz" -C "$rvm_src_path/" ${rvm_tar_options:-}
-
-  (
-    cd "$rvm_src_path/rvm-${version}"
-
-    chmod +x ./scripts/install
-
-    ./scripts/install $args
-  )
-
-  rvm_log "\nInstalled RVM version:"
-  ( source $rvm_scripts_path/rvm ; rvm --version )
-
-  rvm_hook="after_update"
-
-  source "$rvm_scripts_path/hook"
-}
-
-get_head()
-{
-  (
-    export PATH
-    PATH="$PATH:${rvm_bin_path:-$rvm_path/bin}"
-    rvm-installer --branch $1 $args
-  ) || return $?
-
-  rvm_log "\nInstalled RVM $1 version:"
-  ( source $rvm_scripts_path/rvm ; rvm --version )
+  bash -s -- $@ < <(curl -s https://raw.github.com/wayneeseguin/rvm/master/binscripts/rvm-installer) || return $?
 
   typeset -x rvm_hook
   rvm_hook="after_update"
@@ -116,32 +24,33 @@ action="${args[$__array_start]}"
 args[$__array_start]=""
 args=(${args[@]})
 
+# handle rvm get --auto head, --auto goes to the end
+if [[ "$action" == "--auto" ]]
+then
+  action="${args[$__array_start]}"
+  args[$__array_start]=""
+  args=(${args[@]} --auto)
+fi
+
 case "$action" in
-  (latest)
-    get_latest
+  (latest|latest-*|[0-9]*.[0-9]*.[0-9]*)
+    get_via_installer --version $action ${args[@]}
     ;;
 
-  (head|master)
-    get_head master
+  (version)
+    get_via_installer --version ${args[@]}
     ;;
 
-  (stable)
-    get_head stable
+  (stable|master)
+    get_via_installer --branch $action ${args[@]}
+    ;;
+
+  (head)
+    get_via_installer --branch master ${args[@]}
     ;;
 
   (branch)
-    args[$__array_start]=""
-    args=(${args[@]})
-    get_head $2
-    ;;
-
-  ([0-9]*.[0-9]*.[0-9]*)
-    get_version "$action"
-    ;;
-
-  # hack ... we will make it working properly in rvm2
-  (--auto)
-    exec $0 ${args[@]} --auto
+    get_via_installer --branch ${args[@]}
     ;;
 
   (help)

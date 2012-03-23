@@ -99,8 +99,6 @@ __rvm_install_source()
     __rvm_select
   fi
 
-  __rvm_setup_compile_environment
-
   rvm_log "Installing Ruby from source to: $rvm_ruby_home, this may take a while depending on your cpu(s)...\n"
 
   builtin cd "${rvm_src_path}"
@@ -243,6 +241,18 @@ __rvm_install_source()
     return $result
   fi
 
+  case "${rvm_ruby_string:-""}" in
+    ruby-1.8.4|ruby-1.8.5-*)
+      typeset libdir
+      libdir="$rvm_ruby_home/lib"
+      if [[ -d "${libdir}64" ]]
+      then
+        rm -rf "${libdir}"
+        ln -s "${libdir}64" "${libdir}"
+      fi
+    ;;
+  esac
+
   : rvm_configure_flags:${rvm_configure_flags:=}:
   case "${rvm_configure_flags}" in
     (*--program-suffix=*)
@@ -363,6 +373,19 @@ __rvm_fetch_from_github()
 {
   __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
 
+  if [[ -d "${rvm_repos_path}/${rvm_ruby_interpreter}/.git" ]]
+  then
+    typeset existing_uri
+    existing_uri="$(
+      cd "${rvm_repos_path}/${rvm_ruby_interpreter}" >/dev/null
+      git remote -v 2>/dev/null | awk '/^origin.*fetch/ {print $2}'
+    )"
+    if [[ "$rvm_ruby_repo_url" != "$existing_uri" ]]
+    then
+      \rm -rf "${rvm_repos_path}/${rvm_ruby_interpreter}"
+    fi
+  fi
+
   if [[ ! -d "${rvm_repos_path}/${rvm_ruby_interpreter}/.git" ]]
   then
     if [[ -d "${rvm_repos_path}/${rvm_ruby_interpreter}" ]]
@@ -444,12 +467,18 @@ __rvm_fetch_ruby()
 
     rvm_ruby_package_file="${rvm_ruby_package_file:-"$rvm_ruby_package_name"}"
 
-    if [[ "ruby" == "$rvm_ruby_interpreter" ]]
-    then
-      rvm_archive_extension="${rvm_archive_extension:-tar.bz2}"
-    else
-      rvm_archive_extension="${rvm_archive_extension:-tar.gz}"
-    fi
+
+    case "$rvm_ruby_string" in
+      (ruby-1.8.4*)
+        rvm_archive_extension="${rvm_archive_extension:-tar.gz}"
+        ;;
+      (ruby-*)
+        rvm_archive_extension="${rvm_archive_extension:-tar.bz2}"
+        ;;
+      (*)
+        rvm_archive_extension="${rvm_archive_extension:-tar.gz}"
+        ;;
+    esac
 
     if [[ ! -s "${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension" ]]
     then
@@ -535,7 +564,7 @@ __rvm_fetch_ruby()
 
       __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
 
-      mv "${rvm_tmp_path:-/tmp}/rvm_src_$$/$(builtin cd ${rvm_tmp_path:-/tmp}/rvm_src_$$ ; ls)" \
+      mv "${rvm_tmp_path:-/tmp}/rvm_src_$$/$(builtin cd ${rvm_tmp_path:-/tmp}/rvm_src_$$ ; \ls )" \
         "${rvm_src_path}/$rvm_ruby_string"
 
       __rvm_rm_rf "${rvm_tmp_path:-/tmp}/rvm_src_$$"
@@ -561,7 +590,7 @@ __rvm_fetch_ruby()
         ruby)
           # Determine Branch
           if [[ -z "${rvm_ruby_repo_branch:-}" ]]
-            then
+          then
             if [[ -n "${rvm_ruby_major_version:-}" ]]
             then
               if [[ -n "${rvm_ruby_minor_version:-}" ]]
@@ -680,7 +709,7 @@ __rvm_fetch_ruby()
       then
         (
           cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
-          git checkout -f ${rvm_ruby_sha#s}
+          git checkout -f "${rvm_ruby_sha}"
         )
         result=$?
 
@@ -972,7 +1001,7 @@ __rvm_remove_archives()
   if (( ${rvm_archive_flag:=0} == 1 ))
   then
     rvm_log "Removing $rvm_ruby_string archives..."
-    rm -f "${rvm_archives_path}/${rvm_ruby_package_file}.*"
+    rm -f ${rvm_archives_path}/${rvm_ruby_package_file}.*
   fi
 }
 

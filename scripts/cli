@@ -194,10 +194,17 @@ __rvm_parse_args()
 
 
           do|exec|gem|rake|ruby)
+            if [[ "$rvm_token" == "ruby" ]] && [[ "$rvm_action" == "install" || "$rvm_action" == "use" ]]
+            then
+              rvm_ruby_string=ruby
+              rvm_ruby_strings=ruby
+              continue
+            fi
             if [[ -z "$next_token" ]]
             then
-                rvm_action="error"
-                rvm_error_message="'rvm $rvm_action' must be followed by arguments."
+              rvm_action="error"
+              rvm_error_message="'rvm $rvm_token' must be followed by arguments."
+              break
             fi
             rvm_action="do"
             rvm_parse_break=1
@@ -304,6 +311,12 @@ __rvm_parse_args()
           group)
             rvm_action="group"
             rvm_ruby_args="$next_token $@"
+            rvm_parse_break=1
+            ;;
+
+          alt*)
+            rvm_action="help"
+            rvm_ruby_args="alt.md"
             rvm_parse_break=1
             ;;
 
@@ -494,6 +507,12 @@ __rvm_parse_args()
             shift
             ;;
 
+          --sha)
+            rvm_ruby_sha="$next_token"
+            next_token="${1:-""}"
+            shift
+            ;;
+
           --repository|--repo|--url)
             rvm_ruby_repo_url="$next_token"
             next_token="${1:-""}"
@@ -680,7 +699,13 @@ __rvm_parse_args()
             export "rvm_${rvm_token}_flag"=1
             ;;
 
-          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--rvmrc|--sticky|--create|--gems|--docs|--skip-autoreconf|--18|--19|--force-autoconf|--auto)
+          --rvmrc|--versions-conf|--ruby-version)
+            rvm_token=${rvm_token#--}
+            rvm_token=${rvm_token//-/_}
+            export rvm_rvmrc_flag="${rvm_token}"
+            ;;
+
+          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--18|--19|--force-autoconf|--auto|--autoinstall-bundler)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
             export "rvm_${rvm_token}_flag"=1
@@ -890,23 +915,19 @@ rvm()
       ;;
 
     get)
-      if (( $# > 0 ))
-      then
-        next_token="$1"
-        shift
-      else
-        next_token=""
-      fi
+      next_token="${1:-}"
+      (( $# > 0 )) && shift
+      [[ "$next_token" == "${rvm_action}" ]] && shift
 
-      if [[ "$next_token" == "${rvm_action}" ]]
-      then
-        shift
-      fi
       tmpdir=${TMPDIR:-/tmp}
       \cp -f "$rvm_scripts_path/get" $tmpdir/$$
-      "$SHELL" "$tmpdir/$$" $rvm_ruby_args
+      if "$SHELL" "$tmpdir/$$" $rvm_ruby_args
+      then
+        rvm_reload_flag=1
+      else
+        rvm_error "Could not update RVM, get some help at #rvm IRC channel at freenode servers."
+      fi
       \rm -f $tmpdir/$$
-      rvm_reload_flag=1
       ;;
 
     help|rtfm|env|current|list|gemdir|gemhome|gempath|monitor|notes|package|extract|pkg|requirements)
@@ -1012,7 +1033,12 @@ rvm()
       then
         typeset save_ruby
         selected_ruby="$( __rvm_select && echo $rvm_env_string )"
-        if (( ${rvm_force_flag:-0} == 0 )) && "$rvm_scripts_path"/list strings | grep "^${selected_ruby}$" > /dev/null
+        if [[ -z "${selected_ruby}" ]]
+        then
+          rvm_error "Could not detect ruby version/name for installation, please be more specific."
+          false #report error
+
+        elif (( ${rvm_force_flag:-0} == 0 )) && "$rvm_scripts_path"/list strings | grep "^${selected_ruby}$" > /dev/null
         then
           rvm_log "Already installed ${selected_ruby}.
 To reinstall use:

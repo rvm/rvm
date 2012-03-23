@@ -89,6 +89,19 @@ ruby_install()
       ;;
   esac
 
+  # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
+  case "$(uname -s)" in
+    SunOS)
+      case ${rvm_ruby_string} in
+        ruby-1.9*)
+          rvm_configure_flags="${rvm_configure_flags:-} ac_cv_func_dl_iterate_phdr=no"
+          ;;
+      esac
+    ;;
+  esac
+
+  __rvm_setup_compile_environment
+
   # Force using clang when only LLVM available and user did not selected compiler,
   # hides the need for `rvm_force_autoconf=1`
   # which should be default, but is not by default available on Xcode 4.3.
@@ -116,6 +129,18 @@ ruby_install()
   if ! __clang_ready &&__rvm_compiler_is_llvm
   then
     rvm_warn "Ruby '${rvm_ruby_string}' was build using clang - but it's not (fully) supported, expect errors."
+  fi
+
+  typeset patches_count
+  patches_count=$(
+    rvm_ruby_string="${rvm_ruby_string}" "$rvm_scripts_path/patchsets" show default | wc -l
+  )
+  # 1.9.3 provides a patch to compile better with LLVM
+  if [[ ! "${rvm_ruby_string}" =~ "ruby-1.9.3" ]] && (( patches_count > 0 ))
+  then
+    rvm_warn "Please be aware that you just installed a ruby that requires ${patches_count} patches just to be compiled on up to date linux system.
+This may have known and unaccounted for security vulnerabilities.
+Please consider upgrading to Ruby $(__rvm_db "ruby_version")-$(__rvm_db "ruby_patchlevel") which will have all of the latest security patches."
   fi
 
   return ${result:-0}

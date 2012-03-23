@@ -24,6 +24,19 @@ gemset_list_all()
   unset rvm_ruby_string
 }
 
+gemset_list_strings()
+{
+  typeset gem_string
+  for rvm_ruby_string in $( rvm_project_rvmrc=0 rvm list strings )
+  do
+    for gem_string in "${rvm_gems_path:-${rvm_path}/gems}/${rvm_ruby_string}${rvm_gemset_separator:-@}"*
+    do
+      printf "%b" "${gem_string##*/}\n"
+    done
+  done
+  unset rvm_ruby_string
+}
+
 gemset_update()
 {
 
@@ -899,11 +912,11 @@ gemset_pristine()
 {
   if ( unset -f gem ; builtin command -v gem > /dev/null )
   then
-    typeset _gem _version
+    typeset _gem _version _platforms
     typeset -a _failed
     rvm_log "Restoring gems to pristine condition..."
 
-    while read _gem _version
+    while read _gem _version _platforms
     do
       printf "%b" "${_gem}-${_version} " | tee /dev/stderr
       if ! gem pristine ${_gem} --version ${_version} >/dev/null
@@ -911,8 +924,8 @@ gemset_pristine()
       fi
     done < <(
       GEM_PATH="$GEM_HOME" gem list |
-        sed '/\*\*\*/ d ; /^$/ d; s/ //g;' |
-        awk -F '[(),]' '{for(i=2;i<NF;i++) print $1" "$i }'
+        sed '/\*\*\*/ d ; /^$/ d; s/ (/,/; s/, /,/g; s/)//;' |
+        awk -F ',' '{for(i=2;i<=NF;i++) print $1" "$i }'
     )
 
     if (( ${#_failed[@]} > 0 ))
@@ -1068,7 +1081,7 @@ case "$action" in
   export|dump)
     gemset_export
     ;;
-  create|copy|delete|dir|empty|initial|list|list_all|prune|rename|update|unpack)
+  create|copy|delete|dir|empty|initial|list|list_all|list_strings|prune|rename|update|unpack)
     gemset_$action
     ;;
   name|string)

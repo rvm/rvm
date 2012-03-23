@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+####################################################
+# Signing compiled ruby for OSX, for details visit #
+# https://rvm.beginrescueend.com/rubies/codesign/  # 
+####################################################
+
+# Go to subprocess so we can use returns and 'use' ruby temporarily
+(
+  # Require Mac OS
+  [[ "$(/usr/bin/uname -s 2>/dev/null)" == Darwin ]] || return 1
+
+  # Require 10.7 - FIXME: Should be 10.7 or newer.
+  [[ "$(/usr/bin/sw_vers -productVersion)" == 10.7* ]] || return 2
+
+  # Require rvm_codesign_identity
+  [[ -n "${rvm_codesign_identity:-}" ]] || {
+    rvm_warn "'rvm_codesign_identity' is not set, please set it in ~/.rvmrc"
+    return 3
+  }
+
+  # Require using ruby - btw this should not happen
+  __rvm_use || {
+    rvm_warn "can not use ruby which was just installed ... so can not sign it neither"
+    return 4
+  }
+
+  # Find out ruby executable to sign
+  typeset _ruby_name
+  _ruby_name="$(sed -n '/^ruby_install_name=/ {s/ruby_install_name="\(.*\)"/\1/; p; };' "$MY_RUBY_HOME/config" )"
+
+  # Sign ruby
+  /usr/bin/codesign -f -s "${rvm_codesign_identity}" "$(which "${_ruby_name}")"
+)

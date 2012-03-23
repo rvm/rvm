@@ -16,7 +16,11 @@ Capistrano::Configuration.instance(true).load do
   set :default_shell do
     shell = File.join(rvm_bin_path, "rvm-shell")
     ruby = rvm_ruby_string.to_s.strip
-    shell = "rvm_path=#{rvm_path} #{shell} '#{ruby}'" unless ruby.empty?
+    if "#{ruby}" == "release_path"
+      shell = "rvm_path=#{rvm_path} #{shell} --path '#{release_path}'"
+    else
+      shell = "rvm_path=#{rvm_path} #{shell} '#{ruby}'" unless ruby.empty?
+    end
     shell
   end
 
@@ -52,6 +56,57 @@ Capistrano::Configuration.instance(true).load do
 
   # Use the default ruby on the server, by default :)
   _cset(:rvm_ruby_string, "default")
+
+  # Let users set the install type and shell of their choice.
+  _cset(:rvm_install_type, :stable)
+  _cset(:rvm_install_shell, :bash)
+
+  # Let users set the (re)install for ruby.
+  _cset(:rvm_install_ruby, :install)
+  _cset(:rvm_install_ruby_threads, "$(cat /proc/cpuinfo | grep vendor_id | wc -l)")
+
+  namespace :rvm do
+    desc <<-EOF
+      Install RVM of the given choice to the server.
+      By default RVM "stable" is installed, change with:
+
+      set :rvm_install_type, :head
+
+      By default BASH is used for installer, change with:
+
+      set :rvm_install_shell, :zsh
+    EOF
+    task :install_rvm do
+      run "#{rvm_install_shell} -s #{rvm_install_type} \
+< <(curl -s https://raw.github.com/wayneeseguin/rvm/master/binscripts/rvm-installer)", :shell => "#{rvm_install_shell}"
+    end
+
+    desc <<-EOF
+      Install RVM ruby to the server, create gemset if needed.
+      By default ruby is installed, you can reinstall with:
+
+      set :rvm_install_ruby, :reinstall
+
+      By default ruby is compiled using all CPU cores, change with:
+
+      set :rvm_install_ruby_threads, :reinstall
+
+      By default BASH is used for installer, change with:
+
+      set :rvm_install_shell, :zsh
+    EOF
+    task :install_ruby do
+      ruby, gemset = rvm_ruby_string.to_s.strip.split /@/
+      if %w( release_path default ).include? "#{ruby}"
+        raise "ruby can not be installed when using :rvm_ruby_string => :#{ruby}"
+      else
+        run "#{File.join(rvm_bin_path, "rvm")} #{rvm_install_ruby} #{ruby} -j #{rvm_install_ruby_threads}", :shell => "#{rvm_install_shell}"
+        if gemset
+          run "#{File.join(rvm_bin_path, "rvm")} #{ruby} do rvm gemset create #{gemset}", :shell => "#{rvm_install_shell}"
+        end
+      end
+    end
+  end
 end
 
 # E.g, to use ree and rails 3:

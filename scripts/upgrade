@@ -55,101 +55,125 @@ expand_ruby_name()
     | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}'
 }
 
-expand_existing_ruby()
+existing_ruby_patch()
 {
-  typeset prefix ruby_name
+  if "$rvm_scripts_path/list" strings | grep "^$1$" >/dev/null
+  then
+    echo "$1"
+  else
+    (
+      rvm_ruby_string="$1"
+      __rvm_ruby_string
+      if "$rvm_scripts_path/list" strings | grep "^${rvm_ruby_interpreter}-${rvm_ruby_version}-" >/dev/null
+      then
+        "$rvm_scripts_path/list" strings | grep "^${rvm_ruby_interpreter}-${rvm_ruby_version}-" | sort | tail -n 1
+      else
+        "$rvm_scripts_path/list" strings | grep "^${rvm_ruby_interpreter}-" | sort | tail -n 1
+      fi
+    )
+  fi
+}
 
-  prefix="$(expand_ruby_name "$1" | awk -F'-' '{print $1"-"$2}')"
+highest_ruby_patch()
+{
+  typeset patch_level _version
+  (
+    rvm_ruby_string=$1
+    __rvm_ruby_string
 
-  while read -r ruby_name
-  do
-    if [[ "$ruby_name" != "$expanded_destination"* ]]
+    patch_level="$(
+      __rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level"
+    )"
+
+    _version="$(
+      __rvm_db "${rvm_ruby_interpreter}_version"
+    )"
+
+    if [[ -n "${patch_level:-""}" ]]
     then
-      echo "$ruby_name"
-      return 0
-    fi
-  done < <("$rvm_scripts_path/list" strings | tr ' ' '\n'  \
-    | sort -ur | \grep "^$prefix" | \grep -v '-head$' | head -n1)
+      case "$rvm_ruby_interpreter" in
+        ree|kiji|rbx)
+          # REE, Kiji & Rubinius use dates for their patch levels.
+          rvm_ruby_patch_level="${patch_level}"
+          ;;
+        *)
+          # MRI uses -pN+ to specify the patch level.
+          rvm_ruby_patch_level="p${patch_level}"
+          ;;
+      esac
 
-  return 1
+      echo ${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}
+    elif [[ -n "${_version:-""}" ]]
+    then
+      echo ${rvm_ruby_interpreter}-${_version}
+    else
+      echo ${rvm_ruby_interpreter}
+    fi
+  )
 }
 
 upgrade_ruby()
 {
+  [[ -n "$expanded_source"      ]] || die_with_error "The source ruby was not a valid ruby string."
+  [[ -n "$expanded_destination" ]] || die_with_error "The destination ruby was not a valid ruby string."
 
-  if [[ -z "$source_ruby" ]] ; then
-    die_with_error "Unable to find a source ruby. Please manually provide one."
-  fi
-
-  expanded_source="$(expand_ruby_name "$source_ruby")"
-
-  if [[ -z "$expanded_source" ]] ; then
-    die_with_error "The source ruby was not a valid ruby string."
-  fi
-
-  if ! confirm "Are you sure you wish to upgrade from $expanded_source to \
-    $expanded_destination?" ; then
+  if ! confirm \
+    "Are you sure you wish to upgrade from $expanded_source to $expanded_destination?"
+  then
     die_with_error "Cancelling upgrade."
   fi
 
-  if [[ ! -d "$rvm_rubies_path/$expanded_destination" ]]; then
-
+  if [[ ! -d "$rvm_rubies_path/$expanded_destination" ]]
+  then
     rvm_log "Installing new ruby $expanded_destination"
 
-    "${rvm_bin_path}/rvm" install "$expanded_destination"
-
-    result="$?"
-
-    if [[ "$result" -gt 0 ]] ; then
-      die_with_error "Unable to install ruby $expanded_destination. \
-        Please install it manually to continue." "$result"
+    if "${rvm_bin_path}/rvm" install "$expanded_destination"
+    then
+      true
+    else
+      die_with_error "Unable to install ruby $expanded_destination. Please install it manually to continue." $?
     fi
-
   fi
 
   rvm_log "Migrating gems from $expanded_source to $expanded_destination"
 
-  "$rvm_scripts_path/migrate" "$expanded_source" "$expanded_destination"
-  result="$?"
-
-  [[ "$result" -gt 0 ]] && die_with_error "Error migrating gems." "$result"
+  "$rvm_scripts_path/migrate" "$expanded_source" "$expanded_destination" || die_with_error "Error migrating gems." "$result"
 
   rvm_log "Upgrade complete!"
 }
 
 args=($*)
 
-source_ruby="${args[$__array_start]:-"$(expand_existing_ruby "$destination_ruby")"}"
+source_ruby="${args[$__array_start]:-}"
 args[$__array_start]=""
 args=(${args[@]})
 
-destination_ruby="${args[$__array_start]}"
+destination_ruby="${args[$__array_start]:-}"
 args[$__array_start]=""
 args=(${args[@]})
 
+expanded_source="$(existing_ruby_patch "$source_ruby")"
 
-if [[ -z "${source_ruby:-""}" ]] ; then
+if [[ -n "$source_ruby" && -z "$destination_ruby" ]]
+then
+  highest_source="$(highest_ruby_patch "$(expand_ruby_name "$source_ruby")")"
+  if [[ "${expanded_source}" != "${highest_source}" ]]
+  then
+    destination_ruby="$(expand_ruby_name "$highest_source")"
+  fi
+fi
+
+if [[ -z "$source_ruby" || -z "$destination_ruby" ]]
+then
   usage >&2
   exit 1
-fi
 
-if [[ "help" == "$source_ruby" ]] ; then
+elif [[ "help" == "$source_ruby" ]]
+then
   usage
-  exit 0
+
+else
+  expanded_destination="$(expand_ruby_name "$destination_ruby")"
+  upgrade_ruby
+
 fi
-
-expanded_destination="$(expand_ruby_name "$destination_ruby")"
-
-if [[ -z "$source_ruby" ]] ; then
-  die_with_error \
-    "Source ruby was either not a recognized ruby string or not installed."
-fi
-
-if [[ -z "$expanded_destination" ]] ; then
-  die_with_error \
-    "Destination ruby is not a known ruby string."
-fi
-
-upgrade_ruby
-
-exit $?

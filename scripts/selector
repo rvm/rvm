@@ -282,8 +282,14 @@ __rvm_select()
       ;;
 
     ruby)
-      rvm_ruby_package_file="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
-      rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
+      if [[ -n "${rvm_ruby_patch_level}" ]]
+      then
+        rvm_ruby_package_file="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
+        rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
+      else
+        rvm_ruby_package_file="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+        rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+      fi
 
       if [[ -z "${rvm_ruby_version:-""}" ]] && (( ${rvm_head_flag:=0} == 0 ))
       then
@@ -292,7 +298,14 @@ __rvm_select()
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-"$(__rvm_db "ruby_repo_url")"}"
         if (( ${rvm_head_flag:=0} == 0 ))
         then
-          rvm_archive_extension="tar.bz2"
+          case "${rvm_ruby_version}" in
+            (1.8.4)
+              rvm_archive_extension="tar.gz"
+              ;;
+            (*)
+              rvm_archive_extension="tar.bz2"
+              ;;
+          esac
         fi
       fi
       ;;
@@ -506,17 +519,12 @@ __rvm_use()
 
     if [[ ! -d "$MY_RUBY_HOME" ]]
     then
-      if [[ "$rvm_ruby_interpreter" == "$rvm_ruby_string" ]]
-      then
-        rvm_warn "$rvm_ruby_string is not installed."
-      else
-        rvm_warn "$rvm_ruby_interpreter $rvm_ruby_string is not installed."
-      fi
-
       if [[ ${rvm_install_on_use_flag:-0} -eq 1 ]]
       then
+        rvm_warn "$rvm_ruby_string is not installed."
         "$rvm_scripts_path/manage" "install" "$rvm_ruby_string"
       else
+        rvm_error "$rvm_ruby_string is not installed."
         rvm_log "To install do: 'rvm install $rvm_ruby_string'"
         return 1
       fi
@@ -553,10 +561,11 @@ __rvm_use()
 
   if [[ "$rvm_ruby_string" != "system" ]]
   then
-    if (( ${rvm_rvmrc_flag:=0} == 1 ))
-    then
-      __rvm_set_rvmrc
-    fi
+    case "${rvm_rvmrc_flag:-0}" in
+      (rvmrc|versions_conf|ruby_version)
+        __rvm_set_${rvm_rvmrc_flag}
+        ;;
+    esac
 
     typeset environment_id
     environment_id="$(__rvm_env_string)"
@@ -760,7 +769,7 @@ __rvm_ruby_string()
           then
             rvm_ruby_patch_level="${string}"
           else
-            rvm_error "Unknown ruby interpreter string component: '$string'"
+            rvm_error "Unknown ruby interpreter string component: '$string'."
             return 1
           fi
         else
@@ -777,14 +786,14 @@ __rvm_ruby_string()
                   rvm_ruby_version="$string"
                   ;;
                 (*)
-                  rvm_error "Unknown ruby interpreter version: '$string'"
+                  rvm_error "Unknown ruby interpreter version: '$string'."
                   return 1
                   ;;
               esac
               ;;
 
             (*)
-              rvm_error "Unknown ruby interpreter version: '$string'"
+              rvm_error "Unknown ruby interpreter version: '$string'."
               return 1
               ;;
           esac
@@ -831,7 +840,7 @@ __rvm_ruby_string()
 
       (s[[:alnum:]]*)
         rvm_ruby_revision=""
-        rvm_ruby_sha="$string"
+        rvm_ruby_sha="${string#s}"
         ;;
 
       (tv[[:digit:]]*|t[[:digit:]]*)
@@ -866,7 +875,7 @@ __rvm_ruby_string()
         ;;
 
       (*)
-        rvm_error "Unknown ruby interpreter string component: '$string'"
+        rvm_error "Unknown ruby interpreter string component: '$string'."
         return 1
         ;;
     esac
@@ -878,8 +887,12 @@ __rvm_ruby_string()
     case "$rvm_ruby_version" in
       (1.[8-9]*) rvm_ruby_interpreter="ruby"    ;;
       (0.[5-6]*) rvm_ruby_interpreter="macruby" ;;
-      ([1-2].[0-4]*) rvm_ruby_interpreter="rbx" ;;
+      (1.[0-4]*) rvm_ruby_interpreter="rbx"     ;;
       (1.[5-7]*) rvm_ruby_interpreter="jruby"   ;;
+      (2.*)
+        rvm_error "Version '$rvm_ruby_version' is to confusing to select ruby interpreter."
+        return 2
+        ;;
     esac
   fi
 
@@ -899,14 +912,13 @@ __rvm_ruby_string()
     rvm_ruby_string="${rvm_ruby_interpreter}-${rvm_ruby_version}"
   fi
 
-  # Head
-  if (( ${rvm_head_flag:=0} == 1 ))
-  then
-    rvm_ruby_string="${rvm_ruby_string}-head"
-
-  elif [[ "${rvm_ruby_interpreter}" == "ext" ]]
+  if [[ "${rvm_ruby_interpreter}" == "ext" ]]
   then
     true # skip checking for external rubies
+
+  elif (( ${rvm_head_flag:=0} == 1 ))
+  then
+    rvm_ruby_string="${rvm_ruby_string}-head"
 
   elif [[ -n "${rvm_ruby_revision:-}" ]]
   then
@@ -914,7 +926,7 @@ __rvm_ruby_string()
 
   elif [[ -n "${rvm_ruby_sha:-}" ]]
   then
-    rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_sha}"
+    rvm_ruby_string="${rvm_ruby_string}-s${rvm_ruby_sha}"
 
   elif [[ -n "${rvm_ruby_tag:-}" ]]
   then
