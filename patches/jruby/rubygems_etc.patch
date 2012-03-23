@@ -1,0 +1,38 @@
+--- jruby/lib/ruby/shared/rubygems/config_file.rb
++++ jrub-fix/lib/ruby/shared/rubygems/config_file.rb
+@@ -25,6 +25,8 @@
+ # +:sources+:: Sets Gem::sources
+ # +:verbose+:: See #verbose
+ 
++require 'rbconfig'
++
+ class Gem::ConfigFile
+ 
+   DEFAULT_BACKTRACE = false
+@@ -68,7 +70,7 @@
+ 
+         path.strip
+       rescue LoadError
+-        "/etc"
++        RbConfig::CONFIG["sysconfdir"] || "/etc"
+       end
+     end
+ 
+--- jruby/bin/jgem
++++ jruby-fix/bin/jgem
+@@ -9,6 +9,15 @@
+ # See LICENSE.txt for permissions.
+ #++
+ 
++# The prelude in 1.9.1 injects rubygems.rb into $LOADED_FEATURES
++# which prevents the `require 'rubygems'` from actually loading
++# the site's version of rubygems. So we have to use it's API
++# to get it's prelude out of the way.
++#
++if RUBY_VERSION =~ /^1\.9\.1/ && defined?(Gem::QuickLoader)
++  Gem::QuickLoader.load_full_rubygems_library
++end
++
+ require 'rubygems'
+ require 'rubygems/gem_runner'
+ require 'rubygems/exceptions'
