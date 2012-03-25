@@ -132,36 +132,6 @@ __rvm_ensure_has_environment_files()
   return 0
 }
 
-# Dump the current environment to a file.
-__rvm_dump_environment()
-{
-  # Note: This assumes that there is a ','
-  typeset dump_environment_file dump_environment_type
-
-  dump_environment_file="${rvm_dump_environment_flag/,*/}"
-
-  dump_environment_type="${rvm_dump_environment_flag/*,/}"
-
-  if [[ -n "$dump_environment_file" && -n "$dump_environment_type" ]]
-  then
-    if [[ "$dump_environment_type" == "atheis"* && -f "$dump_environment_file" ]]
-    then
-      # TODO: Query Darcy about the ln.
-      \rm -f "$dump_environment_file" \
-        && ln -s /dev/null "$dump_environment_file" >/dev/null 2>&1
-    else
-      "$rvm_scripts_path/environment-convertor" "$dump_environment_type" \
-        "$(__rvm_env_string)" > "$dump_environment_file"
-      if (( $? > 0 )) && [[ -f "$dump_environment_file" ]]
-      then
-        \rm -f "$dump_environment_file"
-      fi
-    fi
-  fi
-
-  return 0
-}
-
 # Loop over the currently installed rubies and refresh their binscripts.
 __rvm_bin_scripts()
 {
@@ -262,6 +232,11 @@ __rvm_setup()
   then return 0
   fi
 
+  if [[ -n "${BASH_VERSION:-}" ]] && ! __function_on_stack cd pushd popd
+  then
+    trap 'status=$? ; __rvm_teardown_final ; set +x ; return $status' 0 1 2 3 15
+  fi
+
   if [[ -n "${ZSH_VERSION:-}" ]]
   then
     export rvm_zsh_clobber rvm_zsh_nomatch
@@ -282,9 +257,9 @@ __rvm_setup()
 
 __rvm_teardown()
 {
-  if [[ -d "${rvm_tmp_path}/$$" ]]
+  if builtin command -v __rvm_cleanup_tmp >/dev/null 2>&1
   then
-    __rvm_rm_rf "${rvm_tmp_path}/$$"
+    __rvm_cleanup_tmp
   fi
 
   export __rvm_env_loaded
@@ -299,6 +274,11 @@ __rvm_teardown()
     return 0
   fi
 
+  if [[ -n "${BASH_VERSION:-}" ]]
+  then
+    trap - 0 1 2 3 15 # Clear all traps, we do not want to go into an loop.
+  fi
+
   if [[ -n "${ZSH_VERSION:-""}" ]]
   then
     # If rvm_zsh_clobber is 0 then "setopt" contained "noclobber" before rvm performed "setopt clobber".
@@ -307,8 +287,6 @@ __rvm_teardown()
     (( rvm_zsh_nomatch == 0 )) || setopt nomatch
 
     unset rvm_zsh_clobber rvm_zsh_nomatch
-  else
-    : # currently we are not doing any option setting for bash.
   fi
 
   if [[ -n "${rvm_stored_umask:-}" ]]
@@ -330,19 +308,18 @@ __rvm_teardown()
   unset  rvm_ruby_strings rvm_ruby_binary rvm_ruby_gem_home rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_major_version rvm_ruby_minor_version rvm_ruby_package_name rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_repo_branch rvm_ruby_revision rvm_ruby_tag rvm_ruby_sha rvm_ruby_version rvm_ruby_require rvm_ruby_package_file rvm_ruby_name rvm_ruby_name rvm_ruby_args rvm_ruby_user_tag rvm_ruby_patch detected_rvm_ruby_name
   unset  __rvm_env_loaded next_token rvm_error_message rvm_gemset_name rvm_parse_break rvm_token rvm_action rvm_export_args rvm_gemset_separator rvm_expanding_aliases rvm_architectures rvm_patch_names rvm_tar_command rvm_tar_options rvm_ree_options rvm_patch_original_pwd rvm_project_rvmrc rvm_archive_extension rvm_autoinstall_bundler_flag rvm_codesign_identity
 
-  if (( ${rvm_dump_environment_flag:=0} == 1 ))
+  if builtin command -v __rvm_cleanup_download >/dev/null 2>&1
   then
-    __rvm_dump_environment
+    __rvm_cleanup_download
   fi
-
-  trap - 0 1 2 3 15 # Clear all traps.
 
   return 0
 }
 
 __rvm_teardown_final()
 {
-  unset __rvm_env_loaded
+  __rvm_env_loaded=1
+  unset __rvm_project_rvmrc_lock
   __rvm_teardown
 }
 
