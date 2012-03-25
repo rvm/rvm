@@ -819,24 +819,57 @@ rvm()
   typeset result current_result
   export -a rvm_ruby_args >/dev/null 2>/dev/null
 
-  next_token="$1"
-  [[ $# -eq 0 ]] || shift
+  if (( ${rvm_ignore_rvmrc:=0} == 0 ))
+  then
+    : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
+    for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
+    do
+      if [[ -f "$rvmrc" ]]
+      then
+        if \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
+        then
+          printf "%b" "
+Error:
+        $rvmrc is for rvm settings only.
+        rvm CLI may NOT be called from within $rvmrc.
+        Skipping the loading of $rvmrc"
+          return 1
+        else
+          source "$rvmrc"
+        fi
+      fi
+    done
+  fi
+
+  disk_version="$(cat "$rvm_path/VERSION") ($(cat "$rvm_path/RELEASE" 2>/dev/null))"
+  if [[ -s "$rvm_path/VERSION" &&
+    "${rvm_version:-}" != "${disk_version:-}" &&
+    "reload" != "${1:-}" ]]
+  then
+    if [[ ${rvm_auto_reload_flag:-0} -gt 0 ]]
+    then
+      __rvm_project_rvmrc_lock=0
+      rvm_reload_flag=1
+      source "${rvm_scripts_path:-${rvm_path}/scripts}/rvm"
+    else
+      printf "%b" "
+A RVM version ${disk_version} is installed yet ${rvm_version} is loaded.
+Please do one of the following:
+  * 'rvm reload'
+  * open a new shell
+  * 'echo rvm_auto_reload_flag=1 >> ~/.rvmrc' # for auto reload with msg.
+  * 'echo rvm_auto_reload_flag=2 >> ~/.rvmrc' # for silent auto reload.
+
+"
+      return 1
+    fi
+  fi
 
   __rvm_initialize
   __rvm_setup
 
-  # Check that this is the current version, after rvm_path has been determined.
-  disk_version=$(cat "$rvm_path/VERSION" 2>/dev/null)
-  disk_version="${disk_version/%.}"
-
-  if [[ -n "${rvm_version:-""}" &&
-    "${rvm_version:-""}" != "${disk_version:-""}" &&
-    "reload" != "${next_token:-""}" ]]
-  then
-    printf "%b" "\nA RVM version ${disk_version} is installed yet ${rvm_version} is loaded.\n Please do one of the following:\n  * 'rvm reload'\n  * open a new shell\n\n"
-    return 1
-  fi
-
+  next_token="$1"
+  [[ $# -eq 0 ]] || shift
   __rvm_parse_args "$@"
   result=$?
 
