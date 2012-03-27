@@ -409,6 +409,11 @@ install_gemsets()
 {
   typeset gemset_files
 
+  if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 && -d "$rvm_path/gemsets" ]]
+  then
+    rm -rf "$rvm_path/gemsets"
+  fi
+
   if [[ -d gemsets/ ]]
   then
     if [[ ! -d "$rvm_path/gemsets" ]]
@@ -417,7 +422,7 @@ install_gemsets()
     fi
 
     gemset_files=($(
-    find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
+      find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
     ))
 
     for gemset_file in "${gemset_files[@]}"
@@ -434,6 +439,42 @@ install_gemsets()
         cp "$gemset_file" "$destination"
       fi
     done
+  fi
+}
+
+update_gemsets_install_rvm()
+{
+  typeset paths path found missing
+  typeset -a missing
+
+  if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 ]]
+  then
+    # rvm /gems
+    paths=($(
+      find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | sed 's/^\.\///'
+    ))
+
+    for path in "${paths[@]}"
+    do
+      # rvm /gems @global /gems
+      found=($(
+        find "${path%%+(\/)}/gems" -maxdepth 1 "${name_opt}" 'rvm-*' | sed 's/^\.\///'
+      ))
+      if (( ${#found[@]} == 0 ))
+      then
+        missing+=( "$path" )
+      fi
+    done
+
+    if (( ${#missing[@]} > 0 ))
+    then
+      printf "    Installing rvm gem in ${#missing[@]} gemsets "
+      for path in "${missing[@]}"
+      do
+        rvm "${path##*/}" do gem install rvm | awk '{printf "."}'
+      done
+      printf "\n"
+    fi
   fi
 }
 
