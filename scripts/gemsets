@@ -206,6 +206,33 @@ gemset_create()
   return 0
 }
 
+__gemset_list_single()
+{
+  typeset gemset current_gemset
+  gemset="$1"
+  current_gemset="$2"
+  gemset="${gemset##*${rvm_gemset_separator:-@}}"
+  [[ -n "${gemset}" ]] || gemset="(default)"
+  [[ -n "${current_gemset}" ]] || current_gemset="(default)"
+
+  if [[ "${gemset}" == "${current_gemset}" ]]
+  then
+    if [[ "${args[0]:-""}" != "strings" ]]
+    then
+      echo "=> ${gemset}"
+    else
+      echo "${gemset} (current)"
+    fi
+  else
+    if [[ "${args[0]:-""}" != "strings" ]]
+    then
+      echo "   ${gemset}"
+    else
+      echo "$gemset"
+    fi
+  fi
+}
+
 gemset_list()
 {
   if [[ ${rvm_ruby_selected_flag:-0} -eq 0 ]]
@@ -213,54 +240,28 @@ gemset_list()
     __rvm_select
   fi
 
-  if [[ "${args[0]:-""}" != "strings" ]]
-  then
-    rvm_log "\ngemsets for $rvm_ruby_string (found in ${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string)"
-  fi
-
-  if [[ -d "${rvm_gems_path:-"$rvm_path/gems"}" ]]
-  then
-    if [[ -n "${rvm_ruby_string:-""}" ]]
-    then
-      typeset current_gemset
-      current_gemset=$(__rvm_current_gemset)
-
-      # Figure out the active gemsets for this version.
-      for gemset in "${rvm_gems_path:-${rvm_path}/gems}/${rvm_ruby_string}${rvm_gemset_separator:-@}"*
-      do
-        gemset="${gemset##*${rvm_gemset_separator:-@}}"
-        if [[ "${gemset}" == "${current_gemset}" ]]
-        then
-          if [[ "${args[0]:-""}" != "strings" ]]
-          then
-            echo "=> ${gemset}"
-          else
-		        echo "${gemset} (default)"
-          fi
-        else
-	        if [[ "${args[0]:-""}" != "strings" ]]
-          then
-            echo "   ${gemset}"
-          else
-            echo $gemset
-          fi
-        fi
-      done
-    else
-      rvm_error "\$rvm_ruby_string is not set!"
-      return 1
-    fi
-  else
+  [[ -d "${rvm_gems_path:-"$rvm_path/gems"}" ]] || {
     rvm_error "${rvm_gems_path:-"$rvm_path/gems"} does not exist!"
     return 1
-  fi
+  }
+  [[ -n "${rvm_ruby_string:-""}" ]] || {
+    rvm_error "\$rvm_ruby_string is not set!"
+    return 1
+  }
 
-  if [[ "${args[0]:-""}" != "strings" ]]
-  then
-    printf "%b" "\n"
-  fi
+  typeset current_gemset
+  current_gemset=$(__rvm_current_gemset)
 
-  # on first use __rvm_ensure_has_environment_files will be called
+  [[ "${args[0]:-""}" == "strings" ]] ||
+    rvm_log "\ngemsets for $rvm_ruby_string (found in ${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string)"
+
+  for gemset in "${rvm_gems_path:-${rvm_path}/gems}/${rvm_ruby_string}${rvm_gemset_separator:-@}"*
+  do
+    __gemset_list_single "${gemset}" "${current_gemset}"
+  done
+
+  [[ "${args[0]:-""}" == "strings" ]] || printf "%b" "\n"
+
   return 0
 }
 
