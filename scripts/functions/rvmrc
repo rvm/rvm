@@ -106,14 +106,20 @@ __rvm_rvmrc_stored_trust()
 __rvm_rvmrc_tools()
 {
   export escape_flag
-  typeset rvmrc_action rvmrc_path saveIFS trust
+  typeset rvmrc_action rvmrc_path saveIFS trust rvmrc_ruby
 
   escape_flag=1
 
   rvmrc_action="$1"
   (( $# )) && shift || true
 
-  rvmrc_path="$(builtin cd "${1:-$PWD}" >/dev/null 2>&1; pwd)"
+  if [[ "${rvmrc_action}" == "create" ]]
+  then
+    rvmrc_ruby="${1:-${MY_RUBY_HOME##*/}}"
+    rvmrc_path="$(builtin cd "$PWD" >/dev/null 2>&1; pwd)"
+  else
+    rvmrc_path="$(builtin cd "${1:-$PWD}" >/dev/null 2>&1; pwd)"
+  fi
   (( $# )) && shift || true
 
   if (( $# ))
@@ -142,6 +148,27 @@ __rvm_rvmrc_tools()
   fi
 
   case "$rvmrc_action" in
+    create)
+      (
+        rvm_ruby_string="${rvmrc_ruby}"
+        rvm_create_flag=1 __rvm_use
+        case "${rvmrc_path}" in
+          (*/.rvmrc|*/--rvmrc)
+            __rvm_set_rvmrc
+            ;;
+          (*/.ruby-version|*/--ruby-version)
+            __rvm_set_ruby_version
+            ;;
+          (*/.versions.conf|*/--versions-conf)
+            __rvm_set_versions_conf
+            ;;
+          (*)
+            rvm_error "Unrecognized project file format"
+            return 1
+            ;;
+        esac
+      )
+      ;;
     reset)
       __rvm_reset_rvmrc_trust "$rvmrc_path"
       echo "Reset trust for $rvmrc_path"
@@ -584,6 +611,9 @@ __rvm_set_versions_conf()
   then
     printf "%b" "ruby-gemset=$gemset
 " >> .versions.conf
+  else
+    printf "%b" "#ruby-gemset=my-projectit
+" >> .versions.conf
   fi
   printf "%b" "#ruby-gem-install=bundler rake
 #ruby-bundle-install=true
@@ -598,7 +628,7 @@ __rvm_set_ruby_version()
     rvm_warn ".ruby-version is not empty, moving aside to preserve."
   fi
 
-  __rvm_env_string >> .ruby-version
+  echo "$(__rvm_env_string)" >> .ruby-version
 }
 
 __rvm_set_rvmrc()
