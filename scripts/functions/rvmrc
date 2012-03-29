@@ -236,26 +236,40 @@ __rvm_rvmrc_tools()
       ;;
 
     try_to_read_ruby)
-      if ! __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")"
-      then
-        # subprocess to not mess with current process variables
-        ( __rvm_project_rvmrc "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")" >/dev/null 2>&1 )
-      fi
+      case "$rvmrc_path" in
+        (*/.rvmrc)
+          if ! __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")"
+          then
+            # subprocess to not mess with current process variables
+            ( __rvm_project_rvmrc "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")" >/dev/null 2>&1 )
+          fi
 
-      if __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")"
-      then
-        rvm_action="${rvm_action:-use}"
-        rvm_ruby_string="$(
-          rvm_rvmrc_cwd=""
-          rvm_trust_rvmrcs_flag=1
-          __rvm_project_rvmrc "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")" >/dev/null 2>&1
-          __rvm_env_string
-        )"
-        rvm_ruby_strings="$rvm_ruby_string"
-      else
-        rvm_action="error"
-        rvm_error_message="The give path does not contain '$(basename "$rvmrc_path")' (or it is not trusted): '$(dirname "$rvmrc_path")' rest of params: '$@'"
-      fi
+          if __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")"
+          then
+            rvm_action="${rvm_action:-use}"
+            rvm_ruby_string="$(
+              rvm_rvmrc_cwd=""
+              rvm_trust_rvmrcs_flag=1
+              __rvm_project_rvmrc "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")" >/dev/null 2>&1
+              __rvm_env_string
+            )"
+            rvm_ruby_strings="$rvm_ruby_string"
+          else
+            rvm_action="error"
+            rvm_error_message="The give path does not contain '$(basename "$rvmrc_path")' (or it is not trusted): '$(dirname "$rvmrc_path")' rest of params: '$@'"
+          fi
+        ;;
+        (*)
+          rvm_action="${rvm_action:-use}"
+          rvm_ruby_string="$(
+            rvm_rvmrc_cwd=""
+            rvm_trust_rvmrcs_flag=1
+            __rvm_project_rvmrc "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")" >/dev/null 2>&1
+            __rvm_env_string
+          )"
+          rvm_ruby_strings="$rvm_ruby_string"
+        ;;
+      esac
       ;;
 
     *)
@@ -746,4 +760,19 @@ fi
     rvm_error ".rvmrc cannot be set in your home directory.\
       \nThe home .rvmrc is for global rvm settings only."
   fi
+}
+
+__rvm_project_dir_check()
+{
+  [[ -n "${1:-}" && -d "$1" ]] && {
+    [[ -f "$1/.rvmrc"         && -s "$1/.rvmrc"         ]] ||
+    [[ -f "$1/.versions.conf" && -s "$1/.versions.conf" ]] ||
+    [[ -f "$1/.ruby-version"  && -s "$1/.ruby-version"  ]] ||
+    [[ -f "$1/.rbfu-version"  && -s "$1/.rbfu-version"  ]] ||
+    [[ -f "$1/.rbenv-version" && -s "$1/.rbenv-version" ]] ||
+    {
+      [[ -f "$1/Gemfile" && -s "$1/Gemfile" ]] &&
+      \grep "^#ruby=" "$1/Gemfile" >/dev/null
+    }
+  }
 }
