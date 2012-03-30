@@ -207,6 +207,8 @@ then
 fi
 export HOME rvm_path
 
+install_rubies=()
+install_gems=()
 # Parse CLI arguments.
 while (( $# > 0 ))
 do
@@ -266,6 +268,22 @@ do
       version="$token"
       ;;
 
+    --ruby)
+      install_rubies+=( ruby )
+      ;;
+
+    --ruby=*)
+      install_rubies+=( ${token//,/ } )
+      ;;
+
+    --rails)
+      install_gems+=( rails )
+      ;;
+
+    --gems=*)
+      install_gems+=( ${token//,/ } )
+      ;;
+
     help|usage)
       usage
       exit 0
@@ -277,6 +295,18 @@ do
 
   esac
 done
+
+if (( ${#install_gems[@]} > 0 && ${#install_rubies[@]} == 0 ))
+then
+  install_rubies=( ruby )
+fi
+
+if (( ${#install_rubies[@]} > 0 ))
+then
+  echo "Please read and follow further instructions."
+  echo "Press ENTER to continue."
+  builtin read -n 1 -s -r anykey
+fi
 
 true "${version:=head}"
 
@@ -342,5 +372,50 @@ fi
 chmod +x ./scripts/install
 ./scripts/install ${flags[*]} --path "$rvm_path"
 
-source ${rvm_scripts_path:-${rvm_path}/scripts}/version
-__rvm_version
+(
+  source ${rvm_scripts_path:-${rvm_path}/scripts}/rvm
+  source ${rvm_scripts_path:-${rvm_path}/scripts}/version
+  __rvm_version
+
+  if (( ${#install_rubies[@]} > 0 ))
+  then
+    {
+      echo "Ruby (and gems) of your selection will be installed shortly,"
+      echo "before it happens please read and execute the bellow instruction."
+      echo "Please use separate terminal to execute any additional commands."
+      rvm requirements
+      echo "Press 'q' to continue."
+    } | less
+  fi
+
+  for _ruby in ${install_rubies[@]}
+  do
+    rvm install ${_ruby} -j 2
+  done
+  for _ruby in ${install_rubies[@]}
+  do
+    # set the first one as default, skip rest
+    rvm alias create default ${_ruby}
+    break
+  done
+
+  for _gem in ${install_gems[@]}
+  do
+    rvm all do gem install ${_gem}
+  done
+
+  if (( ${#install_rubies[@]} > 0 ))
+  then
+    printf "%b" "
+  * To start using RVM you need to run \`source $rvm_path/scripts/rvm\`
+    in all your open shell windows, in rare cases you need to reopen all shell windows.
+"
+  fi
+
+  if [[ "${install_gems[*]}" =~ "rails" ]]
+  then
+    printf "%b" "
+  * To start using rails you need to run \`rails new <project_dir>\`.
+"
+  fi
+)
