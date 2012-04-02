@@ -1,0 +1,159 @@
+diff --git a/configure.in b/configure.in
+index 62b34a8..4be088c 100644
+--- a/configure.in
++++ b/configure.in
+@@ -1595,6 +1595,14 @@ fi
+ LDFLAGS="-L. $LDFLAGS"
+ AC_SUBST(ARCHFILE)
+ 
++dnl enable gc debugging
++AC_ARG_ENABLE(gcdebug,
++       [  --enable-gcdebug	   build garbage collector with debugging enabled. ],
++       [enable_gcdebug=$enableval])
++if test "$enable_gcdebug" = 'yes'; then
++      AC_DEFINE(GC_DEBUG, 1)
++fi
++
+ dnl build rdoc index if requested
+ RDOCTARGET=""
+ AC_ARG_ENABLE(install-doc,
+diff --git a/gc.c b/gc.c
+index ab71d22..9ad716f 100644
+--- a/gc.c
++++ b/gc.c
+@@ -411,7 +411,6 @@ rb_gc_unregister_address(addr)
+     }
+ }
+ 
+-#undef GC_DEBUG
+ 
+ void
+ rb_global_variable(var)
+@@ -602,6 +601,85 @@ rb_gc_dump()
+     return Qnil;
+ }
+ 
++
++static char* obj_type(int tp);
++
++#ifdef GC_DEBUG
++/*
++ *  call-seq:
++ *     GC.dump_file_and_line_info(String, boolean)    => nil
++ *
++ *  dumps information on which currently allocated object was created by which file and on which line
++ *
++ *     GC.dump_file_and_line_info(String, boolean)    #=> nil
++ *
++ *  The second parameter specifies whether class names should be included in the dump.
++ *  Note that including class names will allocate additional string objects on the heap.
++ *
++ */
++
++VALUE
++rb_gc_dump_file_and_line_info(int argc, VALUE *argv)
++{
++  VALUE filename, str, include_classnames = Qnil;
++  char *fname = NULL;
++  char *klass = NULL;
++  FILE* f = NULL;
++  int i,n = 0;
++
++  rb_scan_args(argc, argv, "11", &filename, &include_classnames);
++
++  str = StringValue(filename);
++  fname = RSTRING(str)->ptr;
++  f = fopen(fname, "w");
++
++  for (i = 0; i < heaps_used; i++) {
++    RVALUE *p, *pend;
++
++    p = heaps[i].slot; pend = p + heaps[i].limit;
++    for (;p < pend; p++) {
++      if (p->as.basic.flags) {
++        fprintf(f, "%s:%s:%d", obj_type(p->as.basic.flags & T_MASK), p->file, p->line);
++        // rb_obj_classname will create objects on the heap, we need a better solution
++        if (include_classnames == Qtrue) {
++          /* write the class */
++          fprintf(f, ":");
++          switch (TYPE(p)) {
++          case T_NONE:
++            fprintf(f, "__none__");
++            break;
++          case T_BLKTAG:
++            fprintf(f, "__blktag__");
++            break;
++          case T_UNDEF:
++            fprintf(f, "__undef__");
++            break;
++          case T_VARMAP:
++            fprintf(f, "__varmap__");
++            break;
++          case T_SCOPE:
++            fprintf(f, "__scope__");
++            break;
++          case T_NODE:
++            fprintf(f, "__node__");
++            break;
++          default:
++            if (!p->as.basic.klass) {
++              fprintf(f, "__unknown__");
++            } else {
++              fprintf(f, rb_obj_classname((VALUE)p));
++            }
++          }
++        }
++        fprintf(f, "\n");
++      }
++    }
++  }
++  fclose(f);
++  return Qnil;
++}
++#endif
++
+ /*
+  *  call-seq:
+  *     GC.log String  => String
+@@ -1066,6 +1144,11 @@ gc_mark(ptr, lev)
+     if (obj->as.basic.flags & FL_MARK) return;  /* already marked */
+     obj->as.basic.flags |= FL_MARK;
+ 
++#ifdef GC_DEBUG
++    /* mark our new reference point for sourcefile objects */
++    mark_source_filename(RANY(obj)->file);
++#endif
++
+     if (lev > GC_LEVEL_MAX || (lev == 0 && ruby_stack_check())) {
+ 	if (!mark_stack_overflow) {
+ 	    if (mark_stack_ptr - mark_stack < MARK_STACK_MAX) {
+@@ -1104,6 +1187,11 @@ gc_mark_children(ptr, lev)
+     if (obj->as.basic.flags & FL_MARK) return;  /* already marked */
+     obj->as.basic.flags |= FL_MARK;
+ 
++#ifdef GC_DEBUG
++    /* mark our new reference point for sourcefile objects */
++    mark_source_filename(RANY(obj)->file);
++#endif
++
+   marking:
+     if (FL_TEST(obj, FL_EXIVAR)) {
+         rb_mark_generic_ivar(ptr);
+@@ -1550,6 +1638,7 @@ gc_sweep()
+                         live_counts[i], free_counts[i], obj_type(i));
+             }
+         }
++        fflush(gc_data_file);
+     }
+ 
+     /* clear finalization list */
+@@ -2526,6 +2615,9 @@ Init_GC()
+     rb_define_singleton_method(rb_mGC, "collections", rb_gc_collections, 0);
+     rb_define_singleton_method(rb_mGC, "time", rb_gc_time, 0);
+     rb_define_singleton_method(rb_mGC, "dump", rb_gc_dump, 0);
++#ifdef GC_DEBUG
++    rb_define_singleton_method(rb_mGC, "dump_file_and_line_info", rb_gc_dump_file_and_line_info, -1);
++#endif
+     rb_define_singleton_method(rb_mGC, "log", rb_gc_log, 1);
+ 
+     rb_mObSpace = rb_define_module("ObjectSpace");
