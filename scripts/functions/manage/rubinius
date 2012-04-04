@@ -22,6 +22,31 @@ file_exists_at_url()
 
 }
 
+rbx_configure_with_path()
+{
+  typeset path
+  path="${1:-}"
+  [[ -d "${path}" ]] || return 1
+  [[ -d "${path}/include" ]] || return 2
+
+  rvm_configure_flags="${rvm_configure_flags:-} --with-include-dir $path/include"
+
+  if [[ -d "$path/lib64" ]]
+  then
+    rvm_configure_flags="${rvm_configure_flags:-} --with-lib-dir $path/lib64"
+
+  elif [[ -d "$path/lib" ]]
+  then
+    rvm_configure_flags="${rvm_configure_flags:-} --with-lib-dir $path/lib"
+
+  else
+    return 3
+  fi
+
+  return 0
+}
+
+
 rbx_install()
 {
   rvm_log "$rvm_ruby_string installing #dependencies "
@@ -47,25 +72,15 @@ rbx_install()
 
   case ${rvm_ruby_string} in
     rbx-head*|rbx-2.*)
-      # RBX 2.0 should now use libyaml which is for Psych.
+      # #RBX 2.0 should now use libyaml which is for Psych.
       if ! libyaml_installed
       then libyaml # Installs libyaml
       fi
 
-      rvm_configure_flags="${rvm_configure_flags:-} --with-include-dir $rvm_path/usr/include"
-
-      if [[ -d "$rvm_path/usr/lib64" ]]
-      then
-        rvm_configure_flags="${rvm_configure_flags:-} --with-lib-dir $rvm_path/usr/lib64"
-
-      elif [[ -d "$rvm_path/usr/lib" ]]
-      then
-        rvm_configure_flags="${rvm_configure_flags:-} --with-lib-dir $rvm_path/usr/lib"
-
-      else
+      rbx_configure_with_path "$rvm_path/usr" || {
         rvm_error "Could not find 'lib' dir for libyaml, please make sure libyaml is compiled properly."
         return 1
-      fi
+      }
       ;;
   esac
 
