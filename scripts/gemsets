@@ -523,7 +523,7 @@ gemset_rename()
 
 gemset_unpack()
 {
-  typeset gems name directory version versions
+  typeset gems name directory version  _platforms
 
   directory="${args[$__array_start]}"
 
@@ -542,17 +542,10 @@ gemset_unpack()
 
   unset -f gem
 
-  gems=($(command gem list | sed 's#[\(|\)]##g' | sed -e 's#, #,#g' -e 's/ /;/g'))
-
-  for gem in ${gems[@]}
+  while read gem_name version _platforms
   do
-    name="${gem/;*/}"
-    versions="${gem/*;/}" ; versions=(${versions//,/ })
-    for version in "${versions[@]}"
-    do
-      ( command gem unpack "$name" -v"$version" --target "$directory" )&
-    done
-  done
+    ( command gem unpack "$gem_name" -v"$version" --target "$directory" )&
+  done < <( GEM_PATH="$GEM_HOME" __rvm_list_gems )
   wait
   rvm_log "Unpacking into ${directory} complete\n"
   return 0
@@ -560,7 +553,7 @@ gemset_unpack()
 
 gemset_export()
 {
-  typeset gems name file_name version versions
+  typeset gem_name version versions _platforms
 
   rvm_file_name="${rvm_file_name:-${gems_args// }}"
   rvm_file_name="${rvm_file_name%.gems}.gems"
@@ -590,24 +583,19 @@ gemset_export()
   echo "# $rvm_file_name generated gem export file. Note that any env variable settings will be missing. Append these after using a ';' field separator" \
     > "$rvm_file_name"
 
-  gems=($(gem list --local | sed 's#[\(|\)]##g' | sed 's#, #,#g' | tr ' ' ';'))
+  if (( ${rvm_latest_flag:-0} == 0 ))
+  then
+    while read gem_name version _platforms
+    do
+      echo "$gem_name -v$version"
+    done < <( GEM_PATH="$GEM_HOME" __rvm_list_gems )
+  else
+    while read gem_name versions
+    do
+      echo "$gem_name"
+    done < <( GEM_PATH="$GEM_HOME" gem list )
+  fi >> $rvm_file_name
 
-  for gem in "${gems[@]}"
-  do
-    name="${gem/;*/}"
-    if (( ${rvm_latest_flag:-0} == 0 ))
-    then
-      versions="${gem/*;/}"
-      versions="${versions//,/ }"
-      for version in $versions
-      do
-        echo "$name -v$version" >> $rvm_file_name
-      done
-      unset version versions
-    else
-      echo "$name" >> $rvm_file_name
-    fi
-  done
   return 0
 }
 
@@ -882,30 +870,19 @@ gemset_prune()
     cached_gem_name cached_file_path
 
   temporary_cache_path="$GEM_HOME/temporary-cache"
-
   live_cache_path="$GEM_HOME/cache"
 
   mkdir -p "$temporary_cache_path"
-
   rvm_log "Moving active gems into temporary cache..."
 
-  while read -r used_gem
+  while read gem_name version _platforms
   do
-    gem_name="$(echo "$used_gem" | sed -e 's/ .*//')"
-
-    versions="$(echo "${used_gem//, / }" | sed -e 's/.* (//' -e 's/)//')"
-
-    for version in $versions; do
-
-      cached_gem_name="${gem_name}-${version}.gem"
-
-      cached_file_path="${live_cache_path}/${cached_gem_name}"
-
-      if [[ -f "$cached_file_path" ]]; then
-        mv "$cached_file_path" "${temporary_cache_path}/${cached_gem_name}"
-      fi
-    done
-  done < <(gem list --versions)
+    cached_gem_name="${gem_name}-${version}.gem"
+    cached_file_path="${live_cache_path}/${cached_gem_name}"
+    if [[ -f "$cached_file_path" ]]; then
+      mv "$cached_file_path" "${temporary_cache_path}/${cached_gem_name}"
+    fi
+  done < <( GEM_PATH="$GEM_HOME" __rvm_list_gems )
 
   rvm_log "Removing live cache and restoring temporary cache..."
 
@@ -931,11 +908,7 @@ gemset_pristine()
       if ! gem pristine ${_gem} --version ${_version} >/dev/null
       then _failed+=( "${_gem} --version ${_version}" )
       fi
-    done < <(
-      GEM_PATH="$GEM_HOME" gem list |
-        sed '/\*\*\*/ d ; /^$/ d; s/ (/,/; s/, /,/g; s/)//;' |
-        awk -F ',' '{for(i=2;i<=NF;i++) print $1" "$i }'
-    )
+    done < <( GEM_PATH="$GEM_HOME" __rvm_list_gems )
 
     if (( ${#_failed[@]} > 0 ))
     then
@@ -951,6 +924,14 @@ gemset_pristine()
     rvm_error "'gem' command not found in PATH."
     return 1
   fi
+}
+
+# Transform the list of gems one version per line
+__rvm_list_gems()
+{
+  gem list |
+    sed '/\*\*\*/ d ; /^$/ d; s/ (/,/; s/, /,/g; s/)//;' |
+    awk -F ',' '{for(i=2;i<=NF;i++) print $1" "$i }'
 }
 
 # Loads the default gemsets for the current interpreter and gemset.
