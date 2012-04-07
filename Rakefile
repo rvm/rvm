@@ -31,7 +31,7 @@ Hoe.spec "rvm" do
 
   such as,
 
-    bash < <(curl -s -B https://rvm.io/install/rvm)
+    bash < <(curl -sL get.rvm.io)
 
   followed by placing the sourcing line in your ~/.bash_profile or wherever may
   be appropriate for your setup (example, .zshenv, /etc/profile, ...):
