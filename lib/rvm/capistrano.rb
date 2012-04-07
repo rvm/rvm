@@ -78,7 +78,7 @@ Capistrano::Configuration.instance(true).load do
     EOF
     task :install_rvm do
       run "#{rvm_install_shell} -s #{rvm_install_type} \
-< <(curl -s https://raw.github.com/wayneeseguin/rvm/master/binscripts/rvm-installer)", :shell => "#{rvm_install_shell}"
+< <(curl -sL get.rvm.io)", :shell => "#{rvm_install_shell}"
     end
 
     desc <<-EOF

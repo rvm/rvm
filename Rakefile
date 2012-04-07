@@ -27,11 +27,11 @@ Hoe.spec "rvm" do
   In order to install RVM please use one of the methods listed in the
   documentation:
 
-    https://rvm.beginrescueend.com/rvm/install/
+    https://rvm.io/rvm/install/
 
   such as,
 
-    bash < <(curl -s -B https://rvm.beginrescueend.com/install/rvm)
+    bash < <(curl -sL get.rvm.io)
 
   followed by placing the sourcing line in your ~/.bash_profile or wherever may
   be appropriate for your setup (example, .zshenv, /etc/profile, ...):
@@ -44,7 +44,7 @@ Hoe.spec "rvm" do
   first Ruby. You can read more details about this process on the above
   mentioned install page as well as the basics page:
 
-    https://rvm.beginrescueend.com/rvm/basics/
+    https://rvm.io/rvm/basics/
 
   Enjoy!
 
