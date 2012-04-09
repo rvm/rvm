@@ -368,6 +368,8 @@ ensure_scripts_are_executable()
 
 install_binscripts()
 {
+  typeset -a files
+  typeset system_bin
   files=(rvm-prompt rvm-installer rvm rvmsudo rvm-shell rvm-smile rvm-exec rvm-auto-ruby)
 
   if [[ ! -d "${rvm_bin_path}" ]]
@@ -387,10 +389,19 @@ install_binscripts()
 
     [[ -x "${rvm_bin_path}/${file}" ]] || chmod +x "${rvm_bin_path}/${file}"
 
-    if [[ "${source_path}/binscripts" != "${rvm_bin_path}" ]]
-    then
-      cp -f "${source_path}/binscripts/${file}" "${rvm_bin_path}/${file}"
-    fi
+    # try to clean old installer files left in usual places added to PATH
+    for system_bin in ~/bin /usr/local/bin
+    do
+      if [[ "${system_bin}" != "${rvm_bin_path}" && -x "${system_bin}/${file}" ]]
+      then
+        if ! rm -f "${system_bin}/${file}" 2>/dev/null
+        then
+          printf "!!! could not remove ${system_bin}/${file}, remove it manually with:
+!!! > sudo rm -f ${system_bin}/${file}
+"
+        fi
+      fi
+    done
   done
 
   # optional binscripts
@@ -409,6 +420,11 @@ install_gemsets()
 {
   typeset gemset_files
 
+  if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 && -d "$rvm_path/gemsets" ]]
+  then
+    rm -rf "$rvm_path/gemsets"
+  fi
+
   if [[ -d gemsets/ ]]
   then
     if [[ ! -d "$rvm_path/gemsets" ]]
@@ -417,7 +433,7 @@ install_gemsets()
     fi
 
     gemset_files=($(
-    find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
+      find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
     ))
 
     for gemset_file in "${gemset_files[@]}"
@@ -434,6 +450,48 @@ install_gemsets()
         cp "$gemset_file" "$destination"
       fi
     done
+  fi
+}
+
+update_gemsets_install_rvm()
+{
+  typeset paths path installed found missing
+  typeset -a missing
+
+  if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 ]]
+  then
+    # rvm /gems
+    paths=($(
+      find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | sed 's/^\.\///'
+    ))
+
+    for path in "${paths[@]}"
+    do
+      # skip unless this ruby is installed
+      installed="${path%@global}"
+      installed="${installed/\/gems\//\/rubies\//}/bin/ruby"
+      installed=${installed//\\/}
+      [[ -x "$installed" ]] || continue
+
+      # rvm /gems @global /gems
+      found=($(
+        find "${path%%+(\/)}/gems" -maxdepth 1 "${name_opt}" 'rvm-*' | sed 's/^\.\///'
+      ))
+      if (( ${#found[@]} == 0 ))
+      then
+        missing+=( "$path" )
+      fi
+    done
+
+    if (( ${#missing[@]} > 0 ))
+    then
+      printf "    Installing rvm gem in ${#missing[@]} gemsets "
+      for path in "${missing[@]}"
+      do
+        rvm "${path##*/}" do gem install rvm | awk '{printf "."}'
+      done
+      printf "\n"
+    fi
   fi
 }
 
@@ -567,10 +625,10 @@ correct_binary_permissions()
   done
 
   files=(
-  manage alias cleanup current db disk-usage docs env environment-convertor
+  manage alias cleanup current db disk-usage docs env
   fetch gemsets get hash help hook info install list maglev match md5 migrate
   monitor notes override_gem package patchsets repair rtfm rubygems rvm selector
-  set snapshot tools upgrade wrapper
+  selector_gemsets set snapshot tools upgrade wrapper
   )
   for file in "${files[@]}"
   do
@@ -653,15 +711,12 @@ display_notes()
     then
       printf "%b" "
   * First you need to add all users that will be using rvm to '${rvm_group_name}' group,
-    anyone using rvm will be operating with \`umask g+w\`.
+    and logout - login again, anyone using rvm will be operating with \`umask g+w\`.
 "
     fi
     printf "%b" "
   * To start using RVM you need to run \`source ${profile_file}\`
     in all your open shell windows, in rare cases you need to reopen all shell windows.
-
-  * Optionally you can run \`rvm tools rvm-env ruby bash\` which will generate 
-    shebang wrappers for easier selecting ruby in scripts.
 "
   else
     printf "%b" "$itype of RVM in $rvm_path/ is complete.

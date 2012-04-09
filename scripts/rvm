@@ -110,11 +110,10 @@ then
     __rvm_ensure_is_a_function
     __rvm_setup
 
-    rvm_version="$(cat "$rvm_path/VERSION")"
+    export rvm_version
+    rvm_version="$(cat "$rvm_path/VERSION") ($(cat "$rvm_path/RELEASE" 2>/dev/null))"
 
-    export rvm_version="${rvm_version/%.}"
-
-    alias rvm-restart="rvm_reload_flag=1 source '${rvm_path}/scripts/rvm'"
+    alias rvm-restart="rvm_reload_flag=1 source '${rvm_scripts_path:-${rvm_path}/scripts}/rvm'"
 
     if ! builtin command -v ruby >/dev/null 2>&1 ||
       builtin command -v ruby | \grep -v "${rvm_path}" >/dev/null ||
@@ -134,9 +133,10 @@ then
 
     if (( ${rvm_reload_flag:=0} == 1 ))
     then
-      printf "%b" 'RVM reloaded!\n'
+      [[ "${rvm_auto_reload_flag:-0}" == 2 ]] || printf "%b" 'RVM reloaded!\n'
       # make sure we clean env on reload
       __rvm_env_loaded=1
+      unset __rvm_project_rvmrc_lock
     fi
 
     rvm_loaded_flag=1
@@ -144,14 +144,15 @@ then
     printf "%b" "\n\$rvm_path ($rvm_path) does not exist."
   fi
   unset rvm_prefix_needs_trailing_slash rvm_gems_cache_path \
-    rvm_gems_path rvm_project_rvmrc_default rvm_gemset_separator
+    rvm_gems_path rvm_project_rvmrc_default rvm_gemset_separator rvm_reload_flag
 else
   source "${rvm_scripts_path:="$rvm_path/scripts"}/initialize"
   __rvm_setup
 fi
 
 if [[ -t 0 && ${rvm_project_rvmrc:-1} -gt 0 ]] &&
-  [[ ! " ${FUNCNAME[@]} " =~ " __rvm_project_rvmrc " ]] &&
+  rvm_is_a_shell_function no_warning &&
+  ! __function_on_stack __rvm_project_rvmrc &&
   typeset -f __rvm_project_rvmrc >/dev/null 2>&1
 then
   # Reload the rvmrc, use promptless ensuring shell processes does not

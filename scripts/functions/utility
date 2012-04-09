@@ -97,44 +97,6 @@ __rvm_ruby_string_paths_under()
   return 0
 }
 
-__rvm_quote_args()
-{
-  typeset quoted_string
-  quoted_string=""
-
-  for quoted_argument in "$@"
-  do
-    if printf "%b" "$quoted_argument" | \grep -v "^[[:alnum:]]$" >/dev/null
-    then
-      quoted_string="$quoted_string '$(printf "%b" "$quoted_argument" \
-        | \sed "s/'/\'\\\'\'/g")'" #"-fix display quotes
-    else
-      quoted_string="$quoted_string $quoted_argument"
-    fi
-  done
-
-  echo "$quoted_string" | \sed -e 's/^ *//g' -e 's/ *$//g'
-
-  return 0
-}
-
-__rvm_quote_args_with_shift()
-{
-  typeset shift_value
-  shift_value="$1"
-  shift
-
-  while [[ "$shift_value" -gt 0 && $# -gt 0 ]]
-  do
-    shift
-    ((shift_value--))
-  done
-
-  __rvm_quote_args "$@"
-  return 0
-}
-
-
 # Run a specified command and log it.
 __rvm_run()
 {
@@ -320,7 +282,7 @@ is_parent_of()
 
 rvm_is_a_shell_function()
 {
-  if [[ "${rvm_is_not_a_shell_function:-0}" == "1" ]]
+  if (( ${rvm_is_not_a_shell_function:-0} > 0 )) && [[ "${1:-}" != "no_warning" ]]
   then
     if rvm_pretty_print stderr
     then
@@ -342,16 +304,26 @@ Please visit https://rvm.io/workflow/screen/ for example.\n" >&2
 __rvm_detect_xcode_version()
 {
   typeset version_file
-  version_file=/Developer/Applications/Xcode.app/Contents/version.plist
 
-  if [[ -f $version_file ]]
-  then
-    if [[ -x /usr/libexec/PlistBuddy ]]
+  for version_file in \
+    /Applications/Xcode.app/Contents/version.plist \
+    /Developer/Applications/Xcode.app/Contents/version.plist
+  do
+    if [[ -f $version_file ]]
     then
-      /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" $version_file
-    else
-      awk -F"[<>]" '/CFBundleShortVersionString/{ getline ; print $3 }' < $version_file
+      if [[ -x /usr/libexec/PlistBuddy ]]
+      then
+        /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" $version_file
+      else
+        sed -n '/<key>CFBundleShortVersionString<\/key>/{n; s/^.*>\(.*\)<.*$/\1/; p;}' < $version_file
+      fi
+      return 0
     fi
+  done
+
+  if builtin command -v xcodebuild >/dev/null
+  then
+    xcodebuild -version | sed -n '/Xcode/ {s/Xcode //; p;}'
   fi
 }
 
@@ -386,4 +358,26 @@ __rvm_version_compare()
     printf $3 | \awk -F. "{ printf ${transformer[*]} }";
     printf ' ]]'
   )"
+}
+
+__function_on_stack()
+{
+  typeset fun
+  for fun in "$@"
+  do
+    if [[ " ${FUNCNAME[*]} " =~ " $fun " ]]
+    then return 0
+    fi
+  done
+  return $#
+}
+
+__rvm_pager_or_cat_v()
+{
+  typeset -a _pager
+  if [[ -n "${PAGER:-}" ]]
+  then _pager=( "${PAGER}" )
+  else _pager=( "cat" "-v" )
+  fi
+  "${_pager[@]}" "$@"
 }

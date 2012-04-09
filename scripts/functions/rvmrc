@@ -75,9 +75,13 @@ __rvm_rvmrc_key()
 
 __rvm_reset_rvmrc_trust()
 {
-  "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
-  return $?
+  if [[ "$1" == all ]]
+  then
+    echo "" > "$rvm_user_path/rvmrcs"
+  else
+    "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
+      "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
+  fi
 }
 
 __rvm_trust_rvmrc()
@@ -93,7 +97,6 @@ __rvm_untrust_rvmrc()
   __rvm_reset_rvmrc_trust "$1"
   "${rvm_scripts_path:-"$rvm_path/scripts"}/db" "$rvm_user_path/rvmrcs" \
     "$(__rvm_rvmrc_key "$1")" "0;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1
-  return $?
 }
 
 __rvm_rvmrc_stored_trust()
@@ -106,14 +109,23 @@ __rvm_rvmrc_stored_trust()
 __rvm_rvmrc_tools()
 {
   export escape_flag
-  typeset rvmrc_action rvmrc_path saveIFS trust
+  typeset rvmrc_action rvmrc_path saveIFS trust rvmrc_ruby
 
   escape_flag=1
 
   rvmrc_action="$1"
   (( $# )) && shift || true
 
-  rvmrc_path="$(builtin cd "${1:-$PWD}" >/dev/null 2>&1; pwd)"
+  if [[ "${rvmrc_action}" == "create" ]]
+  then
+    rvmrc_ruby="${1:-${MY_RUBY_HOME##*/}}"
+    rvmrc_path="$(builtin cd "$PWD" >/dev/null 2>&1; pwd)"
+  elif [[ "${1:-}" == "all" ]]
+  then
+    rvmrc_path="all"
+  else
+    rvmrc_path="$(builtin cd "${1:-$PWD}" >/dev/null 2>&1; pwd)"
+  fi
   (( $# )) && shift || true
 
   if (( $# ))
@@ -137,11 +149,34 @@ __rvm_rvmrc_tools()
   elif [[ -f "${rvmrc_path}/Gemfile" ]]
   then rvmrc_path="${rvmrc_path}/Gemfile"
 
-  else
-    rvmrc_path="${rvmrc_path}/.rvmrc"
+  elif [[ "${rvmrc_path}" == "all" ]]
+  then rvmrc_path="all"
+
+  else rvmrc_path="${rvmrc_path}/.rvmrc"
   fi
 
   case "$rvmrc_action" in
+    create)
+      (
+        rvm_ruby_string="${rvmrc_ruby}"
+        rvm_create_flag=1 __rvm_use
+        case "${rvmrc_path}" in
+          (*/.rvmrc|*/--rvmrc)
+            __rvm_set_rvmrc
+            ;;
+          (*/.ruby-version|*/--ruby-version)
+            __rvm_set_ruby_version
+            ;;
+          (*/.versions.conf|*/--versions-conf)
+            __rvm_set_versions_conf
+            ;;
+          (*)
+            rvm_error "Unrecognized project file format"
+            return 1
+            ;;
+        esac
+      )
+      ;;
     reset)
       __rvm_reset_rvmrc_trust "$rvmrc_path"
       echo "Reset trust for $rvmrc_path"
@@ -209,26 +244,40 @@ __rvm_rvmrc_tools()
       ;;
 
     try_to_read_ruby)
-      if ! __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")"
-      then
-        # subprocess to not mess with current process variables
-        ( __rvm_project_rvmrc "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")" >/dev/null 2>&1 )
-      fi
+      case "$rvmrc_path" in
+        (*/.rvmrc)
+          if ! __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")"
+          then
+            # subprocess to not mess with current process variables
+            ( __rvm_project_rvmrc "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")" >/dev/null 2>&1 )
+          fi
 
-      if __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")"
-      then
-        rvm_action="${rvm_action:-use}"
-        rvm_ruby_string="$(
-          rvm_rvmrc_cwd=""
-          rvm_trust_rvmrcs_flag=1
-          __rvm_project_rvmrc "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")" >/dev/null 2>&1
-          __rvm_env_string
-        )"
-        rvm_ruby_strings="$rvm_ruby_string"
-      else
-        rvm_action="error"
-        rvm_error_message="The give path does not contain '$(basename "$rvmrc_path")' (or it is not trusted): '$(dirname "$rvmrc_path")' rest of params: '$@'"
-      fi
+          if __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")"
+          then
+            rvm_action="${rvm_action:-use}"
+            rvm_ruby_string="$(
+              rvm_rvmrc_cwd=""
+              rvm_trust_rvmrcs_flag=1
+              __rvm_project_rvmrc "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")" >/dev/null 2>&1
+              __rvm_env_string
+            )"
+            rvm_ruby_strings="$rvm_ruby_string"
+          else
+            rvm_action="error"
+            rvm_error_message="The give path does not contain '$(basename "$rvmrc_path")' (or it is not trusted): '$(dirname "$rvmrc_path")' rest of params: '$@'"
+          fi
+        ;;
+        (*)
+          rvm_action="${rvm_action:-use}"
+          rvm_ruby_string="$(
+            rvm_rvmrc_cwd=""
+            rvm_trust_rvmrcs_flag=1
+            __rvm_project_rvmrc "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")" >/dev/null 2>&1
+            __rvm_env_string
+          )"
+          rvm_ruby_strings="$rvm_ruby_string"
+        ;;
+      esac
       ;;
 
     *)
@@ -267,32 +316,42 @@ __rvm_check_rvmrc_trustworthiness()
 
 __rvm_display_rvmrc()
 {
-  printf "%b" "
-==============================================================================
-= The contents of the $(basename "${_rvmrc}") file will now be displayed.                     =
-= After reading the file, you will be prompted again for 'yes or no' to set  =
-= the trust level for this particular version of the file.                   =
-=                                                                            =
-= Note: You will be re-prompted each time the $(basename "${_rvmrc}") file's contents change  =
-= changes, and may change the trust setting manually at any time.            =
-==============================================================================
-(( press a key to review the $(basename "${_rvmrc}") file ))\n\n"
+  typeset _rvmrc_base
+  _rvmrc_base="$(basename "${_rvmrc}")"
+  printf "
+====================================================================================
+= %-80s =
+= After reading the file, you will be prompted again for 'yes or no' to set        =
+= the trust level for this particular version of the file.                         =
+=                                                                                  =
+= %-80s =
+= changes, and may change the trust setting manually at any time.                  =
+====================================================================================
+(( press a key to review the ${_rvmrc_base} file ))
+" \
+"The contents of the ${_rvmrc_base} file will now be displayed." \
+"Note: You will be re-prompted each time the ${_rvmrc_base} file's contents change"
+builtin read -n 1 -s -r anykey
 
-read -r anykey
-
+printf "%b" "${rvm_warn_clr}"
 command cat -v "${_rvmrc}"
+printf "%b" "${rvm_reset_clr}"
 
-  printf "%b" "
-==============================================================================
-= Viewing of %s complete.
-==============================================================================
-= Trusting an $(basename "${_rvmrc}") file means that whenever you cd into this directory,    =
-= RVM will run this $(basename "${_rvmrc}") shell script.                                     =
-= Note that if the contents of the file change, you will be re-prompted to   =
-= review the file and adjust its trust settings. You may also change the     =
-= trust settingsmanually at any time with the 'rvm rvmrc' command.           =
-==============================================================================
-\n" "${_rvmrc}"
+  printf "
+====================================================================================
+= %-80s =
+====================================================================================
+= %-80s =
+= %-80s =
+= Note that if the contents of the file change, you will be re-prompted to         =
+= review the file and adjust its trust settings. You may also change the           =
+= trust settings manually at any time with the 'rvm rvmrc' command.                =
+====================================================================================
+
+" \
+"Viewing of ${_rvmrc} complete." \
+"Trusting an ${_rvmrc_base} file means that whenever you cd into this directory," \
+"RVM will run this ${_rvmrc_base} shell script."
 }
 
 __rvm_ask_to_trust()
@@ -300,34 +359,29 @@ __rvm_ask_to_trust()
   typeset trusted value anykey _rvmrc
   _rvmrc="${1}"
 
-  if [[ ! -t 0 ]] || (( ${rvm_promptless:=0} == 1 ))
+  if [[ ! -t 0 ]] || (( ${rvm_promptless:=0} == 1 )) || [[ -n "$MC_SID" ]]
   then
     return 2
   fi
 
-  printf "%b" "==============================================================================
-= NOTICE                                                                     =
-==============================================================================
-= RVM has encountered a new or modified $(basename "${_rvmrc}") file in the current directory =
-= This is a shell script and therefore may contain any shell commands.       =
-=                                                                            =
-= Examine the contents of this file carefully to be sure the contents are    =
-= safe before trusting it! ( Choose v[iew] below to view the contents )      =
-==============================================================================
-"
+  printf "====================================================================================
+= NOTICE                                                                           =
+====================================================================================
+= %-80s =
+= This is a shell script and therefore may contain any shell commands.             =
+=                                                                                  =
+= Examine the contents of this file carefully to be sure the contents are          =
+= safe before trusting it! ( Choose v[iew] below to view the contents )            =
+====================================================================================
+" \
+"RVM has encountered a new or modified $(basename "${_rvmrc}") file in the current directory"
   trusted=0
   while (( ! trusted ))
   do
     printf "Do you wish to trust this $(basename "${_rvmrc}") file? (%b)\n" "${_rvmrc}"
     printf "%b" 'y[es], n[o], v[iew], c[ancel]> '
 
-    if [[ -z "$MC_SID" ]] #check if we're running in MC's subshell
-    then
-      read response
-    else
-      value=c
-    fi
-
+    builtin read response
     value="$(echo -n "${response}" | tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
 
     case "${value:-n}" in
@@ -579,6 +633,9 @@ __rvm_set_versions_conf()
   then
     printf "%b" "ruby-gemset=$gemset
 " >> .versions.conf
+  else
+    printf "%b" "#ruby-gemset=my-projectit
+" >> .versions.conf
   fi
   printf "%b" "#ruby-gem-install=bundler rake
 #ruby-bundle-install=true
@@ -593,7 +650,7 @@ __rvm_set_ruby_version()
     rvm_warn ".ruby-version is not empty, moving aside to preserve."
   fi
 
-  __rvm_env_string >> .ruby-version
+  echo "$(__rvm_env_string)" >> .ruby-version
 }
 
 __rvm_set_rvmrc()
@@ -711,4 +768,19 @@ fi
     rvm_error ".rvmrc cannot be set in your home directory.\
       \nThe home .rvmrc is for global rvm settings only."
   fi
+}
+
+__rvm_project_dir_check()
+{
+  [[ -n "${1:-}" && -d "$1" ]] && {
+    [[ -f "$1/.rvmrc"         && -s "$1/.rvmrc"         ]] ||
+    [[ -f "$1/.versions.conf" && -s "$1/.versions.conf" ]] ||
+    [[ -f "$1/.ruby-version"  && -s "$1/.ruby-version"  ]] ||
+    [[ -f "$1/.rbfu-version"  && -s "$1/.rbfu-version"  ]] ||
+    [[ -f "$1/.rbenv-version" && -s "$1/.rbenv-version" ]] ||
+    {
+      [[ -f "$1/Gemfile" && -s "$1/Gemfile" ]] &&
+      \grep "^#ruby=" "$1/Gemfile" >/dev/null
+    }
+  }
 }
