@@ -372,18 +372,12 @@ install_binscripts()
   typeset system_bin
   files=(rvm-prompt rvm-installer rvm rvmsudo rvm-shell rvm-smile rvm-exec rvm-auto-ruby)
 
-  if [[ ! -d "${rvm_bin_path}" ]]
-  then
-    mkdir -p "${rvm_bin_path}"
-  fi
+  [[ -d "${rvm_bin_path}" ]] || mkdir -p "${rvm_bin_path}"
 
   for file in "${files[@]}"
   do
     # Ensure binscripts are always available in rvm_path/bin first.
-    if [[ -f "${rvm_bin_path}/${file}" ]]
-    then
-      rm -f "${rvm_bin_path}/${file}"
-    fi
+    [[ -f "${rvm_bin_path}/${file}" ]] && rm -f "${rvm_bin_path}/${file}"
 
     cp -f "${source_path}/binscripts/${file}" "${rvm_bin_path}/${file}"
 
@@ -394,12 +388,10 @@ install_binscripts()
     do
       if [[ "${system_bin}" != "${rvm_bin_path}" && -x "${system_bin}/${file}" ]]
       then
-        if ! rm -f "${system_bin}/${file}" 2>/dev/null
-        then
+        rm -f "${system_bin}/${file}" 2>/dev/null ||
           printf "!!! could not remove ${system_bin}/${file}, remove it manually with:
 !!! > sudo rm -f ${system_bin}/${file}
 "
-        fi
       fi
     done
   done
@@ -407,10 +399,8 @@ install_binscripts()
   # optional binscripts
   for file in rake bundle
   do
-    if ! [[ -f "${rvm_bin_path}/${file}" ]]
-    then
+    [[ -f "${rvm_bin_path}/${file}" ]] ||
       cp -f "${source_path}/binscripts/${file}" "${rvm_bin_path}/${file}"
-    fi
   done
 
   return 0
@@ -427,10 +417,7 @@ install_gemsets()
 
   if [[ -d gemsets/ ]]
   then
-    if [[ ! -d "$rvm_path/gemsets" ]]
-    then
-      mkdir -p "$rvm_path/gemsets"
-    fi
+    [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
 
     gemset_files=($(
       find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
@@ -440,13 +427,10 @@ install_gemsets()
     do
       cwd="${PWD//\//\\/}\/gemsets\/"
       destination="$rvm_path/gemsets/${gemset_file/$cwd}"
-      destination_path="$(dirname "$destination")"
       if [[ ! -s "$destination" ]]
       then
-        if [[ ! -d "$destination_path" ]]
-        then
-          mkdir -p "$destination_path"
-        fi
+        destination_path="${destination%/*}"
+        [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
         cp "$gemset_file" "$destination"
       fi
     done
@@ -477,10 +461,7 @@ update_gemsets_install_rvm()
       found=($(
         find "${path%%+(\/)}/gems" -maxdepth 1 "${name_opt}" 'rvm-*' | sed 's/^\.\///'
       ))
-      if (( ${#found[@]} == 0 ))
-      then
-        missing+=( "$path" )
-      fi
+      (( ${#found[@]} > 0 )) || missing+=( "$path" )
     done
 
     if (( ${#missing[@]} > 0 ))
@@ -497,12 +478,14 @@ update_gemsets_install_rvm()
 
 install_patchsets()
 {
+  if [[ ${rvm_keep_patchsets_flag:-0} == 0 && -d "$rvm_path/patchsets" ]]
+  then
+    rm -rf "$rvm_path/patchsets"
+  fi
+
   if [[ -d patchsets/ ]]
   then
-    if [[ ! -d "$rvm_path/patchsets" ]]
-    then
-      mkdir -p "$rvm_path/patchsets"
-    fi
+    [[ -d "$rvm_path/patchsets" ]] || mkdir -p "$rvm_path/patchsets"
 
     patchsets=($(
       builtin cd patchsets
@@ -515,17 +498,8 @@ install_patchsets()
       if [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
       then
         destination_path="${destination%/*}"
-
-        if [[ ! -d "$destination_path" ]]
-        then
-          mkdir -p "$destination_path"
-        fi
-
-        if [[ -f "$destination" ]]
-        then
-          rm -f "$destination"
-        fi
-
+        [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
+        [[ -f "$destination"      ]] && rm -f "$destination"
         cp "patchsets/$patchset_file" "$destination"
       fi
     done
