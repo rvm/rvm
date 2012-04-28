@@ -4,15 +4,18 @@ Other implementations allowing to switch ruby environment:
 
 - https://github.com/vertiginous/pik (Windows)
 - https://github.com/kwatch/versionswitcher
+- https://github.com/wilmoore/ruby-version
+- https://github.com/sam/rb-switch
 - https://github.com/jayferd/ry
 - https://github.com/niw/rubies
 - https://github.com/hmans/rbfu
-- https://github.com/sam/rb-switch
 - https://github.com/nkryptic/sandbox
 - https://github.com/sstephenson/rbenv
 - https://github.com/cpetschnig/switch-ruby
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
-
+- http://zentest.rubyforge.org/ZenTest/Multiruby.html (Ruby)
+- http://www.dribin.org/dave/blog/archives/2006/01/07/rails_encap/ (Tutorial)
+- http://www.mjwall.com/2008/08/multiple-versions-of-ruby-with-stow/ (Tutorial)
 
 # RVM is not the only Ruby Version Manager
 
