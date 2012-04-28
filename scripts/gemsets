@@ -65,17 +65,16 @@ gemset_globalcache()
 
   if [[ "$1" == "enabled" ]]
   then
-    __rvm_using_gemset_globalcache
-    globalcache_enabled=$?
-    gc_status="Unknown"
-    if (( ${globalcache_enabled:-0} == 0 ))
+    if __rvm_using_gemset_globalcache
     then
       gc_status="Enabled"
+      globalcache_enabled=0
     else
       gc_status="Disabled"
+      globalcache_enabled=1
     fi
     rvm_log "Gemset global cache is currently: $gc_status"
-    return "$globalcache_enabled"
+    return $globalcache_enabled
   elif [[ "$1" == "disable" ]]
   then
     rvm_log "Removing the global cache (note: this will empty the caches)"
@@ -125,9 +124,9 @@ gemset_globalcache()
 
   Usage:
 
-    rvm gemset globalcache {enable,disable}
+    rvm gemset globalcache {enable,disable,enabled}
 
-    Enable / Disable the use of a global gem cachedir.
+    Enable / Disable / Status the use of a global gem cachedir.
 
 "
     return 1
@@ -1023,17 +1022,6 @@ search()
   done
 }
 
-# this can not be done here,
-# if any sub command requires it, then
-# it should be called exclusively per command
-#unset GEM_PATH
-
-if ! builtin command -v gem > /dev/null
-then
-  rvm_error "'gem' was not found, cannot perform gem actions (Do you have an RVM ruby selected?)"
-  exit 1
-fi
-
 args=($*)
 action="${args[$__array_start]}"
 args[$__array_start]=""
@@ -1042,6 +1030,12 @@ gems_args="$(echo ${args[@]})" # Strip trailing / leading / extra spacing.
 
 export rvm_gemset_name="${args[1]:-""}" # For wherever used.
 rvm_sticky_flag=1
+
+if [[ "$action" != "globalcache" ]] && ! builtin command -v gem > /dev/null
+then
+  rvm_error "'gem' was not found, cannot perform gem actions (Do you have an RVM ruby selected?)"
+  exit 1
+fi
 
 if [[ -z "$rvm_ruby_string" ]]
 then
