@@ -1,15 +1,32 @@
 #!/usr/bin/env bash
 
+__check_opt_dir_paths()
+{
+  typeset opt_dir_path1 opt_dir_path2
+  opt_dir_path1=$1
+  opt_dir_path2=$2
+  if [[ "${opt_dir_path1}" != "" ]] && [[ "${opt_dir_path1}" != "${opt_dir_path2}" ]]
+  then
+    rvm_warn  "Conflicting opt-dir paths: --with-opt-dir=${opt_dir_path1} vs. --with-opt-dir=${opt_dir_path2}"
+    rvm_error "You can have at most one --with-opt-dir=... option."
+    exit 1
+  fi
+}
+
 transform_configure_flags()
 {
   typeset flag path
   typeset -a new_flags
+  typeset opt_dir_path
 
+  opt_dir_path=""
   for flag in ${rvm_configure_flags}
   do
     case "${flag}" in
       --with-opt-dir=*)
         new_flags+=( "${flag}" )
+        __check_opt_dir_paths "${opt_dir_path}" "${flag}"
+        opt_dir_path="${flag}"
         ;;
 
       --with-*-dir=*)
@@ -18,8 +35,11 @@ transform_configure_flags()
 
         new_flags+=( "${flag}" )
 
-        if ! [[ " ${new_flags[*]} ${rvm_configure_flags} " =~ " --with-opt-dir=" ]]
-        then new_flags+=( "--with-opt-dir=${path}" )
+        if ! [[ " ${new_flags[*]} " =~ " --with-opt-dir=${path} " ]]
+        then
+          new_flags+=( "--with-opt-dir=${path}" )
+          __check_opt_dir_paths "${opt_dir_path}" "${path}"
+          opt_dir_path="${path}"
         fi
         ;;
 
@@ -51,7 +71,7 @@ __clang_ready()
 
 ruby_install()
 {
-  typeset result
+  typeset result libyamlpath
 
   __rvm_check_for_bison # && Run like hell...
   if __rvm_check_for_bison
@@ -77,15 +97,25 @@ ruby_install()
   case ${rvm_ruby_string} in
     ruby-1.9*)
       # Ruby 1.9 should now use libyaml which is for Psych.
-      if ! libyaml_installed
-      then libyaml # Installs libyaml
+      libyaml_path=$(find_libyaml_path)
+      if [[ -z "${libyaml_path}" ]]
+      then
+        libyaml # Installs libyaml
+        libyaml_path="${rvm_path}/usr"
       fi
-      rvm_configure_flags="${rvm_configure_flags:-} --with-libyaml-dir=${rvm_path}/usr"
+      if [[ "${libyaml_path}" == "${rvm_path}/usr" ]]
+      then
+        rvm_configure_flags="${rvm_configure_flags:-} --with-opt-dir=${rvm_path}/usr"
+      fi
+      rvm_log "Using libyaml from ${libyaml_path}"
 
       # In some cases ruby does not allow --with-<lib>-dir,
       # so we transform it to --with-<lib> --with-opt-dir=...
       # see https://github.com/wayneeseguin/rvm/issues/674
       transform_configure_flags
+      if ! [[ -z "${rvm_configure_flags}" ]]; then
+        rvm_log "Using Ruby configure flags: '${rvm_configure_flags}'"
+      fi
       ;;
   esac
 
