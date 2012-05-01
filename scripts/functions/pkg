@@ -248,17 +248,34 @@ libyaml()
   install_package
 }
 
-libyaml_installed()
+find_libyaml_path()
 {
-  typeset path
-  path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
+  typeset paths path
+
+  if [[ "${rvm_configure_flags}" =~ --with-opt-dir=([^ ]*) ]]
+  then
+    paths="${BASH_REMATCH[1]}"
+  else
+    paths=""
+  fi
+  paths="${paths} /usr/local /usr ${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
+
   if [[ "Darwin" == "$(uname)" ]]
   then
     extension="dylib"
   else
     extension="so"
   fi
-  [[ -f "${path}/include/yaml.h" ]] && \find "${path}" -name "libyaml.${extension}" | GREP_OPTIONS="" \grep '.*' >/dev/null
+
+  for path in $paths; do
+    if [[ -f "${path}/include/yaml.h" ]] && [[ -f "${path}/lib/libyaml.${extension}" ]]
+    then
+      echo "${path}"
+      return 0
+    fi
+  done
+  echo ""
+  return 1
 }
 
 glib()
