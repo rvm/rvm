@@ -553,7 +553,6 @@ gemset_export()
   typeset gem_name version versions _platforms
 
   rvm_file_name="${rvm_file_name:-${gems_args// }}"
-  rvm_file_name="${rvm_file_name%.gems}.gems"
 
   if [[ -n "$rvm_ruby_gem_home" ]]
   then
@@ -561,9 +560,10 @@ gemset_export()
     export GEM_PATH="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
   fi
 
-  if [[ -z "$rvm_file_name" ]]
+  if [[ -n "$rvm_file_name" ]]
   then
-
+    [[ "${rvm_file_name}" =~ Gemfile ]] || rvm_file_name="${rvm_file_name%.gems}.gems"
+  else
     if [[ -n "$rvm_gemset_name" ]]
     then
       rvm_file_name="$rvm_gemset_name.gems"
@@ -571,27 +571,48 @@ gemset_export()
       rvm_file_name="default.gems"
     fi
   fi
+
   rvm_log "Exporting current environments gemset to $rvm_file_name"
   if [[ -f "$rvm_file_name" ]]
   then
     rm -f "$rvm_file_name"
   fi
 
-  echo "# $rvm_file_name generated gem export file. Note that any env variable settings will be missing. Append these after using a ';' field separator" \
-    > "$rvm_file_name"
+  if [[ "${rvm_file_name}" =~ Gemfile ]]
+  then
+    printf "%b" "source :rubygems
+
+"
+  else
+    printf "%b" "# $rvm_file_name generated gem export file. \
+Note that any env variable settings will be missing. \
+Append these after using a ';' field separator
+
+"
+  fi > "$rvm_file_name"
 
   if (( ${rvm_latest_flag:-0} == 0 ))
   then
     while read gem_name version _platforms
     do
-      echo "$gem_name -v$version"
+      if [[ "${rvm_file_name}" =~ Gemfile ]]
+      then
+        echo "gem '$gem_name', '$version'"
+      else
+        echo "$gem_name -v$version"
+      fi
     done < <( GEM_PATH="$GEM_HOME" __rvm_list_gems )
   else
     while read gem_name versions
     do
-      echo "$gem_name"
+      if [[ "${rvm_file_name}" =~ Gemfile ]]
+      then
+        echo "gem '$gem_name'"
+      else
+        echo "$gem_name"
+      fi
     done < <( GEM_PATH="$GEM_HOME" gem list )
-  fi >> $rvm_file_name
+  fi >> "$rvm_file_name"
 
   return 0
 }
