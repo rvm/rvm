@@ -24,10 +24,13 @@ file_exists_at_url()
 
 rbx_configure_with_path()
 {
-  typeset path
-  path="${1:-}"
+  typeset name path
+  name="${1:-}"
+  path="${2:-}"
   [[ -d "${path}" ]] || return 1
   [[ -d "${path}/include" ]] || return 2
+
+  rvm_configure_args="${rvm_configure_args:-} --with-${name}-dir=${path}"
 
   rvm_configure_flags="${rvm_configure_flags:-} --with-include-dir $path/include"
 
@@ -49,6 +52,7 @@ rbx_configure_with_path()
 
 rbx_install()
 {
+  typeset rvm_configure_args
   rvm_log "$rvm_ruby_string installing #dependencies "
 
   if ! __rvm_ensure_has_mri_ruby
@@ -77,7 +81,7 @@ rbx_install()
       then libyaml # Installs libyaml
       fi
 
-      rbx_configure_with_path "$rvm_path/usr" || {
+      rbx_configure_with_path libyaml "$rvm_path/usr" || {
         rvm_error "Could not find 'lib' dir for libyaml, please make sure libyaml is compiled properly."
         return 1
       }
@@ -178,13 +182,18 @@ rbx_install()
     exit $result
   fi
 
+  if [[ -n "${rvm_configure_args:-}" ]]
+  then
+    rvm_ruby_make="CONFIGURE_ARGS=${rvm_configure_args} "
+  fi
+
+  rvm_ruby_make="${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/rake install"
+  message="$rvm_ruby_string - #compiling"
+
   if (( ${rvm_trace_flag:=0} == 1 ))
   then
-    rvm_ruby_make="$rvm_wrappers_path/$ruby/rake install --trace"
-    message="$rvm_ruby_string - #compiling (with --trace)"
-  else
-    rvm_ruby_make="$rvm_wrappers_path/$ruby/rake install"
-    message="$rvm_ruby_string - #compiling"
+    rvm_ruby_make="${rvm_ruby_make} --trace"
+    message="$message (with --trace)"
   fi
 
   __rvm_run "rake" "$rvm_ruby_make" "$message"
