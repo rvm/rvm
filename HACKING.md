@@ -44,7 +44,7 @@ to write new tests, see [`rvm-test`'s
 README.md](https://github.com/wayneeseguin/rvm-test/blob/master/README.md).
 Then run the test:
 
-    $ dtf --text rvm-test/fast/foo_comment_test.sh
+    $ tf --text rvm-test/fast/foo_comment_test.sh
 
 It should fail.  Now repeat the following steps until the test passes:
 
