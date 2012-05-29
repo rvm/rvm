@@ -51,7 +51,7 @@ __clang_ready()
 
 ruby_install()
 {
-  typeset result
+  typeset result temp_flags
 
   __rvm_check_for_bison # && Run like hell...
   if __rvm_check_for_bison
@@ -77,15 +77,27 @@ ruby_install()
   case ${rvm_ruby_string} in
     ruby-1.9*)
       # Ruby 1.9 should now use libyaml which is for Psych.
-      if ! libyaml_installed
-      then libyaml # Installs libyaml
+      if [[ " ${rvm_configure_flags[*]}" =~ " --with-opt-dir=" ]]
+      then
+        rvm_warn "Please note that you are using your own '--with-opt-dir=', make sure 'libyaml' is installed and available for ruby compilation."
+      else
+        if ! libyaml_installed
+        then libyaml # Installs libyaml
+        fi
+        rvm_configure_flags="${rvm_configure_flags:-} --with-libyaml-dir=${rvm_path}/usr"
       fi
-      rvm_configure_flags="${rvm_configure_flags:-} --with-libyaml-dir=${rvm_path}/usr"
 
-      # In some cases ruby does not allow --with-<lib>-dir,
+      # Ruby 1.9 does not allow --with-<lib>-dir,
       # so we transform it to --with-<lib> --with-opt-dir=...
       # see https://github.com/wayneeseguin/rvm/issues/674
-      transform_configure_flags
+      temp_flags=" ${rvm_configure_flags[*]}"
+      temp_flags="${temp_flags// --with-opt-dir=/}"
+      if [[ " ${rvm_configure_flags[*]}" =~ " --with-opt-dir=" && "${temp_flags}" =~ "-dir=" ]]
+      then
+        rvm_warn "You are using conflicting '--*-dir=' configure flags."
+      else
+        transform_configure_flags
+      fi
       ;;
   esac
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
+# echo "65536 * 3 + 256 * 2 + 25" | bc
 if [[ -n "${BASH_VERSION:-}" ]] &&
-  (( 65536 * ${BASH_VERSINFO[0]} + 256 * ${BASH_VERSINFO[1]} + ${BASH_VERSINFO[2]} < 197168 ))
+  (( 65536 * ${BASH_VERSINFO[0]} + 256 * ${BASH_VERSINFO[1]} + ${BASH_VERSINFO[2]} < 197145 ))
 then
-  echo "BASH 3.2.48 required (you have $BASH_VERSION)"
+  echo "BASH 3.2.25 required (you have $BASH_VERSION)"
   exit 1
 fi
 
@@ -280,6 +281,7 @@ do
       ;;
 
     --ruby=*)
+      token=${token#--ruby=}
       install_rubies+=( ${token//,/ } )
       ;;
 
@@ -288,6 +290,7 @@ do
       ;;
 
     --gems=*)
+      token=${token#--gems=}
       install_gems+=( ${token//,/ } )
       ;;
 
@@ -302,6 +305,22 @@ do
 
   esac
 done
+
+case "$rvm_path" in
+  *[[:space:]]*)
+      printf "%b" "
+It looks you are one of the happy *space* users(in home dir name),
+RVM is not yet fully ready for it, use this trick to fix it:
+
+    sudo ln -s \"$HOME/.rvm/\" /$USER.rvm
+    echo \"export rvm_path=/$USER.rvm\" >> \"$HOME/.rvmrc\"
+
+and start installing again.
+
+"
+      exit 2
+    ;;
+esac
 
 if (( ${#install_gems[@]} > 0 && ${#install_rubies[@]} == 0 ))
 then
@@ -387,17 +406,16 @@ chmod +x ./scripts/install
   if (( ${#install_rubies[@]} > 0 ))
   then
     {
-      echo "Ruby (and gems) of your selection will be installed shortly,"
-      echo "before it happens please read and execute the bellow instruction."
-      echo "Please use separate terminal to execute any additional commands."
-      rvm requirements
+      echo "Ruby (and needed base gems) for your selection will be installed shortly."
+      echo "Before it happens, please read and execute the instructions below."
+      echo "Please use a separate terminal to execute any additional commands."
       echo "Press 'q' to continue."
     } | less
   fi
 
   for _ruby in ${install_rubies[@]}
   do
-    rvm install ${_ruby} -j 2
+    command rvm install ${_ruby} -j 2
   done
   for _ruby in ${install_rubies[@]}
   do
@@ -425,4 +443,6 @@ chmod +x ./scripts/install
   * To start using rails you need to run \`rails new <project_dir>\`.
 "
   fi
+
+  true
 )

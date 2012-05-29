@@ -69,7 +69,7 @@ __rvm_sha256_for_contents()
 
 __rvm_rvmrc_key()
 {
-  printf "%b" "$1" | tr '[#/.=]' _
+  printf "%b" "$1" | \tr '[#/.=]' _
   return $?
 }
 
@@ -384,7 +384,7 @@ __rvm_ask_to_trust()
     printf "%b" 'y[es], n[o], v[iew], c[ancel]> '
 
     builtin read response
-    value="$(echo -n "${response}" | tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
+    value="$(echo -n "${response}" | \tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
 
     case "${value:-n}" in
       v|view)
@@ -431,7 +431,7 @@ __rvm_project_rvmrc()
 
   while :
   do
-    if [[ -z "$working_dir" || "$HOME" == "$working_dir" || "/" == "$working_dir" ]]
+    if [[ -z "$working_dir" || "$HOME" == "$working_dir" || "${rvm_prefix:-}" == "$working_dir"  || "/" == "$working_dir" ]]
     then
       if [[ -n "${rvm_current_rvmrc:-""}" ]]
       then
@@ -549,13 +549,15 @@ __rvm_load_project_config()
       ;;
 
     (*/Gemfile)
-      typeset _bundler_version
       __rvm_ensure_is_a_function
       rvm_previous_environment="$(__rvm_env_string)"
       rvm_current_rvmrc="$1"
 
       rvm_ruby_string="$(sed -n '/^#ruby=/ {s/#ruby=//;p;}' < "$1")"
-      [[ -n "${rvm_ruby_string}" ]] || return 2
+      [[ -n "${rvm_ruby_string}" ]] || {
+        rvm_ruby_string="$(sed -n "/^\s*ruby/ {s/^\s*ruby//; s/[ ()'\"]//g; p;}" < "$1")"
+        [[ -n "${rvm_ruby_string}" ]] || return 2
+      }
       rvm_gemset_name="$(sed -n '/^#ruby-gemset=/ {s/#ruby-gemset=//;p;}' < "$1")"
       rvm_create_flag=1 __rvm_use   || return 3
 
@@ -563,13 +565,9 @@ __rvm_load_project_config()
 
       if [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
       then
-        _bundler_version="$(sed -n '/^#ruby-bundler-version=/ {s/#ruby-bundler-version=//;p;}' < "$1")"
-        if ! gem list | GREP_OPTIONS="" \grep "^bundler " | \grep "${_bundler_version}" > /dev/null
-        then
-          [[ -z "${_bundler_version}" ]] || _bundler_version=" -v ${_bundler_version}"
-          gem install "bundler${_bundler_version}"
-        fi
         __gemfile="$1"
+        gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null ||
+          gem install bundler
       fi
       ;;
 
@@ -660,7 +658,7 @@ __rvm_set_rvmrc()
   typeset flags identifier short_identifier gem_file
   true ${rvm_verbose_flag:=0}
 
-  if [[ "$HOME" != "$PWD" ]]
+  if [[ "$HOME" != "$PWD" && "${rvm_prefix:-}" != "$PWD" ]]
   then
     if (( rvm_verbose_flag ))
     then
@@ -781,8 +779,10 @@ __rvm_project_dir_check()
     [[ -f "$1/.rbfu-version"  && -s "$1/.rbfu-version"  ]] ||
     [[ -f "$1/.rbenv-version" && -s "$1/.rbenv-version" ]] ||
     {
-      [[ -f "$1/Gemfile" && -s "$1/Gemfile" ]] &&
-      GREP_OPTIONS="" \grep "^#ruby=" "$1/Gemfile" >/dev/null
+      [[ -f "$1/Gemfile" && -s "$1/Gemfile" ]] && {
+        GREP_OPTIONS="" \grep "^#ruby=" "$1/Gemfile" >/dev/null ||
+        GREP_OPTIONS="" \grep "^\s*ruby" "$1/Gemfile" >/dev/null
+      }
     }
   }
 }

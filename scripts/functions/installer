@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #Handle Solaris Hosts
-if [[ "$(uname -sr)" == "SunOS 5.11" ]]
+if [[ "$(uname -s)" == "SunOS" ]]
 then
   export PATH
   PATH="/usr/gnu/bin:$PATH"
@@ -26,13 +26,19 @@ install_setup()
   if (( ${rvm_ignore_rvmrc:=0} == 0 ))
   then
     : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
-    for file in /etc/rvmrc "$HOME/.rvmrc"
+
+    rvm_rvmrc_files=("/etc/rvmrc" "$HOME/.rvmrc")
+    if [[ -n "${rvm_prefix:-}" ]] && ! [[ "$HOME/.rvmrc" -ef "${rvm_prefix}/.rvmrc" ]]
+       then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
+    fi
+    for file in "${rvm_rvmrc_files[@]}"
     do
       if [[ -s "$file" ]]
       then
         . $file
       fi
     done
+    unset rvm_rvmrc_files
   fi
 
   export PS4 PATH
@@ -70,13 +76,13 @@ install_usage()
 
     --auto    : Automatically update shell profile files.
 
-		--prefix  : Installation prefix directory (rvm_path).
+    --path    : Installation directory (rvm_path).
 
     --help    : Display help/usage (this) message
 
     --version : display rvm package version
 
-  \n"
+"
 }
 
 display_thank_you()
@@ -99,7 +105,12 @@ determine_install_path()
   if (( ${rvm_ignore_rvmrc:=0} == 0 ))
   then
     : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
-    for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
+
+    rvm_rvmrc_files=("/etc/rvmrc" "$HOME/.rvmrc")
+    if [[ -n "${rvm_prefix:-}" ]] && ! [[ "$HOME/.rvmrc" -ef "${rvm_prefix}/.rvmrc" ]]
+       then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
+    fi
+    for rvmrc in "${rvm_rvmrc_files[@]}"
     do
       if [[ -f "$rvmrc" ]]
       then
@@ -112,6 +123,7 @@ determine_install_path()
         fi
       fi
     done
+    unset rvm_rvmrc_files
   fi
 
   if [[ -z "${rvm_path:-}" ]]
@@ -822,13 +834,20 @@ setup_etc_profile()
 #
 # /etc/profile.d/rvm.sh # sh extension required for loading.
 #
-if [ -n \"\${BASH_VERSION:-}\" -o -n \"\${ZSH_VERSION:-}\" ] ; then
+
+if [ -n \"\${BASH_VERSION:-}\" -o -n \"\${ZSH_VERSION:-}\" ] &&
+  test \"\`ps -p \$\$ -o comm=\`\" != dash &&
+  test \"\`ps -p \$\$ -o comm=\`\" != sh
+then
 
   : rvm_stored_umask:\${rvm_stored_umask:=\$(umask)}
   # Load user rvmrc configurations, if exist
-  for file in /etc/rvmrc \"\$HOME/.rvmrc\" ; do
+  for file in \"/etc/rvmrc\" \"$HOME/.rvmrc\" ; do
     [[ -s \"\$file\" ]] && source \$file
   done
+  if [[ -n \"\${rvm_prefix:-}\" ]] && ! [[ \"\$HOME/.rvmrc\" -ef \"\${rvm_prefix}/.rvmrc\" ]] && [[ -s \"\${rvm_prefix}/.rvmrc\" ]]
+  then source \"\${rvm_prefix}/.rvmrc\"
+  fi
 
   # Load RVM if it is installed, try user then root install.
   if [[ -s \"\$rvm_path/scripts/rvm\" ]] ; then

@@ -316,24 +316,11 @@ __rvm_parse_args()
             ;;
 
           wrapper)
-            rvm_action="$rvm_token"
+            rvm_action="wrapper"
             rvm_ruby_string="$next_token" ;
-            if (( $# > 0 ))
-            then
-              next_token="$1"
-              shift
-            else
-              next_token=""
-            fi
-            rvm_wrapper_name="$next_token"
-            if (( $# > 0 ))
-            then
-              next_token="$1"
-              shift
-            else
-              next_token=""
-            fi
-            rvm_ruby_args=("$next_token" "$@") # list of binaries, or none
+            rvm_wrapper_name="$1"
+            (( $# == 0 )) || shift
+            rvm_ruby_args=("$@") # list of binaries, or empty
             rvm_parse_break=1
             ;;
 
@@ -696,7 +683,7 @@ __rvm_parse_args()
             export rvm_rvmrc_flag="${rvm_token}"
             ;;
 
-          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--18|--19|--force-autoconf|--auto|--autoinstall-bundler|--ignore-gemsets)
+          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--18|--19|--force-autoconf|--auto|--autoinstall-bundler|--ignore-gemsets|--skip-gemsets)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
             export "rvm_${rvm_token}_flag"=1
@@ -822,7 +809,11 @@ rvm()
   if (( ${rvm_ignore_rvmrc:=0} == 0 ))
   then
     : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
-    for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
+    rvm_rvmrc_files=("/etc/rvmrc" "$HOME/.rvmrc")
+    if [[ -n "${rvm_prefix:-}" ]] && ! [[ "$HOME/.rvmrc" -ef "${rvm_prefix}/.rvmrc" ]]
+    then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
+    fi
+    for rvmrc in "${rvm_rvmrc_files[@]}"
     do
       if [[ -f "$rvmrc" ]]
       then
@@ -839,6 +830,7 @@ Error:
         fi
       fi
     done
+    unset rvm_rvmrc_files
   fi
 
   disk_version="$(cat "$rvm_path/VERSION") ($(cat "$rvm_path/RELEASE" 2>/dev/null))"
@@ -970,6 +962,7 @@ Please do one of the following:
 
     wrapper)
       "$rvm_scripts_path/wrapper" "$rvm_ruby_string" "$rvm_wrapper_name" "${rvm_ruby_args[@]}"
+      result=$?
       unset rvm_wrapper_name
       ;;
 
@@ -1065,10 +1058,21 @@ To reinstall use:
     rvm reinstall ${rvm_ruby_strings}
 "
         else
+          if [[ $(ls -1 $rvm_rubies_path/*/bin/ruby 2>/dev/null | wc -l) -eq 0 ]] &&
+            [[ ${rvm_is_not_a_shell_function:-0} -eq 0 ]]
+          then
+            {
+              echo "Ruby (and needed base gems) for your selection will be installed shortly."
+              echo "Before it happens, please read and execute the instructions below."
+              echo "Please use a separate terminal to execute any additional commands."
+              "$rvm_scripts_path"/requirements
+              echo "Press 'q' to continue."
+            } | less
+          fi
           "$rvm_scripts_path"/manage install "${rvm_ruby_strings}"
         fi
       else
-        rvm_error "Can not use or install all rubies."
+        rvm_error "Can not use or install 'all' rubies."
         false #report error
       fi
       ;;
@@ -1116,7 +1120,7 @@ To reinstall use:
   [[ $result -gt 0 ]] ||
   case "$rvm_action" in
     reinstall|try_install|install)
-      if [[ $(ls -1 $rvm_rubies_path/*/bin/ruby | wc -l) -eq 1 ]] &&
+      if [[ $(ls -1 $rvm_rubies_path/*/bin/ruby 2>/dev/null | wc -l) -eq 1 ]] &&
         [[ ! -f "${rvm_environments_path}/default" ]]
       then
         if rvm_is_a_shell_function

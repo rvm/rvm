@@ -65,17 +65,16 @@ gemset_globalcache()
 
   if [[ "$1" == "enabled" ]]
   then
-    __rvm_using_gemset_globalcache
-    globalcache_enabled=$?
-    gc_status="Unknown"
-    if (( ${globalcache_enabled:-0} == 0 ))
+    if __rvm_using_gemset_globalcache
     then
       gc_status="Enabled"
+      globalcache_enabled=0
     else
       gc_status="Disabled"
+      globalcache_enabled=1
     fi
     rvm_log "Gemset global cache is currently: $gc_status"
-    return "$globalcache_enabled"
+    return $globalcache_enabled
   elif [[ "$1" == "disable" ]]
   then
     rvm_log "Removing the global cache (note: this will empty the caches)"
@@ -125,9 +124,9 @@ gemset_globalcache()
 
   Usage:
 
-    rvm gemset globalcache {enable,disable}
+    rvm gemset globalcache {enable,disable,enabled}
 
-    Enable / Disable the use of a global gem cachedir.
+    Enable / Disable / Status the use of a global gem cachedir.
 
 "
     return 1
@@ -178,10 +177,7 @@ gemset_create()
 
     gem_home="${prefix}${rvm_gemset_separator:-"@"}${gemset}"
 
-    if [[ ! -d "$gem_home" ]]
-    then
-      mkdir -p "$gem_home"
-    fi
+    [[ -d "$gem_home/bin" ]] || mkdir -p "$gem_home/bin"
 
     : rvm_gems_cache_path:${rvm_gems_cache_path:=${rvm_gems_path:-"$rvm_path/gems"}/cache}
     # When the globalcache is enabled, we need to ensure we setup the cache directory correctly.
@@ -249,13 +245,14 @@ gemset_list()
     return 1
   }
 
-  typeset current_gemset
+  typeset current_gemset IFS
   current_gemset=$(__rvm_current_gemset)
+  IFS=""
 
   [[ "${args[0]:-""}" == "strings" ]] ||
     rvm_log "\ngemsets for $rvm_ruby_string (found in ${rvm_gems_path:-"$rvm_path/gems"}/$rvm_ruby_string)"
 
-  for gemset in "${rvm_gems_path:-${rvm_path}/gems}/${rvm_ruby_string}${rvm_gemset_separator:-@}"*
+  for gemset in ${rvm_gems_path:-${rvm_path}/gems}/${rvm_ruby_string}${rvm_gemset_separator:-@}*
   do
     __gemset_list_single "${gemset}" "${current_gemset}"
   done
@@ -556,7 +553,6 @@ gemset_export()
   typeset gem_name version versions _platforms
 
   rvm_file_name="${rvm_file_name:-${gems_args// }}"
-  rvm_file_name="${rvm_file_name%.gems}.gems"
 
   if [[ -n "$rvm_ruby_gem_home" ]]
   then
@@ -564,9 +560,10 @@ gemset_export()
     export GEM_PATH="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
   fi
 
-  if [[ -z "$rvm_file_name" ]]
+  if [[ -n "$rvm_file_name" ]]
   then
-
+    [[ "${rvm_file_name}" =~ Gemfile ]] || rvm_file_name="${rvm_file_name%.gems}.gems"
+  else
     if [[ -n "$rvm_gemset_name" ]]
     then
       rvm_file_name="$rvm_gemset_name.gems"
@@ -574,27 +571,50 @@ gemset_export()
       rvm_file_name="default.gems"
     fi
   fi
+
   rvm_log "Exporting current environments gemset to $rvm_file_name"
   if [[ -f "$rvm_file_name" ]]
   then
     rm -f "$rvm_file_name"
   fi
 
-  echo "# $rvm_file_name generated gem export file. Note that any env variable settings will be missing. Append these after using a ';' field separator" \
-    > "$rvm_file_name"
+  if [[ "${rvm_file_name}" =~ Gemfile ]]
+  then
+    printf "%b" "source :rubygems
+
+#ruby=${GEM_HOME##*/}
+
+"
+  else
+    printf "%b" "# $rvm_file_name generated gem export file. \
+Note that any env variable settings will be missing. \
+Append these after using a ';' field separator
+
+"
+  fi > "$rvm_file_name"
 
   if (( ${rvm_latest_flag:-0} == 0 ))
   then
     while read gem_name version _platforms
     do
-      echo "$gem_name -v$version"
+      if [[ "${rvm_file_name}" =~ Gemfile ]]
+      then
+        echo "gem '$gem_name', '$version'"
+      else
+        echo "$gem_name -v$version"
+      fi
     done < <( GEM_PATH="$GEM_HOME" __rvm_list_gems )
   else
     while read gem_name versions
     do
-      echo "$gem_name"
+      if [[ "${rvm_file_name}" =~ Gemfile ]]
+      then
+        echo "gem '$gem_name'"
+      else
+        echo "$gem_name"
+      fi
     done < <( GEM_PATH="$GEM_HOME" gem list )
-  fi >> $rvm_file_name
+  fi >> "$rvm_file_name"
 
   return 0
 }
@@ -904,7 +924,7 @@ gemset_pristine()
 
     while read _gem _version _platforms
     do
-      printf "%b" "${_gem}-${_version} " | tee /dev/stderr
+      printf "%b" "${_gem}-${_version} "
       if ! gem pristine ${_gem} --version ${_version} >/dev/null
       then _failed+=( "${_gem} --version ${_version}" )
       fi
@@ -912,11 +932,10 @@ gemset_pristine()
 
     if (( ${#_failed[@]} > 0 ))
     then
-      printf "%b" "\n"
-      rvm_error "'gem pristine ${_failed[*]}' failed, you need to fix this gems manually."
+      rvm_error "\n'gem pristine ${_failed[*]}' failed, you need to fix this gems manually."
       return 1
     else
-      rvm_log "finished."
+      rvm_log "\nfinished."
       return 0
     fi
 
@@ -1023,17 +1042,6 @@ search()
   done
 }
 
-# this can not be done here,
-# if any sub command requires it, then
-# it should be called exclusively per command
-#unset GEM_PATH
-
-if ! builtin command -v gem > /dev/null
-then
-  rvm_error "'gem' was not found, cannot perform gem actions (Do you have an RVM ruby selected?)"
-  exit 1
-fi
-
 args=($*)
 action="${args[$__array_start]}"
 args[$__array_start]=""
@@ -1042,6 +1050,12 @@ gems_args="$(echo ${args[@]})" # Strip trailing / leading / extra spacing.
 
 export rvm_gemset_name="${args[1]:-""}" # For wherever used.
 rvm_sticky_flag=1
+
+if [[ "$action" != "globalcache" ]] && ! builtin command -v gem > /dev/null
+then
+  rvm_error "'gem' was not found, cannot perform gem actions (Do you have an RVM ruby selected?)"
+  exit 1
+fi
 
 if [[ -z "$rvm_ruby_string" ]]
 then
@@ -1059,7 +1073,7 @@ case "$action" in
       gemset_import
     else
       original_env="$(__rvm_env_string)"
-      for rvm_ruby_string in $(echo "$rvm_ruby_strings" | tr "," " ")
+      for rvm_ruby_string in $(echo "$rvm_ruby_strings" | \tr "," " ")
       do
         __rvm_become
         gemset_import
