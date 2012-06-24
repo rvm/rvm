@@ -34,7 +34,25 @@ __rvm_compiler_is_llvm()
   fi
 }
 
+__rvm_compiler_is_gcc47()
+{
+  typeset compiler
+  if compiler=$(__rvm_found_compiler)
+  then
+    [[ "$($compiler -dumpversion)" =~ "4.7" ]]
+  else
+    return 1
+  fi
+}
+
 __rvm_setup_compile_environment()
+{
+  __rvm_setup_compile_environment_osx_gcc
+  __rvm_setup_compile_environment_osx_architectures
+  __rvm_setup_compile_environment_gcc47
+}
+
+__rvm_setup_compile_environment_osx_gcc()
 {
   if [[ "Darwin" == "$(uname)" ]] && ! __rvm_selected_compiler > /dev/null
   then
@@ -52,7 +70,10 @@ __rvm_setup_compile_environment()
   if [[ "${rvm_patch_names:-}" =~ *debug* ]]
   then rvm_force_autoconf_flag=1
   fi
+}
 
+__rvm_setup_compile_environment_osx_architectures()
+{
   [[ -n "${rvm_architectures:-}" ]] || return 0
 
   if [[ "${rvm_ruby_version}" =~ 1.9.* ]]
@@ -82,6 +103,22 @@ __rvm_setup_compile_environment()
     if ! [[ "${rvm_patch_names:-}" =~ *osx-arch-fix* ]]
     then rvm_patch_names="osx-arch-fix ${rvm_patch_names:-}"
     fi
+  fi
+}
+
+__rvm_setup_compile_environment_gcc47()
+{
+  __rvm_compiler_is_gcc47 || return 0
+  [[ "${rvm_ruby_version}" =~ 1.8.* ]] || return 0
+
+  typeset gcc47flags
+  gcc47flags="-O2 -fno-tree-dce -fno-optimize-sibling-calls"
+
+  if [[ "${rvm_configure_env}" =~ "CCFLAGS=" ]]
+  then
+    rvm_configure_env="${rvm_configure_env/CCFLAGS='/CCFLAGS='${gcc47flags} }"
+  else
+    rvm_configure_env="CCFLAGS='${gcc47flags}' ${rvm_configure_env}"
   fi
 }
 
