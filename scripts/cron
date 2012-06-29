@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+source "$rvm_scripts_path/base"
+
+# Add rvm variables on the beginning of crontab
+__rvm_cron_setup()
+{
+  {
+    echo "#sm start rvm"
+    rvm env --cron
+    echo "#sm end rvm"
+    __sm.cron.show | __sm.filter.remove.group "^#sm start rvm$" "^#sm end rvm$"
+  } | crontab -
+}
+
+__rvm_cron_remove()
+{
+  __sm.cron.show | __sm.filter.remove.group "^#sm start rvm$" "^#sm end rvm$" | crontab -
+}
+
+__rvm_cron_command()
+{
+  typeset v schedule
+  schedule="$1"
+  shift || {
+    rvm_error "Schedule not given, example: rvm cron command \"@daily\" rake calculate:stats"
+    rvm_info  "Refer to \`man 5 crontab\` for format of the scheduling definition."
+    exit 1
+  }
+  [[ -n "$1" ]] || {
+    rvm_error "Command not given, example: rvm cron command \"@daily\" rake calculate:stats"
+    exit 2
+  }
+  {
+    __sm.cron.show
+    printf "%b" "${schedule} $(which rvm) in \"$PWD\" do"
+    for v in "$@"
+    do printf "%b" " \"$v\""
+    done
+    printf "\n"
+  } | crontab -
+}
+
+__sm.cron.show()
+{
+  EDITOR=cat crontab -e 2>/dev/null
+}
+
+__sm.filter.remove.group()
+{
+  awk 'BEGIN{in_group=0} /'"$1"'/ {in_group=1} in_group==0 {print} /'"$2"'/ {in_group=0}'
+}
+
+__rvm_cron_help()
+{
+  cat "${rvm_help_path}/cron"
+}
+
+action="${1:-}"
+shift
+
+case "$action" in
+  setup|remove|help) __rvm_cron_$action       ;;
+  command)           __rvm_cron_$action "$@"  ;;
+  *)                 __rvm_cron_help ; exit 1 ;;
+esac
