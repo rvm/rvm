@@ -102,30 +102,6 @@ determine_install_path()
 {
   export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
-  if (( ${rvm_ignore_rvmrc:=0} == 0 ))
-  then
-    : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
-
-    rvm_rvmrc_files=("/etc/rvmrc" "$HOME/.rvmrc")
-    if [[ -n "${rvm_prefix:-}" ]] && ! [[ "$HOME/.rvmrc" -ef "${rvm_prefix}/.rvmrc" ]]
-       then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
-    fi
-    for rvmrc in "${rvm_rvmrc_files[@]}"
-    do
-      if [[ -f "$rvmrc" ]]
-      then
-        if GREP_OPTIONS="" \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
-        then
-          printf "%b" "\nError: $rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
-          return 1
-        else
-          source "$rvmrc"
-        fi
-      fi
-    done
-    unset rvm_rvmrc_files
-  fi
-
   if [[ -z "${rvm_path:-}" ]]
   then
     if (( UID == 0 ))
@@ -159,6 +135,7 @@ print_install_header()
 
 configure_installation()
 {
+  typeset save_rvm_without_gems
   install_source_path="$(dirname "$0" | sed 's#\/scripts$##')"
 
   if [[ -d "$install_source_path/scripts" \
@@ -170,18 +147,17 @@ configure_installation()
   # Save scripts path
   scripts_path=${rvm_scripts_path:-""}
   rvm_scripts_path="${PWD%%+(\/)}/scripts"
-  # Load scripts.
+  save_rvm_without_gems="${rvm_without_gems:-}"
 
+  # Load scripts.
   source "$PWD/scripts/initialize"
   source "$PWD/scripts/functions/init"
   source "$PWD/scripts/version"
-
-  # What does this do that scripts/initialize not do?:
   __rvm_initialize
 
   # Restore Scripts Path
   rvm_scripts_path=${scripts_path:-"$rvm_path/scripts"}
-  #
+  rvm_without_gems="${save_rvm_without_gems:-${rvm_without_gems}}"
 
   item="* "
   question="\n<?>"
@@ -443,9 +419,25 @@ install_gemsets()
       then
         destination_path="${destination%/*}"
         [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-        cp "$gemset_file" "$destination"
+        if
+          [[ -n "${rvm_without_gems:-}" ]]
+        then
+          sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+        else
+          cp "$gemset_file" "$destination"
+        fi
       fi
     done
+  fi
+
+  if [[ -n "${rvm_without_gems:-}" ]]
+  then
+    if GREP_OPTIONS="" \grep "rvm_without_gems=" ~/.rvmrc >/dev/null
+    then
+      sed -i 's/^rvm_without_gems=.*$/rvm_without_gems="'"${rvm_without_gems}"'"/' ~/.rvmrc
+    else
+      echo "rvm_without_gems=\"${rvm_without_gems}\"" >> ~/.rvmrc
+    fi
   fi
 }
 
@@ -454,7 +446,8 @@ update_gemsets_install_rvm()
   typeset paths path installed found missing
   typeset -a missing
 
-  if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 ]]
+  if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 ]] &&
+    ! [[ " ${rvm_without_gems:-} " =~ " rvm " ]]
   then
     # rvm /gems
     paths=($(
