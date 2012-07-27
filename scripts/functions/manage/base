@@ -369,6 +369,37 @@ https://rvm.io/rubies/named/
   fi
 }
 
+__rvm_fetch_from_git_revision_or_sha()
+{
+  typeset result
+
+  if
+    [[ -n "$rvm_ruby_revision" ]]
+  then
+    (
+      cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+      [[ "$rvm_ruby_revision" != "head" ]] || rvm_ruby_revision="master"
+      git checkout -f "${rvm_ruby_revision}"
+    )
+    result=$?
+  elif
+    [[ -n "${rvm_ruby_sha:-}" ]]
+  then
+    (
+      cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+      git checkout -f "${rvm_ruby_sha}"
+    )
+    result=$?
+  fi
+
+  if
+    (( result > 0 ))
+  then
+    rvm_error "There has been an error while trying to checkout the source branch.\nHalting the installation."
+    return $result
+  fi
+}
+
 __rvm_fetch_from_github()
 {
   __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
@@ -438,6 +469,8 @@ __rvm_fetch_from_github()
 
     __rvm_run "$1.pull" "git pull origin $branch" "Pulling from origin $branch"
   )
+
+  __rvm_fetch_from_git_revision_or_sha || return $?
 
   if [[ -n "${rvm_ruby_string}" ]]
   then
@@ -690,35 +723,7 @@ __rvm_fetch_ruby()
         return $result
       fi
 
-      # If a revision was specified, check it out.
-      if [[ -n "$rvm_ruby_revision" ]]
-      then
-        (
-          cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
-          [[ "$rvm_ruby_revision" != "head" ]] || rvm_ruby_revision="master"
-          git checkout -f "${rvm_ruby_revision}"
-        )
-        result=$?
-
-        if (( result > 0 ))
-        then
-          rvm_error "There has been an error while trying to checkout the source branch.\nHalting the installation."
-          return $result
-        fi
-      elif [[ -n "${rvm_ruby_sha:-}" ]]
-      then
-        (
-          cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
-          git checkout -f "${rvm_ruby_sha}"
-        )
-        result=$?
-
-        if (( result > 0 ))
-        then
-          rvm_error "There has been an error while trying to checkout the source branch.\nHalting the installation."
-          return $result
-        fi
-      fi
+      __rvm_fetch_from_git_revision_or_sha || return $?
 
     else
       if [[ -n "${rvm_ruby_tag:-""}" ]]
