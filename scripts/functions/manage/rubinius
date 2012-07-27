@@ -166,14 +166,12 @@ rbx_install()
 
   rvm_ruby_configure="$rvm_wrappers_path/$ruby/ruby ${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_configure_flags ${rvm_install_args:-}"
 
-  message="$rvm_ruby_string - #configuring"
-
   if (( ${rvm_llvm_flag:=1} == 0 ))
   then # Explicitely disabled
     rvm_ruby_configure="$rvm_ruby_configure --disable-llvm"
   fi
 
-  __rvm_run "configure" "$rvm_ruby_configure" "$message"
+  __rvm_run "configure" "$rvm_ruby_configure" "$rvm_ruby_string - #configuring"
   result=$?
 
   if (( result > 0 ))
@@ -203,48 +201,43 @@ rbx_install()
   then
     rvm_error "There has been an error while running '$rvm_ruby_make'.\nHalting the installation."
     exit $result
-  fi ; unset ruby
-
-  # Symlink rubinius wrappers
-  ln -fs "$rvm_ruby_home/bin/rbx" "$rvm_ruby_home/bin/ruby"
-
-  # Install IRB Wrapper on Rubinius.
-  file_name="$rvm_ruby_home/bin/irb"
-
-  rm -f "$file_name"
-
-  printf "%b" '#!/usr/bin/env bash\n' > "$file_name"
-
-  printf "%b" "exec '$rvm_ruby_home/bin/rbx' 'irb' \"\$@\"\n" >> "$file_name"
-
-  if [[ ! -x "$file_name" ]]
-  then
-    chmod +x "$file_name"
   fi
+  unset ruby
 
-  # Install Gem Wrapper on Rubinius.
-  file_name="$rvm_ruby_home/bin/gem"
+  # Symlink rubinius wrapper if not available
+  [[ -f "$rvm_ruby_home/bin/ruby" ]] ||
+    ln -fs "$rvm_ruby_home/bin/rbx" "$rvm_ruby_home/bin/ruby"
 
-  cp -f "$rvm_ruby_home/lib/bin/gem.rb" "$file_name"
+  case ${rvm_ruby_string} in
+    rbx-head*|rbx-2.*)
+      true
+      ;;
+    *) # older rbx had issues
+      # Install IRB Wrapper on Rubinius.
+      file_name="$rvm_ruby_home/bin/irb"
+      rm -f "$file_name"
+      printf "%b" '#!/usr/bin/env bash\n' > "$file_name"
+      printf "%b" "exec '$rvm_ruby_home/bin/rbx' 'irb' \"\$@\"\n" >> "$file_name"
+      [[ -x "$file_name" ]] || chmod +x "$file_name"
 
-  __rvm_inject_ruby_shebang "$file_name"
-
-  if [[ ! -x "$file_name" ]]
-  then
-    chmod +x "$file_name"
-  fi
-
-  unset file_name
+      # Install Gem Wrapper on Rubinius.
+      file_name="$rvm_ruby_home/bin/gem"
+      cp -f "$rvm_ruby_home/lib/bin/gem.rb" "$file_name"
+      __rvm_inject_ruby_shebang "$file_name"
+      [[ -x "$file_name" ]] || chmod +x "$file_name"
+      unset file_name
+      ;;
+  esac
 
   (
     rvm_create_flag=1 __rvm_use
   )
 
-  binaries=(erb ri rdoc)
-
+  case ${rvm_ruby_string} in
+    rbx-head*|rbx-2.*) binaries=()            ;;
+    *)                 binaries=(erb ri rdoc) ;;
+  esac
   __rvm_post_install
-
-  __rvm_irbrc
 
   __rvm_bin_script
 }
