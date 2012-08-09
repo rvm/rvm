@@ -8,9 +8,11 @@ then
   exit 1
 fi
 
+export HOME PS4
+export rvm_trace_flag rvm_debug_flag rvm_user_install_flag rvm_ignore_rvmrc rvm_prefix rvm_path
+
 shopt -s extglob
 PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
-export PS4
 set -o errtrace
 set -o errexit
 
@@ -174,7 +176,7 @@ Could not download '${_url}'.
 if [[ "$*" =~ --trace ]] || (( ${rvm_trace_flag:-0} > 0 ))
 then
   set -o xtrace
-  export rvm_trace_flag=1
+  rvm_trace_flag=1
 fi
 
 # Variable initialization, remove trailing slashes if they exist on HOME
@@ -208,12 +210,19 @@ if [[ -z "${rvm_path:-}" ]]
 then
   if (( UID == 0 ))
   then
-    rvm_path="/usr/local/rvm"
+    rvm_user_install_flag=0
+    rvm_prefix="/usr/local"
+    rvm_path="${rvm_prefix}/rvm"
   else
-    rvm_path="${HOME}/.rvm"
+    rvm_user_install_flag=1
+    rvm_prefix="$HOME"
+    rvm_path="${rvm_prefix}/.rvm"
   fi
 fi
-export HOME rvm_path
+if [[ -z "${rvm_prefix}" ]]
+then
+  rvm_prefix=$( dirname $rvm_path )
+fi
 
 install_rubies=()
 install_gems=()
@@ -226,7 +235,7 @@ do
 
     --trace)
       set -o xtrace
-      export rvm_trace_flag=1
+      rvm_trace_flag=1
       ;;
 
     --path)

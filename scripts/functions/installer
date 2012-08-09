@@ -50,6 +50,8 @@ install_setup()
     PATH="${rvm_user_path_prefix}:$PATH"
   fi
 
+  true ${rvm_group_name:=rvm}
+
   # TODO: Figure out a much better name for 'rvm_user_install_flag'
   # mpapis: self contained was a quite good name
   if (( UID == 0 )) ||
@@ -618,6 +620,16 @@ correct_binary_permissions()
   done
 }
 
+get_file_group()
+{
+  case "$(uname)" in
+    "Darwin") stat -f "%Sg" "$1" ;;
+    *)        stat -c "%G"  "$1" ;;
+  esac
+}
+
+is_file_group() [[ "$(get_file_group "$1")" == "$2" ]]
+
 install_man_pages()
 {
   files=($(
@@ -630,6 +642,9 @@ install_man_pages()
     if [[ ! -d $rvm_man_path/${file%\/*} ]]
     then
       mkdir -p $rvm_man_path/${file%\/*}
+      (( ${rvm_user_install_flag:-0} == 1 )) ||
+        is_file_group $rvm_man_path/${file%\/*} $rvm_group_name ||
+        chown :$rvm_group_name $rvm_man_path/${file%\/*}
     fi
     cp -Rf "$install_source_path/man/$file" "$rvm_man_path/$file" || \
       printf "%b" "
@@ -637,7 +652,9 @@ install_man_pages()
     Please run the installer using rvmsudo to fix file permissions
 
 "
-    chown :$rvm_group_name "$rvm_man_path/$file"
+    (( ${rvm_user_install_flag:-0} == 1 )) ||
+      is_file_group "$rvm_man_path/$file" $rvm_group_name ||
+      chown :$rvm_group_name "$rvm_man_path/$file"
   done
 }
 
@@ -1036,8 +1053,6 @@ PATH=\$PATH:\$HOME/.rvm/bin # Add RVM to PATH for scripting
 
 root_canal()
 {
-  true ${rvm_group_name:=rvm}
-
   if (( UID == 0 )) && system_check
   then
     setup_rvm_group
