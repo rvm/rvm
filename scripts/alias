@@ -21,29 +21,6 @@ usage() {
 "
 }
 
-alias_conflicts_with_ruby() {
-  # If default exists, we should return true.
-  [[ "$1" == "default" && ! -L "$rvm_rubies_path/default" ]] && return 1
-  # Open for suggestions to a better way of doing this...
-  alias_check_result="$(
-    \. "$rvm_scripts_path/initialize"
-    \. "$rvm_scripts_path/selector"
-    \. "$rvm_scripts_path/selector_gemsets"
-    export rvm_ruby_string=\"$1\"
-    __rvm_ruby_string > /dev/null 2>&1
-    echo "$?"
-  )"
-
-  if [[ "0" == "$alias_check_result" ]]; then
-      rvm_error "You have attempted to create an alias called '$1', which is recognized as a rvm ruby."
-    return 0
-  fi
-
-  return 1
-
-  unset alias_check_result
-}
-
 alias_show() {
   typeset expanded_alias_name
 
@@ -75,7 +52,7 @@ alias_after_delete_default()
 {
   rvm_log "Deleting default links/files"
 
-  for _path in $rvm_bin_path/default_* "$rvm_environments_path/default" "$rvm_wrappers_path/default"
+  for _path in $rvm_bin_path/default_*
   do
     [[ -f "$_path" ]] && rm -rf ${_path}
   done
@@ -103,8 +80,9 @@ alias_after_delete_default()
 alias_delete() {
   rvm_log "Deleting alias: $alias_name"
 
-  for link in "$rvm_rubies_path/$alias_name" ; do
-    if [[ -L "$link" ]] ; then rm -f $link ; fi
+  for _path in "$rvm_rubies_path" "$rvm_environments_path" "$rvm_wrappers_path"
+  do
+    [[ -L "$_path/$alias_name" ]] && rm -f "$_path/$alias_name"
   done
 
   [[ -s "$rvm_path/config/alias" ]] || return 0
@@ -134,14 +112,6 @@ alias_after_create_default()
 
   export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
 
-  for _path in "$rvm_environments_path" "$rvm_wrappers_path"
-  do
-    # Remove old default if it exists.
-    [[ -L "$_path/default" ]] && rm -f "$_path/default"
-    # Symlink n the new default
-    \ln -fs "$_path/$environment_id" "$_path/default"
-  done
-
   # Copy wrapper scripts for the newly set default to the RVM bin path.
   for wrapper in "$rvm_path"/wrappers/default/*
   do
@@ -167,52 +137,36 @@ alias_create()
 {
   alias_name="${alias_name:-""}"
   rvm_ruby_string="$rvm_environment_identifier"
-
   rvm_expanding_aliases=1
   __rvm_become
   unset rvm_expanding_aliases
 
-  if [[ "default" != "$alias_name" ]] && alias_conflicts_with_ruby "$alias_name"
-  then
-    # Force it to an empty alias name to trigger the usage.
-    alias_name=""
-  fi
-
-  if [[ -z "${rvm_environment_identifier:-""}" || -z "$alias_name" ]]
+  if
+    [[ -z "${rvm_environment_identifier:-""}" || -z "$rvm_ruby_string" || -z "$alias_name" ]]
   then
     rvm_error "usage: 'rvm alias [alias_name] [ruby_string]'"
     return 1
 
+  elif
+    [[ ! -L "$rvm_rubies_path/$alias_name" && -d "$rvm_rubies_path/$alias_name" ]]
+  then
+    rvm_error "$alias_name is a full ruby name and can not be used as alias name."
+    return 2
+
   else
-    if [[ -z "$rvm_ruby_string" ]]
-    then
-      rvm_error "Unknown ruby string '$rvm_ruby_string' specified"
-      return 1
-    fi
+    final_environment_identifier="${rvm_ruby_string:-$(__rvm_env_string)}"
 
-    if [[ "default" == "$alias_name" ]]
-    then rvm_alias=""
-    fi
+    rvm_log "Creating alias $alias_name for $final_environment_identifier."
+    for _path in "$rvm_rubies_path" "$rvm_environments_path" "$rvm_wrappers_path"
+    do
+      [[ -L "$_path/default" ]] && rm -f "$_path/$alias_name"
+      \ln -fs "$_path/$rvm_ruby_string" "$_path/$alias_name"
+    done
 
-    if [[ -z "$rvm_alias" ]]
-    then
-      final_environment_identifier="${rvm_ruby_string:-$(__rvm_env_string)}"
+    rvm_log "Recording alias $alias_name for $final_environment_identifier."
+    "$rvm_scripts_path"/db "$rvm_path/config/alias" "$alias_name" "$final_environment_identifier"
 
-      rvm_log "Creating alias $alias_name for $final_environment_identifier."
-      ln -fs "$rvm_rubies_path/$rvm_ruby_string" "$rvm_rubies_path/$alias_name"
-
-      rvm_log "Recording alias $alias_name for $final_environment_identifier."
-      "$rvm_scripts_path"/db "$rvm_path/config/alias" "$alias_name" "$final_environment_identifier"
-
-      [[ "default" != "$alias_name" ]] || alias_after_create_default
-    else
-
-      if [[ -d "$rvm_rubies_path/$alias_name" ]]
-      then rvm_error "$rvm_rubies_path/$alias_name is taken and is *not* able to be an alias name."
-      else rvm_error "$rvm_rubies_path/$alias_name is already aliased."
-      fi
-      return 1
-    fi
+    [[ "default" != "$alias_name" ]] || alias_after_create_default
   fi
 }
 
@@ -257,10 +211,6 @@ if printf "%b" "$alias_name" | GREP_OPTIONS="" \grep "${rvm_gemset_separator:-"@
   alias_name="${alias_name/${rvm_gemset_separator:-"@"}*/}"
 else
   gemset_name=""
-fi
-
-if [[ -n "$alias_name" ]] ; then
-  rvm_alias="$("$rvm_scripts_path/db" "$rvm_path/config/alias" "$alias_name")"
 fi
 
 case "$action" in

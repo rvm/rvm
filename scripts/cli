@@ -70,6 +70,15 @@ __rvm_parse_args()
 
             rvm_ruby_gem_home="${GEM_HOME:-""}"
 
+            if [[ "$next_token" == "--create" ]]
+            then
+              rvm_create_flag=1
+              next_token="${1:-}"
+              (( $# == 0 )) || shift
+            elif [[ " $* " =~ " --create " ]]
+            then rvm_create_flag=1
+            fi
+
             if [[ -z "$next_token" ]]
             then
               rvm_ruby_args=("help")
@@ -251,7 +260,7 @@ __rvm_parse_args()
             rvm_parse_break=1
             ;;
 
-          docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade)
+          docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade|cron)
             rvm_action="$rvm_token"
             rvm_ruby_args=("$next_token" "$@")
             rvm_parse_break=1
@@ -333,7 +342,19 @@ __rvm_parse_args()
             $rvm_action="reboot"
             ;;
           *)
-            if [[ -n "$rvm_token" ]]
+            if [[ "$rvm_token" == "in" ]]
+            then
+              rvm_token="${next_token}"
+              next_token="${1:-}"
+              (( $# == 0 )) || shift
+              if  __rvm_project_dir_check "$rvm_token"
+              then
+                export rvm_in_flag="$rvm_token"
+                __rvm_rvmrc_tools try_to_read_ruby $rvm_token
+              else
+                export "rvm_in_flag"=1
+              fi
+            elif [[ -n "$rvm_token" ]]
             then
               # TODO: Middle should be convertable to a case statement for further
               #       efficiency only have to deal with the first and last parts.
@@ -683,7 +704,7 @@ __rvm_parse_args()
             export rvm_rvmrc_flag="${rvm_token}"
             ;;
 
-          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--18|--19|--force-autoconf|--auto|--autoinstall-bundler|--ignore-gemsets|--skip-gemsets)
+          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--cron|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--18|--19|--force-autoconf|--auto|--autoinstall-bundler|--ignore-gemsets|--skip-gemsets)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
             export "rvm_${rvm_token}_flag"=1
@@ -696,6 +717,17 @@ __rvm_parse_args()
 
           --clang)
             rvm_configure_flags="${rvm_configure_flags:-""} --with-gcc=clang"
+            ;;
+
+          -M|--make)
+            if [[ ! -z "$next_token" ]] ; then
+              rvm_make_flags="$rvm_make_flags ${next_token//,/ }"
+              if [[ $# -gt 0 ]] ; then next_token="$1" ; shift ; else next_token="" ; fi
+
+            else
+              rvm_action="error"
+              rvm_error_message="--make *must* be followed by make flags."
+            fi
             ;;
 
           -j)
@@ -956,7 +988,7 @@ Please do one of the following:
       rvm_is_not_a_shell_function="${rvm_is_not_a_shell_function}" "$rvm_scripts_path/${rvm_action}" "${rvm_ruby_args[@]}"
       ;;
 
-    cleanup|tools|snapshot|disk-usage|repair|alias|docs|rubygems|migrate|upgrade)
+    cleanup|tools|snapshot|disk-usage|repair|alias|docs|rubygems|migrate|upgrade|cron)
       __rvm_run_script "$rvm_action" "${rvm_ruby_args[@]}"
       ;;
 
@@ -971,7 +1003,12 @@ Please do one of the following:
       unset rvm_ruby_string
       export rvm_ruby_strings
 
-      "$rvm_scripts_path/set" "$rvm_action" "${rvm_ruby_args[@]}"
+      (
+        if [[ -n "${rvm_in_flag}" && -d "${rvm_in_flag}" ]]
+        then builtin cd "${rvm_in_flag}"
+        fi
+        "$rvm_scripts_path/set" "$rvm_action" "${rvm_ruby_args[@]}"
+      )
       result=$?
 
       # Restore the state pre-sets.

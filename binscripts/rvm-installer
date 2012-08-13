@@ -8,9 +8,11 @@ then
   exit 1
 fi
 
+export HOME PS4
+export rvm_trace_flag rvm_debug_flag rvm_user_install_flag rvm_ignore_rvmrc rvm_prefix rvm_path
+
 shopt -s extglob
 PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
-export PS4
 set -o errtrace
 set -o errexit
 
@@ -174,7 +176,7 @@ Could not download '${_url}'.
 if [[ "$*" =~ --trace ]] || (( ${rvm_trace_flag:-0} > 0 ))
 then
   set -o xtrace
-  export rvm_trace_flag=1
+  rvm_trace_flag=1
 fi
 
 # Variable initialization, remove trailing slashes if they exist on HOME
@@ -208,12 +210,19 @@ if [[ -z "${rvm_path:-}" ]]
 then
   if (( UID == 0 ))
   then
-    rvm_path="/usr/local/rvm"
+    rvm_user_install_flag=0
+    rvm_prefix="/usr/local"
+    rvm_path="${rvm_prefix}/rvm"
   else
-    rvm_path="${HOME}/.rvm"
+    rvm_user_install_flag=1
+    rvm_prefix="$HOME"
+    rvm_path="${rvm_prefix}/.rvm"
   fi
 fi
-export HOME rvm_path
+if [[ -z "${rvm_prefix}" ]]
+then
+  rvm_prefix=$( dirname $rvm_path )
+fi
 
 install_rubies=()
 install_gems=()
@@ -226,7 +235,7 @@ do
 
     --trace)
       set -o xtrace
-      export rvm_trace_flag=1
+      rvm_trace_flag=1
       ;;
 
     --path)
@@ -255,6 +264,11 @@ do
       token=${token//-/_}
       export "rvm_${token}_flag"=1
       printf "%b" "Turning on ${token/_/ } mode.\n"
+      ;;
+
+    --without-gems=*)
+      export rvm_without_gems="${token#--without-gems=}"
+      printf "%b" "Installing RVM without gems: ${rvm_without_gems}.\n"
       ;;
 
     --version|version)
@@ -308,7 +322,7 @@ done
 
 case "$rvm_path" in
   *[[:space:]]*)
-      printf "%b" "
+    printf "%b" "
 It looks you are one of the happy *space* users(in home dir name),
 RVM is not yet fully ready for it, use this trick to fix it:
 
@@ -318,8 +332,19 @@ RVM is not yet fully ready for it, use this trick to fix it:
 and start installing again.
 
 "
-      exit 2
-    ;;
+    exit 2
+  ;;
+  /usr/share/ruby-rvm)
+    printf "%b" "
+It looks you are one of the happy Ubuntu users,
+RVM packaged by Ubuntu is old and broken,
+follow this link for details how to fix:
+
+  http://stackoverflow.com/a/9056395/497756
+
+"
+    [[ "${rvm_uses_broken_ubuntu_path:-no}" == "yes" ]] || exit 3
+  ;;
 esac
 
 if (( ${#install_gems[@]} > 0 && ${#install_rubies[@]} == 0 ))
@@ -381,8 +406,9 @@ case "${version}" in
     ;;
 esac
 
-# No matter which one we are doing we install the same way, using the RVM installer script.
-flags=()
+# required flag - path to install
+flags=( --path "$rvm_path" )
+
 if (( rvm_trace_flag == 1 ))
 then flags+=("--trace")
 fi
@@ -395,8 +421,12 @@ if (( rvm_auto_flag == 1 ))
 then flags+=("--auto")
 fi
 
+if [[ -n "${rvm_without_gems:-}" ]]
+then flags+=("--without-gems=${rvm_without_gems}")
+fi
+
 chmod +x ./scripts/install
-./scripts/install ${flags[*]} --path "$rvm_path"
+./scripts/install "${flags[@]}"
 
 (
   source ${rvm_scripts_path:-${rvm_path}/scripts}/rvm
@@ -443,6 +473,4 @@ chmod +x ./scripts/install
   * To start using rails you need to run \`rails new <project_dir>\`.
 "
   fi
-
-  true
 )

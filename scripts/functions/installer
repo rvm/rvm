@@ -50,6 +50,8 @@ install_setup()
     PATH="${rvm_user_path_prefix}:$PATH"
   fi
 
+  true ${rvm_group_name:=rvm}
+
   # TODO: Figure out a much better name for 'rvm_user_install_flag'
   # mpapis: self contained was a quite good name
   if (( UID == 0 )) ||
@@ -102,30 +104,6 @@ determine_install_path()
 {
   export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
-  if (( ${rvm_ignore_rvmrc:=0} == 0 ))
-  then
-    : rvm_stored_umask:${rvm_stored_umask:=$(umask)}
-
-    rvm_rvmrc_files=("/etc/rvmrc" "$HOME/.rvmrc")
-    if [[ -n "${rvm_prefix:-}" ]] && ! [[ "$HOME/.rvmrc" -ef "${rvm_prefix}/.rvmrc" ]]
-       then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
-    fi
-    for rvmrc in "${rvm_rvmrc_files[@]}"
-    do
-      if [[ -f "$rvmrc" ]]
-      then
-        if GREP_OPTIONS="" \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
-        then
-          printf "%b" "\nError: $rvmrc is for rvm settings only.\nrvm CLI may NOT be called from within $rvmrc. \nSkipping the loading of $rvmrc"
-          return 1
-        else
-          source "$rvmrc"
-        fi
-      fi
-    done
-    unset rvm_rvmrc_files
-  fi
-
   if [[ -z "${rvm_path:-}" ]]
   then
     if (( UID == 0 ))
@@ -159,6 +137,7 @@ print_install_header()
 
 configure_installation()
 {
+  typeset save_rvm_without_gems
   install_source_path="$(dirname "$0" | sed 's#\/scripts$##')"
 
   if [[ -d "$install_source_path/scripts" \
@@ -170,18 +149,17 @@ configure_installation()
   # Save scripts path
   scripts_path=${rvm_scripts_path:-""}
   rvm_scripts_path="${PWD%%+(\/)}/scripts"
-  # Load scripts.
+  save_rvm_without_gems="${rvm_without_gems:-}"
 
+  # Load scripts.
   source "$PWD/scripts/initialize"
   source "$PWD/scripts/functions/init"
   source "$PWD/scripts/version"
-
-  # What does this do that scripts/initialize not do?:
   __rvm_initialize
 
   # Restore Scripts Path
   rvm_scripts_path=${scripts_path:-"$rvm_path/scripts"}
-  #
+  rvm_without_gems="${save_rvm_without_gems:-${rvm_without_gems}}"
 
   item="* "
   question="\n<?>"
@@ -443,9 +421,25 @@ install_gemsets()
       then
         destination_path="${destination%/*}"
         [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-        cp "$gemset_file" "$destination"
+        if
+          [[ -n "${rvm_without_gems:-}" ]]
+        then
+          sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+        else
+          cp "$gemset_file" "$destination"
+        fi
       fi
     done
+  fi
+
+  if [[ -n "${rvm_without_gems:-}" ]]
+  then
+    if GREP_OPTIONS="" \grep "rvm_without_gems=" ~/.rvmrc >/dev/null
+    then
+      sed -i 's/^rvm_without_gems=.*$/rvm_without_gems="'"${rvm_without_gems}"'"/' ~/.rvmrc
+    else
+      echo "rvm_without_gems=\"${rvm_without_gems}\"" >> ~/.rvmrc
+    fi
   fi
 }
 
@@ -454,7 +448,8 @@ update_gemsets_install_rvm()
   typeset paths path installed found missing
   typeset -a missing
 
-  if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 ]]
+  if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 ]] &&
+    ! [[ " ${rvm_without_gems:-} " =~ " rvm " ]]
   then
     # rvm /gems
     paths=($(
@@ -625,6 +620,16 @@ correct_binary_permissions()
   done
 }
 
+get_file_group()
+{
+  case "$(uname)" in
+    "Darwin") stat -f "%Sg" "$1" ;;
+    *)        stat -c "%G"  "$1" ;;
+  esac
+}
+
+is_file_group() [[ "$(get_file_group "$1")" == "$2" ]]
+
 install_man_pages()
 {
   files=($(
@@ -637,6 +642,9 @@ install_man_pages()
     if [[ ! -d $rvm_man_path/${file%\/*} ]]
     then
       mkdir -p $rvm_man_path/${file%\/*}
+      (( ${rvm_user_install_flag:-0} == 1 )) ||
+        is_file_group $rvm_man_path/${file%\/*} $rvm_group_name ||
+        chown :$rvm_group_name $rvm_man_path/${file%\/*}
     fi
     cp -Rf "$install_source_path/man/$file" "$rvm_man_path/$file" || \
       printf "%b" "
@@ -644,7 +652,9 @@ install_man_pages()
     Please run the installer using rvmsudo to fix file permissions
 
 "
-    chown :$rvm_group_name "$rvm_man_path/$file"
+    (( ${rvm_user_install_flag:-0} == 1 )) ||
+      is_file_group "$rvm_man_path/$file" $rvm_group_name ||
+      chown :$rvm_group_name "$rvm_man_path/$file"
   done
 }
 
@@ -842,7 +852,7 @@ then
 
   : rvm_stored_umask:\${rvm_stored_umask:=\$(umask)}
   # Load user rvmrc configurations, if exist
-  for file in \"/etc/rvmrc\" \"$HOME/.rvmrc\" ; do
+  for file in \"/etc/rvmrc\" \"\$HOME/.rvmrc\" ; do
     [[ -s \"\$file\" ]] && source \$file
   done
   if [[ -n \"\${rvm_prefix:-}\" ]] && ! [[ \"\$HOME/.rvmrc\" -ef \"\${rvm_prefix}/.rvmrc\" ]] && [[ -s \"\${rvm_prefix}/.rvmrc\" ]]
@@ -948,6 +958,7 @@ setup_rvmrc()
 setup_user_profile()
 {
   (( UID > 0 )) || return 0
+  [[ "${rvm_ignore_dotfiles:-no}" == "no" ]] || return 0
 
   export user_profile_file
   export -a user_login_files user_rc_files
@@ -1042,8 +1053,6 @@ PATH=\$PATH:\$HOME/.rvm/bin # Add RVM to PATH for scripting
 
 root_canal()
 {
-  true ${rvm_group_name:=rvm}
-
   if (( UID == 0 )) && system_check
   then
     setup_rvm_group

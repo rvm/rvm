@@ -10,11 +10,26 @@ system="$(uname)"
 
 if [[ "Linux" == "$system" ]] || [[ "$(uname|tr a-z A-Z)" =~ *BSD* ]]
 then
-  for file in /etc/*-release
-  do
-    release="( $(cat $file) )"
-    break
-  done
+  if
+    [[ -f /etc/lsb-release ]] && release="$( grep "^DISTRIB_DESCRIPTION=" /etc/lsb-release )"
+  then
+    release="${release#*=}"
+  elif
+    [[ -f /etc/os-release ]] && release="$( grep "^PRETTY_NAME=" /etc/os-release )"
+  then
+    release="${release#*=}"
+  elif
+    [[ -f /etc/debian_version ]]
+  then
+    release="Debian $(cat /etc/debian_version)"
+  else
+    for file in /etc/*-release
+    do
+      [[ -r $file ]] || continue
+      release="( $(cat $file) )"
+      break
+    done
+  fi
   printf "%b" "
 Requirements for ${system} $release
 "
@@ -174,7 +189,7 @@ then
 
   release="$( sw_vers -productName )"
   version="$( sw_vers -productVersion )"
-  xcode_version="$( __rvm_detect_xcode_version )"
+  xcode_version="$( __rvm_detect_xcode_version 2>&1 )"
   : ${xcode_version:=0}
 
   printf "%b" "
@@ -199,11 +214,6 @@ For JRuby:  Install the JDK. See http://developer.apple.com/java/download/  # Cu
 For IronRuby: Install Mono >= 2.6
 For Ruby 1.9.3: Install libksba # If using Homebrew, 'brew install libksba'
 
-You can use & download osx-gcc-installer: https://github.com/kennethreitz/osx-gcc-installer
-** NOTE: Currently, Node.js is having issues building with osx-gcc-installer. The only fix is to install Xcode over osx-gcc-installer.
-
-We had reports of http://hpc.sourceforge.net/ making things work, but it looks like not easiest/safest to setup.
-
 To use an RVM installed Ruby as default, instead of the system ruby:
 
     rvm install 1.8.7 # installs patch 357: closest supported version
@@ -211,60 +221,48 @@ To use an RVM installed Ruby as default, instead of the system ruby:
     rvm alias create default 1.8.7
 
 And reopen your terminal windows.
-
-${rvm_error_clr:-}Xcode 4.2${rvm_reset_clr:-}:
- * is only supported by ruby 1.9.3+
- * it breaks gems with native extensions, especially DB drivers.
 "
 
-  if __rvm_version_compare $version -ge 10.7
-  then
-    if __rvm_version_compare $xcode_version -gt 0 && __rvm_version_compare $xcode_version -lt 4.1
-    then
-      printf "%b" "
-** Please note that Xcode 3.x will *not* work on OS X Lion. The 'cross-over' is Xcode 4.1.
-** You can find Xcode 4.1 for OS X Lion at:
-   https://developer.apple.com/downloads/download.action?path=Developer_Tools/xcode_4.1_for_lion/xcode_4.1_for_lion.dmg
-"
-    fi
-  elif __rvm_version_compare $version -ge 10.6
+  if __rvm_version_compare $xcode_version -gt 0 && __rvm_version_compare $xcode_version -lt 4.1
   then
     printf "%b" "
-** Required Xcode Version 3.2.1 (1613) or later, such as 3.2.6 or Xcode 4.1.
-   You should download the Xcode tools from developer.apple.com, since the Snow Leopard dvd install contained bugs.
+** Please note that Xcode 3.x will *not* work on OS X Lion. For notes about Xcode 4.1 and later, see below:
 "
   fi
 
-  if __rvm_version_compare $xcode_version -ge 4.3
-  then
-    printf "%b" "
-${rvm_error_clr:-}Xcode 4.3${rvm_reset_clr:-}+ users
-- please be warned
-- only ruby-1.9.3-p125+ is partially supported
-- in case of any compilation issues:
- * downgrade to ${rvm_notify_clr:-}Xcode 4.1${rvm_error_clr:-}
- * uninstall Xcode and install ${rvm_notify_clr:-}osx-gcc-installer${rvm_reset_clr:-}
-and reinstall your rubies.
+  printf "%b" "
+${rvm_error_clr:-}Xcode and gcc${rvm_reset_clr:-}:
+
+Right now Ruby requires gcc to compile, but Xcode 4.2 and later no longer ship with gcc. Instead they ship with llvm-gcc (to which gcc is a symlink) and clang, neither of which are supported for building Ruby. Xcode 4.1 was the last version to ship gcc, which was /usr/bin/gcc-4.2.
+
+${rvm_notify_clr:-}Xcode 4.1${rvm_reset_clr:-} and earlier:
+- Ruby will build fine.
+
+${rvm_error_clr:-}Xcode 4.2${rvm_reset_clr:-} and later (including Command Line Tools for Xcode):
+- If you have gcc-4.2 (and friends) from an earlier Xcode version, Ruby will build fine.
+- If you don't have gcc-4.2, you have two options to get it:
+ * Install apple-gcc42 from Homebrew
+ * Install osx-gcc-installer
+
+  ${rvm_notify_clr:-}Homebrew${rvm_reset_clr:-}:
+
+  If you are using Homebrew, you can install the apple-gcc42 and required libraries from homebrew/dupes:
+
+      brew update
+      brew tap homebrew/dupes
+      brew install autoconf automake apple-gcc42
+      rvm pkg install openssl
+
+  This can live side by side with an existing Xcode 4.2+ install or Command Line Tools for Xcode.
+
+  ${rvm_notify_clr:-}osx-gcc-installer${rvm_reset_clr:-}:
+
+  If you don't use Homebrew, you can download and install osx-gcc-installer: https://github.com/kennethreitz/osx-gcc-installer.
+
+  ${rvm_error_clr:-}Warning${rvm_reset_clr:-}: Installing osx-gcc-installer on top of a recent Xcode is known to cause problems, so you must uninstall Xcode before installing osx-gcc-installer. Afterwards you may install Xcode 4.2+ or Command Line Tools for Xcode if you desire.
+
+  ** NOTE: Currently, Node.js is having issues building with osx-gcc-installer. The only fix is to install Xcode over osx-gcc-installer.
 "
-  elif __rvm_version_compare $xcode_version -ge 4.2.1
-  then
-    printf "%b" "
-${rvm_error_clr:-}Xcode 4.2.1${rvm_reset_clr:-}+ users - please be warned -
-in case of any compilation issues
- * downgrade to ${rvm_notify_clr:-}Xcode 4.1${rvm_error_clr:-}
- * uninstall Xcode and install ${rvm_notify_clr:-}osx-gcc-installer${rvm_reset_clr:-}
-and reinstall your rubies.
-"
-  elif __rvm_version_compare $xcode_version -ge 4.2
-  then
-    printf "%b" "
-${rvm_error_clr:-}Xcode 4.2${rvm_reset_clr:-} users - please be warned -
-in case of any compilation issues
- * downgrade to ${rvm_notify_clr:-}Xcode 4.1${rvm_reset_clr:-}
- * or install ${rvm_notify_clr:-}osx-gcc-installer${rvm_reset_clr:-}
-and reinstall your rubies.
-"
-  fi
 
   if (( UID == 0 )) || [[ "$rvm_path" == "/usr/local/rvm" ]]
   then

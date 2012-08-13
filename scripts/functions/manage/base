@@ -491,58 +491,45 @@ __rvm_fetch_ruby()
     __rvm_select
   fi
 
-  rvm_log "$rvm_ruby_string - #fetching "
-
   if (( ${rvm_head_flag:=0} == 0 )) &&
     [[ -z "${rvm_ruby_tag:-}" && -z "${rvm_ruby_revision:-}" && -z "${rvm_ruby_sha:-}" ]]
   then
     rvm_ruby_package_name="${rvm_ruby_package_name:-"$rvm_ruby_string"}"
-
     rvm_ruby_package_file="${rvm_ruby_package_file:-"$rvm_ruby_package_name"}"
 
-
     case "$rvm_ruby_string" in
-      (ruby-1.8.4*)
-        rvm_archive_extension="${rvm_archive_extension:-tar.gz}"
+      (ruby-1.8.4*) rvm_archive_extension="${rvm_archive_extension:-tar.gz}"  ;;
+      (ruby-*)      rvm_archive_extension="${rvm_archive_extension:-tar.bz2}" ;;
+      (*)           rvm_archive_extension="${rvm_archive_extension:-tar.gz}"  ;;
+    esac
+
+    case "$rvm_ruby_interpreter" in
+      (ruby)
+        rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_release_version}.${rvm_ruby_major_version}_url")/$rvm_ruby_package_file.$rvm_archive_extension"
         ;;
-      (ruby-*)
-        rvm_archive_extension="${rvm_archive_extension:-tar.bz2}"
+      (ree)
+        rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")/${rvm_ruby_package_file}.${rvm_archive_extension}"
+        ;;
+      (jruby)
+        rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/${rvm_ruby_version}/${rvm_ruby_package_file}.${rvm_archive_extension}"
+        ;;
+      (maglev)
+        : # Should already be set from selector
         ;;
       (*)
-        rvm_archive_extension="${rvm_archive_extension:-tar.gz}"
+        rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/${rvm_ruby_package_file}.${rvm_archive_extension}"
         ;;
     esac
 
-    if [[ ! -s "${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension" ]]
+    rvm_log "$rvm_ruby_string - #downloading ${rvm_ruby_package_file}, this may take a while depending on your connection..."
+
+    "$rvm_scripts_path/fetch" "${rvm_ruby_url}"
+    result=$?
+
+    if (( result > 0 ))
     then
-      case "$rvm_ruby_interpreter" in
-        (ruby)
-          rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_release_version}.${rvm_ruby_major_version}_url")/$rvm_ruby_package_file.$rvm_archive_extension"
-          ;;
-        (ree)
-          rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")/${rvm_ruby_package_file}.${rvm_archive_extension}"
-          ;;
-        (jruby)
-          rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/${rvm_ruby_version}/${rvm_ruby_package_file}.${rvm_archive_extension}"
-          ;;
-        (maglev)
-          : # Should already be set from selector
-          ;;
-        (*)
-          rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/${rvm_ruby_package_file}.${rvm_archive_extension}"
-          ;;
-      esac
-
-      rvm_log "$rvm_ruby_string - #downloading ${rvm_ruby_package_file}, this may take a while depending on your connection..."
-
-      "$rvm_scripts_path/fetch" "${rvm_ruby_url}"
-      result=$?
-
-      if (( result > 0 ))
-      then
-        rvm_error "There has been an error while trying to fetch the source.  \nHalting the installation."
-        return $result
-      fi
+      rvm_error "There has been an error while trying to fetch the source.  \nHalting the installation."
+      return $result
     fi
 
     # Remove the directory if it is empty
@@ -671,7 +658,13 @@ __rvm_fetch_ruby()
             return $result
           fi
         fi
-
+      else
+        (
+          cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+          typeset current_url
+          current_url="$(git remote -v | awk '$1=="origin" && $3=="(fetch)" {print $2}')"
+          [[ "$current_url" == "$rvm_ruby_repo_url" ]] || git remote set-url origin "$rvm_ruby_repo_url"
+        )
       fi
 
       # Use the selected branch.
