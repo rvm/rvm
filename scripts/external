@@ -228,6 +228,130 @@ external_propose_name()
   esac
 }
 
+external_import_configure()
+{
+  typeset platform architecture libc
+
+  if (( ${rvm_install_flag:-0} > 0 ))
+  then err_command=rvm_warn
+  else err_command=rvm_error
+  fi
+
+  rvm_ruby_url="$1"
+  rvm_ruby_string="${2:-${rvm_ruby_url}}"
+  case "${rvm_ruby_url}" in
+    (http*) true ;;
+    (*)
+      true "${rvm_remote_server:=$(__rvm_db "rvm_remote_server_url")}"
+      platform="$(uname | tr '[:upper:]' '[:lower:]')"
+      architecture="$(uname -m | awk '{if($0~"x86_64")print "x86_64"; else print "i386";}')"
+      libc="$(ldd --version  | awk 'NR==1 {print $NF}' | awk -F. '{print $1"."$2}')"
+      rvm_ruby_url="${rvm_remote_server}/${platform}/${architecture}/${libc}/${rvm_ruby_url}.${rvm_remote_extension:-tar.bz2}"
+      ;;
+  esac
+  rvm_ruby_string="${rvm_ruby_string##*/}"
+  rvm_ruby_string="${rvm_ruby_string%%.*}"
+  rvm_ruby_package_file="bin-${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}"
+}
+
+external_import_download()
+{
+  typeset downloaded_names
+  "$rvm_scripts_path/fetch" "${rvm_ruby_url}" "${rvm_ruby_package_file}" || {
+    $err_command "Downloading ${rvm_ruby_url} failed."
+    return 2
+  }
+  downloaded_names="$(
+    tar tjf "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
+  )"
+  [[ "${rvm_ruby_string}" == "${downloaded_names}" ]] || {
+    $err_command "The downloaded package ${rvm_ruby_url} contains '${downloaded_names}' instead of '${rvm_ruby_string}'."
+    return 4
+  }
+}
+
+external_import_extract()
+{
+  builtin cd "${rvm_rubies_path}"
+  tar xjf "$rvm_archives_path/${rvm_ruby_package_file}" || {
+    $err_command "Unpacking ${rvm_ruby_package_file} failed."
+    return 6
+  }
+  [[ -d "${rvm_rubies_path}/${rvm_ruby_string}" ]] || {
+    $err_command "Ruby directory was not created, make "
+    return 8
+  }
+}
+
+# validate libraries - make sure everything can be loaded
+external_import_validate()
+{
+  typeset missing_libs
+  missing_libs="$(
+    case $(uname) in
+      (Linux)
+        find "${rvm_rubies_path}" "${rvm_ruby_string}" -name '*.so' |
+          xargs ldd 2>/dev/null | awk '/not found/{print $1}' | sort -u
+        ;;
+      (*)
+        rvm_warn "$(uname) libraries validation not yet implemented" >&2
+        ;;
+    esac
+  )"
+  [[ -z "${missing_libs}" ]] || {
+    $err_command "Libraries missing for ${rvm_ruby_name}: ${missing_libs// /,}. Refer to your system manual for installing libraries"
+    return 10
+  }
+}
+
+external_import_setup()
+{
+  __rvm_bin_script # environment + wrappers
+
+  rvm_create_flag=1 __rvm_use
+
+  if (( ${rvm_skip_gemsets_flag:-0} == 0 ))
+  then
+    __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
+      "'$rvm_scripts_path/gemsets' initial" \
+      "$rvm_ruby_string - #importing default gemsets ($rvm_gemsets_path/)"
+  else
+    mkdir -p "$rvm_gems_path/$rvm_ruby_string@global/bin"
+    rvm_log "Skipped importing default gemsets"
+  fi
+
+  __rvm_record_install "$rvm_ruby_string"
+}
+
+external_import()
+{
+  typeset step err_command rvm_ruby_url rvm_ruby_string rvm_ruby_package_file
+
+  for step in configure download extract validate setup
+  do
+    external_import_${step} "$@" || return $?
+  done
+}
+
+external_export()
+{
+  if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_name}" ]]
+  then
+    if
+      (( ${rvm_install_flag:-0} > 0 ))
+    then
+      "$rvm_scripts_path"/manage install "${rvm_ruby_name}" || return $?
+    else
+      rvm_error "Ruby ${rvm_ruby_name} does not exist, maybe install first?."
+      return 2
+    fi
+  fi
+
+  rvm_log "Exporting ${rvm_ruby_name} ..."
+  tar cjf "${name}.tar.bz2" -C "${rvm_rubies_path}" "${rvm_ruby_name}"
+  rvm_log "Exported ${rvm_ruby_name}."
+}
+
 args=( "$@" )
 action="${args[__array_start]}"
 unset args[__array_start]
