@@ -222,22 +222,24 @@ __rvm_parse_args()
             esac
             ;;
 
-          fetch|version|srcdir|reset|debug|reload|update|monitor|notes|implode|seppuku|question|answer|env|unexport|requirements|automount)
+          fetch|version|srcdir|reset|debug|reload|update|monitor|notes|implode|seppuku|question|answer|env|unexport|requirements|automount|prepare)
             rvm_action=$rvm_token
             ;;
 
           mount)
             rvm_action=$rvm_token
-            while [[ -n "${next_token:-}" ]] && [[ -x "${next_token:-}" || -d "${next_token:-}" ]]
+            while
+              [[ -n "${next_token:-}" ]] &&
+              [[
+                -x "${next_token:-}" ||
+                -d "${next_token:-}" ||
+                "${next_token:-}" =~ ^http ||
+                "${next_token:-}" =~ tar.bz2$
+              ]]
             do
               rvm_ruby_args=("$next_token" "${rvm_ruby_args[@]}")
-              if (( $# > 0 ))
-              then
-                next_token="$1"
-                shift
-              else
-                next_token=""
-              fi
+              next_token="${1:-}"
+              (( $# == 0 )) || shift
             done
             ;;
 
@@ -516,6 +518,21 @@ __rvm_parse_args()
             rvm_ruby_repo_url="$next_token"
             next_token="${1:-""}"
             shift
+            ;;
+
+          -r|--remote)
+            rvm_remote_flag=1
+            while
+              [[ -n "${next_token:-}" ]] &&
+              [[
+                "${next_token:-}" =~ ^http ||
+                "${next_token:-}" =~ tar.bz2$
+              ]]
+            do
+              rvm_ruby_args=("$next_token" "${rvm_ruby_args[@]}")
+              next_token="${1:-}"
+              (( $# == 0 )) || shift
+            done
             ;;
 
           --ree-options)
@@ -1094,8 +1111,8 @@ To reinstall use:
       fi
       ;;
 
-    mount|automount)
-      "${rvm_scripts_path}/external" "$rvm_action" "${rvm_ruby_args[@]}"
+    mount|automount|prepare)
+      "${rvm_scripts_path}/external" "$rvm_action" "$rvm_ruby_string" "${rvm_ruby_args[@]}"
       ;;
 
     export)

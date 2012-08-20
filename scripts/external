@@ -333,38 +333,56 @@ external_import()
   done
 }
 
-external_export()
+external_prepare()
 {
-  if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_name}" ]]
+  rvm_ruby_string="${1:-}"
+  __rvm_ruby_string
+  shift || [[ -n "${rvm_ruby_string}" ]] || {
+    rvm_error_help "Missing ruby name to export for prepare." external prepare
+    exit 3
+  }
+  if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
   then
     if
       (( ${rvm_install_flag:-0} > 0 ))
     then
-      "$rvm_scripts_path"/manage install "${rvm_ruby_name}" || return $?
+      "$rvm_scripts_path"/manage install "${rvm_ruby_string}" || return $?
     else
-      rvm_error "Ruby ${rvm_ruby_name} does not exist, maybe install first?."
+      rvm_error "Ruby ${rvm_ruby_string} does not exist, maybe install first?."
       return 2
     fi
   fi
 
-  rvm_log "Exporting ${rvm_ruby_name} ..."
-  tar cjf "${name}.tar.bz2" -C "${rvm_rubies_path}" "${rvm_ruby_name}"
-  rvm_log "Exported ${rvm_ruby_name}."
+  rvm_log "Preparing ${rvm_ruby_string} ..."
+  tar cjf "${rvm_ruby_string}.tar.bz2" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
+  rvm_log "Prepared ${rvm_ruby_string}.tar.bz2."
 }
 
-args=( "$@" )
-action="${args[__array_start]}"
-unset args[__array_start]
-args=( "${args[@]}" )
+action="${1:-}"
+shift || {
+  rvm_error_help "Missing action for external." external
+  exit 1
+}
+
+# skip first param if empty
+[[ -n "${1:-}" ]] || (( $#==0 )) || shift
 
 case "${action}" in
-  (automount)
-    external_$action
+  (automount|prepare)
+    external_$action "$@"
     ;;
   (mount|*_name)
-    external_mount_uniq "${args[@]}"
+    if
+      (( rvm_remote_flag > 0 )) ||
+      [[ "${next_token:-}" =~ ^http || "${next_token:-}" =~ tar.bz2$ ]]
+    then
+      external_import "$@"
+    else
+      external_mount_uniq "$@"
+    fi
     ;;
   (*)
-    echo "Wrong action '$action'"
+    rvm_error_help "Wrong action for external '$action'." external $action
+    exit 2
     ;;
 esac
