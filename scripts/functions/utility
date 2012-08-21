@@ -157,6 +157,53 @@ __rvm_run()
   return ${result}
 }
 
+# Run a specified command and log it.
+__rvm_log_command()
+{
+  typeset name log temp_log_path message
+  typeset -a _command
+  true ${rvm_debug_flag:=0} ${rvm_niceness:=0}
+
+  name="${1:-}"
+  message="${2:-}"
+  shift 2
+  _command=( "$@" )
+
+  if [[ -n "$message" ]]
+  then rvm_log "$message"
+  fi
+
+  if (( rvm_niceness > 0 ))
+  then _command=( "nice" "-n" "$rvm_niceness" "${_command[@]}" )
+  fi
+
+  if (( rvm_debug_flag > 0 ))
+  then rvm_debug "Executing: ${_command[*]}"
+  fi
+
+  if [[ -n "${rvm_ruby_string:-}" ]]
+  then temp_log_path="${rvm_log_path}/$rvm_ruby_string"
+  else temp_log_path="${rvm_log_path}"
+  fi
+
+  log="$temp_log_path/$name.log"
+
+  [[ -d "${log%\/*}" ]] || \mkdir -p "${log%\/*}"
+  [[ -f "$log"       ]] || \touch    "$log" # for zsh :(
+
+  # TODO: Allow an 'append_flag' setting?
+  printf "%b" "[$(date +'%Y-%m-%d %H:%M:%S')] $*\n" > "$log"
+
+  "${_command[@]}" >> "$log" 2>&1
+  result=$?
+
+  if (( result > 0 ))
+  then rvm_error "Error running '$_command', please read $log"
+  fi
+
+  return ${result}
+}
+
 # Output the current ruby's rvm source path.
 __rvm_source_dir()
 {

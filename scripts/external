@@ -85,10 +85,10 @@ external_mount()
     exit 3
   fi
 
-  if [[ -z "${rvm_ruby_name:-}" ]]
+  if [[ -z "${rvm_ruby_string:-}" ]]
   then
     if ! external_select_name "${ruby_path}" "${prefix_path}" ||
-      [[ -z "${rvm_ruby_name:-}" ]]
+      [[ -z "${rvm_ruby_string:-}" ]]
     then
       rvm_error "No name selected for ruby in '$prefix_path'."
       exit 4
@@ -99,7 +99,7 @@ external_mount()
     unset GEM_HOME
     "${prefix_path}/bin/gem" env gemhome
   )
-  rvm_ruby_string="ext-${rvm_ruby_name}"
+  rvm_ruby_string="ext-${rvm_ruby_string}"
   echo "Mounting '${rvm_ruby_string}' from '${prefix_path}'"
 
   mkdir -p "$rvm_externals_path"
@@ -136,7 +136,7 @@ external_mount()
 external_select_name()
 {
   typeset proposed_name ruby_version ruby_path prefix_path
-  export rvm_ruby_name
+  export rvm_ruby_string
     ruby_path="$1"
   prefix_path="$2"
   ruby_version="$( "${ruby_path}" --version)"
@@ -146,9 +146,9 @@ external_select_name()
   then
     echo "Found '${ruby_version}' in '${prefix_path}'"
     printf "\n# Please enter name [${proposed_name}]: "
-    read rvm_ruby_name
+    read rvm_ruby_string
     printf "\n"
-    : rvm_ruby_name:${rvm_ruby_name:=${proposed_name}}:
+    : rvm_ruby_string:${rvm_ruby_string:=${proposed_name}}:
   else
     echo "Name not found for '${ruby_path}' in '${prefix_path}'"
     false
@@ -239,6 +239,8 @@ external_import_configure()
 
   rvm_ruby_url="$1"
   rvm_ruby_string="${2:-${rvm_ruby_url}}"
+
+  [[ -r "${rvm_ruby_url}" ]] ||
   case "${rvm_ruby_url}" in
     (http*) true ;;
     (*)
@@ -249,18 +251,30 @@ external_import_configure()
       rvm_ruby_url="${rvm_remote_server}/${platform}/${architecture}/${libc}/${rvm_ruby_url}.${rvm_remote_extension:-tar.bz2}"
       ;;
   esac
+
   rvm_ruby_string="${rvm_ruby_string##*/}"
-  rvm_ruby_string="${rvm_ruby_string%%.*}"
+  rvm_ruby_string="${rvm_ruby_string%.t*}"
   rvm_ruby_package_file="bin-${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}"
 }
 
 external_import_download()
 {
   typeset downloaded_names
-  "$rvm_scripts_path/fetch" "${rvm_ruby_url}" "${rvm_ruby_package_file}" || {
-    $err_command "Downloading ${rvm_ruby_url} failed."
-    return 2
-  }
+
+  if
+    [[ -r "${rvm_ruby_url}" ]]
+  then
+    cp -f "${rvm_ruby_url}" "$rvm_archives_path/${rvm_ruby_package_file}" || {
+      $err_command "Copying ${rvm_ruby_url} failed."
+      return 3
+    }
+  else
+    "$rvm_scripts_path/fetch" "${rvm_ruby_url}" "${rvm_ruby_package_file}" || {
+      $err_command "Downloading ${rvm_ruby_url} failed."
+      return 2
+    }
+  fi
+
   downloaded_names="$(
     tar tjf "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
   )"
@@ -286,33 +300,35 @@ external_import_extract()
 # validate libraries - make sure everything can be loaded
 external_import_validate()
 {
-  typeset missing_libs
-  missing_libs="$(
+  typeset IFS
+  typeset -a missing_libs
+  missing_libs=( $(
     case $(uname) in
       (Linux)
-        find "${rvm_rubies_path}" "${rvm_ruby_string}" -name '*.so' |
+        find "${rvm_rubies_path}/${rvm_ruby_string}" -name '*.so' |
           xargs ldd 2>/dev/null | awk '/not found/{print $1}' | sort -u
         ;;
       (*)
         rvm_warn "$(uname) libraries validation not yet implemented" >&2
         ;;
     esac
-  )"
-  [[ -z "${missing_libs}" ]] || {
-    $err_command "Libraries missing for ${rvm_ruby_name}: ${missing_libs// /,}. Refer to your system manual for installing libraries"
+  ) )
+  [[ -z "${missing_libs[*]}" ]] || {
+    IFS=","
+    $err_command "Libraries missing for ${rvm_ruby_string}: ${missing_libs}. Refer to your system manual for installing libraries"
     return 10
   }
 }
 
 external_import_setup()
 {
-  __rvm_bin_script # environment + wrappers
-
   rvm_create_flag=1 __rvm_use
+
+  __rvm_bin_script # environment + wrappers
 
   if (( ${rvm_skip_gemsets_flag:-0} == 0 ))
   then
-    __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
+    rvm_create_flag=1 __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
       "'$rvm_scripts_path/gemsets' initial" \
       "$rvm_ruby_string - #importing default gemsets ($rvm_gemsets_path/)"
   else
@@ -329,7 +345,8 @@ external_import()
 
   for step in configure download extract validate setup
   do
-    external_import_${step} "$@" || return $?
+    __rvm_log_command "$step" "${rvm_ruby_string:-$1} - #$step" \
+      external_import_${step} "$@" || return $?
   done
 }
 
