@@ -102,59 +102,18 @@ __rvm_ruby_string_paths_under()
 # Run a specified command and log it.
 __rvm_run()
 {
-  typeset name log temp_log_path _command message
-  true ${rvm_debug_flag:=0} ${rvm_niceness:=0}
+  typeset name message
+  typeset -a _command_array
 
   name="${1:-}"
-  _command="${2:-}"
+echo "1:$2" >&2
+  _command_array=( ${2:-} )
+echo "2:${#_command_array[*]}:${_command_array[*]}" >&2
+  eval "_command_array=( ${2:-} )"
+echo "3:${#_command_array[*]}:${_command_array[*]}" >&2
   message="${3:-}"
 
-  if [[ -n "$message" ]]
-  then
-    rvm_log "$message"
-  fi
-
-  if (( rvm_debug_flag > 0 ))
-  then
-    rvm_debug "Executing: $_command"
-  fi
-
-  if [[ -n "${rvm_ruby_string:-}" ]]
-  then
-    temp_log_path="${rvm_log_path}/$rvm_ruby_string"
-  else
-    temp_log_path="${rvm_log_path}"
-  fi
-
-  log="$temp_log_path/$name.log"
-
-  if [[ ! -d "${log%\/*}" ]]
-  then
-    \mkdir -p "${log%\/*}"
-  fi
-
-  if [[ ! -f "$log" ]]
-  then
-    \touch "$log" # for zsh :(
-  fi
-
-  # TODO: Allow an 'append_flag' setting?
-  printf "%b" "[$(date +'%Y-%m-%d %H:%M:%S')] $_command\n" > "$log"
-
-  if (( rvm_niceness > 0 ))
-  then
-    _command="nice -n $rvm_niceness $_command"
-  fi
-
-  eval "$_command" >> "$log" 2>&1
-  result=$?
-
-  if (( result > 0 ))
-  then
-    rvm_error "Error running '$_command', please read $log"
-  fi
-
-  return ${result}
+  __rvm_log_command "$name" "$message" "${_command_array[@]}" || return $?
 }
 
 # Run a specified command and log it.
@@ -189,12 +148,12 @@ __rvm_log_command()
   log="$temp_log_path/$name.log"
 
   [[ -d "${log%\/*}" ]] || \mkdir -p "${log%\/*}"
-  [[ -f "$log"       ]] || \touch    "$log" # for zsh :(
+  [[ -f "$log"       ]] || \touch    "$log"       # for zsh :(
 
   # TODO: Allow an 'append_flag' setting?
   printf "%b" "[$(date +'%Y-%m-%d %H:%M:%S')] $*\n" > "$log"
 
-  "${_command[@]}" >> "$log" 2>&1
+  env "${_command[@]}" >> "$log" 2>&1
   result=$?
 
   if (( result > 0 ))
