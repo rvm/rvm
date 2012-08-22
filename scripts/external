@@ -351,7 +351,7 @@ external_import()
 
 external_prepare()
 {
-  typeset remote_shell remote_directory
+  typeset remote_shell
   rvm_ruby_string="${1:-}"
   remote_shell="${2:-}"
   shift || [[ -n "${rvm_ruby_string}" ]] || {
@@ -360,6 +360,12 @@ external_prepare()
   }
   __rvm_ruby_string
 
+  external_prepare_package &&
+  external_prepare_upload "${remote_shell}"
+}
+
+external_prepare_package()
+{
   if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
   then
     if
@@ -375,6 +381,13 @@ external_prepare()
   rvm_log "Preparing ${rvm_ruby_string} ..."
   tar cjf "${rvm_ruby_string}.tar.bz2" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
   rvm_log "Prepared ${rvm_ruby_string}.tar.bz2."
+}
+
+external_prepare_upload()
+{
+  typeset remote_shell remote_directory remote_directory_short
+  remote_shell="${1:-rvm@rvm.io:~/shared/public/binary}"
+  remote_directory_short="${remote_shell#*:}"
 
   if
     (( rvm_remote_flag > 0 ))
@@ -390,6 +403,9 @@ external_prepare()
       rvm_error "Failed upload to $remote_shell:$remote_directory/${rvm_ruby_string}.tar.bz2 ..."
       return 1
     }
+
+    rvm_log "List of available remote rubies:"
+    ssh "$remote_shell" "find $remote_directory_short -type f -printf 'https://rvm.io/binary/%P\n'"
   fi
 }
 
