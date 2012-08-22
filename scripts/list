@@ -20,6 +20,45 @@ usage()
   return 0
 }
 
+list_remote()
+{
+  typeset version
+  true "${rvm_remote_server:=$(__rvm_db "rvm_remote_server_url")}"
+  __rvm_detect_system
+  rubies=($(
+    rvm_ruby_url="${rvm_remote_server}/${_system_name}/${_system_version}/${_system_arch}/${rvm_ruby_string}"
+    awk -F/ '/'"${rvm_ruby_url//\//\/}"'/{print $NF}' < $rvm_path/config/remote | sed 's/.tar.*$//' | sort
+  ))
+
+  if (( ${#rubies[@]} == 0 ))
+  then
+    printf "%b" "\n# No remote rubies available. Check 'rvm list known' for what can be installed.\n\n"
+    return
+  fi
+
+  printf "%b" "\n# Rubies available for '${_system_name} ${_system_version} ${_system_arch}':\n\n"
+
+  for version in "${rubies[@]}"
+  do
+    if [[ -r "$rvm_rubies_path/$version/bin/ruby" ]]
+    then printf "%b" " * "
+    else printf "%b" "   "
+    fi
+
+    if rvm_pretty_print stdout
+    then printf "%b" "${rvm_notify_clr:-}$version${rvm_reset_clr:-}\n"
+    else printf "%b" "$version\n"
+    fi
+  done
+
+  printf "%b" "\n# * - installed already\n\n"
+
+  if rvm_pretty_print stdout
+  then printf "%b" "# To download and install: ${rvm_notify_clr:-}rvm mount -r {name}${rvm_reset_clr:-}\n\n"
+  else printf "%b" "# To download and install: rvm mount -r {name}\n\n"
+  fi
+}
+
 list_gemsets()
 {
   typeset all_rubies version versions ruby_version_name current_ruby selected system_ruby system_version string binary
@@ -343,6 +382,7 @@ then
 fi
 
 case "$action" in
+  -r|--remote|remote) list_remote     ;;
   known)         list_known           ;;
   known_strings) list_known_strings   ;;
   gemsets)       list_gemsets "$args" ;;
