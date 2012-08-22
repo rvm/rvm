@@ -351,12 +351,15 @@ external_import()
 
 external_prepare()
 {
+  typeset remote_shell remote_directory
   rvm_ruby_string="${1:-}"
-  __rvm_ruby_string
+  remote_shell="${2:-}"
   shift || [[ -n "${rvm_ruby_string}" ]] || {
     rvm_error_help "Missing ruby name to export for prepare." external prepare
-    exit 3
+    return 3
   }
+  __rvm_ruby_string
+
   if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
   then
     if
@@ -372,6 +375,22 @@ external_prepare()
   rvm_log "Preparing ${rvm_ruby_string} ..."
   tar cjf "${rvm_ruby_string}.tar.bz2" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
   rvm_log "Prepared ${rvm_ruby_string}.tar.bz2."
+
+  if
+    (( rvm_remote_flag > 0 ))
+  then
+    __rvm_detect_system
+    remote_directory="${remote_shell#*:}/${_system_name}/${_system_version}/${_system_arch}"
+    remote_shell="${remote_shell%:*}"
+
+    rvm_log "Creating remote structure $remote_directory ..."
+    ssh "$remote_shell" "mkdir -p $remote_directory/" &&
+    rvm_log "Uploading to $remote_directory/${rvm_ruby_string}.tar.bz2 ..." &&
+    scp "${rvm_ruby_string}.tar.bz2" "$remote_shell:$remote_directory/${rvm_ruby_string}.tar.bz2" || {
+      rvm_error "Failed upload to $remote_shell:$remote_directory/${rvm_ruby_string}.tar.bz2 ..."
+      return 1
+    }
+  fi
 }
 
 action="${1:-}"
