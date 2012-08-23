@@ -5,6 +5,7 @@ Other implementations allowing to switch ruby environment:
 - https://github.com/vertiginous/pik (Windows)
 - https://github.com/kwatch/versionswitcher
 - https://github.com/wilmoore/ruby-version
+- https://github.com/postmodern/chruby
 - https://github.com/sam/rb-switch
 - https://github.com/jayferd/ry
 - https://github.com/niw/rubies
