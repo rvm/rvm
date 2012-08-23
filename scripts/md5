@@ -1,59 +1,35 @@
 #!/usr/bin/env bash
 
-variable_is_nonempty()
-{
-  typeset _variable
-  _variable="${1:-}"
-
-  if [[ -n "${_variable}" ]]
-  then
-    eval "[[ -n \"\${${_variable}:-}\" ]]" || return $?
-  else
-    fail "Cannot check if variable is nonempty; no variable was given."
-  fi
-
-}
-
-command_exists()
-{
-  typeset _name
-  _name="${1:-}"
-
-  if variable_is_nonempty _name
-  then
-    builtin command -v "${_name}" > /dev/null 2>&1 || return 1
-  else
-    fail "Cannot test if command exists; no command name was given."
-  fi
-}
-
-if (( ${rvm_trace_flag:=0} == 2 ))
+if
+  (( ${rvm_trace_flag:-0} == 2 ))
 then
   set -x
   export rvm_trace_flag
 fi
 
 _archive="${1}"
-shift || fail "archive name not given in first param"
+md5="${2:-}"
+shift || rvm_fail "archive name not given in first param"
 
-md5="${1}"
-shift || fail "md5 value not given in second param"
-
-# Swiped from BDSM
-if command_exists md5
+# Swiped from SMF
+if
+  builtin command -v md5 > /dev/null 2>&1
 then
   archive_md5=$(md5 -q "${_archive}")
-elif command_exists md5sum
+elif
+  builtin command -v md5sum > /dev/null 2>&1
 then
   archive_md5="$(md5sum "${_archive}")"
   archive_md5="${archive_md5%% *}"
 else
   for _path in /usr/gnu/bin /sbin /bin /usr/bin /usr/sbin
   do
-    if [[ -x "${_path}/md5" ]]
+    if
+      [[ -x "${_path}/md5" ]]
     then
       archive_md5=$(${_path}/md5 -q "${_archive}")
-    elif [[ -x "${_path}/md5sum" ]]
+    elif
+      [[ -x "${_path}/md5sum" ]]
     then
       archive_md5="$(${_path}/md5sum "${_archive}")"
       archive_md5="${archive_md5%% *}"
@@ -61,4 +37,10 @@ else
   done
 fi
 
-[[ "${archive_md5}" == "${md5}" ]] || exit $?
+if
+  [[ -n "${md5}" ]]
+then
+  [[ "${archive_md5}" == "${md5}" ]] || exit $?
+else
+  echo "${archive_md5}"
+fi
