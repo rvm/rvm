@@ -30,33 +30,24 @@ try_ftp=0
 result=0
 retry=0
 
-[[ -n "$archive_md5" ]]   || archive_md5="$( "$rvm_scripts_path/db" "$rvm_path/config/md5" "$url"      | head -n 1 )"
-[[ -n "$archive_md5" ]]   || archive_md5="$( "$rvm_scripts_path/db" "$rvm_user_path/md5"   "$url"      | head -n 1 )"
-if
-  [[ "$url" =~ "?" ]] # try url without ?... like ?rvm={version}
-then
-  [[ -n "$archive_md5" ]] || archive_md5="$( "$rvm_scripts_path/db" "$rvm_path/config/md5" "${url%?*}" | head -n 1 )"
-  [[ -n "$archive_md5" ]] || archive_md5="$( "$rvm_scripts_path/db" "$rvm_user_path/md5"   "${url%?*}" | head -n 1 )"
-fi
-[[ -n "$archive_md5" ]]   || archive_md5="$( "$rvm_scripts_path/db" "$rvm_path/config/md5" "$archive"  | head -n 1 )"
-[[ -n "$archive_md5" ]]   || archive_md5="$( "$rvm_scripts_path/db" "$rvm_user_path/md5"   "$archive"  | head -n 1 )"
-[[ -n "$archive_md5" ]]   || rvm_warn "There is no md5 for '$archive', it's not possible to validate it."
+__rvm_checksum_read "$url" "$archive" ||
+  rvm_warn "There is no checksum for '$archive', it's not possible to validate it."
 
 # Check first if we have the correct archive
 if
-  [[ -e "$archive" && -n "$archive_md5" ]]
+  [[ -e "$archive" ]]
 then
   if
-    "$rvm_scripts_path"/md5 "$rvm_archives_path/${archive}" "$archive_md5"
+    __rvm_checksum_validate_file "$rvm_archives_path/${archive}"
   then
-    rvm_debug "Archive md5 matched, not downloading"
+    rvm_debug "Archive checksum matched, not downloading"
     download=0
   else
-    rvm_debug "Archive md5 did not match, downloading"
+    rvm_debug "Archive checksum did not match, downloading"
     download=1
   fi
 else
-  rvm_debug "No archive or no MD5, downloading"
+  rvm_debug "No archive, downloading"
   download=1
 fi
 
@@ -95,37 +86,32 @@ then
     then
       rvm_log "Trying ftp:// URL instead."
       url="${url/http:/ftp:/}"
-      retry=1
     fi
     if
-      [[ $retry -eq 1 ]]
+      [[ $try_ftp -eq 1 || $retry -eq 1 ]]
     then
-      if
-        eval $fetch_command "$url"
-      then
-        true
-      else
-        result=$?
-        rvm_fail "There was an error($result), please check ${rvm_log_path}/$rvm_ruby_string/*.log" $result
-      fi
+      eval $fetch_command "$url"
+      result=$?
     fi
+    (( result == 0 )) ||
+      rvm_fail "There was an error($result), please check ${rvm_log_path}/$rvm_ruby_string/*.log" $result
   fi
 fi
 
 # Check if we have downloaded the correct archive
 if
-  [[ -n "$archive_md5" ]]
+  __rvm_checksum_any
 then
   if
-    "$rvm_scripts_path"/md5 "$rvm_archives_path/${archive}" "$archive_md5"
+    __rvm_checksum_validate_file "$rvm_archives_path/${archive}"
   then
-    rvm_debug "Downloaded archive md5 matched."
+    rvm_debug "Downloaded archive checksum matched."
   else
     rm -f $archive
-    rvm_fail "Downloaded archive md5 did not match, removing!"
+    rvm_fail "Downloaded archive checksum did not match, removing!"
   fi
 else
-  rvm_debug "No md5, recording."
-  archive_md5="$( "$rvm_scripts_path"/md5 "$rvm_archives_path/${archive}" )"
-  "$rvm_scripts_path/db" "$rvm_user_path/md5" "$archive" "$archive_md5"
+  rvm_debug "No checksum, recording."
+  __rvm_checksum_calculate_file "$archive"
+  __rvm_checksum_write          "$archive"
 fi
