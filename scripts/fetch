@@ -30,20 +30,27 @@ try_ftp=0
 result=0
 retry=0
 
-__rvm_checksum_read "$url" "$archive" ||
-  rvm_warn "There is no checksum for '$archive', it's not possible to validate it."
+__rvm_checksum_read "$url" "$archive"
 
-# Check first if we have the correct archive
+__rvm_checksum_any || (( ${rvm_verify_downloads_flag:-0} > 0 )) ||
+  rvm_fail "There is no checksum for '$url' or '$archive', it's not possible to validate it.
+If you wish to continue with unverified download add '--verify-downloads 1' after the command.
+"
+
 if
   [[ -e "$archive" ]]
 then
+  # Check first if we have the correct archive
   if
     __rvm_checksum_validate_file "$rvm_archives_path/${archive}"
   then
     rvm_debug "Archive checksum matched, not downloading"
     download=0
   else
-    rvm_debug "Archive checksum did not match, downloading"
+    case $? in
+      (1) rvm_warn "Archive checksum not found, downloading again." ;;
+      (*) rvm_warn "Archive checksum did not match, downloading again." ;;
+    esac
     download=1
   fi
 else
@@ -106,17 +113,25 @@ then
 else
   result=$?
   if
-   (( result==1 && ${rvm_verify_downloads_flag:-0}==1 ))
+   (( result==1 && ${rvm_verify_downloads_flag:-0}>0 ))
   then
     rvm_warn "No checksum for downloaded archive, recording checksum in user configuration."
     __rvm_checksum_calculate_file "$archive"
     __rvm_checksum_write          "$archive"
   elif
-   (( result>1 && ${rvm_verify_downloads_flag:-0}>1 ))
+   (( result>1  && ${rvm_verify_downloads_flag:-0}>1 ))
   then
     rvm_warn "Downloaded archive checksum did not match!"
+  elif
+   (( result == 1 ))
+  then
+    rvm_fail "Downloaded archive checksum could not be verified!
+If you wish to continue with unverified download add '--verify-downloads 1' after the command.
+"
   else
     rm -f $archive
-    rvm_fail "Downloaded archive checksum did not match, removing!"
+    rvm_fail "Downloaded archive checksum did not match, archive was removed!
+If you wish to continue with not matching download add '--verify-downloads 2' after the command.
+"
   fi
 fi
