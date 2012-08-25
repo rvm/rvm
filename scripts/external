@@ -383,30 +383,29 @@ external_prepare_package()
   rvm_log "Prepared ${rvm_ruby_string}.tar.bz2."
 }
 
+#TODO: move to SMF ! RVM2 ?
 external_prepare_upload()
 {
-  typeset remote_shell remote_directory remote_directory_short
+  typeset remote_shell remote_directory system_path remote_file local_file
+
+  true "${rvm_remote_server:=$(__rvm_db "rvm_remote_server_url")}"
+  __rvm_detect_system
+  system_path="${_system_name}/${_system_version}/${_system_arch}"
   remote_shell="${1:-rvm@rvm.io:~/shared/public/binary}"
-  remote_directory_short="${remote_shell#*:}"
+  remote_directory="${remote_shell#*:}/${system_path}"
+  remote_shell="${remote_shell%:*}"
+  local_file="${rvm_ruby_string}.tar.bz2"
+  remote_file="${rvm_remote_server}/${system_path}/${local_file}"
 
-  if
-    (( rvm_remote_flag > 0 ))
-  then
-    __rvm_detect_system
-    remote_directory="${remote_shell#*:}/${_system_name}/${_system_version}/${_system_arch}"
-    remote_shell="${remote_shell%:*}"
-
-    rvm_log "Creating remote structure $remote_directory ..."
-    ssh "$remote_shell" "mkdir -p $remote_directory/" &&
-    rvm_log "Uploading to $remote_directory/${rvm_ruby_string}.tar.bz2 ..." &&
-    scp "${rvm_ruby_string}.tar.bz2" "$remote_shell:$remote_directory/${rvm_ruby_string}.tar.bz2" || {
-      rvm_error "Failed upload to $remote_shell:$remote_directory/${rvm_ruby_string}.tar.bz2 ..."
-      return 1
-    }
-
-    rvm_log "List of available remote rubies:"
-    ssh "$remote_shell" "find $remote_directory_short -type f -printf 'https://rvm.io/binary/%P\n'"
-  fi
+  rvm_log "--- upload:"
+  printf "%b" "ssh \"$remote_shell\" \"mkdir -p $remote_directory/\"\n"
+  printf "%b" "scp \"${local_file}\" \"$remote_shell:$remote_directory/${local_file}\"\n"
+  rvm_log "--- rvm/config/remote:"
+  printf "%b" "${remote_file}\n"
+  rvm_log "--- rvm/config/md5:"
+  printf "%b" "${remote_file}=$( __rvm_md5_calculate      "${rvm_ruby_string}.tar.bz2" )\n"
+  rvm_log "--- rvm/config/sha512:"
+  printf "%b" "${remote_file}=$( __rvm_sha__calculate 512 "${rvm_ruby_string}.tar.bz2" )\n"
 }
 
 action="${1:-}"
