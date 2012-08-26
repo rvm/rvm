@@ -301,17 +301,21 @@ external_import_validate()
 {
   typeset IFS
   typeset -a missing_libs
+  export _libdir
+  _libdir="$( "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["libdir"]' )"
   missing_libs=( $(
     case $(uname) in
       (Linux)
         find "${rvm_rubies_path}/${rvm_ruby_string}" -name '*.so' |
-          xargs ldd 2>/dev/null | awk '/not found/{print $1}' | sort -u
+          xargs env LD_LIBRARY_PATH="${_libdir}" ldd 2>/dev/null |
+          awk '/not found/{print $1}' | sort -u
         ;;
       (*)
         rvm_warn "$(uname) libraries validation not yet implemented" >&2
         ;;
     esac
   ) )
+  unset _libdir
   [[ -z "${missing_libs[*]}" ]] || {
     IFS=","
     $err_command "Libraries missing for ${rvm_ruby_string}: ${missing_libs}. Refer to your system manual for installing libraries"
