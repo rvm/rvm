@@ -86,23 +86,27 @@ __rvm_reset_rvmrc_trust()
 
 __rvm_trust_rvmrc()
 {
+  [[ -f "$1" ]] || return 1
   __rvm_reset_rvmrc_trust "$1"
   "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "1;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1
+    "$(__rvm_rvmrc_key "$1")" "1;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1 ||
   return $?
 }
 
 __rvm_untrust_rvmrc()
 {
+  [[ -f "$1" ]] || return 1
   __rvm_reset_rvmrc_trust "$1"
   "${rvm_scripts_path:-"$rvm_path/scripts"}/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "0;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1
+    "$(__rvm_rvmrc_key "$1")" "0;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1 ||
+  return $?
 }
 
 __rvm_rvmrc_stored_trust()
 {
+  [[ -f "$1" ]] || return 1
   "${rvm_scripts_path:-"$rvm_path/scripts"}/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")"
+    "$(__rvm_rvmrc_key "$1")" ||
   return $?
 }
 
@@ -118,15 +122,18 @@ __rvm_rvmrc_stored_trust_check()
     trust=($(__rvm_rvmrc_stored_trust "$rvmrc_path"))
     IFS=$saveIFS
 
-    if [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$rvmrc_path")$(__rvm_sha256_for_contents "$rvmrc_path")" ]]
+    if
+      [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$rvmrc_path")$(__rvm_sha256_for_contents "$rvmrc_path")" ]]
     then
       echo "The rvmrc at '$rvmrc_path' contains unreviewed changes."
       return 1
-    elif [[ "${trust[${_first}]}" == '1' ]]
+    elif
+      [[ "${trust[${_first}]}" == '1' ]]
     then
       echo "The rvmrc at '$rvmrc_path' is currently trusted."
       return 0
-    elif [[ "${trust[${_first}]}" == '0' ]]
+    elif
+      [[ "${trust[${_first}]}" == '0' ]]
     then
       echo "The rvmrc at '$rvmrc_path' is currently untrusted."
       return 1
@@ -189,17 +196,20 @@ __rvm_rvmrc_tools()
       )
       ;;
     reset)
-      __rvm_reset_rvmrc_trust "$rvmrc_path"
-      echo "Reset trust for $rvmrc_path"
+      __rvm_reset_rvmrc_trust "$rvmrc_path" &&
+        rvm_log "Reset trust for $rvmrc_path" ||
+        rvm_error "Reset trust for $rvmrc_path - failed"
       ;;
     trust)
-      __rvm_trust_rvmrc "$rvmrc_path"
-      echo "Marked $rvmrc_path as trusted"
+      __rvm_trust_rvmrc "$rvmrc_path" &&
+        rvm_log "Marked $rvmrc_path as trusted" ||
+        rvm_error "Marked $rvmrc_path as trusted - failed"
       ;;
 
     untrust)
-      __rvm_untrust_rvmrc "$rvmrc_path"
-      echo "Marked $rvmrc_path as untrusted"
+      __rvm_untrust_rvmrc "$rvmrc_path" &&
+        rvm_log "Marked $rvmrc_path as untrusted" ||
+        rvm_error "Marked $rvmrc_path as untrusted - failed"
       ;;
 
     trusted)
@@ -252,7 +262,7 @@ __rvm_rvmrc_tools()
       ;;
 
     *)
-      echo "Usage: rvm rvmrc {trust,untrust,trusted,load,reset,is_trusted,try_to_read_ruby,create}"
+      rvm_error "Usage: rvm rvmrc {trust,untrust,trusted,load,reset,is_trusted,try_to_read_ruby,create}"
       return 1
       ;;
   esac
