@@ -1,5 +1,24 @@
 #!/usr/bin/env bash
 
+jruby_install_build_nailgun()
+{
+  builtin cd "${rvm_src_path}/$rvm_ruby_string/tool/nailgun" &&
+  case "$rvm_ruby_version" in
+    1.2*|1.3*)
+      true
+      ;;
+    *)
+      if [[ -n "${rvm_configure_env:-}" ]]
+      then
+        "${rvm_configure_env}" ./configure --prefix=$rvm_ruby_home
+      else
+        ./configure --prefix=$rvm_ruby_home
+      fi
+      ;;
+  esac &&
+  make $rvm_make_flags
+}
+
 jruby_install()
 {
   __rvm_compatibility_flag_configuration -Djruby.default.ruby.version=
@@ -43,17 +62,19 @@ jruby_install()
 
   builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
-  if [[ -n ${rvm_configure_flags:-} ]] || (( ${rvm_head_flag:=0} ))
+  if
+    [[ -n "${rvm_configure_flags:-}" || -n "${rvm_patch_names:-}" || ${rvm_head_flag:-0} -gt 0 ]]
   then
     __rvm_apply_patches
     __rvm_run "ant.jar" "ant jar" "$rvm_ruby_string - #ant jar"
-    if [[ -n ${rvm_configure_flags:-} ]]
+    if [[ -n "${rvm_configure_flags:-}" ]]
     then
       __rvm_run "ant.jar.flags" "ant jar ${rvm_configure_flags}" "$rvm_ruby_string - #ant jar ${rvm_configure_flags}"
     fi
   fi
 
-  if (( ${rvm_head_flag:=0} ))
+  if
+    [[ -n "${rvm_configure_flags:-}" || -n "${rvm_patch_names:-}" || ${rvm_head_flag:-0} -gt 0 ]]
   then
     __rvm_run "ant.cext" "ant cext  ${rvm_configure_flags}" "$rvm_ruby_string - #ant cext" || \
       rvm_warn "cext is know to fail please report here: https://jira.codehaus.org/browse/JRUBY"
@@ -61,18 +82,7 @@ jruby_install()
 
   mkdir -p "$rvm_ruby_home/bin/"
 
-  case "$rvm_ruby_version" in
-    1.2*|1.3*)
-      __rvm_run "nailgun" \
-        "builtin cd \"${rvm_src_path}/$rvm_ruby_string/tool/nailgun\" &&  make $rvm_make_flags" \
-        "Building Nailgun"
-      ;;
-    *)
-      __rvm_run "nailgun" \
-        "builtin cd \"${rvm_src_path}/$rvm_ruby_string/tool/nailgun\" && ${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home && make $rvm_make_flags" \
-        "Building Nailgun"
-      ;;
-  esac
+  __rvm_log_command "nailgun" "$rvm_ruby_string - #nailgun" jruby_install_build_nailgun
 
   __rvm_rm_rf "$rvm_ruby_home"
 

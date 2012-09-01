@@ -136,8 +136,15 @@ __rvm_log_command()
   then _command=( "nice" "-n" "$rvm_niceness" "${_command[@]}" )
   fi
 
-  if (( rvm_debug_flag > 0 ))
-  then rvm_debug "Executing: ${_command[*]}"
+  if
+    (( rvm_debug_flag > 0 ))
+  then
+    rvm_debug "Executing: ${_command[*]}"
+    if
+      is_a_function "${_command[__array_start]}"
+    then
+      typeset -f "${_command[__array_start]}"
+    fi
   fi
 
   if [[ -n "${rvm_ruby_string:-}" ]]
@@ -152,12 +159,17 @@ __rvm_log_command()
 
   # TODO: Allow an 'append_flag' setting?
   printf "%b" "[$(date +'%Y-%m-%d %H:%M:%S')] $*\n" > "$log"
+  if
+    is_a_function "${_command[__array_start]}"
+  then
+    typeset -f "${_command[__array_start]}" >> "$log"
+  fi
 
   "${_command[@]}" >> "$log" 2>&1
   result=$?
 
   if (( result > 0 ))
-  then rvm_error "Error running '$_command', please read $log"
+  then rvm_error "Error running '${_command[*]}', please read $log"
   fi
 
   return ${result}
@@ -396,7 +408,7 @@ __rvm_detect_system()
   case "$(uname)" in
     (Linux)
       #TODO: add support for arm??
-      _system_arch="$(uname -m | awk '{if($0~"x86_64")print "x86_64"; else print "i386";}')"
+      _system_arch="$(uname -m | awk '{if($0~"arm*")print; else if($0~"x86_64")print "x86_64"; else print "i386";}')"
       if
         [[ -f /etc/lsb-release ]] &&
         GREP_OPTIONS="" \grep "DISTRIB_ID=Ubuntu" /etc/lsb-release >/dev/null
@@ -405,7 +417,7 @@ __rvm_detect_system()
         _system_version="$(awk -F'=' '$1=="DISTRIB_RELEASE"{print $2}' /etc/lsb-release)"
       elif
         [[ -f /etc/os-release ]] &&
-        GREP_OPTIONS="" \grep "NAME=openSUSE" /etc/os-release >/dev/null
+        GREP_OPTIONS="" \grep "ID=opensuse" /etc/os-release >/dev/null
       then
         _system_name="opensuse"
         _system_version="$(awk -F'=' '$1=="VERSION_ID"{gsub(/"/,"");print $2}' /etc/os-release)" #'
@@ -424,9 +436,13 @@ __rvm_detect_system()
       then
         _system_name="gentoo"
         _system_version="base-$(cat /etc/gentoo-release | awk 'NR==1 {print $NF}' | awk -F. '{print $1"."$2}')"
+      elif
+        [[ -f /etc/arch-release ]]
+      then
+        _system_name="arch"
+        _system_version="libc-$(ldd --version  | awk 'NR==1 {print $NF}' | awk -F. '{print $1"."$2}')"
       else
         _system_version="libc-$(ldd --version  | awk 'NR==1 {print $NF}' | awk -F. '{print $1"."$2}')"
-        return 2
       fi
       ;;
     (SunOS)
@@ -454,4 +470,8 @@ __rvm_detect_system()
       return 1
       ;;
   esac
+  _system_type="${_system_type//[ \/]/_}"
+  _system_name="${_system_name//[ \/]/_}"
+  _system_version="${_system_version//[ \/]/_}"
+  _system_arch="${_system_arch//[ \/]/_}"
 }
