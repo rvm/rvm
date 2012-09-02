@@ -5,95 +5,87 @@ install_package()
   __rvm_db "${package}_url" "package_url"
   (
     builtin cd "$rvm_src_path"
-
     rvm_log "Fetching $package-$version.$archive_format to $rvm_archives_path"
 
     case "$archive_format" in
-
       tar.gz|tgz)
-
-        "$rvm_scripts_path/fetch" \
-          "$package_url/$package-$version.$archive_format" \
-          || (result=$? && return $result)
-
+        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
         __rvm_run "$package/extract" \
           "$rvm_tar_command xmzf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-}" \
           "Extracting $package-$version.$archive_format to $rvm_src_path"
         ;;
-
       tar.bz2)
-
-        "$rvm_scripts_path/fetch" \
-          "$package_url/$package-$version.$archive_format" \
-          || (result=$? && return $result)
-
+        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
         __rvm_run "$package/extract" \
           "$rvm_tar_command xmjf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-} "\
           "Extracting $package-$version.$archive_format to $rvm_src_path"
-
         ;;
-
       zip)
-
-        "$rvm_scripts_path/fetch" \
-          "$package_url/$package-$version.$archive_format" \
-          || (result=$? && return $result)
-
+        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
         __rvm_run "$package/extract" \
           "unzip -q -o $rvm_archives_path/$package-$version.$archive_format -d $rvm_src_path/$package-$version" \
           "Extracting $package-$version.$archive_format to $rvm_src_path"
         ;;
-
       *)
-        printf "%b" "\nUnrecognized archive format '$archive_format'" ; return 1
-
+        printf "%b" "\nUnrecognized archive format '$archive_format'"
+        return 1
+        ;;
     esac
 
     builtin cd "$rvm_src_path/$package-$version"
-
     __rvm_add_to_path append /usr/bin
 
-    if [[ ! -z "$patches" ]] ; then
-      for patch in $(echo $patches | \tr ',' ' ') ; do
-        __rvm_run "$package/patch" "patch -p0 -f -i $patch" "Applying patch '$patch'..."
-        if [[ $? -gt 0 ]] ; then
-          rvm_error "Patch $patch did not apply cleanly... back to the patching board :(" ; exit 1
+    if
+      [[ -n "$patches" ]]
+    then
+      for patch in $(echo $patches | \tr ',' ' ')
+      do
+        if
+          ! __rvm_run "$package/patch" "patch -p0 -f -i $patch" "Applying patch '$patch'..."
+        then
+          rvm_error "Patch $patch did not apply cleanly... back to the patching board :("
+          exit 1
         fi
       done
     fi
 
-    if [[ "${rvm_skip_autoreconf_flag:-0}" == 0 ]] &&
+    if
+      [[ "${rvm_skip_autoreconf_flag:-0}" == 0 ]] &&
       which autoreconf >/dev/null 2>&1 &&
       which libtoolize >/dev/null 2>&1 &&
       [[ -f configure.ac || -f configure.in ]]
     then
-      if [[ -z "${rvm_autoconf_flags:-}" ]]
+      if
+        (( ${#rvm_autoconf_flags[@]} == 0 ))
       then
-        if uname -s | GREP_OPTIONS="" \grep -iE 'cygwin|mingw' >/dev/null
-        then # no symlinks on windows :(
-          rvm_autoconf_flags="-ivf"
+        if
+          uname -s | GREP_OPTIONS="" \grep -iE 'cygwin|mingw' >/dev/null
+        then
+          rvm_autoconf_flags=( -ivf )  # no symlinks on windows :(
         else
-          rvm_autoconf_flags="-is --force"
+          rvm_autoconf_flags=( -is --force )
         fi
       fi
-      __rvm_run "$package/autoreconf" "autoreconf ${rvm_autoconf_flags}" \
-        "Prepare $package in $rvm_src_path/$package-$version."
+      __rvm_log_command "$package/autoreconf" "Prepare $package in $rvm_src_path/$package-$version." \
+        autoreconf "${rvm_autoconf_flags[@]}"
     fi
 
     (( ${#configure[@]} )) ||
       configure=( "${rvm_configure_env[@]}" ./configure --prefix="${prefix_path:-$rvm_usr_path}" )
     configure+=( "${rvm_configure_flags[@]}" "${configure_flags[@]}" )
 
-    __rvm_log_command "$package/configure" "Configuring $package in $rvm_src_path/$package-$version." "${configure[@]}"
+    __rvm_log_command "$package/configure" "Configuring $package in $rvm_src_path/$package-$version." \
+      "${configure[@]}"
 
     unset configure_flags configure
 
     touch "$rvm_path/config/packages"
     if [[ "$action" == "uninstall" ]]
     then
-      __rvm_run "$package/make.uninstall" "make uninstall" "Uninstalling $package from $rvm_usr_path" &&
+      __rvm_log_command "$package/make.uninstall" "Uninstalling $package from $rvm_usr_path"  make uninstall &&
       builtin cd "$rvm_src_path" &&
-      __rvm_run "$package/rm_src.uninstall" "rm -rf $rvm_src_path/$package-$version" "Removing ${package}-${version} from $rvm_src_path" &&
+      __rvm_log_command "$package/rm_src.uninstall" "Removing ${package}-${version} from $rvm_src_path" \
+        rm -rf "$rvm_src_path/$package-$version" &&
       "$rvm_scripts_path/db" "$rvm_path/config/packages" "${package}" delete
     else
       __rvm_log_command "$package/make"         "Compiling $package in $rvm_src_path/$package-$version." \
@@ -181,10 +173,6 @@ openssl()
       fi
     fi
     configure_command="./Configure"
-
-    # Anyone know WTF happened to these patches???
-    #patches="$rvm_patches_path/$package/Makefile.org.patch,$rvm_patches_path/$package/crypto-Makefile.patch"
-
     # Don't use -j option for make OpenSSL
     __rvm_remove_from_array rvm_make_flags "^-j[[:digit:]]+" "${rvm_make_flags[@]}"
   else
