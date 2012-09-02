@@ -96,8 +96,10 @@ install_package()
       __rvm_run "$package/rm_src.uninstall" "rm -rf $rvm_src_path/$package-$version" "Removing ${package}-${version} from $rvm_src_path" &&
       "$rvm_scripts_path/db" "$rvm_path/config/packages" "${package}" delete
     else
-      __rvm_run "$package/make" "make $rvm_make_flags" "Compiling $package in $rvm_src_path/$package-$version." &&
-      __rvm_run "$package/make.install" "make install" "Installing $package to $rvm_usr_path" &&
+      __rvm_log_command "$package/make"         "Compiling $package in $rvm_src_path/$package-$version." \
+        make "${rvm_make_flags[@]}" &&
+      __rvm_log_command "$package/make.install" "Installing $package to $rvm_usr_path" \
+        make install &&
       "$rvm_scripts_path/db" "$rvm_path/config/packages" "${package}" "${version}"
     fi
   )
@@ -143,32 +145,36 @@ openssl()
 {
   package="openssl" ; archive_format="tar.gz"
   __rvm_db "${package}_version" "version"
-  if [[ "Darwin" == "$(uname)" ]] ; then
-
-    if [[ -n "$rvm_architectures" ]]; then
-
-      if match "$rvm_architectures" "64"; then
-        hw_cpu64bit=1
+  if
+    [[ "Darwin" == "$(uname)" ]]
+  then
+    if
+      [[ -n "$rvm_architectures" ]]
+    then
+      if match "$rvm_architectures" "64"
+      then hw_cpu64bit=1
       fi
-
-      if match "$rvm_architectures" "ppc"; then
-        hw_machine="Power Macintosh"
+      if match "$rvm_architectures" "ppc"
+      then hw_machine="Power Macintosh"
       fi
     else
       hw_machine=$(sysctl hw.machine | awk -F: '{print $2}' | sed 's/^ //')
       hw_cpu64bit=$(sysctl hw.cpu64bit_capable | awk '{print $2}')
     fi
-
-    if [[ "Power Macintosh" == "$hw_machine" ]] ; then
-
-      if [[ $hw_cpu64bit == 1 ]]; then
+    if
+      [[ "Power Macintosh" == "$hw_machine" ]]
+    then
+      if
+        [[ $hw_cpu64bit == 1 ]]
+      then
         openssl_os="darwin64-ppc-cc"
       else
         openssl_os="darwin-ppc-cc"
       fi
-
     else
-      if [[ $hw_cpu64bit == 1 ]]; then
+      if
+        [[ $hw_cpu64bit == 1 ]]
+      then
         openssl_os="darwin64-x86_64-cc"
       else
         openssl_os="darwin-i386-cc"
@@ -180,9 +186,7 @@ openssl()
     #patches="$rvm_patches_path/$package/Makefile.org.patch,$rvm_patches_path/$package/crypto-Makefile.patch"
 
     # Don't use -j option for make OpenSSL
-    [[ -z "$rvm_make_flags" ]] ||
-      rvm_make_flags=$(echo "$rvm_make_flags" | sed -e "s/-j[[:space:]]*[[:digit:]]*//")
-
+    __rvm_remove_from_array rvm_make_flags "^-j[[:digit:]]+" "${rvm_make_flags[@]}"
   else
     configure_command="./config"
   fi
