@@ -80,11 +80,13 @@ install_package()
         "Prepare $package in $rvm_src_path/$package-$version."
     fi
 
-    __rvm_run "$package/configure" \
-      "${configure:-"${rvm_configure_env:-""} ./configure --prefix=\"${prefix_path:-"$rvm_usr_path"}\""} ${rvm_configure_flags:-""} $configure_flags" \
-      "Configuring $package in $rvm_src_path/$package-$version."
+    (( ${#configure[@]} )) ||
+      configure=( "${rvm_configure_env[@]}" ./configure --prefix="${prefix_path:-"$rvm_usr_path"}" )
+    configure+=(  ${rvm_configure_flags:-} "${configure_flags[@]}" )
 
-    unset configure_flags
+    __rvm_log_command "$package/configure" "Configuring $package in $rvm_src_path/$package-$version." "${configure[@]}"
+
+    unset configure_flags configure
 
     touch "$rvm_path/config/packages"
     if [[ "$action" == "uninstall" ]]
@@ -112,7 +114,9 @@ Please note that it's required to reinstall all installed rubies:
 readline()
 {
   package="readline" ; archive_format="tar.gz"
-  configure="env CFLAGS=-I${rvm_usr_path}/include LDFLAGS=-L${rvm_usr_path}/lib ./configure --prefix=${rvm_usr_path} --disable-dependency-tracking --disable-static --enable-shared"
+  configure=(
+    CFLAGS=-I${rvm_usr_path}/include LDFLAGS=-L${rvm_usr_path}/lib ./configure --prefix=${rvm_usr_path} --disable-dependency-tracking --disable-static --enable-shared
+  )
 
   version="5.2"
   patches="$rvm_patches_path/$package-$version/shobj-conf.patch"
@@ -182,7 +186,9 @@ openssl()
   else
     configure_command="./config"
   fi
-  configure="$configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib --prefix=$rvm_usr_path zlib no-asm no-krb5 shared"
+  configure=(
+    $configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib --prefix=$rvm_usr_path zlib no-asm no-krb5 shared
+  )
   install_package
 }
 
@@ -202,7 +208,9 @@ autoconf()
 ncurses()
 {
   package="ncurses" ; version="5.7" ; archive_format="tar.gz"
-  configure_flags="--with-shared --disable-rpath --without-debug --without-ada --enable-safe-sprintf --enable-sigwinch --without-progs"
+  configure_flags=(
+    --with-shared --disable-rpath --without-debug --without-ada --enable-safe-sprintf --enable-sigwinch --without-progs
+  )
   install_package
 }
 
@@ -221,8 +229,12 @@ gettext()
 libxml2()
 {
   package="libxml2" ; version="2.7.3" ; archive_format="tar.gz"
-  if [[ "Darwin" == "$(uname)" ]] ; then
-    configure="./configure --prefix=$rvm_usr_path --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)"
+  if
+    [[ "Darwin" == "$(uname)" ]]
+  then
+    configure=(
+      ./configure --prefix=$rvm_usr_path --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)
+    )
   fi
   install_package
   unset prefix_path
@@ -264,8 +276,9 @@ glib()
   pkgconfig
   gettext
   package="glib" ; version="2.23.1" ; archive_format="tar.gz"
-  configure="CC=\"cc -L$rvm_usr_path/lib -I$rvm_usr_path/include\" PKG_CONFIG=\"$rvm_usr_path/bin/pkg-config\" ./configure --prefix=\"$rvm_usr_path\""
-
+  configure=(
+    CC="cc -L$rvm_usr_path/lib -I$rvm_usr_path/include" PKG_CONFIG="$rvm_usr_path/bin/pkg-config" ./configure --prefix="$rvm_usr_path"
+  )
   install_package
 }
 
