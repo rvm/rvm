@@ -5,12 +5,11 @@
 __rvm_current_patch_names()
 {
   # TODO: Lookup default patches on rvm_ruby_string heirarchy.
-  typeset separator patches level name
+  typeset separator level name
 
   separator="%"
-  patches="${rvm_patch_names:-""} default"
 
-  for name in $(echo ${patches//,/ })
+  for name in "${rvm_patch_names[@]}" default
   do
     if [[ "${name//${separator}*/}" == "${name}" ]]
     then
@@ -202,10 +201,8 @@ __rvm_install_source()
       ;;
     esac
 
-    typeset configure_command
-    configure_command="${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home ${db_configure_flags:-""} ${rvm_configure_flags:-""} ${configure_parameters:-""}"
-
-    __rvm_run "configure" "$configure_command" "$rvm_ruby_string - #configuring "
+    __rvm_log_command "configure" "$rvm_ruby_string - #configuring" \
+      "${rvm_configure_env[@]}" ./configure --prefix="$rvm_ruby_home" ${db_configure_flags:-""} "${rvm_configure_flags[@]}" ${configure_parameters:-""}
     result=$?
 
     if (( result > 0 ))
@@ -218,9 +215,9 @@ __rvm_install_source()
     rvm_error "Skipping configure step, 'configure' does not exist, did autoreconf not run successfully?"
   fi
 
-  rvm_ruby_make=${rvm_ruby_make:-"make"}
+  : rvm_ruby_make:${rvm_ruby_make:=make}
 
-  __rvm_run "make" "$rvm_ruby_make ${rvm_make_flags:-""}" "$rvm_ruby_string - #compiling "
+  __rvm_log_command "make" "$rvm_ruby_string - #compiling" $rvm_ruby_make "${rvm_make_flags[@]}"
   result=$?
 
   if (( result > 0 ))
@@ -253,11 +250,11 @@ __rvm_install_source()
     ;;
   esac
 
-  : rvm_configure_flags:${rvm_configure_flags:=}:
-  case "${rvm_configure_flags}" in
-    (*--program-suffix=*)
+  case " ${rvm_configure_flags[*] }" in
+    (*[[:space:]]--program-suffix=*)
       typeset program_suffix
-      program_suffix="${rvm_configure_flags#*--program-suffix=}"
+      program_suffix="${rvm_configure_flags[*]}"
+      program_suffix="${program_suffix#*--program-suffix=}"
       program_suffix="${program_suffix%%[\' ]*}"
       __rvm_run "link.ruby" "ln -s \"$rvm_ruby_home/bin/ruby${program_suffix}\" \
         \"$rvm_ruby_home/bin/ruby\"" "$rvm_ruby_string - #linking ruby${program_suffix} -> ruby "
@@ -1259,9 +1256,9 @@ __rvm_compatibility_flag_configuration()
 
   if [[ ${rvm_19_flag:-0} == 1 ]]
   then
-    rvm_configure_flags="${rvm_configure_flags:-} ${flag}1.9"
+    rvm_configure_flags+=( ${flag}1.9 )
   elif [[ ${rvm_18_flag:-0} == 1 ]]
   then
-    rvm_configure_flags="${rvm_configure_flags:-} ${flag}1.8"
+    rvm_configure_flags+=( ${flag}1.8 )
   fi
 }

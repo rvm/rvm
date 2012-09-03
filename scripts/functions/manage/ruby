@@ -5,7 +5,8 @@ transform_configure_flags()
   typeset flag path
   typeset -a new_flags
 
-  for flag in ${rvm_configure_flags}
+  new_flags=()
+  for flag in "${rvm_configure_flags[@]}"
   do
     case "${flag}" in
       --with-opt-dir=*)
@@ -18,9 +19,9 @@ transform_configure_flags()
 
         new_flags+=( "${flag}" )
 
-        if ! [[ " ${new_flags[*]} " =~ " --with-opt-dir=${path} " ]]
-        then new_flags+=( "--with-opt-dir=${path}" )
-        fi
+        #TODO: multiple --with-opt-dir= are not supported by MRI ...
+        [[ " ${new_flags[*]} " =~ " --with-opt-dir=${path} " ]] ||
+          new_flags+=( "--with-opt-dir=${path}" )
         ;;
 
       *)
@@ -29,7 +30,7 @@ transform_configure_flags()
     esac
   done
 
-  rvm_configure_flags="${new_flags[*]}"
+  rvm_configure_flags=( "${new_flags[@]}" )
 }
 
 # 1.9.3-p125+
@@ -81,7 +82,7 @@ ruby_install()
   if
     [[ " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
   then
-    rvm_patch_names="ruby-multilib ${rvm_patch_names:-}"
+    rvm_patch_names+=( ruby-multilib )
   fi
 
   case ${rvm_ruby_string} in
@@ -94,7 +95,7 @@ ruby_install()
         if ! libyaml_installed
         then libyaml # Installs libyaml
         fi
-        rvm_configure_flags="${rvm_configure_flags:-} --with-libyaml-dir=${rvm_path}/usr"
+        rvm_configure_flags+=( --with-libyaml-dir="${rvm_path}/usr" )
       fi
 
       # Ruby 1.9 does not allow --with-<lib>-dir,
@@ -116,7 +117,7 @@ ruby_install()
     SunOS)
       case ${rvm_ruby_string} in
         ruby-1.9*)
-          rvm_configure_flags="${rvm_configure_flags:-} ac_cv_func_dl_iterate_phdr=no"
+          rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
           ;;
       esac
     ;;
@@ -131,7 +132,7 @@ ruby_install()
     __clang_ready && __rvm_compiler_is_llvm &&
     ! __rvm_selected_compiler > /dev/null
   then
-    rvm_configure_flags="${rvm_configure_flags:-""} --with-gcc=clang"
+    rvm_configure_flags+=( --with-gcc=clang )
   fi
 
   if __rvm_compiler_is_llvm
