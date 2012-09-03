@@ -60,7 +60,7 @@ ruby_install()
   else
     result=$?
     rvm_log "Bison required but not found. Halting."
-    exit $result
+    return $result
   fi
 
   case ${rvm_ruby_string:-""} in
@@ -71,9 +71,17 @@ ruby_install()
       fi
       ;;
     ruby-head|ruby-1.9.*-head)
-      if __rvm_ensure_has_mri_ruby
-      then true
-      else return $?
+      if
+        __rvm_ensure_has_mri_ruby
+      then
+        typeset compatible_baseruby
+        compatible_baseruby="$rvm_wrappers_path/$(__rvm_mri_ruby)/ruby"
+        if [[ -x "$compatible_baseruby" ]]
+        then
+          rvm_configure_flags+=( --with-baseruby="$compatible_baseruby" )
+        fi
+      else
+        return $?
       fi
       ;;
   esac
@@ -142,7 +150,7 @@ ruby_install()
       rvm_warn "Building '${rvm_ruby_string}' using clang - but it's not (fully) supported, expect errors."
     else
       rvm_error "The provided compiler '$(__rvm_found_compiler)' is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
-      exit 1
+      return 1
     fi
   fi
 

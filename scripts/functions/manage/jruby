@@ -8,7 +8,7 @@ jruby_install_build_nailgun()
       true
       ;;
     *)
-      "${rvm_configure_env[@]}" ./configure --prefix=$rvm_ruby_home
+      env "${rvm_configure_env[@]}" ./configure --prefix=$rvm_ruby_home
       ;;
   esac &&
   make "${rvm_make_flags[@]}"
@@ -39,21 +39,14 @@ jruby_install()
         ;;
       (1.3.*|1.4.*)
         printf "%b" "\n\nERROR: Unsupported JAVA version $java_version. In order to install and use JRuby you must upgrade to the latest JAVA version.\n\n"
-        exit 1
+        return 1
         ;;
     esac
   fi
 
   builtin cd "${rvm_src_path}"
 
-  __rvm_fetch_ruby
-  result=$?
-
-  if (( result > 0 ))
-  then
-    rvm_error "There has been an error while trying to fetch the source.  \nHalting the installation."
-    exit $result
-  fi
+  __rvm_fetch_ruby || return $?
 
   builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
@@ -74,10 +67,10 @@ jruby_install()
 
   mkdir -p "$rvm_ruby_home/bin/"
 
-  __rvm_log_command "nailgun" "$rvm_ruby_string - #nailgun" jruby_install_build_nailgun
-  __rvm_rm_rf "$rvm_ruby_home"
+  __rvm_log_command "nailgun" "$rvm_ruby_string - #nailgun" jruby_install_build_nailgun &&
+  __rvm_rm_rf "$rvm_ruby_home" &&
   __rvm_log_command "install" "$rvm_ruby_string - #installing to $rvm_ruby_home" \
-    "/bin/cp -Rf ${rvm_src_path}/$rvm_ruby_string $rvm_ruby_home"
+    /bin/cp -Rf "${rvm_src_path}/$rvm_ruby_string" "$rvm_ruby_home" || return $?
 
   (
   builtin cd "$rvm_ruby_home/bin/"
@@ -111,7 +104,7 @@ jruby_install()
   # jruby ships with some built in gems, copy them in to place.
   if [[ -d "$rvm_ruby_home/lib/ruby/gems/1.8" ]]
   then
-    rvm_log "Copying across included gems"
-    cp -R "$rvm_ruby_home/lib/ruby/gems/1.8/" "$rvm_ruby_gem_home/"
+    __rvm_log_command "copy.gems" "$rvm_ruby_string - #copying across included gems" \
+      cp -R "$rvm_ruby_home/lib/ruby/gems/1.8/" "$rvm_ruby_gem_home/"
   fi
 }

@@ -115,64 +115,41 @@ __rvm_run()
 # Run a specified command and log it.
 __rvm_log_command()
 {
-  typeset name log temp_log_path message
+  typeset name message _log _command_start _command_name
   typeset -a _command
-  true ${rvm_debug_flag:=0} ${rvm_niceness:=0}
 
   name="${1:-}"
   message="${2:-}"
+  [[ -z "$message" ]] || rvm_log "$message"
   shift 2
-  _command=( "$@" )
+  _command=( "$@" )   # store full command so we can manipulate it
+  _command_start="$1" # store first part so we can detect variables
+  while (( $# )) && [[ "$1" =~ "=" ]] # skip variables from beginning
+  do shift
+  done
+  _command_name="$1"  # store the real command so we can detect functions
 
-  if [[ -n "$message" ]]
-  then rvm_log "$message"
-  fi
+  [[ ! "${_command_start}" =~ "=" ]] || _command=( "env" "${_command[@]}" )
+  (( ${rvm_niceness:-0} == 0 ))      || _command=( nice -n $rvm_niceness "${_command[@]}" )
 
-  if [[ "${_command[__array_start]}" =~ "=" ]]
-  then _command=( "env" "${_command[@]}" )
-  fi
+  _log="${rvm_log_path}${rvm_ruby_string:+/}${rvm_ruby_string:-}/$name.log"
 
-  if (( rvm_niceness > 0 ))
-  then _command=( "nice" "-n" "$rvm_niceness" "${_command[@]}" )
-  fi
-
-  if
-    (( rvm_debug_flag > 0 ))
-  then
-    rvm_debug "Executing: ${_command[*]}"
-    if
-      is_a_function "${_command[__array_start]}"
-    then
-      typeset -f "${_command[__array_start]}"
+  [[ -d "${_log%\/*}" ]] || \mkdir -p "${_log%\/*}"
+  [[ -f "${_log}"     ]] || \touch    "${_log}"
+  {
+    printf "%b" "[$(date +'%Y-%m-%d %H:%M:%S')] ${_command[*]}\n"
+    if is_a_function "${_command_name}"
+    then typeset -f  "${_command_name}"
     fi
+  } | tee "$_log" | rvm_debug_stream
+
+  if "${_command[@]}" >> "$_log" 2>&1
+  then true
+  else
+    typeset result=$?
+    rvm_error "Error running '${_command[*]}', please read $_log"
+    return ${result}
   fi
-
-  if [[ -n "${rvm_ruby_string:-}" ]]
-  then temp_log_path="${rvm_log_path}/$rvm_ruby_string"
-  else temp_log_path="${rvm_log_path}"
-  fi
-
-  log="$temp_log_path/$name.log"
-
-  [[ -d "${log%\/*}" ]] || \mkdir -p "${log%\/*}"
-  [[ -f "$log"       ]] || \touch    "$log"       # for zsh :(
-
-  # TODO: Allow an 'append_flag' setting?
-  printf "%b" "[$(date +'%Y-%m-%d %H:%M:%S')] $*\n" > "$log"
-  if
-    is_a_function "${_command[__array_start]}"
-  then
-    typeset -f "${_command[__array_start]}" >> "$log"
-  fi
-
-  "${_command[@]}" >> "$log" 2>&1
-  result=$?
-
-  if (( result > 0 ))
-  then rvm_error "Error running '${_command[*]}', please read $log"
-  fi
-
-  return ${result}
 }
 
 # Output the current ruby's rvm source path.
@@ -397,13 +374,26 @@ __rvm_pager_or_cat_v()
   eval "${PAGER:-cat -v} '$1'"
 }
 
-# parse coma separated string into an array
-__rvm_coma_separated_array()
+__rvm_ask_for()
 {
-  typeset IFS=,
+  typeset response
+  rvm_warn "$1"
+  printf "%b" "(anything other than '$2' will cancel) > "
+  read response
+  [[ "$2" == "$response" ]] || return $?
+}
+
+
+# parse coma separated string into an array
+# Ex. __rvm_custom_separated_array strings - ruby_string
+# adds all elements from `ruby_string` to `strings` array
+__rvm_custom_separated_array()
+{
+  typeset IFS
+  IFS=$2
   if [[ -n "${ZSH_VERSION:-}" ]]
-  then eval "$1+=( \${=2} )"
-  else eval "$1+=( \$2 )"
+  then eval "$1+=( \${=3} )"
+  else eval "$1+=( \$3 )"
   fi
 }
 
