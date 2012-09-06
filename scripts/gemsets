@@ -258,25 +258,24 @@ gemset_list()
   [[ "$action" == "strings" ]] || printf "%b" "\n"
 }
 
-gemset_after_delete_cleanup()
+gemset_delete_task()
 {
   typeset rvm_gemset_name ruby_at_gemset gemdir
   rvm_gemset_name=$1
   ruby_at_gemset=$2
   gemdir=$3
 
+  __rvm_rm_rf "$gemdir" &&
   if [[ -L "$gemdir/cache" ]]
   then rm -f "$gemdir/cache"
-  fi
-
+  fi &&
   (
     for item in $( $rvm_scripts_path/alias search_by_target ${ruby_at_gemset} )
     do
       $rvm_scripts_path/alias delete ${item}
     done
-
     find "${rvm_bin_path:=$rvm_path/bin}" \( -name \*${ruby_at_gemset} -or -lname \*${ruby_at_gemset}/\* \) -delete
-  )
+  ) &&
   rm -rf "${rvm_wrappers_path:="$rvm_path/wrappers"}/${ruby_at_gemset}"
 }
 
@@ -307,10 +306,8 @@ gemset_delete()
     return 2
   }
 
-  rvm_log "Removing gemset $rvm_gemset_name"
-  rvm_debug "__rvm_rm_rf $gemdir"
-  __rvm_rm_rf "$gemdir"
-  gemset_after_delete_cleanup "$rvm_gemset_name" "$ruby_at_gemset" "$gemdir"
+  __rvm_log_command "gemset.delete" "Removing gemset $rvm_gemset_name" \
+    gemset_delete_task "$rvm_gemset_name" "$ruby_at_gemset" "$gemdir"
 }
 
 gemset_empty()
