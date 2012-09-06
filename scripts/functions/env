@@ -144,3 +144,36 @@ __rvm_remove_rvm_from_path()
   __rvm_remove_from_path "${rvm_path}"
   builtin hash -r
 }
+
+__rvm_switch()
+{
+  typeset new_rvm_path new_rvm_bin_path
+
+  (( $# )) && [[ -z "$1" ]] && shift || true # skip first empty argument
+  (( $# )) && [[ -n "$1" ]] && [[ -d "$1" || -d "${1%/*}" ]] && [[ ! -f "$1" ]] ||
+  {
+    rvm_error "No valid path given."
+    return 1
+  }
+  [[ "${rvm_path}" != "${new_rvm_path}" ]] ||
+  {
+    rvm_warn "Already there!"
+    return 2
+  }
+  rvm_log "Switching ${rvm_path} => ${1}"
+
+  new_rvm_path="${1%/}"
+  new_rvm_bin_path="${2:-$new_rvm_path/bin}"
+  new_rvm_bin_path="${new_rvm_bin_path%/}"
+
+  __rvm_use_system
+  __rvm_remove_from_path "${rvm_path}"
+
+  rvm_reload_flag=1
+  rvm_path="${new_rvm_path}"
+  rvm_bin_path="${new_rvm_bin_path}"
+  rvm_scripts_path="${rvm_path}/scripts"
+
+  __rvm_remove_from_path "${rvm_path}"
+  __rvm_add_to_path prepend "${rvm_bin_path}"
+}
