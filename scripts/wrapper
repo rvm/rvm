@@ -46,40 +46,26 @@ usage()
 
 wrap()
 {
-
-  if [[ -n "${file_name:-""}" ]]
-  then
-    mkdir -p "$(dirname "$file_name")"
-    rm -f "$file_name"
-    if (( UID == 0 ))
-    then # ... this stuff should not be in here...
-      path="${rvm_path:-"/usr/local/rvm"}"
-    else
-      path="${rvm_path:-"$HOME/.rvm"}"
-    fi
-
-    printf "%b" "#!/usr/bin/env bash
-
-if [[ -s \"$path/environments/${environment_identifier}\" ]]
-then
-  source \"$path/environments/${environment_identifier}\"
-  exec $binary_name \"\$@\"
-else
-  echo \"ERROR: Missing RVM environment file: '$path/environments/${environment_identifier}'\" >&2
-  exit 1
-fi
-  " > "$file_name"
-
-    if [[ -f "$file_name" ]]
-    then
-      chmod +x "$file_name"
-    fi
-
-    return 0
-  else
+  [[ -n "${file_name:-""}" ]] ||
+  {
     rvm_error "wrap() : file_name unkown variable for wrap()."
     return 1
-  fi
+  }
+  mkdir -p "${file_name%/*}"
+  rm -f "$file_name"
+  printf "%b" \
+"#!/usr/bin/env bash
+
+if [[ -s \"$rvm_environments_path/${environment_identifier}\" ]]
+then
+  source \"$rvm_environments_path/${environment_identifier}\"
+  exec $binary_name \"\$@\"
+else
+  echo \"ERROR: Missing RVM environment file: '$rvm_environments_path/${environment_identifier}'\" >&2
+  exit 1
+fi
+" > "$file_name"
+  chmod +x "$file_name"
 }
 
 symlink_binary()
@@ -87,7 +73,8 @@ symlink_binary()
   # Generate the default wrapper with the given binary name.
   # We first check if we can wrap the binary and if we were able to,
   # we then symlink it into place.
-  if wrap_binary && [[ -f "$file_name" ]]
+  if
+    wrap_binary && [[ -f "$file_name" ]]
   then
     rm -f "$rvm_bin_path/${prefix}_${binary_name##*\/}"
     ln -fs "$file_name" "$rvm_bin_path/${prefix}_${binary_name##*\/}"
@@ -97,7 +84,9 @@ symlink_binary()
 wrap_binary()
 {
   # We wrap when the given binary is in the path or override_check is set to one.
-  if [[ "$override_check" == "1" ]] || builtin command -v $binary_name > /dev/null
+  if
+    [[ "$override_check" == "1" ]] ||
+    builtin command -v $binary_name > /dev/null
   then
     wrap
   else
@@ -107,34 +96,22 @@ wrap_binary()
 }
 
 # Empty ruby string: show usage and exit.
-if (( $# == 0 ))
-then
+(( $# )) && [[ -n "$1" ]] ||
+{
   usage
   exit 1
-else
-  ruby_string="$1"
-  shift
-  if (( $# > 0 ))
-  then
-    prefix="$1"
-    shift
-  fi
-fi
+}
+ruby_string="$1"
+shift
+prefix="${1:-}"
+(( $# == 0 )) || shift
 
-if [[ -z "$ruby_string" ]]
-then
-  usage
-  exit 1
+if (( $# ))
+then binaries=($@)
+else binaries=(ruby gem irb ri rdoc rake erb testrb)
 fi
-
-binaries=($@)
 override_check=0
-
-# Default the list of binaries to those we use regularily.
-if [[ ${#binaries[@]} -eq 0 ]]
-then
-  binaries=(ruby gem irb ri rdoc rake erb testrb)
-fi
+(( ${rvm_default_flag:-0} == 0 )) || prefix="default"
 
 # Use the correct ruby.
 __rvm_become "$ruby_string" || {
@@ -142,8 +119,29 @@ __rvm_become "$ruby_string" || {
   exit 3
 }
 
-__rvm_ensure_has_environment_files
+# strip trailing / so we can use ${...%/*} to get parent
+rvm_bin_path="${rvm_bin_path%/}"
+rvm_wrappers_path="${rvm_wrappers_path%/}"
+if
+  [[   -d "$rvm_bin_path" && ! -w "$rvm_bin_path"      ]] ||
+  [[ ! -d "$rvm_bin_path" && ! -w "${rvm_bin_path%/*}" ]]
+then
+  # can not write currently set location, try to switch relatively to wrappers path
+  if
+    [[ -w "${rvm_wrappers_path%/*}" || -w "${rvm_wrappers_path%/*}/bin" ]]
+  then
+    rvm_bin_path="${rvm_wrappers_path%/*}/bin"
+    rvm_warn "Wrappers will be saved to '$rvm_bin_path', make sure it's accessible in your PATH before using them."
+  else
+    rvm_error "No bin path suitable for lining wrapper. Try setting 'rvm_bin_path'."
+    exit 4
+  fi
+else
+  rvm_log "Saving wrappers to '$rvm_bin_path'."
+fi
+[[ -d "$rvm_bin_path" ]] || mkdir -p "$rvm_bin_path"
 
+__rvm_ensure_has_environment_files
 environment_identifier="$(__rvm_env_string)"
 
 # For each binary, we want to generate the wrapper / symlink
@@ -151,25 +149,17 @@ environment_identifier="$(__rvm_env_string)"
 for binary_name in "${binaries[@]}"
 do
   file_name="$rvm_wrappers_path/${environment_identifier}/${binary_name##*\/}"
-
-  if (( ${rvm_default_flag:-0} > 0 ))
-  then
-    prefix="default"
-  fi
-
-  if [[ ! -d "$rvm_bin_path" ]]
-  then
-    mkdir -p "$rvm_bin_path"
-  fi
-
-  if [[ -z "${prefix:-}" ]]
+  if
+    [[ -z "${prefix:-}" ]]
   then
     override_check=1
     wrap_binary
     # Symlink it into place.
-    if [[ -f "$file_name" ]]
+    if
+      [[ -f "$file_name" ]]
     then
-      if [[ "$binary_name" == "ruby" ]]
+      if
+        [[ "$binary_name" == "ruby" ]]
       then
         destination="$rvm_bin_path/$environment_identifier"
       else
@@ -178,14 +168,17 @@ do
       rm -f "$destination"
       ln -sf "$file_name" "$destination"
     fi
-  elif [[ "--no-prefix" == "$prefix" ]]
+  elif
+    [[ "--no-prefix" == "$prefix" ]]
   then
     override_check=1
     wrap_binary
-    if [[ -f  "$file_name" ]]
+    if
+      [[ -f  "$file_name" ]]
     then
       destination="$rvm_bin_path/${binary_name##*\/}"
-      if [[ -s "$destination" ]]
+      if
+        [[ -s "$destination" ]]
       then
         rm -f "$destination"
       fi
@@ -195,5 +188,3 @@ do
     symlink_binary
   fi
 done
-
-exit $?
