@@ -12,18 +12,22 @@ transform_configure_flags()
       --with-opt-dir=*)
         new_flags+=( "${flag}" )
         ;;
-
       --with-*-dir=*)
         path="${flag#*=}"
         flag="${flag%-dir=*}"
-
         new_flags+=( "${flag}" )
 
         #TODO: multiple --with-opt-dir= are not supported by MRI ...
-        [[ " ${new_flags[*]} " =~ " --with-opt-dir=${path} " ]] ||
+        if
+          [[ " ${new_flags[*]}" =~ " --with-opt-dir=" ]]
+        then
+          # skip if the same two times, warn if two different available.
+          [[ " ${new_flags[*]} " =~ " --with-opt-dir=${path} " ]] ||
+          rvm_warn "You are using conflicting '--with-opt-dir=' configure flags."
+        else
           new_flags+=( "--with-opt-dir=${path}" )
+        fi
         ;;
-
       *)
         new_flags+=( "${flag}" )
         ;;
@@ -96,27 +100,18 @@ ruby_install()
   case ${rvm_ruby_string} in
     ruby-1.9*)
       # Ruby 1.9 should now use libyaml which is for Psych.
-      if [[ " ${rvm_configure_flags[*]}" =~ " --with-opt-dir=" ]]
-      then
-        rvm_warn "Please note that you are using your own '--with-opt-dir=', make sure 'libyaml' is installed and available for ruby compilation."
-      else
-        if ! libyaml_installed
-        then libyaml # Installs libyaml
-        fi
-        rvm_configure_flags+=( --with-libyaml-dir="${rvm_path}/usr" )
+      libyaml_installed || libyaml # Installs libyaml
+
+      __rvm_update_configure_env CFLAGS="-I${rvm_path}/usr/include"
+      __rvm_update_configure_env LDFLAGS="-L${rvm_path}/usr/lib"
+      if [[ -d "${rvm_path}/usr/lib64" ]]
+      then __rvm_update_configure_env LDFLAGS="-L${rvm_path}/usr/lib64"
       fi
 
       # Ruby 1.9 does not allow --with-<lib>-dir,
       # so we transform it to --with-<lib> --with-opt-dir=...
       # see https://github.com/wayneeseguin/rvm/issues/674
-      temp_flags=" ${rvm_configure_flags[*]}"
-      temp_flags="${temp_flags// --with-opt-dir=/}"
-      if [[ " ${rvm_configure_flags[*]}" =~ " --with-opt-dir=" && "${temp_flags}" =~ "-dir=" ]]
-      then
-        rvm_warn "You are using conflicting '--*-dir=' configure flags."
-      else
-        transform_configure_flags
-      fi
+      transform_configure_flags
       ;;
   esac
 
