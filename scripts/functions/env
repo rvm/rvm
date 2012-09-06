@@ -46,7 +46,8 @@ __rvm_cleanse_variables()
 # Add bin path if not present
 __rvm_conditionally_add_bin_path()
 {
-  if printf "%b" "${PATH//:/ }" | GREP_OPTIONS="" \grep -vF "${rvm_bin_path}" >/dev/null 2>&1
+  if
+    [[ ":${PATH}:" =~ ":${rvm_bin_path}:" ]]
   then
     case "${rvm_ruby_string:-"system"}" in
       system)
@@ -56,37 +57,38 @@ __rvm_conditionally_add_bin_path()
         PATH="${rvm_bin_path}:$PATH"
         ;;
     esac
-
     builtin hash -r
   fi
-
-  return 0
 }
 
 __rvm_load_environment()
 {
   typeset string
   string="$1"
-  if [[ -f "$rvm_environments_path/$string" ]]; then
+  if
+    [[ -f "$rvm_environments_path/$string" ]]
+  then
     # Restore the path to it's state minus rvm
     __rvm_remove_rvm_from_path
 
     # source the environment file
     \. "$rvm_environments_path/$string"
 
-    if [[ -s "${rvm_path:-$HOME/.rvm}/hooks/after_use" ]]
+    if
+      [[ -s "${rvm_path:-$HOME/.rvm}/hooks/after_use" ]]
     then
       \. "${rvm_path:-$HOME/.rvm}/hooks/after_use"
     fi
 
     # clear the PATH cache
     builtin hash -r
-  elif [[ -n "$string" ]] ; then
+  elif
+    [[ -n "$string" ]]
+  then
     rvm "$string"
   else
     : # TODO: This should have some error handling in the context.
   fi
-  return 0
 }
 
 __rvm_export()
@@ -129,7 +131,9 @@ __rvm_clean_path()
   typeset IFS _iterator_path
   typeset -a _old_path _new_path
   IFS=:
-  _old_path=( $PATH )
+  _old_path=()
+  __rvm_custom_separated_array _old_path : "${PATH}"
+
   for _iterator_path in "${_old_path[@]}"
   do
     [[ ":${_new_path[*]}:" =~ :${_iterator_path}: ]] || _new_path+=( "${_iterator_path}" )
