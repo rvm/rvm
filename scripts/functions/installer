@@ -976,7 +976,10 @@ setup_user_profile()
   export user_profile_file
   export -a user_login_files user_rc_files
   typeset -a search_list target_rc target_login found_rc found_login
-  typeset etc_profile_file profile_file
+  typeset etc_profile_file profile_file local_rvm_path local_rvm_path_sed
+  local_rvm_path="${rvm_path/#$HOME/\$HOME}"
+  local_rvm_path_sed="\\${local_rvm_path//\./\\.}"
+  local_rvm_path_sed="${local_rvm_path_sed//\//\/}"
 
   etc_profile_file="/etc/profile.d/rvm.sh"
   search_list=(
@@ -995,7 +998,7 @@ setup_user_profile()
   for profile_file in ${search_list[@]}
   do
     [[ -f $profile_file ]] &&
-      GREP_OPTIONS="" \grep PATH=.*\$HOME/.rvm/bin $profile_file >/dev/null &&
+      GREP_OPTIONS="" \grep PATH=.*$local_rvm_path/bin $profile_file >/dev/null &&
       found_rc+=( $profile_file ) || true
 
     [[ -f $profile_file ]] && { {
@@ -1012,7 +1015,7 @@ setup_user_profile()
     printf "%b" "    Removing rvm PATH line from ${found_rc[*]}.\n"
     for profile_file in ${found_rc[@]}
     do
-      __rvm_sed_i "${profile_file}" -e '/PATH=.*\$HOME\/.rvm\/bin/ d;'
+      __rvm_sed_i "${profile_file}" -e '/PATH=.*'"$local_rvm_path_sed"'\/bin/ d;'
       # also delete duplicate blank lines
       __rvm_sed_i "${profile_file}" -e '/^\s*$/{ N; /^\n$/ D; };'
     done
@@ -1025,7 +1028,7 @@ setup_user_profile()
     do
       touch $profile_file
       printf "%b" "
-PATH=\$PATH:\$HOME/.rvm/bin # Add RVM to PATH for scripting
+PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
 " >> $profile_file
     done
     user_rc_files=( ${target_rc[@]} )
@@ -1052,7 +1055,7 @@ PATH=\$PATH:\$HOME/.rvm/bin # Add RVM to PATH for scripting
     do
       touch $profile_file
     printf "%b" "
-[[ -s \"\$HOME/.rvm/scripts/rvm\" ]] && source \"\$HOME/.rvm/scripts/rvm\" # Load RVM into a shell session *as a function*
+[[ -s \"\$HOME/.rvm/scripts/rvm\" ]] && source \"$local_rvm_path/scripts/rvm\" # Load RVM into a shell session *as a function*
 " >> $profile_file
     done
     user_login_files=( ${target_login[@]} )
