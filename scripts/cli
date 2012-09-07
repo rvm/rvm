@@ -9,6 +9,37 @@ __rvm_run_script()
   "$rvm_scripts_path/${1:-"$rvm_action"}" "${rvm_ruby_args[@]}"
 }
 
+__rvm_parse_args_find_known_args()
+{
+  typeset _args_array_name
+  typeset -a _new_args
+  _args_array_name="$1"
+  (( $# == 0 )) || shift
+  _new_args=()
+  while (( $# ))
+  do
+    case "$1" in
+      (--verify-downloads)
+        export "rvm_verify_downloads_flag"="${2:-}"
+        shift
+        ;;
+      (--force|--verbose|--debug|--quiet|--silent)
+        export "rvm_${1#--}_flag=1"
+        ;;
+      (--)
+        shift
+        _new_args+=( "$@" )
+        shift $#
+        ;;
+      (*)
+        _new_args+=( "$1" )
+        ;;
+    esac
+    (( $# == 0 )) || shift # check in case shifted already
+  done
+  eval "${_args_array_name}+=( \"\${_new_args[@]}\" )"
+}
+
 __rvm_parse_args()
 {
   typeset _string
@@ -258,7 +289,8 @@ __rvm_parse_args()
 
           docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade|cron|group|switch)
             rvm_action="$rvm_token"
-            rvm_ruby_args=("$next_token" "$@")
+            rvm_ruby_args=()
+            __rvm_parse_args_find_known_args rvm_ruby_args "$next_token" "$@"
             rvm_parse_break=1
             ;;
 
