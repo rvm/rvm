@@ -775,12 +775,11 @@ gemset_info()
   elif
     [[ -n "${rvm_ruby_string:-""}${rvm_gemset_name:+${rvm_gemset_separator:-"@"}}${rvm_gemset_name:-}" ]]
   then
-    #TODO: random magic code, why do we need this? btw. tests on ubuntu oneiric 32bit fail without this!
-    (__rvm_use "${rvm_ruby_string:-""}${rvm_gemset_name:+${rvm_gemset_separator:-"@"}}${rvm_gemset_name:-}" ; gem env $action)
-  elif [[ -n "${GEM_HOME:-""}" ]]
-  then
-    #TODO: random magic code, why do we need this?
-    echo "$GEM_HOME"
+    #TODO: why on ubuntu oneiric 32bit it's not enough to use gem env? why need to use again???
+    (
+      __rvm_use "${rvm_ruby_string:-""}${rvm_gemset_name:+${rvm_gemset_separator:-"@"}}${rvm_gemset_name:-}"
+      gem env $action
+    )
   else
     gem env $action
   fi
@@ -967,14 +966,20 @@ fi
 if [[ " $* " =~ " --force " ]]
 then export rvm_force_flag=1
 fi
-
 if
-  [[ -z "$rvm_ruby_string" ]] &&
-  echo "${GEM_HOME:-""}" | GREP_OPTIONS="" \grep "${rvm_path}" >/dev/null 2>&1
+  [[ -z "$rvm_ruby_string" && "${GEM_HOME:-""}" =~ "${rvm_path}" ]]
 then
   rvm_ruby_string="${GEM_HOME##*/}"
   rvm_ruby_string="${rvm_ruby_string%%@*}"
 fi
+if
+  [[ -z "$rvm_gemset_name" && "${GEM_HOME:-""}" =~ "${rvm_path}" ]]
+then
+  rvm_gemset_name="${GEM_HOME##*/}"
+  rvm_gemset_name="${rvm_gemset_name#${rvm_gemset_name%%@*}}"
+  rvm_gemset_name="${rvm_gemset_name#@}"
+fi
+
 
 case "$action" in
   import|load)
