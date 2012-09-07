@@ -6,53 +6,110 @@ source "$rvm_scripts_path/base"
 usage()
 {
   printf "%b" "
+## Usage:
 
-  Usage:
+    rvm cleanup {all,archives,repos,sources,logs,gemsets}
 
-    rvm cleanup {all,archives,repos,sources,logs}
+## Description:
 
-  Description:
-
-    Cleans up the directory tree for the specified item.
+Cleans up the directory tree for the specified item.
+For gemsets removes remove only those without matching ruby.
 
 "
 return 0
 }
 
-cleanup()
+cleanup_single()
 {
-  typeset cleanup_type current_path entry
+  typeset current_path entry
+  current_path="${rvm_path}/${1}"
 
-  for cleanup_type in $@
-  do
-    current_path="${rvm_path}/${cleanup_type}"
-
-    if [[ -n "$current_path" && -d "$current_path" && "$current_path" != "/" ]]
-    then
-      rvm_log "Cleaning up rvm directory '$current_path'"
-      for entry in "$current_path"/*
-      do
-        case $entry in
-          (*\*) continue ;; # skip empty dirs
-        esac
-        chmod -R u+w "$entry"
-        __rvm_rm_rf "$entry"
-      done
-    fi
-  done
-
-  return 0
+  if
+    [[ -n "$current_path" && -d "$current_path" && "$current_path" != "/" ]]
+  then
+    for entry in "$current_path"/*
+    do
+      case $entry in
+        (*\*) continue ;; # skip empty dirs
+      esac
+      (( rvm_verbose_flag == 0 )) || rvm_log " - removing - $entry"
+      chmod -R u+w "$entry" &&
+      __rvm_rm_rf "$entry" ||
+      {
+        : $(( failed_counter+=1 ))
+        rvm_error " - failed - $entry"
+      }
+    done
+  fi
 }
 
-case "$1" in
-  all)      cleanup archives repos src log tmp ;;
-  archives) cleanup archives ;;
-  repos)    cleanup repos ;;
-  sources)  cleanup src ;;
-  logs)     cleanup log ;;
-  tmp)      cleanup tmp ;;
-  help)     usage ;;
-  *)        usage ; exit 1;;
-esac
+cleanup_gemsets()
+{
+  typeset current_path ruby_path
+  typeset -a all_gemsets
 
-exit $?
+  all_gemsets=()
+  __rvm_read_lines all_gemsets < <( ls -1d "${rvm_path}"/gems/* )
+
+  rvm_debug "${#all_gemsets[@]}:${all_gemsets[*]}:"
+  for current_path in "${all_gemsets[@]}"
+  do
+    case "${current_path##*/}" in
+      (\*)    continue ;; # skip no gemsets
+      (cache) continue ;; # skip cache dir
+    esac
+    ruby_path="${current_path%@*}"
+    ruby_path="${ruby_path//\/gems\///rubies/}"
+    rvm_debug " - current_path:$current_path - ruby_path:${ruby_path}"
+    [[ -d "${ruby_path}" ]] || {
+      (( rvm_verbose_flag == 0 )) || rvm_log " - removing - $current_path"
+      chmod -R u+w "$current_path" &&
+      __rvm_rm_rf "$current_path" ||
+      {
+        : $(( failed_counter+=1 ))
+        rvm_error " - failed - $current_path"
+      }
+    }
+  done
+}
+
+cleanup()
+{
+  while (( $# ))
+  do
+    rvm_log "Cleaning up rvm $1"
+    case "$1" in
+      (gemsets)
+        cleanup_$1
+        ;;
+      (logs)
+        cleanup_single log
+        ;;
+      (*)
+        cleanup_single $1
+        ;;
+    esac
+    shift
+  done
+}
+
+failed_counter=0
+case "$1" in
+  archives|repos|sources|tmp|gemsets|logs)
+    cleanup "$1"
+    ;;
+  all)
+    cleanup archives repos src log tmp gemsets
+    ;;
+  help)
+    usage
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac
+if (( failed_counter ))
+then rvm_warn "Cleanup failed for $failed_counter directories."
+else rvm_log "Cleanup done."
+fi
