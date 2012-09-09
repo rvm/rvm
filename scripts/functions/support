@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+if [[ -z "${rvm_tar_command:-}" ]]
+then
+  # check for the right tar to use
+  if builtin command -v gtar >/dev/null
+  then rvm_tar_command=gtar
+  else rvm_tar_command=tar
+  fi
+fi
+
+if [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] && \
+  $rvm_tar_command --help 2>&1 | GREP_OPTIONS="" \grep -- --no-same-owner >/dev/null
+then
+  rvm_tar_options="${rvm_tar_options:-} --no-same-owner"
+  rvm_tar_options="${rvm_tar_options## }"
+fi
+
+# Functions RVM is built on
+# match <value> <string|glob>
+match()
+{
+  case "$1" in
+    ($2) return 0 ;;
+    (*)  return 1 ;;
+  esac
+}
+
+# Drop in replacement for sed -i compatible with OpenBSD
+# Assumes that filename is the first argument, all others are passed onto sed
+__rvm_sed_i()
+{
+    typeset filename
+    filename="$1"
+    shift
+
+    sed "$@" < "${filename}" > "${filename}.new"
+    mv "${filename}.new" "${filename}"
+}
+
+# Drop in replacement for which compatible with OSX / ZSH
+__rvm_which()
+{
+  if which --skip-alias --skip-functions which >/dev/null 2>&1
+  then which --skip-alias --skip-functions "$@"
+  else which "$@"
+  fi
+}
+
+is_a_function()
+{
+  typeset -f $1 >/dev/null 2>&1 || return $?
+}
+
+is_parent_of()
+{
+  typeset name pid ppid pname
+  name=$1
+  pid=$2
+  while [[ -n "$pid" && "$pid" != "0" ]]
+  do
+    read ppid pname < <(ps -p $pid -o ppid= -o comm=)
+    if [[ -n "$ppid" && -n "$pname" ]]
+    then
+      if [[ "$pname" == "$name" ]]
+      then
+        echo $pid
+        return 0
+      else
+        pid=$ppid
+      fi
+    else
+      break
+    fi
+  done
+  return 1
+}
+
+__function_on_stack()
+{
+  typeset fun
+  for fun in "$@"
+  do
+    if [[ " ${FUNCNAME[*]} " =~ " $fun " ]]
+    then return 0
+    fi
+  done
+  return $#
+}
