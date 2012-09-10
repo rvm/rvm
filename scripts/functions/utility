@@ -50,21 +50,17 @@ __rvm_strings()
 # Derived from rvm_ruby_string.
 __rvm_ruby_string_paths_under()
 {
-  typeset path part parts
+  typeset __search_path part parts
 
-  path="${1%/}" # Strip off any trailing slash
-
+  __search_path="${1%/}" # Strip off any trailing slash
   parts=(${rvm_ruby_string//-/ }) # Strip white space.
 
-  echo "$path"
-
+  echo "$__search_path"
   for part in "${parts[@]}"
   do
-    path="$path/$part"
-    echo "$path"
+    __search_path="$__search_path/$part"
+    echo "$__search_path"
   done
-
-  return 0
 }
 
 # Run a specified command and log it.
@@ -103,21 +99,22 @@ __rvm_log_command()
   _log="${rvm_log_path}${rvm_ruby_string:+/}${rvm_ruby_string:-}/$name.log"
 
   [[ -d "${_log%\/*}" ]] || \mkdir -p "${_log%\/*}"
-  [[ -f "${_log}"     ]] || \touch    "${_log}"
+  [[ -f "${_log}"     ]] || \rm -f "${_log}"
   {
     printf "%b" "[$(date +'%Y-%m-%d %H:%M:%S')] ${_command[*]}\n"
     if is_a_function "${_command_name}"
     then typeset -f  "${_command_name}"
     fi
-  } | tee "$_log" | rvm_debug_stream
+    printf "%b" "current path: $PWD\n"
+    printf "%b" "command(${#_command[@]}): ${_command[*]}\n"
+  } | tee "${_log}" | rvm_debug_stream
 
-  if "${_command[@]}" >> "$_log" 2>&1
-  then true
-  else
+  "${_command[@]}" >>"${_log}" 2>&1 ||
+  {
     typeset result=$?
-    rvm_error "Error running '${_command[*]}', please read $_log"
+    rvm_error "Error running '${_command[*]}', please read ${_log}"
     return ${result}
-  fi
+  }
 }
 
 # Output the current ruby's rvm source path.
