@@ -186,17 +186,11 @@ __rvm_strip()
 __rvm_remove_from_path()
 {
   export PATH
-  typeset IFS _iterator_path
-  typeset -a _old_path _new_path
-  IFS=:
-  _old_path=()
-  __rvm_custom_separated_array _old_path : "${PATH}"
-
-  for _iterator_path in "${_old_path[@]}"
-  do
-    [[ ${_iterator_path} =~ ^$1 ]] || _new_path+=( "${_iterator_path}" )
-  done
-  PATH="${_new_path[*]}"
+  typeset -a _path
+  _path=()
+  __rvm_custom_separated_array _path : "${PATH}"
+  __rvm_remove_from_array _path "$1" "${_path[@]}"
+  __rvm_join_array PATH : _path
 }
 
 __rvm_add_to_path()
@@ -216,12 +210,12 @@ __rvm_add_to_path()
     #*) anything else will just remove it from PATH - not adding back
   esac
 
-  if [[ -n "${rvm_user_path_prefix:-}" ]]
+  if
+    [[ -n "${rvm_user_path_prefix:-}" ]]
   then
     __rvm_remove_from_path "${rvm_user_path_prefix}"
     PATH="${rvm_user_path_prefix}:$PATH"
   fi
-
   builtin hash -r
 }
 
@@ -355,12 +349,16 @@ __rvm_remove_from_array()
   _temp_array=()
   for _iterator
   do
-    if [[ "$_iterator" =~ "$2" ]]
-    then true #skip
-    else _temp_array+=( "$_iterator" )
-    fi
+    __rvm_string_match "$_iterator" "$_search" || _temp_array+=( "$_iterator" )
   done
   eval "$_array_name=( \"\${_temp_array[@]}\" )"
+}
+
+__rvm_join_array()
+{
+  typeset IFS
+  IFS="$2"
+  eval "$1=\"\${$3[*]}\""
 }
 
 __rvm_find_first_file()
