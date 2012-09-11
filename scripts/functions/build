@@ -3,6 +3,7 @@
 # show the user selected compiler or return 1
 __rvm_selected_compiler()
 {
+  #TODO: add handling for rvm_configure_env
   if
     [[ " ${rvm_configure_flags[*]}" =~ " --with-gcc=" ]]
   then
@@ -31,26 +32,33 @@ __rvm_found_compiler()
   __rvm_selected_compiler || which gcc 2>/dev/null
 }
 
-__rvm_compiler_is_llvm()
+__rvm_run_compiler()
 {
   typeset compiler
-  if compiler=$(__rvm_found_compiler)
+  if
+    compiler="$( __rvm_found_compiler )"
   then
-    $compiler --version | GREP_OPTIONS="" \grep -i llvm >/dev/null
+    if [[ -n "${ZSH_VERSION:-}" ]]
+    then ${=compiler} "$@" || return $?
+    else ${compiler}  "$@" || return $?
+    fi
   else
     return 1
   fi
 }
 
+__rvm_compiler_is_llvm()
+{
+  __rvm_found_compiler >/dev/null &&
+  [[ "$(__rvm_run_compiler --version)" =~ "llvm" ]] ||
+  return $?
+}
+
 __rvm_compiler_is_gcc47()
 {
-  typeset compiler
-  if compiler=$(__rvm_found_compiler)
-  then
-    [[ "$($compiler -dumpversion)" =~ "4.7" ]]
-  else
-    return 1
-  fi
+  __rvm_found_compiler >/dev/null &&
+  [[ "$(__rvm_run_compiler -dumpversion)" =~ "4.7" ]] ||
+  return $?
 }
 
 __rvm_setup_compile_environment()
@@ -60,6 +68,7 @@ __rvm_setup_compile_environment()
   __rvm_setup_compile_environment_osx_architectures
   __rvm_setup_compile_environment_gcc47
   __rvm_setup_compile_environment_smartos
+  rvm_debug "found compiler: $( __rvm_found_compiler )"
 }
 
 __rvm_update_configure_env()

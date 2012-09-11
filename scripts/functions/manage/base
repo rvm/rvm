@@ -14,7 +14,7 @@ __rvm_current_patch_names()
     rvm_debug "Trying patch '$name'."
     [[ -n "${name:-}" ]] || continue
 
-    if [[ "${name}" =~ *${patch_level_separator}* ]]
+    if __rvm_string_match "${name}" "*${patch_level_separator}*"
     then level="${name##*${patch_level_separator}}"
     else level=1
     fi
@@ -151,7 +151,6 @@ __rvm_install_source()
     fi
   fi
 
-  rvm_debug "found compiler: $( __rvm_found_compiler )"
   if
     [[ -n "${rvm_ruby_configure:-""}" ]]
   then
@@ -165,19 +164,20 @@ __rvm_install_source()
   elif
     [[ -s ./configure ]]
   then
-    __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
-    if
-      __rvm_log_command "configure" "$rvm_ruby_string - #configuring" \
-        "${rvm_configure_env[@]}" ./configure --prefix="$rvm_ruby_home" \
-        ${db_configure_flags:-""} "${rvm_configure_flags[@]}"
-    then
-      true
-    else
+    rvm_configure_flags=( --prefix="$rvm_ruby_home"  "${rvm_configure_flags[@]}" )
+
+    __rvm_db "${rvm_ruby_interpreter}_configure_flags" db_configure_flags
+    if [[ -n "${ZSH_VERSION:-}" ]]
+    then rvm_configure_flags=( ${=db_configure_flags} "${rvm_configure_flags[@]}" )
+    else rvm_configure_flags=( ${db_configure_flags}  "${rvm_configure_flags[@]}" )
+    fi
+    __rvm_log_command "configure" "$rvm_ruby_string - #configuring" \
+      "${rvm_configure_env[@]}" ./configure "${rvm_configure_flags[@]}" ||
+    {
       result=$?
       rvm_error "There has been an error while running configure. Halting the installation."
       return $result
-    fi
-
+    }
   else
     rvm_error "Skipping configure step, 'configure' does not exist, did autoreconf not run successfully?"
   fi
