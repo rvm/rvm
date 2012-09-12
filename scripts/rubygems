@@ -120,19 +120,14 @@ rubygems_setup()
 
   unset RUBYOPT
 
-  if (( rvm_ruby_selected_flag == 0 ))
-  then
-    __rvm_select
-  fi
+  rvm_ruby_selected_flag == 0 )) || __rvm_select
 
   rubygems_select_version_url
 
   # Sanity check... If setup.rb is missing from the rubygems source path,
   # something went wrong. Cleanup, aisle 3!
-  if [[ ! -f "${rvm_src_path}/$rvm_gem_package_name/setup.rb" ]]
-  then
+  [[ -f "${rvm_src_path}/$rvm_gem_package_name/setup.rb" ]] ||
     __rvm_rm_rf "${rvm_src_path}/$rvm_gem_package_name"
-  fi
 
   if [[ ! -d "${rvm_src_path}/${rvm_gem_package_name}" ]]
   then
@@ -182,21 +177,22 @@ rubygems_setup()
     rvm_warn "Installation of rubygems did not complete successfully."
   fi
 
-  if [[ ! -z "$rvm_ruby_major_version" ]]
-  then
-    ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/${rvm_ruby_release_version}.${rvm_ruby_major_version}"
-  else
-    ruby_lib_gem_path="$rvm_ruby_home/lib/ruby/gems/$interpreter"
-  fi
+  ruby_lib_gem_path="$(ruby -rrbconfig -e "puts ::Kernel.const_get('RbConfig')::CONFIG['rubylibprefix']")/gems/"
+  case "$rvm_ruby_string" in
+    (jruby*)
+      ruby_lib_gem_path+="shared"
+      ;;
+    (*)
+      ruby_lib_gem_path+="$(ruby -rrbconfig -e "puts ::Kernel.const_get('RbConfig')::CONFIG['ruby_version']")"
+      ;;
+  esac
 
   # Add ruby's gem path to ruby's lib direcotry.
   \mkdir -p "$(dirname $ruby_lib_gem_path)"
-
   __rvm_rm_rf "$ruby_lib_gem_path"
 
   if [[ -d "$rvm_ruby_gem_home" ]]
-  then
-    ln -fs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
+  then ln -fs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
   fi
 
   unset ruby_lib_gem_path
