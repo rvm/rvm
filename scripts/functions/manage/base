@@ -236,6 +236,53 @@ __rvm_install_source()
   rvm_log "Install of $rvm_ruby_string - #complete "
 }
 
+__rvm_install_ruby_try_remote()
+{
+  : rvm_disable_binary_flag:${rvm_disable_binary_flag:=0}: rvm_remote_flag:${rvm_remote_flag:=0}:
+  (( rvm_disable_binary_flag )) ||
+  {
+    true "${rvm_remote_server:=$(__rvm_db "rvm_remote_server_url")}"
+    __rvm_detect_system
+    rubies=($(
+      rvm_ruby_url="${rvm_remote_server}/${_system_name}/${_system_version}/${_system_arch}/${rvm_ruby_string//\./\.}\.tar\..*"
+      awk -F/ '/'"${rvm_ruby_url//\//\/}"'/{print}' < $rvm_path/config/remote
+    ))
+    case ${#rubies[@]} in
+      (0)
+        if
+          (( rvm_remote_flag ))
+        then
+          rvm_error "Requested binary installation but no rubies are available to download, consider skipping --binary flag."
+          return 1
+        else
+          rvm_warn "No binary rubies available for: ${_system_name}/${_system_version}/${_system_arch}/${rvm_ruby_string}.
+Continuing with compilation. Please read 'rvm mount' to get more information on binary rubies."
+        fi
+        ;;
+      (1)
+        if
+          rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "$rvm_ruby_string"
+        then
+          return 0
+        else
+          rvm_warn "Mounting remote ruby failed, trying to compile."
+        fi
+        ;;
+      (*)
+        if
+          (( rvm_remote_flag ))
+        then
+          rvm_error "Requested binary installation but multiple rubies are available to download, this most likely is a bug, please report an issue!"
+          return 1
+        else
+          rvm_warn "More then one binary ruby found, this most likely is a bug, please report an issue!"
+        fi
+        ;;
+    esac
+  }
+  return 2 # continue with compilation
+}
+
 __rvm_install_ruby()
 {
   true ${rvm_head_flag:=0} ${rvm_ruby_selected_flag:=0}
@@ -270,6 +317,11 @@ https://rvm.io/rubies/named/
   then
     ruby_options="$RUBYOPT"
     unset RUBYOPT
+  fi
+
+  if __rvm_install_ruby_try_remote
+  then return 0
+  else (( $? == 2 )) || return 1 # 2 => continue with compilation
   fi
 
   if __rvm_check_for_compiler
