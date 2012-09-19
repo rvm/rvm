@@ -1,0 +1,28 @@
+diff --git a/io.c b/io.c
+index 00a1820..70382a0 100644
+--- a/io.c
++++ b/io.c
+@@ -1300,8 +1300,23 @@ io_getpartial(int argc, VALUE *argv, VALUE io, int nonblock)
+                 goto again;
+             rb_sys_fail(fptr->path);
+         }
+-        if (fptr->f) /* update pos in FILE structure [ruby-core:21561] */
++        if (fptr->f) /* update pos in FILE structure [ruby-core:21561] */ {
++#ifndef __APPLE__
+             fflush(fptr->f);
++#else
++            /* fptr could be a pipe, causing seek to fail */
++            off_t a = lseek(fileno(fptr->f), 0, SEEK_CUR);
++            if (a >= 0) {
++              off_t b = ftello(fptr->f);
++              if (b >= 0 && a != b) {
++                int rc = fseeko(fptr->f, a, SEEK_SET);
++                if (rc < 0) rb_sys_fail(fptr->path);
++              }
++            }
++            clearerr(fptr->f);
++            errno = 0;
++#endif
++        }
+     }
+     rb_str_resize(str, n);
