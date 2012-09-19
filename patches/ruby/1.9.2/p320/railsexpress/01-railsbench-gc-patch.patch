@@ -1,25 +1,29 @@
 diff --git a/configure.in b/configure.in
-index 9632860..abf1797 100644
+index 3f94ac8..591aab9 100644
 --- a/configure.in
 +++ b/configure.in
-@@ -2457,6 +2457,10 @@ if test "$EXEEXT" = .exe; then
+@@ -2209,6 +2209,14 @@ if test "$EXEEXT" = .exe; then
      AC_SUBST(EXECUTABLE_EXTS)
  fi
  
 +dnl enable gc debugging
 +AC_ARG_ENABLE(gcdebug,
-+       AS_HELP_STRING([--enable-gcdebug], [build garbage collector with debugging enabled]),
-+       [AC_DEFINE(GC_DEBUG,1)])
++       [  --enable-gcdebug        build garbage collector with debugging enabled. ],
++       [enable_gcdebug=$enableval])
++if test "$enable_gcdebug" = 'yes'; then
++      AC_DEFINE(GC_DEBUG, 1)
++fi
++
  dnl }
  dnl build section {
  
 diff --git a/gc.c b/gc.c
-index e65d0ec..74ebec6 100644
+index 564d260..27d9177 100644
 --- a/gc.c
 +++ b/gc.c
-@@ -96,6 +96,17 @@ ruby_gc_params_t initial_params = {
+@@ -78,6 +78,17 @@ void *alloca ();
+ #define GC_MALLOC_LIMIT 8000000
  #endif
- };
  
 +#ifndef HAVE_LONG_LONG
 +#define LONG_LONG long
@@ -35,7 +39,7 @@ index e65d0ec..74ebec6 100644
  #define nomem_error GET_VM()->special_exceptions[ruby_error_nomemory]
  
  #define MARK_STACK_MAX 1024
-@@ -291,7 +302,7 @@ typedef struct RVALUE {
+@@ -267,7 +278,7 @@ typedef struct RVALUE {
  	struct RComplex complex;
      } as;
  #ifdef GC_DEBUG
@@ -44,35 +48,18 @@ index e65d0ec..74ebec6 100644
      int   line;
  #endif
  } RVALUE;
-@@ -345,11 +356,25 @@ typedef struct rb_objspace {
- 	size_t free_min;
- 	size_t final_num;
- 	size_t do_heap_free;
-+        unsigned long max_blocks_to_free;
-+        unsigned long freed_blocks;
-     } heap;
+@@ -314,6 +325,8 @@ typedef struct rb_objspace {
      struct {
-+        unsigned long processed;
-+        unsigned long freed_objects;
-+        unsigned long freelist_size;
-+        unsigned long zombies;
-+        unsigned long free_counts[T_MASK+1];
-+        unsigned long live_counts[T_MASK+1];
-+        unsigned long gc_time_accumulator_before_gc;
-+        unsigned long live_after_last_mark_phase;
-+    } stats;
-+    struct {
  	int dont_gc;
- 	int dont_lazy_sweep;
  	int during_gc;
 +        int gc_statistics;
 +        int verbose_gc_stats;
      } flags;
      struct {
  	st_table *table;
-@@ -370,6 +395,14 @@ typedef struct rb_objspace {
+@@ -334,6 +347,14 @@ typedef struct rb_objspace {
      struct gc_list *global_list;
-     size_t count;
+     unsigned int count;
      int gc_stress;
 +    long heap_size;
 +    unsigned LONG_LONG gc_time_accumulator;
@@ -85,7 +72,7 @@ index e65d0ec..74ebec6 100644
  } rb_objspace_t;
  
  #if defined(ENABLE_VM_OBJSPACE) && ENABLE_VM_OBJSPACE
-@@ -392,6 +425,16 @@ int *ruby_initial_gc_stress_ptr = &rb_objspace.gc_stress;
+@@ -357,6 +378,16 @@ int *ruby_initial_gc_stress_ptr = &rb_objspace.gc_stress;
  #define heaps_freed		objspace->heap.freed
  #define dont_gc 		objspace->flags.dont_gc
  #define during_gc		objspace->flags.during_gc
@@ -102,43 +89,69 @@ index e65d0ec..74ebec6 100644
  #define finalizer_table 	objspace->final.table
  #define deferred_final_list	objspace->final.deferred
  #define mark_stack		objspace->markstack.buffer
-@@ -402,6 +445,14 @@ int *ruby_initial_gc_stress_ptr = &rb_objspace.gc_stress;
- #define initial_malloc_limit	initial_params.initial_malloc_limit
- #define initial_heap_min_slots	initial_params.initial_heap_min_slots
- #define initial_free_min	initial_params.initial_free_min
-+#define free_counts             objspace->stats.free_counts
-+#define live_counts             objspace->stats.live_counts
-+#define processed               objspace->stats.processed
-+#define zombies                 objspace->stats.zombies
-+#define freelist_size           objspace->stats.freelist_size
-+#define freed_objects           objspace->stats.freed_objects
-+#define gc_time_accumulator_before_gc objspace->stats.gc_time_accumulator_before_gc
-+#define live_after_last_mark_phase objspace->stats.live_after_last_mark_phase
- 
- static void rb_objspace_call_finalizer(rb_objspace_t *objspace);
- 
-@@ -423,42 +474,106 @@ static void initial_expand_heap(rb_objspace_t *objspace);
- void
- rb_gc_set_params(void)
+@@ -375,7 +406,8 @@ rb_objspace_alloc(void)
  {
--    char *malloc_limit_ptr, *heap_min_slots_ptr, *free_min_ptr;
+     rb_objspace_t *objspace = malloc(sizeof(rb_objspace_t));
+     memset(objspace, 0, sizeof(*objspace));
+-    malloc_limit = GC_MALLOC_LIMIT;
++    malloc_limit = initial_malloc_limit;
++
+     ruby_gc_stress = ruby_initial_gc_stress;
+ 
+     return objspace;
+@@ -409,23 +441,8 @@ rb_objspace_free(rb_objspace_t *objspace)
+ }
+ #endif
+ 
+-/* tiny heap size */
+-/* 32KB */
+-/*#define HEAP_SIZE 0x8000 */
+-/* 128KB */
+-/*#define HEAP_SIZE 0x20000 */
+-/* 64KB */
+-/*#define HEAP_SIZE 0x10000 */
+-/* 16KB */
+-#define HEAP_SIZE 0x4000
+-/* 8KB */
+-/*#define HEAP_SIZE 0x2000 */
+-/* 4KB */
+-/*#define HEAP_SIZE 0x1000 */
+-/* 2KB */
+-/*#define HEAP_SIZE 0x800 */
+-
+-#define HEAP_OBJ_LIMIT (HEAP_SIZE / sizeof(struct RVALUE))
++#define HEAP_OBJ_LIMIT 8000
++#define HEAP_SIZE (HEAP_OBJ_LIMIT * sizeof(struct RVALUE))
+ 
+ extern VALUE rb_cMutex;
+ extern st_table *rb_class_tbl;
+@@ -673,6 +690,11 @@ vm_xmalloc(rb_objspace_t *objspace, size_t size)
+     mem = (size_t *)mem + 1;
+ #endif
+ 
++    if (gc_statistics) {
++        gc_allocated_size += size;
++	gc_num_allocations += 1;
++    }
++
+     return mem;
+ }
+ 
+@@ -780,6 +802,92 @@ ruby_xfree(void *x)
+ 	vm_xfree(&rb_objspace, x);
+ }
+ 
++static void set_gc_parameters(rb_objspace_t *objspace)
++{
 +    char *envp;
 +
-+    rb_objspace_t *objspace = &rb_objspace;
-+
 +    gc_data_file = stderr;
- 
-     if (rb_safe_level() > 0) return;
- 
--    malloc_limit_ptr = getenv("RUBY_GC_MALLOC_LIMIT");
--    if (malloc_limit_ptr != NULL) {
--	int malloc_limit_i = atoi(malloc_limit_ptr);
++
 +    envp = getenv("RUBY_GC_STATS");
 +    if (envp != NULL) {
 +        int i = atoi(envp);
 +        if (i > 0) {
 +            verbose_gc_stats = 1;
-+            fprintf(stderr, "RUBY_GC_STATS=%d\n", verbose_gc_stats);
 +        }
 +        /* child processes should not inherit RUBY_GC_STATS */
 +        ruby_unsetenv("RUBY_GC_STATS");
@@ -157,57 +170,27 @@ index e65d0ec..74ebec6 100644
 +        ruby_unsetenv("RUBY_GC_DATA_FILE");
 +    }
 +
-+    envp = getenv("RUBY_GC_MALLOC_LIMIT");
-+    if (envp != NULL) {
-+	int malloc_limit_i = atoi(envp);
-+        if (verbose_gc_stats) {
-+            fprintf(gc_data_file, "RUBY_GC_MALLOC_LIMIT=%s\n", envp);
-+        }
- 	if (RTEST(ruby_verbose))
- 	    fprintf(stderr, "malloc_limit=%d (%d)\n",
- 		    malloc_limit_i, initial_malloc_limit);
- 	if (malloc_limit_i > 0) {
- 	    initial_malloc_limit = malloc_limit_i;
-+            // malloc_limit = initial_malloc_limit;
- 	}
-     }
- 
--    heap_min_slots_ptr = getenv("RUBY_HEAP_MIN_SLOTS");
--    if (heap_min_slots_ptr != NULL) {
--	int heap_min_slots_i = atoi(heap_min_slots_ptr);
 +    envp = getenv("RUBY_HEAP_MIN_SLOTS");
 +    if (envp != NULL) {
-+	int heap_min_slots_i = atoi(envp);
++        int i = atoi(envp);
 +        if (verbose_gc_stats) {
 +            fprintf(gc_data_file, "RUBY_HEAP_MIN_SLOTS=%s\n", envp);
 +        }
- 	if (RTEST(ruby_verbose))
- 	    fprintf(stderr, "heap_min_slots=%d (%d)\n",
- 		    heap_min_slots_i, initial_heap_min_slots);
- 	if (heap_min_slots_i > 0) {
- 	    initial_heap_min_slots = heap_min_slots_i;
-             initial_expand_heap(&rb_objspace);
-+            // heap_min_slots = i;
- 	}
-     }
- 
--    free_min_ptr = getenv("RUBY_FREE_MIN");
--    if (free_min_ptr != NULL) {
--	int free_min_i = atoi(free_min_ptr);
-+    if (!(envp = getenv("RUBY_FREE_MIN")))
-+        envp = getenv("RUBY_HEAP_FREE_MIN");
++        if (i > 0) {
++            heap_min_slots = i;
++        }
++    }
++
++    envp = getenv("RUBY_HEAP_FREE_MIN");
 +    if (envp != NULL) {
-+	int free_min_i = atoi(envp);
++        int i = atoi(envp);
 +        if (verbose_gc_stats) {
 +            fprintf(gc_data_file, "RUBY_HEAP_FREE_MIN=%s\n", envp);
 +        }
- 	if (RTEST(ruby_verbose))
- 	    fprintf(stderr, "free_min=%d (%d)\n", free_min_i, initial_free_min);
- 	if (free_min_i > 0) {
- 	    initial_free_min = free_min_i;
-+            // heap_free_min = i;
- 	}
-     }
++        if (i > 0) {
++            heap_free_min = i;
++        }
++    }
 +
 +    envp = getenv("RUBY_HEAP_SLOTS_INCREMENT");
 +    if (envp != NULL) {
@@ -230,45 +213,24 @@ index e65d0ec..74ebec6 100644
 +        }
 +    }
 +
++    envp = getenv("RUBY_GC_MALLOC_LIMIT");
++    if (envp != NULL) {
++        long l = atol(envp);
++        if (verbose_gc_stats) {
++            fprintf(gc_data_file, "RUBY_GC_MALLOC_LIMIT=%s\n", envp);
++        }
++        if (l > 0) {
++            initial_malloc_limit = l;
++            malloc_limit = initial_malloc_limit;
++        }
++    }
++
 +    fflush(gc_data_file);
- }
++}
  
- #if defined(ENABLE_VM_OBJSPACE) && ENABLE_VM_OBJSPACE
-@@ -753,6 +868,11 @@ vm_malloc_fixup(rb_objspace_t *objspace, void *mem, size_t size)
-     mem = (size_t *)mem + 1;
- #endif
- 
-+    if (gc_statistics) {
-+        gc_allocated_size += size;
-+	gc_num_allocations += 1;
-+    }
-+
-     return mem;
- }
- 
-@@ -813,6 +933,13 @@ vm_xrealloc(rb_objspace_t *objspace, void *ptr, size_t size)
-     mem = (size_t *)mem + 1;
- #endif
- 
-+    /* TODO: we can't count correctly unless we store old size on heap
-+    if (gc_statistics) {
-+        gc_allocated_size += size;
-+	gc_num_allocations += 1;
-+    }
-+    */
-+
-     return mem;
- }
- 
-@@ -894,7 +1021,6 @@ ruby_xfree(void *x)
- 	vm_xfree(&rb_objspace, x);
- }
- 
--
  /*
   *  call-seq:
-  *     GC.enable    -> true or false
-@@ -940,6 +1066,455 @@ rb_gc_disable(void)
+@@ -826,6 +934,454 @@ rb_gc_disable(void)
      return old ? Qtrue : Qfalse;
  }
  
@@ -349,7 +311,6 @@ index e65d0ec..74ebec6 100644
 +    rb_objspace_t *objspace = &rb_objspace;
 +    gc_collections = 0;
 +    gc_time_accumulator = 0;
-+    gc_time_accumulator_before_gc = 0;
 +    gc_allocated_size = 0;
 +    gc_num_allocations = 0;
 +    return Qnil;
@@ -574,7 +535,7 @@ index e65d0ec..74ebec6 100644
 +    size_t i;
 +
 +    for (i = 0; i < heaps_used; i++) {
-+        size_t limit = objspace->heap.sorted[i].slot->limit;
++        size_t limit = heaps[i].limit;
 +        fprintf(gc_data_file, "HEAP[%2lu]: size=%7lu\n", (unsigned long)i, (unsigned long)limit);
 +    }
 +
@@ -616,7 +577,7 @@ index e65d0ec..74ebec6 100644
 +    for (i = 0; i < heaps_used; i++) {
 +        RVALUE *p, *pend;
 +
-+        p = objspace->heap.sorted[i].start; pend = objspace->heap.sorted[i].end;
++        p = heaps[i].slot; pend = p + heaps[i].limit;
 +        for (;p < pend; p++) {
 +            if (p->as.basic.flags) {
 +                const char *src_filename = (p->file && p->file != Qnil )? RSTRING_PTR(p->file) : "";
@@ -724,20 +685,7 @@ index e65d0ec..74ebec6 100644
  VALUE rb_mGC;
  
  void
-@@ -1011,6 +1586,12 @@ allocate_sorted_heaps(rb_objspace_t *objspace, size_t next_heaps_length)
- static void
- assign_heap_slot(rb_objspace_t *objspace)
- {
-+    /*
-+    if (gc_statistics & verbose_gc_stats) {
-+	fprintf(gc_data_file, "assigning heap slot\n");
-+    }
-+    */
-+
-     RVALUE *p, *pend, *membase;
-     struct heaps_slot *slot;
-     size_t hi, lo, mid;
-@@ -1072,6 +1653,7 @@ assign_heap_slot(rb_objspace_t *objspace)
+@@ -944,6 +1500,7 @@ assign_heap_slot(rb_objspace_t *objspace)
      if (lomem == 0 || lomem > p) lomem = p;
      if (himem < pend) himem = pend;
      heaps_used++;
@@ -745,7 +693,16 @@ index e65d0ec..74ebec6 100644
  
      while (p < pend) {
  	p->as.free.flags = 0;
-@@ -1127,7 +1709,7 @@ initial_expand_heap(rb_objspace_t *objspace)
+@@ -958,7 +1515,7 @@ init_heap(rb_objspace_t *objspace)
+ {
+     size_t add, i;
+ 
+-    add = HEAP_MIN_SLOTS / HEAP_OBJ_LIMIT;
++    add = heap_min_slots / HEAP_OBJ_LIMIT;
+ 
+     if (!add) {
+         add = 1;
+@@ -979,7 +1536,7 @@ init_heap(rb_objspace_t *objspace)
  static void
  set_heaps_increment(rb_objspace_t *objspace)
  {
@@ -754,7 +711,7 @@ index e65d0ec..74ebec6 100644
  
      if (next_heaps_length == heaps_used) {
          next_heaps_length++;
-@@ -1160,6 +1742,22 @@ rb_during_gc(void)
+@@ -1005,6 +1562,22 @@ heaps_increment(rb_objspace_t *objspace)
  
  #define RANY(o) ((RVALUE*)(o))
  
@@ -774,10 +731,10 @@ index e65d0ec..74ebec6 100644
 +}
 +#endif
 +
- VALUE
- rb_newobj(void)
+ static VALUE
+ rb_newobj_from_heap(rb_objspace_t *objspace)
  {
-@@ -1191,9 +1789,11 @@ rb_newobj(void)
+@@ -1022,9 +1595,11 @@ rb_newobj_from_heap(rb_objspace_t *objspace)
  
      MEMZERO((void*)obj, RVALUE, 1);
  #ifdef GC_DEBUG
@@ -787,331 +744,37 @@ index e65d0ec..74ebec6 100644
  #endif
 +    live_objects++;
 +    allocated_objects++;
-     GC_PROF_INC_LIVE_NUM;
  
      return obj;
-@@ -1660,6 +2260,12 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr, int lev)
+ }
+@@ -1525,6 +2100,12 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr, int lev)
  {
      register RVALUE *obj = RANY(ptr);
  
 +#ifdef GC_DEBUG
 +    if (obj->file && obj->file != Qnil && is_pointer_to_heap(objspace, (void*)obj->file)) {
-+	gc_mark(objspace, obj->file, lev);
++        gc_mark(objspace, obj->file, lev);
 +    }
 +#endif
 +
      goto marking;		/* skip */
  
    again:
-@@ -1670,6 +2276,12 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr, int lev)
+@@ -1534,6 +2115,12 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr, int lev)
+     if (obj->as.basic.flags & FL_MARK) return;  /* already marked */
      obj->as.basic.flags |= FL_MARK;
-     objspace->heap.live_num++;
  
 +#ifdef GC_DEBUG
 +    if (obj->file && obj->file != Qnil && is_pointer_to_heap(objspace, (void*)obj->file)) {
-+	gc_mark(objspace, obj->file, lev);
++        gc_mark(objspace, obj->file, lev);
 +    }
 +#endif
 +
    marking:
      if (FL_TEST(obj, FL_EXIVAR)) {
  	rb_mark_generic_ivar(ptr);
-@@ -2012,6 +2624,25 @@ free_unused_heaps(rb_objspace_t *objspace)
+@@ -1851,6 +2438,39 @@ free_unused_heaps(rb_objspace_t *objspace)
      }
- }
- 
-+static inline unsigned long
-+elapsed_musecs(struct timeval since)
-+{
-+    struct timeval now;
-+    struct timeval temp;
-+
-+    gettimeofday(&now, NULL);
-+
-+    if ((now.tv_usec-since.tv_usec)<0) {
-+        temp.tv_sec = now.tv_sec-since.tv_sec-1;
-+        temp.tv_usec = 1000000+now.tv_usec-since.tv_usec;
-+    } else {
-+        temp.tv_sec = now.tv_sec-since.tv_sec;
-+        temp.tv_usec = now.tv_usec-since.tv_usec;
-+    }
-+
-+    return temp.tv_sec*1000000 + temp.tv_usec;
-+}
-+
- static void
- slot_sweep(rb_objspace_t *objspace, struct heaps_slot *sweep_slot)
- {
-@@ -2019,14 +2650,23 @@ slot_sweep(rb_objspace_t *objspace, struct heaps_slot *sweep_slot)
-     RVALUE *p, *pend;
-     RVALUE *free = freelist, *final = deferred_final_list;
-     int deferred;
-+    int do_gc_stats = gc_statistics & verbose_gc_stats;
-+
-+    struct timeval tv1;
-+    if (gc_statistics) gettimeofday(&tv1, NULL);
- 
-     p = sweep_slot->slot; pend = p + sweep_slot->limit;
-     while (p < pend) {
-         if (!(p->as.basic.flags & FL_MARK)) {
-+            if (do_gc_stats && !p->as.basic.flags) {
-+                /* slot was free before GC */
-+                freelist_size++;
-+            }
-             if (p->as.basic.flags &&
-                 ((deferred = obj_free(objspace, (VALUE)p)) ||
- 		 (FL_TEST(p, FL_FINALIZE)))) {
-                 if (!deferred) {
-+                    if (do_gc_stats) zombies++;
-                     p->as.free.flags = T_ZOMBIE;
-                     RDATA(p)->dfree = 0;
-                 }
-@@ -2036,6 +2676,10 @@ slot_sweep(rb_objspace_t *objspace, struct heaps_slot *sweep_slot)
-                 final_num++;
-             }
-             else {
-+                if (do_gc_stats) {
-+                    VALUE obt = p->as.basic.flags & T_MASK;
-+                    if (obt) free_counts[obt]++;
-+                }
-                 add_freelist(objspace, p);
-                 free_num++;
-             }
-@@ -2043,13 +2687,22 @@ slot_sweep(rb_objspace_t *objspace, struct heaps_slot *sweep_slot)
-         else if (BUILTIN_TYPE(p) == T_ZOMBIE) {
-             /* objects to be finalized */
-             /* do nothing remain marked */
-+            if (do_gc_stats) zombies++;
-         }
-         else {
-             RBASIC(p)->flags &= ~FL_MARK;
-+	    if (do_gc_stats) {
-+	       live_counts[p->as.basic.flags & T_MASK]++;
-+	    }
-         }
-         p++;
-+        processed++;
-     }
--    if (final_num + free_num == sweep_slot->limit &&
-+
-+    freed_objects += free_num;
-+
-+    if (objspace->heap.freed_blocks < objspace->heap.max_blocks_to_free &&
-+        final_num + free_num == sweep_slot->limit &&
-         objspace->heap.free_num > objspace->heap.do_heap_free) {
-         RVALUE *pp;
- 
-@@ -2060,6 +2713,8 @@ slot_sweep(rb_objspace_t *objspace, struct heaps_slot *sweep_slot)
-         sweep_slot->limit = final_num;
-         freelist = free;	/* cancel this page from freelist */
-         unlink_heap_slot(objspace, sweep_slot);
-+        objspace->heap.freed_blocks += 1;
-+        heap_size -= final_num + free_num;
-     }
-     else {
-         objspace->heap.free_num += free_num;
-@@ -2072,6 +2727,10 @@ slot_sweep(rb_objspace_t *objspace, struct heaps_slot *sweep_slot)
-             RUBY_VM_SET_FINALIZER_INTERRUPT(th);
-         }
-     }
-+
-+    if (gc_statistics) {
-+	gc_time_accumulator += elapsed_musecs(tv1);
-+    }
- }
- 
- static int
-@@ -2092,6 +2751,21 @@ ready_to_gc(rb_objspace_t *objspace)
- static void
- before_gc_sweep(rb_objspace_t *objspace)
- {
-+    if (gc_statistics & verbose_gc_stats) {
-+        /*
-+	fprintf(gc_data_file, "Sweep started\n");
-+        */
-+        freed_objects = 0;
-+        processed = 0;
-+        zombies = 0;
-+        freelist_size = 0;
-+        MEMZERO((void*)free_counts, unsigned long, T_MASK+1);
-+        MEMZERO((void*)live_counts, unsigned long, T_MASK+1);
-+    }
-+
-+    objspace->heap.max_blocks_to_free = heaps_used - (heap_min_slots / HEAP_OBJ_LIMIT);
-+    objspace->heap.freed_blocks = 0;
-+
-     freelist = 0;
-     objspace->heap.do_heap_free = (size_t)((heaps_used * HEAP_OBJ_LIMIT) * 0.65);
-     objspace->heap.free_min = (size_t)((heaps_used * HEAP_OBJ_LIMIT)  * 0.2);
-@@ -2111,8 +2785,13 @@ before_gc_sweep(rb_objspace_t *objspace)
- static void
- after_gc_sweep(rb_objspace_t *objspace)
- {
-+    int i;
-+    struct timeval tv1;
-+
-     GC_PROF_SET_MALLOC_INFO;
- 
-+    if (gc_statistics) gettimeofday(&tv1, NULL);
-+
-     if (objspace->heap.free_num < objspace->heap.free_min) {
-         set_heaps_increment(objspace);
-         heaps_increment(objspace);
-@@ -2125,6 +2804,29 @@ after_gc_sweep(rb_objspace_t *objspace)
-     malloc_increase = 0;
- 
-     free_unused_heaps(objspace);
-+
-+    if (gc_statistics) {
-+	gc_time_accumulator += elapsed_musecs(tv1);
-+
-+        if (verbose_gc_stats) {
-+            /* log gc stats if requested */
-+            fprintf(gc_data_file, "GC time: %lu musec\n", (unsigned long)(gc_time_accumulator-gc_time_accumulator_before_gc));
-+            fprintf(gc_data_file, "objects processed: %7lu\n", (unsigned long)processed);
-+            fprintf(gc_data_file, "live objects     : %7lu\n", (unsigned long)live_after_last_mark_phase);
-+            fprintf(gc_data_file, "freelist objects : %7lu\n", (unsigned long)freelist_size);
-+            fprintf(gc_data_file, "freed objects    : %7lu\n", (unsigned long)freed_objects);
-+            fprintf(gc_data_file, "zombies          : %7lu\n", (unsigned long)zombies);
-+            for(i=0; i<T_MASK; i++) {
-+                if (free_counts[i]>0 || live_counts[i]>0) {
-+                    fprintf(gc_data_file,
-+                            "kept %7lu / freed %7lu objects of type %s\n",
-+                            (unsigned long)live_counts[i], (unsigned long)free_counts[i], obj_type((int)i));
-+                }
-+            }
-+            rb_gc_dump();
-+            fflush(gc_data_file);
-+        }
-+    }
- }
- 
- static int
-@@ -2158,9 +2860,11 @@ rest_sweep(rb_objspace_t *objspace)
- 
- static void gc_marks(rb_objspace_t *objspace);
- 
-+/* only called from rb_new_obj */
- static int
- gc_lazy_sweep(rb_objspace_t *objspace)
- {
-+    struct timeval gctv1;
-     int res;
-     INIT_GC_PROF_PARAMS;
- 
-@@ -2182,7 +2886,6 @@ gc_lazy_sweep(rb_objspace_t *objspace)
-             GC_PROF_TIMER_STOP(Qfalse);
-             return res;
-         }
--        after_gc_sweep(objspace);
-     }
-     else {
-         if (heaps_increment(objspace)) {
-@@ -2190,6 +2893,18 @@ gc_lazy_sweep(rb_objspace_t *objspace)
-             return TRUE;
-         }
-     }
-+    after_gc_sweep(objspace);
-+
-+    if (gc_statistics) {
-+        gc_time_accumulator_before_gc = gc_time_accumulator;
-+	gc_collections++;
-+	gettimeofday(&gctv1, NULL);
-+        /*
-+	if (verbose_gc_stats) {
-+	    fprintf(gc_data_file, "Garbage collection started (gc_lazy_sweep)\n");
-+	}
-+        */
-+    }
- 
-     gc_marks(objspace);
- 
-@@ -2198,6 +2913,10 @@ gc_lazy_sweep(rb_objspace_t *objspace)
- 	set_heaps_increment(objspace);
-     }
- 
-+    if (gc_statistics) {
-+	gc_time_accumulator += elapsed_musecs(gctv1);
-+    }
-+
-     GC_PROF_SWEEP_TIMER_START;
-     if(!(res = lazy_sweep(objspace))) {
-         after_gc_sweep(objspace);
-@@ -2209,6 +2928,7 @@ gc_lazy_sweep(rb_objspace_t *objspace)
-     GC_PROF_SWEEP_TIMER_STOP;
- 
-     GC_PROF_TIMER_STOP(Qtrue);
-+
-     return res;
- }
- 
-@@ -2435,9 +3155,15 @@ gc_marks(rb_objspace_t *objspace)
-     rb_thread_t *th = GET_THREAD();
-     GC_PROF_MARK_TIMER_START;
- 
-+    /*
-+    if (gc_statistics & verbose_gc_stats) {
-+        fprintf(gc_data_file, "Marking objects\n");
-+    }
-+    */
-+
-     objspace->heap.live_num = 0;
-     objspace->count++;
--
-+    live_objects = 0;
- 
-     SET_STACK_END;
- 
-@@ -2477,11 +3203,15 @@ gc_marks(rb_objspace_t *objspace)
- 	}
-     }
-     GC_PROF_MARK_TIMER_STOP;
-+
-+    live_after_last_mark_phase = objspace->heap.live_num;
- }
- 
- static int
- garbage_collect(rb_objspace_t *objspace)
- {
-+    struct timeval gctv1;
-+
-     INIT_GC_PROF_PARAMS;
- 
-     if (GC_NOTIFY) printf("start garbage_collect()\n");
-@@ -2497,15 +3227,31 @@ garbage_collect(rb_objspace_t *objspace)
- 
-     rest_sweep(objspace);
- 
-+    if (gc_statistics) {
-+        gc_time_accumulator_before_gc = gc_time_accumulator;
-+	gc_collections++;
-+	gettimeofday(&gctv1, NULL);
-+        /*
-+	if (verbose_gc_stats) {
-+	    fprintf(gc_data_file, "Garbage collection started (garbage_collect)\n");
-+	}
-+        */
-+    }
-+
-     during_gc++;
-     gc_marks(objspace);
- 
-+    if (gc_statistics) {
-+	gc_time_accumulator += elapsed_musecs(gctv1);
-+    }
-+
-     GC_PROF_SWEEP_TIMER_START;
-     gc_sweep(objspace);
-     GC_PROF_SWEEP_TIMER_STOP;
- 
-     GC_PROF_TIMER_STOP(Qtrue);
-     if (GC_NOTIFY) printf("end garbage_collect()\n");
-+
-     return TRUE;
- }
- 
-@@ -2994,6 +3740,39 @@ rb_gc_call_finalizer_at_exit(void)
-     rb_objspace_call_finalizer(&rb_objspace);
  }
  
 +static const char* obj_type(VALUE type)
@@ -1148,9 +811,183 @@ index e65d0ec..74ebec6 100644
 +}
 +
  static void
- rb_objspace_call_finalizer(rb_objspace_t *objspace)
+ gc_sweep(rb_objspace_t *objspace)
  {
-@@ -3307,6 +4086,49 @@ count_objects(int argc, VALUE *argv, VALUE os)
+@@ -1859,12 +2479,27 @@ gc_sweep(rb_objspace_t *objspace)
+     size_t i;
+     size_t live = 0, free_min = 0, do_heap_free = 0;
+ 
++    long max_blocks_to_free = heaps_used - (heap_min_slots / HEAP_OBJ_LIMIT);
++    int freed_blocks = 0;
++
++    unsigned long processed = 0;
++    unsigned long freelist_size = 0;
++    unsigned long zombies = 0;
++    unsigned long free_counts[T_MASK];
++    unsigned long live_counts[T_MASK];
++    int do_gc_stats = gc_statistics & verbose_gc_stats;
++
++    if (do_gc_stats) {
++        MEMZERO((void*)free_counts, unsigned long, T_MASK);
++        MEMZERO((void*)live_counts, unsigned long, T_MASK);
++    }
++
+     do_heap_free = (size_t)((heaps_used * HEAP_OBJ_LIMIT) * 0.65);
+     free_min = (size_t)((heaps_used * HEAP_OBJ_LIMIT)  * 0.2);
+ 
+-    if (free_min < FREE_MIN) {
++    if (free_min < heap_free_min) {
+ 	do_heap_free = heaps_used * HEAP_OBJ_LIMIT;
+-        free_min = FREE_MIN;
++        free_min = heap_free_min;
+     }
+ 
+     freelist = 0;
+@@ -1881,10 +2516,15 @@ gc_sweep(rb_objspace_t *objspace)
+ 	p = heaps[i].slot; pend = p + heaps[i].limit;
+ 	while (p < pend) {
+ 	    if (!(p->as.basic.flags & FL_MARK)) {
++                if (do_gc_stats && !p->as.basic.flags) {
++                    /* slot was free before GC */
++                    freelist_size++;
++                }
+ 		if (p->as.basic.flags &&
+ 		    ((deferred = obj_free(objspace, (VALUE)p)) ||
+ 		     ((FL_TEST(p, FL_FINALIZE)) && need_call_final))) {
+ 		    if (!deferred) {
++                        if (do_gc_stats) zombies++;
+ 			p->as.free.flags = T_ZOMBIE;
+ 			RDATA(p)->dfree = 0;
+ 		    }
+@@ -1894,6 +2534,10 @@ gc_sweep(rb_objspace_t *objspace)
+ 		    final_num++;
+ 		}
+ 		else {
++                    if (do_gc_stats) {
++                       VALUE obt = p->as.basic.flags & T_MASK;
++                       if (obt) free_counts[obt]++;
++                    }
+ 		    add_freelist(objspace, p);
+ 		    free_num++;
+ 		}
+@@ -1901,16 +2545,23 @@ gc_sweep(rb_objspace_t *objspace)
+ 	    else if (BUILTIN_TYPE(p) == T_ZOMBIE) {
+ 		/* objects to be finalized */
+ 		/* do nothing remain marked */
++                if (do_gc_stats) zombies++;
+ 	    }
+ 	    else {
+ 		RBASIC(p)->flags &= ~FL_MARK;
+ 		live++;
++                if (do_gc_stats) {
++                    live_counts[p->as.basic.flags & T_MASK]++;
++                }
+ 	    }
+ 	    p++;
+ 	}
+-	if (final_num + free_num == heaps[i].limit && freed > do_heap_free) {
++	if (final_num + free_num == heaps[i].limit && freed > do_heap_free && freed_blocks < max_blocks_to_free) {
+ 	    RVALUE *pp;
+ 
++            freed_blocks += 1;
++            heap_size -= final_num + free_num;
++
+ 	    for (pp = final_list; pp != final; pp = pp->as.free.next) {
+ 		RDATA(pp)->dmark = (void (*)())(VALUE)&heaps[i];
+ 		pp->as.free.flags |= FL_SINGLETON; /* freeing page mark */
+@@ -1922,11 +2573,13 @@ gc_sweep(rb_objspace_t *objspace)
+ 	else {
+ 	    freed += free_num;
+ 	}
++        processed += heaps[i].limit;
+     }
+     GC_PROF_SET_MALLOC_INFO;
+     if (malloc_increase > malloc_limit) {
+ 	malloc_limit += (size_t)((malloc_increase - malloc_limit) * (double)live / (live + freed));
+-	if (malloc_limit < GC_MALLOC_LIMIT) malloc_limit = GC_MALLOC_LIMIT;
++        if (malloc_limit < initial_malloc_limit) malloc_limit = initial_malloc_limit;
++
+     }
+     malloc_increase = 0;
+     if (freed < free_min) {
+@@ -1934,6 +2587,25 @@ gc_sweep(rb_objspace_t *objspace)
+         heaps_increment(objspace);
+     }
+     during_gc = 0;
++    live_objects = live;
++
++    /* log gc stats if requested */
++    if (do_gc_stats) {
++        fprintf(gc_data_file, "objects processed: %.7lu\n", (unsigned long)processed);
++	fprintf(gc_data_file, "live objects     : %.7lu\n", (unsigned long)live);
++	fprintf(gc_data_file, "freelist objects : %.7lu\n", (unsigned long)freelist_size);
++	fprintf(gc_data_file, "freed objects    : %.7lu\n", (unsigned long)freed);
++	fprintf(gc_data_file, "zombies          : %.7lu\n", (unsigned long)zombies);
++        for(i=0; i<T_MASK; i++) {
++            if (free_counts[i]>0 || live_counts[i]>0) {
++                fprintf(gc_data_file,
++                        "kept %.7lu / freed %.7lu objects of type %s\n",
++                        (unsigned long)live_counts[i], (unsigned long)free_counts[i], obj_type((int)i));
++            }
++        }
++        rb_gc_dump();
++        fflush(gc_data_file);
++    }
+ 
+     /* clear finalization list */
+     if (final_list) {
+@@ -2140,6 +2812,7 @@ void rb_gc_mark_encodings(void);
+ static int
+ garbage_collect(rb_objspace_t *objspace)
+ {
++    struct timeval gctv1, gctv2;
+     struct gc_list *list;
+     rb_thread_t *th = GET_THREAD();
+     INIT_GC_PROF_PARAMS;
+@@ -2162,6 +2835,14 @@ garbage_collect(rb_objspace_t *objspace)
+     during_gc++;
+     objspace->count++;
+ 
++    if (gc_statistics) {
++        gc_collections++;
++        gettimeofday(&gctv1, NULL);
++        if (verbose_gc_stats) {
++            fprintf(gc_data_file, "Garbage collection started\n");
++        }
++    }
++
+     GC_PROF_TIMER_START;
+     GC_PROF_MARK_TIMER_START;
+     SET_STACK_END;
+@@ -2216,6 +2897,19 @@ garbage_collect(rb_objspace_t *objspace)
+ 
+     GC_PROF_TIMER_STOP;
+     if (GC_NOTIFY) printf("end garbage_collect()\n");
++
++    if (gc_statistics) {
++        unsigned LONG_LONG musecs_used;
++        gettimeofday(&gctv2, NULL);
++        musecs_used = ((unsigned LONG_LONG)(gctv2.tv_sec - gctv1.tv_sec) * 1000000) + (gctv2.tv_usec - gctv1.tv_usec);
++        gc_time_accumulator += musecs_used;
++
++        if (verbose_gc_stats) {
++            fprintf(gc_data_file, "GC time: %lu msec\n", (unsigned long)(musecs_used / 1000));
++            fflush(gc_data_file);
++        }
++    }
++
+     return TRUE;
+ }
+ 
+@@ -2298,6 +2992,7 @@ Init_stack(volatile VALUE *addr)
+ void
+ Init_heap(void)
+ {
++    set_gc_parameters(&rb_objspace);
+     init_heap(&rb_objspace);
+ }
+ 
+@@ -2982,6 +3677,49 @@ count_objects(int argc, VALUE *argv, VALUE os)
      return hash;
  }
  
@@ -1200,8 +1037,8 @@ index e65d0ec..74ebec6 100644
  /*
   *  call-seq:
   *     GC.count -> Integer
-@@ -3599,6 +4421,28 @@ Init_GC(void)
-     rb_define_singleton_method(rb_mGC, "stat", gc_stat, -1);
+@@ -3188,6 +3926,28 @@ Init_GC(void)
+     rb_define_singleton_method(rb_mGC, "count", gc_count, 0);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
  
 +    rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
@@ -1229,7 +1066,7 @@ index e65d0ec..74ebec6 100644
      rb_mProfiler = rb_define_module_under(rb_mGC, "Profiler");
      rb_define_singleton_method(rb_mProfiler, "enabled?", gc_profile_enable_get, 0);
      rb_define_singleton_method(rb_mProfiler, "enable", gc_profile_enable, 0);
-@@ -3612,6 +4456,9 @@ Init_GC(void)
+@@ -3201,6 +3961,9 @@ Init_GC(void)
      rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
      rb_define_module_function(rb_mObSpace, "garbage_collect", rb_gc_start, 0);
  
@@ -1239,3 +1076,6 @@ index e65d0ec..74ebec6 100644
      rb_define_module_function(rb_mObSpace, "define_finalizer", define_final, -1);
      rb_define_module_function(rb_mObSpace, "undefine_finalizer", undefine_final, 1);
  
+diff --git a/sample/test.rb b/sample/test.rb
+old mode 100644
+new mode 100755
