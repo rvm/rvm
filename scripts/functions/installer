@@ -698,7 +698,7 @@ display_notes()
     then
       printf "%b" "
   * First you need to add all users that will be using rvm to '${rvm_group_name}' group,
-    and logout - login again, anyone using rvm will be operating with \`umask g+w\`.
+    and logout - login again, anyone using rvm will be operating with \`umask u=rwx,g=rwx,o=rx\`.
 "
     fi
     printf "%b" "
@@ -937,19 +937,27 @@ setup_rvmrc()
   if (( UID == 0 ))
   then
     rvmrc_file="/etc/rvmrc"
-    if ! GREP_OPTIONS="" \grep 'umask g+w' $rvmrc_file >/dev/null 2>&1
+    if
+      GREP_OPTIONS="" \grep '#umask' $rvmrc_file >/dev/null 2>&1
     then
-      echo 'umask g+w' >> $rvmrc_file
+      true # commented out, skip it!
+    elif
+      GREP_OPTIONS="" \grep 'umask g+w' $rvmrc_file >/dev/null 2>&1
+    then
+      __rvm_sed_i $rvmrc_file -e 's/umask g+w/umask u=rwx,g=rwx,o=rx/'
+    elif
+      ! GREP_OPTIONS="" \grep 'umask' $rvmrc_file >/dev/null 2>&1
+    then
+      echo 'umask u=rwx,g=rwx,o=rx' >> $rvmrc_file
     fi
-
-    if [[ -s $rvmrc_file ]]
+    if
+      [[ -s $rvmrc_file ]]
     then
       chown $USER:${rvm_group_name:-$USER} $rvmrc_file
     fi
   else
     rvmrc_file="$HOME/.rvmrc"
   fi
-
   return 0
 }
 
