@@ -279,30 +279,30 @@ __rvm_detect_xcode_version_is()
 
 __rvm_version_compare()
 {
-  typeset v1d v2d dots counter IFS
-  typeset -a transformer
-
-  counter=1
-  IFS="+" # to put + in transformer ;)
-  v1d=$( printf -- $1 | GREP_OPTIONS="" \grep -o '\.' | wc -l )
-  v2d=$( printf -- $3 | GREP_OPTIONS="" \grep -o '\.' | wc -l )
-
-  if [[ $v1d -ge $v2d ]]
-  then dots=$v1d
-  else dots=$v2d
-  fi
-
-  while (( dots >= 0 ))
-  do transformer+=( "$(( 256 ** dots-- ))*\$$((counter++))" )
-  done
-
-  eval "$(
-    printf '[[ ';
-    printf $1 | \awk -F. "{ printf ${transformer[*]} }";
-    printf -- " $2 ";
-    printf $3 | \awk -F. "{ printf ${transformer[*]} }";
-    printf ' ]]'
-  )"
+  typeset first
+  first="$( printf "%b" "$1\n$3\n" | sort -g -t | head -n1 )"
+  case "$2" in
+    (-eq|==|=)
+      [[ "$1" == "$3" ]] || return $?
+      ;;
+    (-gt|>)
+      [[ "$1" != "$3" && "$first" == "$1" ]] || return $?
+      ;;
+    (-ge|>=)
+      [[ "$1" == "$3" || "$first" == "$1" ]] || return $?
+      ;;
+    (-lt|<)
+      [[ "$1" != "$3" && "$first" == "$2" ]] || return $?
+      ;;
+    (-le|<=)
+      [[ "$1" == "$3" || "$first" == "$3" ]] || return $?
+      ;;
+    (*)
+      rvm_error "Unsupported operator '$2'."
+      return 1
+      ;;
+  esac
+  return 0
 }
 
 __rvm_pager_or_cat_v()
