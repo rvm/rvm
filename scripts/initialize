@@ -87,6 +87,35 @@ Error:
     fi
   fi
 
+  # Intends to fix #855 by checking for and warning about rubygem incompatible
+  # configs.
+  #  -- lemoinem 2012-09-25
+  if [[ -z "${rvm_ignore_gemrc_issues:-}" ]]
+  then
+      for gemrc in "/etc/gemrc" "${HOME}/.gemrc"
+      do
+          if [[ -r "${gemrc}" ]]
+          then
+              unset double_check
+              typeset double_check
+
+              if GREP_OPTIONS="" \grep '^gem:' "${gemrc}" | GREP_OPTIONS="" \grep ' -n/\?' >/dev/null 2>&1
+              then
+                  echo 'BEWARE! Forcing rubygems to use a constant path (-n option) to install gems is not recommended for RVM installations.' >&2
+                  : double_check:${double_check:="${gemrc}"}
+              fi
+              
+              if GREP_OPTIONS="" \grep '^gem\(_\(install\|update\)\)\?:' "${gemrc}" | GREP_OPTIONS="" \grep ' --user-install\( \|$\)' >/dev/null 2>&1
+              then
+                  echo 'BEWARE! rubygems "--user-install" option is not recommended for RVM installations.' >&2
+                  : double_check:${double_check:="${gemrc}"}
+              fi
+
+              [[ -n "${double_check:-}" ]] && echo "Double check your ${double_check}. You could remove this warning by adding rvm_ignore_gemrc_issues=1 in your ${HOME}/.rvmrc" >&2
+          fi
+      done
+  fi
+
   true ${rvm_scripts_path:="$rvm_path/scripts"}
 
   #
