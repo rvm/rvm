@@ -57,7 +57,7 @@ tools_user_usage()
 
 tools_user_setup()
 {
-  typeset target name path
+  typeset target name _user_path
   export eval_target
   target="$1"
   eval_target="${2}"
@@ -67,11 +67,11 @@ tools_user_setup()
   if [[ -f "${target}/.rvmrc" ]] && GREP_OPTIONS="" \grep "^export ${name}=" "${target}/.rvmrc" > /dev/null
   then
     # if defined read path
-    path="$( GREP_OPTIONS="" \grep "^export ${name}=" "${target}/.rvmrc" | sed "s/^export ${name}=//" )"
+    _user_path="$( GREP_OPTIONS="" \grep "^export ${name}=" "${target}/.rvmrc" | sed "s/^export ${name}=//" )"
   else
     # if not defined - define it
-    path="\${HOME}/.rvm/${eval_target}"
-    echo "export ${name}=\"${path}\"" >> "${target}/.rvmrc"
+    _user_path="\${HOME}/.rvm/${eval_target}"
+    echo "export ${name}=\"${_user_path}\"" >> "${target}/.rvmrc"
   fi
 
   # subprocess cause we change the HOME
@@ -79,17 +79,17 @@ tools_user_setup()
     # set home to target, so --skel works fine
     HOME="${target}"
     # resolve the stored path
-    eval "path=\"${path}\""
+    eval "_user_path=\"${_user_path}\""
 
     # ensure the defined path exists
-    [[ -d "${path}" ]] || mkdir -p "${path}"
+    [[ -d "${_user_path}" ]] || mkdir -p "${_user_path}"
 
     # create empty db files for rvm_user_path
     if [[ "$eval_target" == "user" ]]
     then
       for file in db md5
       do
-        [[ -f "${path}/${file}" ]] || touch "${path}/${file}"
+        [[ -f "${_user_path}/${file}" ]] || touch "${_user_path}/${file}"
       done
     fi
   )
@@ -184,7 +184,7 @@ tools_mirror()
     then
       if (( ${rvm_force_flag:-0} == 1 ))
       then
-        sed -i "s/^ruby_${n}_url=.*$/ruby_${n}_url=http:\/\/www.mirrorservice.org\/sites\/ftp.ruby-lang.org\/pub\/ruby\/${n}/" "$file"
+        __rvm_sed_i "${file}" -e "s/^ruby_${n}_url=.*$/ruby_${n}_url=http:\/\/www.mirrorservice.org\/sites\/ftp.ruby-lang.org\/pub\/ruby\/${n}/"
       else
         warn=1
       fi
@@ -228,7 +228,7 @@ case "$action" in
   path-identifier) tools_path_identifier "$args" ;;
   strings)         tools_strings "$args" ;;
   mirror)          tools_mirror ;;
-  user)            tools_user "$args" ;;
+  user)            __rvm_call_with_restored_umask tools_user "$args" ;;
   rvm-env)         tools_rvm_env $args ;;
   *)               usage ;;
 esac

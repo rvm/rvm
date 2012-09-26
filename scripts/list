@@ -6,18 +6,45 @@ source "$rvm_scripts_path/base"
 
 usage()
 {
-  printf "%b" "
-  Usage:
-
-    rvm list [action]
-
-  Actions:
-
-  {help,known,gemsets,default [string],rubies,strings,known_strings,ruby_svn_tags}
-
-"
-
+  "${rvm_scripts_path}/help" list "$@"
   return 0
+}
+
+list_remote()
+{
+  typeset version
+  rubies=($(
+    __list_remote_rubies_for "$( __rvm_remote_server_path "${rvm_ruby_string}" )" |
+      awk -F/ '{print $NF}' | sed 's/.tar.*$//' | sort -u
+  ))
+
+  if (( ${#rubies[@]} == 0 ))
+  then
+    printf "%b" "\n# No remote rubies available. Check 'rvm list known' for what can be installed.\n\n"
+    return
+  fi
+
+  printf "%b" "\n# Rubies available for '$(__rvm_system_path -)':\n\n"
+
+  for version in "${rubies[@]}"
+  do
+    if [[ -r "$rvm_rubies_path/$version/bin/ruby" ]]
+    then printf "%b" " * "
+    else printf "%b" "   "
+    fi
+
+    if rvm_pretty_print stdout
+    then printf "%b" "${rvm_notify_clr:-}$version${rvm_reset_clr:-}\n"
+    else printf "%b" "$version\n"
+    fi
+  done
+
+  printf "%b" "\n# * - installed already\n\n"
+
+  if rvm_pretty_print stdout
+  then printf "%b" "# To download and install: ${rvm_notify_clr:-}rvm install {name} --binary${rvm_reset_clr:-}\n\n"
+  else printf "%b" "# To download and install: rvm install {name} --binary\n\n"
+  fi
 }
 
 list_gemsets()
@@ -335,14 +362,8 @@ args=($*)
 action="${args[0]:-""}"
 args=${args[@]:1} # Strip trailing / leading / extra spacing.
 
-
-if [[ -z "$action" ]]
-then
-  list_rubies
-  exit 0
-fi
-
-case "$action" in
+case "${action:-rubies}" in
+  -r|--remote|remote) list_remote     ;;
   known)         list_known           ;;
   known_strings) list_known_strings   ;;
   gemsets)       list_gemsets "$args" ;;
@@ -351,7 +372,10 @@ case "$action" in
   strings)       list_strings         ;;
   ruby_svn_tags) list_ruby_svn_tags   ;;
   help)          usage                ;;
-  *)             usage ; exit 1       ;;
+  *)
+    rvm_error_help "Unknown action '$action' for 'rvm list'." list $action
+    exit 1
+    ;;
 esac
 
 exit $?

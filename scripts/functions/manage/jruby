@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
 
+jruby_install_build_nailgun()
+{
+  builtin cd "${rvm_src_path}/$rvm_ruby_string/tool/nailgun" &&
+  case "$rvm_ruby_version" in
+    1.2*|1.3*)
+      true
+      ;;
+    *)
+      env "${rvm_configure_env[@]}" ./configure --prefix=$rvm_ruby_home
+      ;;
+  esac &&
+  make "${rvm_make_flags[@]}"
+}
+
 jruby_install()
 {
   __rvm_compatibility_flag_configuration -Djruby.default.ruby.version=
@@ -25,59 +39,38 @@ jruby_install()
         ;;
       (1.3.*|1.4.*)
         printf "%b" "\n\nERROR: Unsupported JAVA version $java_version. In order to install and use JRuby you must upgrade to the latest JAVA version.\n\n"
-        exit 1
+        return 1
         ;;
     esac
   fi
 
   builtin cd "${rvm_src_path}"
 
-  __rvm_fetch_ruby
-  result=$?
-
-  if (( result > 0 ))
-  then
-    rvm_error "There has been an error while trying to fetch the source.  \nHalting the installation."
-    exit $result
-  fi
+  __rvm_fetch_ruby || return $?
 
   builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
-  if [[ -n ${rvm_configure_flags:-} ]] || (( ${rvm_head_flag:=0} ))
+  if
+    (( ${#rvm_configure_flags[@]} || ${#rvm_patch_names[@]} || ${rvm_head_flag:-0} ))
   then
     __rvm_apply_patches
-    __rvm_run "ant.jar" "ant jar" "$rvm_ruby_string - #ant jar"
-    if [[ -n ${rvm_configure_flags:-} ]]
+    __rvm_log_command "ant.jar" "$rvm_ruby_string - #ant jar" ant jar
+    if
+      (( ${#rvm_configure_flags[@]} ))
     then
-      __rvm_run "ant.jar.flags" "ant jar ${rvm_configure_flags}" "$rvm_ruby_string - #ant jar ${rvm_configure_flags}"
+      __rvm_log_command "ant.jar.flags" "$rvm_ruby_string - #ant jar ${rvm_configure_flags[*]}" \
+        ant jar "${rvm_configure_flags[@]}"
     fi
-  fi
-
-  if (( ${rvm_head_flag:=0} ))
-  then
-    __rvm_run "ant.cext" "ant cext  ${rvm_configure_flags}" "$rvm_ruby_string - #ant cext" || \
+    __rvm_log_command "ant.cext" "$rvm_ruby_string - #ant cext" ant cext "${rvm_configure_flags[@]}" ||
       rvm_warn "cext is know to fail please report here: https://jira.codehaus.org/browse/JRUBY"
   fi
 
   mkdir -p "$rvm_ruby_home/bin/"
 
-  case "$rvm_ruby_version" in
-    1.2*|1.3*)
-      __rvm_run "nailgun" \
-        "builtin cd \"${rvm_src_path}/$rvm_ruby_string/tool/nailgun\" &&  make $rvm_make_flags" \
-        "Building Nailgun"
-      ;;
-    *)
-      __rvm_run "nailgun" \
-        "builtin cd \"${rvm_src_path}/$rvm_ruby_string/tool/nailgun\" && ${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home && make $rvm_make_flags" \
-        "Building Nailgun"
-      ;;
-  esac
-
-  __rvm_rm_rf "$rvm_ruby_home"
-
-  __rvm_run "install" \
-    "/bin/cp -Rf ${rvm_src_path}/$rvm_ruby_string $rvm_ruby_home" "$rvm_ruby_string - #installing to $rvm_ruby_home"
+  __rvm_log_command "nailgun" "$rvm_ruby_string - #nailgun" jruby_install_build_nailgun &&
+  __rvm_rm_rf "$rvm_ruby_home" &&
+  __rvm_log_command "install" "$rvm_ruby_string - #installing to $rvm_ruby_home" \
+    /bin/cp -Rf "${rvm_src_path}/$rvm_ruby_string" "$rvm_ruby_home" || return $?
 
   (
   builtin cd "$rvm_ruby_home/bin/"
@@ -111,7 +104,7 @@ jruby_install()
   # jruby ships with some built in gems, copy them in to place.
   if [[ -d "$rvm_ruby_home/lib/ruby/gems/1.8" ]]
   then
-    rvm_log "Copying across included gems"
-    cp -R "$rvm_ruby_home/lib/ruby/gems/1.8/" "$rvm_ruby_gem_home/"
+    __rvm_log_command "copy.gems" "$rvm_ruby_string - #copying across included gems" \
+      cp -R "$rvm_ruby_home/lib/ruby/gems/1.8/" "$rvm_ruby_gem_home/"
   fi
 }

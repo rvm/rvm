@@ -25,54 +25,35 @@ __rvm_implode_binaries()
 # Implode removes the entire rvm installation under $rvm_path, including removing wrappers.
 __rvm_implode()
 {
-  while : ; do
-
-    rvm_warn "Are you SURE you wish for rvm to implode?\
-      \nThis will recursively remove $rvm_path and other rvm traces?\
-      \n(type 'yes' or 'no')> "
-
-    read response
-
-    if [[ "yes" == "$response" ]] ; then
-
-      if [[ "/" == "$rvm_path" ]] ; then
-
-        rvm_error "remove '/' ?!... Ni!"
-
-      else
-
-        if [[ -d "$rvm_path" ]] ; then
-
-          __rvm_implode_binaries
-
-
-          rvm_log "Hai! Removing $rvm_path"
-
-          for file in /etc/profile.d/rvm.sh $rvm_man_path/man1/rvm.1* $rvm_path/ ; do __rvm_rm_rf $file ; done
-
-          echo "$rvm_path has been removed."
-
-          if [[ "$rvm_path" == "/usr/local/rvm"* && -f "/usr/local/lib/rvm" ]]; then
-            rvm_log "Removing the rvm loader at /usr/local/lib/rvm"
-          fi
-
-          printf "%b" "rvm has been fully removed. Note you may need to manually remove /etc/rvmrc and ~/.rvmrc if they exist still.\n"
-
-        else
-
-          rvm_log "It appears that $rvm_path is already non existant."
-
-        fi
+  if
+    __rvm_ask_for "Are you SURE you wish for rvm to implode?\nThis will recursively remove $rvm_path and other rvm traces?" yes
+  then
+    if [[ "/" == "$rvm_path" ]]
+    then
+      rvm_error "remove '/' ?!... Ni!"
+      return 1
+    elif
+      [[ -d "$rvm_path" ]]
+    then
+      __rvm_implode_binaries
+      rvm_log "Hai! Removing $rvm_path"
+      for file in /etc/profile.d/rvm.sh $rvm_man_path/man1/rvm.1* $rvm_path/
+      do
+        __rvm_rm_rf $file
+      done
+      echo "$rvm_path has been removed."
+      if
+        [[ "$rvm_path" == "/usr/local/rvm"* && -f "/usr/local/lib/rvm" ]]
+      then
+        rvm_log "Removing the rvm loader at /usr/local/lib/rvm"
+        __rvm_rm_rf /usr/local/lib/rvm
       fi
-      break
-
-    elif [[ "no" == "$response" ]] ; then
-
-      rvm_log "Psychologist intervened, cancelling implosion, crisis avoided :)"
-      break
-
+      printf "%b" "rvm has been fully removed. Note you may need to manually remove /etc/rvmrc and ~/.rvmrc if they exist still.\n"
+    else
+      rvm_log "It appears that $rvm_path is already non existant."
     fi
-  done
-
-  return 0
+  else
+    rvm_log "Psychologist intervened, cancelling implosion, crisis avoided :)"
+    return 2
+  fi
 }

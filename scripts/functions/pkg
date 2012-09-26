@@ -5,114 +5,111 @@ install_package()
   __rvm_db "${package}_url" "package_url"
   (
     builtin cd "$rvm_src_path"
-
     rvm_log "Fetching $package-$version.$archive_format to $rvm_archives_path"
 
     case "$archive_format" in
-
       tar.gz|tgz)
-
-        "$rvm_scripts_path/fetch" \
-          "$package_url/$package-$version.$archive_format" \
-          || (result=$? && return $result)
-
+        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
         __rvm_run "$package/extract" \
           "$rvm_tar_command xmzf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-}" \
           "Extracting $package-$version.$archive_format to $rvm_src_path"
         ;;
-
       tar.bz2)
-
-        "$rvm_scripts_path/fetch" \
-          "$package_url/$package-$version.$archive_format" \
-          || (result=$? && return $result)
-
+        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
         __rvm_run "$package/extract" \
           "$rvm_tar_command xmjf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-} "\
           "Extracting $package-$version.$archive_format to $rvm_src_path"
-
         ;;
-
       zip)
-
-        "$rvm_scripts_path/fetch" \
-          "$package_url/$package-$version.$archive_format" \
-          || (result=$? && return $result)
-
+        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
         __rvm_run "$package/extract" \
           "unzip -q -o $rvm_archives_path/$package-$version.$archive_format -d $rvm_src_path/$package-$version" \
           "Extracting $package-$version.$archive_format to $rvm_src_path"
         ;;
-
       *)
-        printf "%b" "\nUnrecognized archive format '$archive_format'" ; return 1
-
+        printf "%b" "\nUnrecognized archive format '$archive_format'"
+        return 1
+        ;;
     esac
 
     builtin cd "$rvm_src_path/$package-$version"
-
     __rvm_add_to_path append /usr/bin
 
-    if [[ ! -z "$patches" ]] ; then
-      for patch in $(echo $patches | \tr ',' ' ') ; do
-        __rvm_run "$package/patch" "patch -p0 -f < $patch" "Applying patch '$patch'..."
-        if [[ $? -gt 0 ]] ; then
-          rvm_error "Patch $patch did not apply cleanly... back to the patching board :(" ; exit 1
+    if
+      [[ -n "$patches" ]]
+    then
+      for patch in $(echo $patches | \tr ',' ' ')
+      do
+        if
+          ! __rvm_run "$package/patch" "patch -p0 -f -i $patch" "Applying patch '$patch'..."
+        then
+          rvm_error "Patch $patch did not apply cleanly... back to the patching board :("
+          exit 1
         fi
       done
     fi
 
-    if [[ "${rvm_skip_autoreconf_flag:-0}" == 0 ]] &&
-      which autoreconf >/dev/null 2>&1 &&
-      which libtoolize >/dev/null 2>&1 &&
+    if
+      [[ "${rvm_skip_autoreconf_flag:-0}" == 0 ]] &&
+      __rvm_which autoreconf >/dev/null 2>&1 &&
+      __rvm_which libtoolize >/dev/null 2>&1 &&
       [[ -f configure.ac || -f configure.in ]]
     then
-      if [[ -z "${rvm_autoconf_flags:-}" ]]
+      if
+        (( ${#rvm_autoconf_flags[@]} == 0 ))
       then
-        if uname -s | GREP_OPTIONS="" \grep -iE 'cygwin|mingw' >/dev/null
-        then # no symlinks on windows :(
-          rvm_autoconf_flags="-ivf"
+        if
+          uname -s | GREP_OPTIONS="" \grep -iE 'cygwin|mingw' >/dev/null
+        then
+          rvm_autoconf_flags=( -ivf )  # no symlinks on windows :(
         else
-          rvm_autoconf_flags="-is --force"
+          rvm_autoconf_flags=( -is --force )
         fi
       fi
-      __rvm_run "$package/autoreconf" "autoreconf ${rvm_autoconf_flags}" \
-        "Prepare $package in $rvm_src_path/$package-$version."
+      __rvm_log_command "$package/autoreconf" "Prepare $package in $rvm_src_path/$package-$version." \
+        autoreconf "${rvm_autoconf_flags[@]}"
     fi
 
-    __rvm_run "$package/configure" \
-      "${configure:-"${rvm_configure_env:-""} ./configure --prefix=\"${prefix_path:-"$rvm_usr_path"}\""} ${rvm_configure_flags:-""} $configure_flags" \
-      "Configuring $package in $rvm_src_path/$package-$version."
+    (( ${#configure[@]} )) ||
+      configure=( "${rvm_configure_env[@]}" ./configure --prefix="${prefix_path:-$rvm_usr_path}" )
+    configure+=( "${rvm_configure_flags[@]}" "${configure_flags[@]}" )
 
-    unset configure_flags
+    __rvm_log_command "$package/configure" "Configuring $package in $rvm_src_path/$package-$version." \
+      "${configure[@]}"
+
+    unset configure_flags configure
 
     touch "$rvm_path/config/packages"
     if [[ "$action" == "uninstall" ]]
     then
-      __rvm_run "$package/make.uninstall" "make uninstall" "Uninstalling $package from $rvm_usr_path" &&
+      __rvm_log_command "$package/make.uninstall" "Uninstalling $package from $rvm_usr_path"  make uninstall &&
       builtin cd "$rvm_src_path" &&
-      __rvm_run "$package/rm_src.uninstall" "rm -rf $rvm_src_path/$package-$version" "Removing ${package}-${version} from $rvm_src_path" &&
+      __rvm_log_command "$package/rm_src.uninstall" "Removing ${package}-${version} from $rvm_src_path" \
+        rm -rf "$rvm_src_path/$package-$version" &&
       "$rvm_scripts_path/db" "$rvm_path/config/packages" "${package}" delete
     else
-      __rvm_run "$package/make" "make $rvm_make_flags" "Compiling $package in $rvm_src_path/$package-$version." &&
-      __rvm_run "$package/make.install" "make install" "Installing $package to $rvm_usr_path" &&
+      __rvm_log_command "$package/make"         "Compiling $package in $rvm_src_path/$package-$version." \
+        make "${rvm_make_flags[@]}" &&
+      __rvm_log_command "$package/make.install" "Installing $package to $rvm_usr_path" \
+        make install &&
       "$rvm_scripts_path/db" "$rvm_path/config/packages" "${package}" "${version}"
     fi
   )
 
   __function_on_stack ruby_install ||
   rvm_warn "
-Please note that it's required to reinstall all installed rubies:
+Please note that it's required to reinstall all rubies:
 
-    rvm reinstall \$(rvm list strings | tr \"\\\\n\" ',')
-    rvm all-gemsets do rvm gemset pristine
+    rvm reinstall all --force
 "
 }
 
 readline()
 {
   package="readline" ; archive_format="tar.gz"
-  configure="env CFLAGS=-I${rvm_usr_path}/include LDFLAGS=-L${rvm_usr_path}/lib ./configure --prefix=${rvm_usr_path} --disable-dependency-tracking --disable-static --enable-shared"
+  configure=(
+    CFLAGS=-I${rvm_usr_path}/include LDFLAGS=-L${rvm_usr_path}/lib ./configure --prefix=${rvm_usr_path} --disable-dependency-tracking --disable-static --enable-shared
+  )
 
   version="5.2"
   patches="$rvm_patches_path/$package-$version/shobj-conf.patch"
@@ -139,52 +136,60 @@ openssl()
 {
   package="openssl" ; archive_format="tar.gz"
   __rvm_db "${package}_version" "version"
-  if [[ "Darwin" == "$(uname)" ]] ; then
-
-    if [[ -n "$rvm_architectures" ]]; then
-
-      if match "$rvm_architectures" "64"; then
-        hw_cpu64bit=1
+  if
+    [[ "Darwin" == "$(uname)" ]]
+  then
+    if
+      [[ -n "$rvm_architectures" ]]
+    then
+      if __rvm_string_match "$rvm_architectures" "64"
+      then hw_cpu64bit=1
       fi
-
-      if match "$rvm_architectures" "ppc"; then
-        hw_machine="Power Macintosh"
+      if __rvm_string_match "$rvm_architectures" "ppc"
+      then hw_machine="Power Macintosh"
       fi
     else
       hw_machine=$(sysctl hw.machine | awk -F: '{print $2}' | sed 's/^ //')
       hw_cpu64bit=$(sysctl hw.cpu64bit_capable | awk '{print $2}')
     fi
-
-    if [[ "Power Macintosh" == "$hw_machine" ]] ; then
-
-      if [[ $hw_cpu64bit == 1 ]]; then
+    if
+      [[ "Power Macintosh" == "$hw_machine" ]]
+    then
+      if
+        [[ $hw_cpu64bit == 1 ]]
+      then
         openssl_os="darwin64-ppc-cc"
       else
         openssl_os="darwin-ppc-cc"
       fi
-
     else
-      if [[ $hw_cpu64bit == 1 ]]; then
+      if
+        [[ $hw_cpu64bit == 1 ]]
+      then
         openssl_os="darwin64-x86_64-cc"
       else
         openssl_os="darwin-i386-cc"
       fi
     fi
     configure_command="./Configure"
-
-    # Anyone know WTF happened to these patches???
-    #patches="$rvm_patches_path/$package/Makefile.org.patch,$rvm_patches_path/$package/crypto-Makefile.patch"
-
     # Don't use -j option for make OpenSSL
-    [[ -z "$rvm_make_flags" ]] ||
-      rvm_make_flags=$(echo "$rvm_make_flags" | sed -e "s/-j[[:space:]]*[[:digit:]]*//")
-
+    __rvm_remove_from_array rvm_make_flags "-j*" "${rvm_make_flags[@]}"
   else
     configure_command="./config"
   fi
-  configure="$configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib --prefix=$rvm_usr_path zlib no-asm no-krb5 shared"
+  configure=(
+    $configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib --prefix=$rvm_usr_path zlib no-asm no-krb5 shared
+  )
   install_package
+  __rvm_log_command openssl.certs "Updating openssl certificates" update_openssl_certs
 }
+
+update_openssl_certs()
+(
+  builtin cd $rvm_usr_path/ssl &&
+  command curl -O http://curl.haxx.se/ca/cacert.pem &&
+  mv cacert.pem cert.pem
+)
 
 zlib()
 {
@@ -202,7 +207,9 @@ autoconf()
 ncurses()
 {
   package="ncurses" ; version="5.7" ; archive_format="tar.gz"
-  configure_flags="--with-shared --disable-rpath --without-debug --without-ada --enable-safe-sprintf --enable-sigwinch --without-progs"
+  configure_flags=(
+    --with-shared --disable-rpath --without-debug --without-ada --enable-safe-sprintf --enable-sigwinch --without-progs
+  )
   install_package
 }
 
@@ -221,8 +228,12 @@ gettext()
 libxml2()
 {
   package="libxml2" ; version="2.7.3" ; archive_format="tar.gz"
-  if [[ "Darwin" == "$(uname)" ]] ; then
-    configure="./configure --prefix=$rvm_usr_path --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)"
+  if
+    [[ "Darwin" == "$(uname)" ]]
+  then
+    configure=(
+      ./configure --prefix=$rvm_usr_path --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)
+    )
   fi
   install_package
   unset prefix_path
@@ -248,15 +259,16 @@ libyaml()
 
 libyaml_installed()
 {
-  typeset path
-  path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
-  if [[ "Darwin" == "$(uname)" ]]
-  then
-    extension="dylib"
-  else
-    extension="so"
-  fi
-  [[ -f "${path}/include/yaml.h" ]] && \find "${path}" -name "libyaml.${extension}" | GREP_OPTIONS="" \grep '.*' >/dev/null
+  typeset __search_path
+  __search_path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
+  case "$(uname)" in
+    #TODO: add windows support
+    (Darwin) extension="dylib" ;;
+    (*)      extension="so"    ;;
+  esac
+  [[ -f "${__search_path}/include/yaml.h" ]] &&
+    \find "${__search_path}" -name "libyaml.${extension}" | GREP_OPTIONS="" \grep '.*' >/dev/null ||
+    return $?
 }
 
 glib()
@@ -264,8 +276,9 @@ glib()
   pkgconfig
   gettext
   package="glib" ; version="2.23.1" ; archive_format="tar.gz"
-  configure="CC=\"cc -L$rvm_usr_path/lib -I$rvm_usr_path/include\" PKG_CONFIG=\"$rvm_usr_path/bin/pkg-config\" ./configure --prefix=\"$rvm_usr_path\""
-
+  configure=(
+    CC="cc -L$rvm_usr_path/lib -I$rvm_usr_path/include" PKG_CONFIG="$rvm_usr_path/bin/pkg-config" ./configure --prefix="$rvm_usr_path"
+  )
   install_package
 }
 

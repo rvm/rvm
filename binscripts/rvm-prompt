@@ -2,227 +2,150 @@
 
 add()
 {
-
   token=${1:-""}
-
-  eval "${token}_flag=1" ; shift
-
-  if [[ -n "$format" ]] ; then
-
+  eval "${token}_flag=1"
+  shift
+  if
+    [[ -n "$format" ]]
+  then
     [[ ${previous_is_format_var:-0} == 1 ]] && eval "${token}_prefix_flag=1"
-
     format="${format}\$${token}"
-
   else
-
     format="\$${token}"
-
   fi
-
   previous_is_format_var=1
-
-  return 0
 }
 
 add_raw_token()
 {
   previous_is_format_var=0
-
   token=${1:-""}
-
   format="${format:-""}${token}"
-
-  return 0
 }
 
 rvm_gemset_separator="${rvm_gemset_separator:-"@"}"
-
-ruby=$( builtin command -v ruby | GREP_OPTIONS="" \grep -v $rvm_path/bin/ruby )
-
-if [[ -n "$ruby" && -n "$(echo "$ruby" | awk '/rvm/{print}')" ]] ; then
-
+ruby=$(
+  builtin command -v ruby | GREP_OPTIONS="" \grep -v $rvm_path/bin/ruby
+)
+if
+  [[ -n "$ruby" && -n "$(echo "$ruby" | awk '/rvm/{print}')" ]]
+then
   unset format
-
-  while [[ $# -gt 0 ]] ; do
-
-    token="$1" ; shift
-
+  while
+    [[ $# -gt 0 ]]
+  do
+    token="$1"
+    shift
     case "$token" in
-
-      i|interpreter)  add "interpreter"  ;;
-
-      v|version)      add "version"      ;;
-
-      p|patchlevel)   add "patchlevel"   ;;
-
-      r|revision)     add "revision"     ;;
-
-      a|architecture) add "architecture" ;;
-
-      g|gemset)       add "gemset"       ;;
-
-      u|unicode)      add "unicode"      ;;
-
-      s|system)                          ;; #skip when in ruby
-
-      -d|--no-default) no_default=1      ;;
-
-      *) add_raw_token "$token" ;;
-
+      i|interpreter)   add "interpreter"  ;;
+      v|version)       add "version"      ;;
+      p|patchlevel)    add "patchlevel"   ;;
+      r|revision)      add "revision"     ;;
+      a|architecture)  add "architecture" ;;
+      g|gemset)        add "gemset"       ;;
+      u|unicode)       add "unicode"      ;;
+      s|system)                           ;; #skip when in ruby
+      -d|--no-default) no_default=1       ;;
+      *)               add_raw_token "$token" ;;
     esac
-
   done
 
-  if [[ -z "${format:-""}" ]] ; then
-
-    for default in interpreter version patchlevel gemset ; do
-
+  if
+    [[ -z "${format:-""}" && -z "$no_default" ]]
+  then
+    for default in interpreter version patchlevel gemset
+    do
       add "$default"
-
     done
-
   fi
-
   ruby_string=$(dirname "$ruby" | xargs dirname | xargs basename)
-
-  if [[ -n "$no_default" ]]; then
-
+  if
+    [[ -n "$no_default" && -n "${format:-""}" ]]
+  then
     # Do not display anything if no default flag was provided
     #   and we are using the default ruby
-
     # Only people who explicitely ask for this will have the
     #   slight performance penalty associated.
-
-    if [[ "$(rvm tools identifier)" == "$(rvm alias show default)"  ]] ; then
-
-      exit 0
-
-    fi
-
+    [[ "$(rvm tools identifier)" != "$(rvm alias show default)"  ]] || exit 0
   fi
-
   strings=(${ruby_string//-/ })
-
-  if [[ ${interpreter_flag:-0} -gt 0 || -n "$unicode_flag" ]] ; then
-
+  if
+    (( ${interpreter_flag:-0} )) || [[ -n "$unicode_flag" ]]
+  then
     interpreter=${strings[0]}
-
-    [[ ${interpreter_prefix_flag:-0} -gt 0 ]] && interpreter="-${interpreter}"
-
+    (( ${interpreter_prefix_flag:-0} )) && interpreter="-${interpreter}"
   fi
-
-  if [[ ${version_flag:-0} -gt 0 || -n "$unicode_flag" ]] ; then
-
+  if
+    (( ${version_flag:-0} )) || [[ -n "$unicode_flag" ]]
+  then
     version=${strings[1]}
-
-    [[ ${version_prefix_flag:-0} -gt 0 ]] && version="-${version}"
-
+    (( ${version_prefix_flag:-0} )) && version="-${version}"
   fi
-
-  if [[ ${#strings[@]} -gt 2 ]] ; then
-
-    if [[ ${patchlevel_flag:-0} -gt 0 ]] ; then
-
+  if
+    (( ${#strings[@]} > 2 ))
+  then
+    if
+      (( ${patchlevel_flag:-0} ))
+    then
       patchlevel=${strings[2]}
-
-      [[ ${patchlevel_prefix_flag:-0} -gt 0 ]] && patchlevel="-${patchlevel}"
-
+      (( ${patchlevel_prefix_flag:-0} )) && patchlevel="-${patchlevel}"
     fi
-
   fi
-
-  if [[ ${architecture_flag:-0} -gt 0 ]] ; then
-
+  if
+    (( ${architecture_flag:-0} ))
+  then
     architecture="$(echo "$(ruby -v)" | sed 's/^.*\[//' | sed 's/\].*$//')"
-
-    [[ ${architecture_prefix_flag:-0} -gt 0 ]] && architecture="-${architecture}"
-
+    (( ${architecture_prefix_flag:-0} )) && architecture="-${architecture}"
   fi
-
-  if [[ ${gemset_flag:-0} -gt 0 ]] ; then
-
+  if
+    (( ${gemset_flag:-0} ))
+  then
     case "${GEM_HOME:-""}" in
-
-      *${rvm_gemset_separator:-"@"}*)
-
+      (*${rvm_gemset_separator:-"@"}*)
         gemset="${rvm_gemset_separator:-"@"}${GEM_HOME/*${rvm_gemset_separator:-"@"}/}"
-
         ;;
-
     esac
-
   fi
-
-  if [[ ${unicode_flag:-0} -gt 0 ]] ; then
-
+  if
+    (( ${unicode_flag:-0} ))
+  then
     case "$interpreter" in
-
-      jruby)    unicode="☯" ;;
-
-      rbx)      unicode="❖" ;;
-
-      ree)      unicode="✈" ;;
-
-      macruby)  unicode="⌘" ;;
-
-      maglev)   unicode="㎖" ;;
-
-      ironruby) unicode="♭" ;;
-
-      system)   unicode="➆" ;;
-
-      goruby)   unicode="⛳";;
-
-      ruby)
-
+      (jruby)    unicode="☯" ;;
+      (rbx)      unicode="❖" ;;
+      (ree)      unicode="✈" ;;
+      (macruby)  unicode="⌘" ;;
+      (maglev)   unicode="㎖" ;;
+      (ironruby) unicode="♭" ;;
+      (system)   unicode="➆" ;;
+      (goruby)   unicode="⛳";;
+      (ruby)
         case ${version:-""} in
-
-          1.8.6)  unicode="➇❻"  ;;
-
-          1.8.7)  unicode="➇❼"  ;;
-
-          1.8*)   unicode="➇"  ;;
-
-          1.9.1)  unicode="➈❶"  ;;
-
-          1.9.2)  unicode="➈❷"  ;;
-
-          1.9.3)  unicode="➈❸"  ;;
-
-          *)      unicode="⦿"  ;;
-
+          (1.8.6)  unicode="➇❻" ;;
+          (1.8.7)  unicode="➇❼" ;;
+          (1.8*)   unicode="➇"  ;;
+          (1.9.1)  unicode="➈❶" ;;
+          (1.9.2)  unicode="➈❷" ;;
+          (1.9.3)  unicode="➈❸" ;;
+          (*)      unicode="⦿"  ;;
         esac ;;
-
-      *) unicode="⦿" ;;
-
+      (*) unicode="⦿" ;;
     esac
-
-    if echo "$ruby_string" | GREP_OPTIONS="" \grep '-head' >/dev/null 2>&1 ; then
-
+    if
+      echo "$ruby_string" | GREP_OPTIONS="" \grep '-head' >/dev/null 2>&1
+    then
       unicode="${unicode}⚡"
-
     fi
-
-    [[ ${unicode_prefix_flag:-0} -gt 0 ]] && unicode="-${unicode}"
-
+    (( ${unicode_prefix_flag:-0} )) && unicode="-${unicode}"
   fi
-
   eval "echo \"$format\""
-
 else
-
-  while [[ $# -gt 0 ]] ; do
-
-    token="$1" ; shift
-
+  while
+    (( $# ))
+  do
+    token="$1"
+    shift
     case "$token" in
-
       s|system) echo "system" ;;
-
     esac
-
   done
-
 fi
-
-exit 0

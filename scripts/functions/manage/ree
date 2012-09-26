@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+
+ree_transform_configure_flags()
+{
+  typeset flag
+  typeset -a new_flags
+  new_flags=()
+  for flag in "${rvm_configure_flags[@]}"
+  do
+    new_flags+=( -c "${flag}" )
+  done
+  rvm_configure_flags=( "${new_flags[@]}" )
+}
+
 ree_install()
 {
   if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.8/')" ]] && (( rvm_head_flag == 0 ))
@@ -28,7 +41,7 @@ ree_install()
       __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
 
       __rvm_run "extract" \
-        "gunzip < \"${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension\" | $rvm_tar_command xf - -C ${rvm_src_path} ${rvm_tar_options:-}" \
+        "$rvm_tar_command xzf \"${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension\" -C ${rvm_src_path} ${rvm_tar_options:-}" \
         "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string"
       result=$?
 
@@ -46,17 +59,18 @@ ree_install()
 
     __rvm_setup_compile_environment
 
-    # wait, what? v v v TODO: Investigate line smell.
+    #TODO: wait, what? Investigate line smell.
     mkdir -p "${rvm_ruby_home}/lib/ruby/gems/1.8/gems"
 
-    if [[ -n "$rvm_configure_flags" ]]
-    then
-      rvm_configure_flags="${rvm_configure_flags//--/-c --}"
-    fi
+    ree_transform_configure_flags
 
-    if [[ "Darwin" == "$(uname)" && ("1.8.6" == "$rvm_ruby_version" || "1.8.7" == "$rvm_ruby_version") && ! "$rvm_ree_options" =~ "--no-tcmalloc" ]]
+    #TODO: are there any other versions then 1.8.6 || 1.8.7
+    if
+      [[ "Darwin" == "$(uname)" ]] &&
+      [[ "1.8.6" == "$rvm_ruby_version" || "1.8.7" == "$rvm_ruby_version" ]] &&
+      [[ ! " ${rvm_ree_options[*]} " =~ " --no-tcmalloc " ]]
     then
-      rvm_ree_options="${rvm_ree_options} --no-tcmalloc"
+      rvm_ree_options+=( --no-tcmalloc )
     fi
 
     __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
@@ -70,7 +84,7 @@ ree_install()
         full_patch_path="$(__rvm_lookup_full_patch_path lib64)"
         cd "${rvm_src_path}/$rvm_ruby_string"
         __rvm_run "patch.apply.lib64" \
-            "patch -F 3 -p1 -N -f <\"$full_patch_path\"" \
+            "patch -F 3 -p1 -N -f -i \"$full_patch_path\"" \
             "Applying patch 'lib64' (located at $full_patch_path)"
       )
       result=$?
@@ -82,10 +96,8 @@ ree_install()
       return $result
     fi
 
-    : rvm_configure_env:${rvm_configure_env:=""}
-    __rvm_run "install" \
-      "${rvm_configure_env/CCFLAGS=/CFLAGS=} ./installer -a $rvm_rubies_path/$rvm_ruby_string \
-        $rvm_ree_options $db_configure_flags $rvm_configure_flags" "$rvm_ruby_string - #installing"
+    __rvm_log_command "install" "$rvm_ruby_string - #installing" \
+      "${rvm_configure_env[@]}" ./installer -a "$rvm_rubies_path/$rvm_ruby_string" "${rvm_ree_options[@]}" $db_configure_flags "${rvm_configure_flags[@]}"
 
     result=$?
 

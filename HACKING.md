@@ -21,9 +21,8 @@ the tests (you will need rvm already installed).
 You need a test rvm install to run the test suite against:
 
     $ git clone https://github.com/wayneeseguin/rvm  # or your own github fork
-    $ export rvm_path=~/path/to/rvm/test/install     # choose a path here
-    $ export rvm_bin_path=$rvm_path/bin
     $ cd rvm
+    $ rvm switch ~/path/to/rvm/test/install          # choose a path here
     $ ./install
 
 This will create a test installation of rvm in
@@ -36,6 +35,10 @@ If you want to do manual testing on the CLI against this test installation,
 you also need to do:
 
     $ rvm reload
+
+To get back to using orginal rvm installation run:
+
+    $ rvm switch ~/.rvm
 
 ## Hacking RVM via TDD (Test-Driven Development)
 

@@ -1,216 +1,137 @@
 #!/usr/bin/env bash
 
-rvm_base_except="selector"
+url="$1"
+archive="$2"
 
+shift ||
+  rvm_fail "BUG: $0 called without an argument :/"
+
+builtin command -v curl > /dev/null ||
+  rvm_fail "rvm requires curl. curl was not found in your current PATH."
+
+rvm_base_except="selector"
 source "$rvm_scripts_path/base"
 
-result=0
-
-# handled by teardown
+# handled by teardown - scripts/functions/environment:314
 __rvm_cleanup_download()
 {
   [[ -f "$archive" ]] && __rvm_rm_rf "$archive"
 }
 
-record_md5()
-{
-  case "$(uname)" in
-    Darwin|FreeBSD)
-      archive_md5="$(/sbin/md5 -q "${archive}")"
-      ;;
-    OpenBSD)
-      archive_md5="$(/bin/md5 -q "${archive}")"
-      ;;
-    Linux|*)
-      archive_md5="$(md5sum "${archive}")"
-      archive_md5="${archive_md5%% *}"
-      ;;
-  esac
-
-  if [[ -w "$rvm_path/config/md5" ]]
-  then
-    "$rvm_scripts_path/db" "$rvm_path/config/md5" "$archive" "$archive_md5"
-  else
-    "$rvm_scripts_path/db" "$rvm_user_path/md5" "$archive" "$archive_md5"
-  fi
-
-}
-
 builtin cd "$rvm_archives_path"
 
-# args=($*) # Reserved for future use
+[[ -n "$archive" ]] || archive=$(basename "$url")
+fetch_command="curl ${rvm_proxy:+-x}${rvm_proxy:-} -f -L --create-dirs -C - -o ${archive}"
+rvm_debug "Fetching: $url"
+rvm_debug "Fetch command: $fetch_command"
 
-if [[ -z "$1" ]] ; then
+download=1
+try_ftp=0
+result=0
+retry=0
 
-  rvm_error "BUG: $0 called without an argument :/"
+__rvm_checksum_read "$url" "$archive"
 
-  exit 1
-fi
+__rvm_checksum_any || (( ${rvm_verify_downloads_flag:-0} > 0 )) ||
+  rvm_fail "There is no checksum for '$url' or '$archive', it's not possible to validate it.
+If you wish to continue with unverified download add '--verify-downloads 1' after the command.
+"
 
-url="$1"; download=1 ; package_name="$2"
-
-if ! builtin command -v curl > /dev/null ; then
-
-  rvm_error "rvm requires curl. curl was not found in your active path."
-
-  exit 1
-
-elif [[ ! -z ${rvm_proxy} ]] ; then
-
-  fetch_command="curl -x${rvm_proxy} -f -L --create-dirs -C - " # -s for silent
-
-else
-
-  fetch_command="curl -f -L --create-dirs -C - " # -s for silent
-
-fi
-
-if [[ ! -z "$package_name" ]] ; then
-
-  fetch_command="${fetch_command} -o ${package_name} "
-
-  archive="$package_name"
-
-else
-
-  fetch_command="${fetch_command} -O "
-
-  archive=$(basename "$url")
-
-fi
-
-[[ ${rvm_debug_flag:-0} -gt 0 ]] && rvm_debug "Fetching $archive"
-
-# Check first if we have the correct archive
-archive_md5="$("$rvm_scripts_path/db" "$rvm_path/config/md5" "$archive" | head -n1)"
-if [[ -z "$archive_md5" ]]
+if
+  [[ -e "$archive" ]]
 then
-  archive_md5="$("$rvm_scripts_path/db" "$rvm_user_path/md5" "$archive" | head -n1)"
-fi
-
-if [[ -e "$archive" && ! -z "$archive_md5" ]] ; then
-
-  [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
-    rvm_debug "Found archive and its md5, testing correctness"
-
-  if ! "$rvm_scripts_path"/md5 "$rvm_archives_path/${archive}" "$archive_md5" ; then
-
-    [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
-      rvm_debug "Archive md5 did not match, downloading"
-
-    download=1
-
-  else
-
-    [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
-      rvm_debug "Archive md5 matched, not downloading"
-
+  # Check first if we have the correct archive
+  if
+    __rvm_checksum_validate_file "$rvm_archives_path/${archive}"
+  then
+    rvm_debug "Archive checksum matched, not downloading"
     download=0
-
-    result=0
-
-  fi
-
-else
-
-  [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
-    rvm_debug "No archive or no MD5, downloading"
-
-  download=1
-
-fi
-
-# try to convert the http url to a ftp url
-ftp_url="$(echo "$url" | sed -e 's/http:/ftp:/')"
-
-if [[ $download -gt 0 ]] ; then
-
-  rm -f $archive
-
-  eval $fetch_command "$url" ; result=$?
-
-  if [[ $result -gt 0 ]] ; then
-
-    retry=0
-
-    try_ftp=0
-
-    if [[ $result -eq 78 ]] ; then
-
-      rvm_error "The requested url does not exist: '$url'"
-
-      try_ftp=1
-
-    elif [[ $result -eq 22 ]] ; then
-
-      rvm_error "The requested url does not exist: '$url'"
-
-      try_ftp=1
-
-    elif [[ $result -eq 18 ]] ; then
-
-      rvm_error "Partial file. Only a part of the file was transferred. Removing partial and re-trying."
-
-      rm -f "$archive"
-
-      retry=1
-
-    elif [[ $result -eq 33 ]] ; then
-
-      [[ ${rvm_debug_flag:-0} -gt 0 ]] && \
-        rvm_debug "Server does not support 'range' command, removing '$archive'"
-
-      rm -f "$archive"
-
-      retry=1
-
-    else
-
-      rvm_error "There was an error, please check ${rvm_log_path}/$rvm_ruby_string/*.log. Next we'll try to fetch via http."
-
-      try_ftp=1
-
-    fi
-
-    if [[ $retry -eq 1 ]] ; then
-      eval $fetch_command "$url" ; result=$?
-
-      if [[ $result -gt 0 ]] ; then
-
-        rvm_error "There was an error, please check ${rvm_log_path}/$rvm_ruby_string/*.log"
-
-      else
-
-        record_md5
-
-      fi
-
-    fi
-
-    if [[ $try_ftp -eq 1 ]] ; then
-
-      rvm_log "Trying ftp:// URL instead."
-
-      eval $fetch_command "$ftp_url" ; result=$?
-
-      if [[ $result -gt 0 ]] ; then
-
-        rvm_error "There was an error, please check ${rvm_log_path}/$rvm_ruby_string/*.log"
-
-      else
-
-        record_md5
-
-      fi
-
-    fi
-
   else
-
-    record_md5
-
+    case $? in
+      (1) rvm_warn "Archive checksum not found, downloading again." ;;
+      (*) rvm_warn "Archive checksum did not match, downloading again." ;;
+    esac
+    download=1
   fi
-
+else
+  rvm_debug "No archive, downloading"
+  download=1
 fi
 
-exit $result
+if
+  (( download > 0 ))
+then
+  rm -f $archive
+  if
+    eval $fetch_command "$url"
+  then
+    true
+  else
+    result=$?
+    case "$result" in
+      (22|78)
+        rvm_error "The requested url does not exist($result): '$url'"
+        try_ftp=1
+        ;;
+      (18)
+        rvm_error "Partial file($result). Only a part of the file was transferred. Removing partial and re-trying."
+        rm -f "$archive"
+        retry=1
+        ;;
+      (33)
+        rvm_debug "Server does not support 'range' command($result), removing '$archive'"
+        rm -f "$archive"
+        retry=1
+        ;;
+      (*)
+        rvm_error "There was an error($result), please check ${rvm_log_path}/$rvm_ruby_string/*.log. Next we'll try to fetch via http."
+        try_ftp=1
+        ;;
+    esac
+    if
+      [[ $try_ftp -eq 1 ]]
+    then
+      rvm_log "Trying ftp:// URL instead."
+      url="${url/http:/ftp:/}"
+    fi
+    if
+      [[ $try_ftp -eq 1 || $retry -eq 1 ]]
+    then
+      eval $fetch_command "$url"
+      result=$?
+    fi
+    (( result == 0 )) ||
+      rvm_fail "There was an error($result), please check ${rvm_log_path}/$rvm_ruby_string/*.log" $result
+  fi
+fi
+
+# Check if we have downloaded the correct archive
+if
+  __rvm_checksum_validate_file "$rvm_archives_path/${archive}"
+then
+  rvm_debug "Downloaded archive checksum matched."
+else
+  result=$?
+  if
+   (( result==1 && ${rvm_verify_downloads_flag:-0}>0 ))
+  then
+    rvm_warn "No checksum for downloaded archive, recording checksum in user configuration."
+    __rvm_checksum_calculate_file "$archive"
+    __rvm_checksum_write          "$archive"
+  elif
+   (( result>1  && ${rvm_verify_downloads_flag:-0}>1 ))
+  then
+    rvm_warn "Downloaded archive checksum did not match!"
+  elif
+   (( result == 1 ))
+  then
+    rvm_fail "Downloaded archive checksum could not be verified!
+If you wish to continue with unverified download add '--verify-downloads 1' after the command.
+"
+  else
+    rm -f $archive
+    rvm_fail "Downloaded archive checksum did not match, archive was removed!
+If you wish to continue with not matching download add '--verify-downloads 2' after the command.
+"
+  fi
+fi

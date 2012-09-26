@@ -24,51 +24,43 @@ file_exists_at_url()
 
 rbx_configure_with_path()
 {
-  typeset name path
+  typeset name _opt_path
   name="${1:-}"
-  path="${2:-}"
-  [[ -d "${path}" ]] || return 1
-  [[ -d "${path}/include" ]] || return 2
+  _opt_path="${2:-}"
+  [[ -d "${_opt_path}" ]] || return 1
+  [[ -d "${_opt_path}/include" ]] || return 2
 
-  rvm_configure_args="${rvm_configure_args:-} --with-${name}-dir=${path}"
-  rvm_configure_flags="${rvm_configure_flags:-} --with-opt-dir=${path}"
+  rvm_configure_args="${rvm_configure_args:-} --with-${name}-dir=${_opt_path}"
+  rvm_configure_flags+=( --with-opt-dir="${_opt_path}" )
 
   return 0
 }
 
 
-rbx_install()
+rubinius_install()
 {
   typeset rvm_configure_args
-  rvm_log "$rvm_ruby_string installing #dependencies "
-
-  if ! __rvm_ensure_has_mri_ruby
-  then
-    rvm_log "No MRI ruby found, cannot build rbx."
-    return 1
-  fi
-
-  export ruby="$(__rvm_mri_ruby)"
-
-  # TODO: use 'rvm gems load' here:
+  typeset -a rvm_ruby_configure
   unset CFLAGS LDFLAGS ARCHFLAGS # Important.
   unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
-
-  __rvm_remove_rvm_from_path
-
-  __rvm_conditionally_add_bin_path
   export PATH
+  export ruby="$(__rvm_mri_ruby)"
 
-  builtin hash -r
+  rvm_log "$rvm_ruby_string installing #dependencies "
+  __rvm_ensure_has_mri_ruby ||
+  {
+    rvm_log "No MRI ruby found, cannot build rbx."
+    return 1
+  }
+  __rvm_remove_rvm_from_path
+  __rvm_conditionally_add_bin_path
 
+  # #RBX 2.0 should now use libyaml which is for Psych.
   case ${rvm_ruby_string} in
     rbx-head*|rbx-2.*)
-      # #RBX 2.0 should now use libyaml which is for Psych.
-      if ! libyaml_installed
-      then libyaml # Installs libyaml
-      fi
-
-      rbx_configure_with_path libyaml "$rvm_path/usr" || {
+      libyaml_installed || libyaml
+      rbx_configure_with_path libyaml "$rvm_path/usr" ||
+      {
         rvm_error "Could not find 'lib' dir for libyaml, please make sure libyaml is compiled properly."
         return 1
       }
@@ -105,7 +97,7 @@ rbx_install()
       exit $result
     fi
     __rvm_run "extract" \
-      "gunzip < \"${rvm_archives_path}/$(basename ${rvm_ruby_package_file})\" | $rvm_tar_command xf - -C ${rvm_src_path} ${rvm_tar_options:-}" \
+      "$rvm_tar_command xzf \"${rvm_archives_path}/$(basename ${rvm_ruby_package_file})\" -C ${rvm_src_path} ${rvm_tar_options:-}" \
       "$rvm_ruby_string - #extracting"
     result=$?
 
@@ -149,21 +141,23 @@ rbx_install()
 
   __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
 
-  rvm_configure_flags="${rvm_configure_flags:-"--skip-system"}"
+  (( ${#rvm_configure_flags[@]} )) || rvm_configure_flags=( --skip-system )
+  rvm_ruby_configure=(
+    $rvm_wrappers_path/$ruby/ruby "${rvm_configure_env[@]}" ./configure --prefix="$rvm_ruby_home"
+    $db_configure_flags "${rvm_configure_flags[@]}"
+  )
 
-  rvm_ruby_configure="$rvm_wrappers_path/$ruby/ruby ${rvm_configure_env:-""} ./configure --prefix=$rvm_ruby_home $db_configure_flags $rvm_configure_flags ${rvm_install_args:-}"
-
+  # Explicitly disabled
   if (( ${rvm_llvm_flag:=1} == 0 ))
-  then # Explicitely disabled
-    rvm_ruby_configure="$rvm_ruby_configure --disable-llvm"
+  then rvm_ruby_configure+=( --disable-llvm )
   fi
 
-  __rvm_run "configure" "$rvm_ruby_configure" "$rvm_ruby_string - #configuring"
+  __rvm_log_command "configure" "$rvm_ruby_string - #configuring" "${rvm_ruby_configure[@]}"
   result=$?
 
   if (( result > 0 ))
   then
-    rvm_error "There has been an error while running '$rvm_ruby_configure'.  \nHalting the installation."
+    rvm_error "There has been an error while running '${rvm_ruby_configure[*]}'.  \nHalting the installation."
     exit $result
   fi
 

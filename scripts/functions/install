@@ -2,72 +2,44 @@
 
 __rvm_record_install()
 {
+  [[ -n "$1" ]] || return
 
-  typeset recorded_ruby_name rvm_install_record_file rvm_install_command
-
-  [[ -z "$1" ]] && return
-
-  recorded_ruby_name="$("$rvm_scripts_path/tools" strings "$1")"
-
+  typeset recorded_ruby_name rvm_install_record_file
+  recorded_ruby_name="$( "$rvm_scripts_path/tools" strings "$1" )"
   rvm_install_record_file="$rvm_user_path/installs"
 
-  rvm_install_command=$(printf "%b" "$recorded_ruby_name $rvm_install_args\n")
+  [[ -f "$rvm_install_record_file" ]] || \touch "$rvm_install_record_file"
+  __rvm_sed_i "$rvm_install_record_file" -e "/^$recorded_ruby_name/d"
 
-  [[ ! -f "$rvm_install_record_file" ]] && \touch "$rvm_install_record_file"
-
-  \rm -f "$rvm_install_record_file.tmp"
-
-  GREP_OPTIONS="" \grep -v "^$recorded_ruby_name " < "$rvm_install_record_file" \
-    > "$rvm_install_record_file.tmp"
-
-  echo "$rvm_install_command" >> "$rvm_install_record_file.tmp"
-
-  \rm -f "$rvm_install_record_file"
-
-  \mv "$rvm_install_record_file.tmp" "$rvm_install_record_file"
-
-  return 0
+  #TODO: use `for` so  rvm_configure_flags are quoted properly
+  printf "%b" "$recorded_ruby_name -- ${rvm_configure_flags[*]}\n" >> "$rvm_install_record_file"
 }
 
 __rvm_remove_install_record()
 {
   typeset recorded_ruby_name rvm_install_record_file
-
-  recorded_ruby_name="$("$rvm_scripts_path/tools" strings "$1")"
-
+  recorded_ruby_name="$( "$rvm_scripts_path/tools" strings "$1" )"
   rvm_install_record_file="$rvm_user_path/installs"
 
-  if [[ -s "$rvm_install_record_file" ]]; then
-
-    \mv "$rvm_install_record_file" "$rvm_install_record_file.tmp"
-
-    GREP_OPTIONS="" \grep -v "^$recorded_ruby_name " < "$rvm_install_record_file.tmp" \
-      > "$rvm_install_record_file"
-
-    \rm -f "$rvm_install_record_file.tmp"
+  if [[ -s "$rvm_install_record_file" ]]
+  then __rvm_sed_i "$rvm_install_record_file" -e "/^$recorded_ruby_name/d"
   fi
-
-  return 0
 }
 
 __rvm_recorded_install_command()
 {
-  typeset recorded_ruby_name recorded_ruby_match
+  typeset recorded_ruby_name
+  recorded_ruby_name="$( "$rvm_scripts_path/tools" strings "$1" )"
+  recorded_ruby_name=${recorded_ruby_name%%${rvm_gemset_seperator:-"@"}*}
 
-  recorded_ruby_name="$("$rvm_scripts_path/tools" strings "$1" \
-    | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
+  [[ -n "$recorded_ruby_name" ]] || return 1
 
-  [[ -z "$recorded_ruby_name" ]] && return 1
-
-  recorded_ruby_match="^$recorded_ruby_name "
-
-  if [[ -s "$rvm_user_path/installs" ]] \
-    && GREP_OPTIONS="" \grep "$recorded_ruby_match" "$rvm_user_path/installs" >/dev/null 2>&1 ; then
-
-    GREP_OPTIONS="" \grep "$recorded_ruby_match" < "$rvm_user_path/installs" | head -n1
-
+  if
+    [[ -s "$rvm_user_path/installs" ]] &&
+    GREP_OPTIONS="" \grep "^$recorded_ruby_name " "$rvm_user_path/installs" >/dev/null 2>&1
+  then
+    GREP_OPTIONS="" \grep "^$recorded_ruby_name " "$rvm_user_path/installs" | head -n 1
   else
     return 1
   fi
-  return $?
 }

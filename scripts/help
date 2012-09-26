@@ -4,47 +4,65 @@ rvm_base_except="selector"
 
 source "$rvm_scripts_path/base"
 
-args=($*)
+# check longest paths first
+__rvm_help_find()
+{
+  typeset _full_name
+  typeset -a _full_paths
 
-_command="${args[$__array_start]}"
-args[$__array_start]=""
-args=(${args[@]})
+  _full_name=""
+  _full_paths=()
+  _matched=""
 
-action="${args[$array_start]}"
-args[$__array_start]=""
-args=(${args[@]})
+  # start with shortest, build path and prepend it to beginning
+  while (( $# > 0 ))
+  do
+    _full_name="${_full_name:-}${1:-}"
+    _full_paths=( "${_full_name}" "${_full_paths[@]}" )
+    _full_name="${_full_name:-}_/"
+    shift
+  done
 
-if [[ -n "$_command" && -s "${rvm_help_path}/${_command}" ]] ; then
+  for _full_name in "${_full_paths[@]}"
+  do
+    if
+      [[ -n "${_full_name}" && -s "${rvm_help_path}/${_full_name}" ]]
+    then
+      echo "${rvm_help_path}/${_full_name}"
+      return 0
+    fi
+  done
+  return 1
+}
 
-  if [[ -n "$action" && -s "${rvm_help_path}/${_command}/${action}" ]] ; then
+__rvm_help()
+{
+  typeset _matched
 
-    __rvm_pager_or_cat_v "${rvm_help_path}/${_command}/${action}"
-
+  if
+    _matched="$(__rvm_help_find "$@")"
+  then
+    __rvm_pager_or_cat_v "${_matched}"
   else
+    [[ -z "$1" ]] || rvm_error "Documentation for 'rvm $*' not found"
 
-    __rvm_pager_or_cat_v "${rvm_help_path}/${_command}"
+    cat "${rvm_path:-$HOME/.rvm}/README" | sed '1,2d' | __rvm_pager_or_cat_v -
 
+    rvm_log "
+  Commands available with 'rvm help':
+
+      $(builtin cd "${rvm_help_path}" ; find . -maxdepth 1 -mindepth 1 -type f -print | \tr "\n" ' ' | sed -e 's#./##g')
+  "
   fi
 
-else
-
-  __rvm_pager_or_cat_v "${rvm_path:-$HOME/.rvm}/README" | sed '1,2d'
-
   rvm_log "
-Commands available with 'rvm help':
+  For additional information please visit RVM's documentation website:
 
-    $(builtin cd "${rvm_help_path}" ; find . -maxdepth 1 -mindepth 1 -type f -print | \tr "\n" ' ' | sed -e 's#./##g')
-"
-fi
+      https://rvm.io/
 
-rvm_log "
-For additional information please visit RVM's documentation website:
+  If you still cannot find what an answer to your question, find me 'wayneeseguin' in #rvm on irc.freenode.net:
 
-    https://rvm.io/
-
-If you still cannot find what an answer to your question, find me 'wayneeseguin' in #rvm on irc.freenode.net:
-
-    http://webchat.freenode.net/?channels=rvm
-"
-
-exit $?
+      http://webchat.freenode.net/?channels=rvm
+  "
+}
+__rvm_help "$@"

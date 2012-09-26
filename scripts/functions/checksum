@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+
+__rvm_md5_calculate()
+{
+  typeset _sum
+  if
+    builtin command -v md5 > /dev/null 2>&1
+  then
+    md5 -q "$@"
+    return $?
+  elif
+    builtin command -v md5sum > /dev/null 2>&1
+  then
+    _sum=$(md5sum "$@")
+    echo ${_sum%% *}
+    return 0
+  else
+    for _path in /usr/gnu/bin /sbin /bin /usr/bin /usr/sbin
+    do
+      if
+        [[ -x "${_path}/md5" ]]
+      then
+        ${_path}/md5 -q "$@"
+        return $?
+      elif
+        [[ -x "${_path}/md5sum" ]]
+      then
+        _sum=$(${_path}/md5sum "$@")
+        echo ${_sum%% *}
+        return 0
+      fi
+    done
+  fi
+
+  rvm_error "Neither md5sum nor md5 found in the PATH"
+  return 1
+}
+
+__rvm_sha__calculate()
+{
+  typeset bits _sum
+  bits=${1:-512}
+  shift
+
+  if
+    builtin command -v sha${bits}sum >/dev/null
+  then
+    _sum=$(sha${bits}sum    "$@")
+    echo ${_sum% *}
+    return 0
+  elif
+    builtin command -v sha${bits}    >/dev/null
+  then
+    _sum=$(sha${bits}       "$@")
+    echo ${_sum% *}
+    return 0
+  elif
+    builtin command -v shasum    >/dev/null
+  then
+    _sum=$(shasum -a${bits} "$@")
+    echo ${_sum% *}
+    return 0
+  fi
+
+  rvm_error "Neither sha512sum nor shasum found in the PATH"
+  return 1
+}
+
+# __rvm_checksum_calculate_file {file}
+# ENV out: _checksum_md5 _checksum_sha512
+__rvm_checksum_calculate_file()
+{
+  _checksum_md5="$(    __rvm_md5_calculate      "${1:-}" )"
+  _checksum_sha512="$( __rvm_sha__calculate 512 "${1:-}" )"
+}
+
+__rvm_checksum_none() [[ -z "${_checksum_md5:-}" && -z "${_checksum_sha512:-}" ]]
+__rvm_checksum_any()  [[ -n "${_checksum_md5:-}" || -n "${_checksum_sha512:-}" ]]
+__rvm_checksum_all()  [[ -n "${_checksum_md5:-}" && -n "${_checksum_sha512:-}" ]]
+
+# __rvm_checksum_validate_file {file}
+# ENV in: _checksum_md5 _checksum_sha512
+__rvm_checksum_validate_file()
+{
+  __rvm_checksum_any || return 1
+  if
+    [[ -n "${_checksum_md5:-}" ]]
+  then
+    [[ "$(__rvm_md5_calculate "${1:-}")" == "${_checksum_md5:-}" ]] || return 2
+  fi
+  if
+    [[ -n "${_checksum_sha512:-}" ]]
+  then
+    [[ "$(__rvm_sha__calculate 512 "${1:-}")" == "${_checksum_sha512:-}" ]] || return 3
+  fi
+  return 0
+}
+
+# __rvm_checksum_read {name...}
+# name - list of names to check, like:
+#
+#     __rvm_checksum_read https://rvm.io/binaries/.../ruby-1.9.3-p194.tar.bz2 bin-ruby-1.9.3-p194.tar.bz2
+#
+# ENV in/out: _checksum_md5 _checksum_sha512
+__rvm_checksum_read()
+{
+  __rvm_checksum_none || return 0
+  typeset _type _value _name
+  typeset -a _list
+  list=()
+
+  for _name in "$@"
+  do
+    list+=( "$_name" )
+    if
+      [[ "$_name" =~ "?" ]] # try url without ?... like ?rvm={version}
+    then
+      list+=( "${_name%\?*}" )
+    fi
+  done
+
+  for _name in "${list[@]}"
+  do
+    _checksum_md5="$(      "$rvm_scripts_path/db" "$rvm_path/config/md5"    "$_name" | head -n 1 )"
+    [[ -n "${_checksum_md5:-}" ]] ||
+      _checksum_md5="$(    "$rvm_scripts_path/db" "$rvm_user_path/md5"      "$_name" | head -n 1 )"
+
+    _checksum_sha512="$(   "$rvm_scripts_path/db" "$rvm_path/config/sha512" "$_name" | head -n 1 )"
+    [[ -n "${_checksum_sha512:-}" ]] ||
+      _checksum_sha512="$( "$rvm_scripts_path/db" "$rvm_user_path/sha512"   "$_name" | head -n 1 )"
+
+    __rvm_checksum_none || return 0
+  done
+
+  return 1 # not found
+}
+
+# Record checksums in user settings
+# Usage: __rvm_checksum_write {name}
+# ENV in/out: _checksum_md5 _checksum_sha512
+__rvm_checksum_write()
+{
+  [[ -n "${1:-}" ]]  || return 1
+  __rvm_checksum_any || return 1
+
+  [[ -z "${_checksum_md5:-}"    ]] || "$rvm_scripts_path/db" "$rvm_user_path/md5"    "${1:-}" "${_checksum_md5:-}"
+  [[ -z "${_checksum_sha512:-}" ]] || "$rvm_scripts_path/db" "$rvm_user_path/sha512" "${1:-}" "${_checksum_sha512:-}"
+
+  return 0
+}

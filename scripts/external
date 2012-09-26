@@ -6,7 +6,7 @@ external_automount()
 {
   external_mount_uniq $(
     __rvm_remove_rvm_from_path
-    which -a ruby
+    __rvm_which -a ruby
   )
 }
 
@@ -14,7 +14,6 @@ external_grep_existing()
 {
   typeset IFS
   typeset -a existing
-  IFS="|"
   existing=( $(
     for ext in $rvm_externals_path/*
     do
@@ -24,7 +23,8 @@ external_grep_existing()
       fi
     done
   ) )
-  : existing:${existing[@]}:
+  IFS="|"
+  rvm_debug "existing:${existing[*]}:"
   if (( ${#existing[@]} > 0 ))
   then
     GREP_OPTIONS="" \grep -vE "${existing[@]}" -
@@ -65,30 +65,30 @@ external_mount_uniq()
 
 external_mount()
 {
-  typeset path ruby_path prefix_path
-  path="$1"
-  if [[ ! -d "${path}" && -x "${path}" ]] && "${path}" --version | GREP_OPTIONS="" \grep rub >/dev/null
+  typeset _given_path ruby_path prefix_path
+  _given_path="$1"
+  if [[ ! -d "${_given_path}" && -x "${_given_path}" ]] && "${_given_path}" --version | GREP_OPTIONS="" \grep rub >/dev/null
   then
-    ruby_path="${path}"
-    prefix_path="$("${path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']")"
-  elif [[ -d "${path}" && -x "${path}/bin/ruby" ]] && "${path}/bin/ruby" --version | GREP_OPTIONS="" \grep rub >/dev/null
+    ruby_path="${_given_path}"
+    prefix_path="$("${_given_path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']")"
+  elif [[ -d "${_given_path}" && -x "${_given_path}/bin/ruby" ]] && "${_given_path}/bin/ruby" --version | GREP_OPTIONS="" \grep rub >/dev/null
   then
-    ruby_path="${path}/bin/ruby"
+    ruby_path="${_given_path}/bin/ruby"
     prefix_path="$("${ruby_path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']")"
-    if [[ "${path}" != "${prefix_path}" ]]
+    if [[ "${_given_path}" != "${prefix_path}" ]]
     then
-      rvm_error "The given path '$path' contains ruby but it has different prefix '$prefix_path'."
+      rvm_error "The given path '$_given_path' contains ruby but it has different prefix '$prefix_path'."
       exit 2
     fi
   else
-    rvm_error "The given path '$path' does not point to a ruby installation."
+    rvm_error "The given path '$_given_path' does not point to a ruby installation."
     exit 3
   fi
 
-  if [[ -z "${rvm_ruby_name:-}" ]]
+  if [[ -z "${rvm_ruby_string:-}" ]]
   then
     if ! external_select_name "${ruby_path}" "${prefix_path}" ||
-      [[ -z "${rvm_ruby_name:-}" ]]
+      [[ -z "${rvm_ruby_string:-}" ]]
     then
       rvm_error "No name selected for ruby in '$prefix_path'."
       exit 4
@@ -99,7 +99,7 @@ external_mount()
     unset GEM_HOME
     "${prefix_path}/bin/gem" env gemhome
   )
-  rvm_ruby_string="ext-${rvm_ruby_name}"
+  rvm_ruby_string="ext-${rvm_ruby_string}"
   echo "Mounting '${rvm_ruby_string}' from '${prefix_path}'"
 
   mkdir -p "$rvm_externals_path"
@@ -136,7 +136,7 @@ external_mount()
 external_select_name()
 {
   typeset proposed_name ruby_version ruby_path prefix_path
-  export rvm_ruby_name
+  export rvm_ruby_string
     ruby_path="$1"
   prefix_path="$2"
   ruby_version="$( "${ruby_path}" --version)"
@@ -146,9 +146,9 @@ external_select_name()
   then
     echo "Found '${ruby_version}' in '${prefix_path}'"
     printf "\n# Please enter name [${proposed_name}]: "
-    read rvm_ruby_name
+    read rvm_ruby_string
     printf "\n"
-    : rvm_ruby_name:${rvm_ruby_name:=${proposed_name}}:
+    : rvm_ruby_string:${rvm_ruby_string:=${proposed_name}}:
   else
     echo "Name not found for '${ruby_path}' in '${prefix_path}'"
     false
@@ -228,19 +228,219 @@ external_propose_name()
   esac
 }
 
-args=( "$@" )
-action="${args[__array_start]}"
-unset args[__array_start]
-args=( "${args[@]}" )
+external_import_configure()
+{
+  typeset platform architecture libc
+
+  if (( ${rvm_install_flag:-0} > 0 ))
+  then err_command=rvm_warn
+  else err_command=rvm_error
+  fi
+
+  rvm_ruby_url="$1"
+  rvm_ruby_string="${2:-${rvm_ruby_url}}"
+
+  [[ -r "${rvm_ruby_url}" ]] ||
+  case "${rvm_ruby_url}" in
+    (http*) true ;;
+    (*)
+      __rvm_ruby_string
+      rvm_ruby_url="$(__rvm_remote_server_path "${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}" )"
+      ;;
+  esac
+
+  rvm_ruby_string="${rvm_ruby_string##*/}"
+  rvm_ruby_string="${rvm_ruby_string%.t*}"
+  rvm_ruby_package_file="bin-${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}"
+}
+
+external_import_download()
+{
+  typeset downloaded_names
+
+  if
+    [[ -r "${rvm_ruby_url}" ]]
+  then
+    cp -f "${rvm_ruby_url}" "$rvm_archives_path/${rvm_ruby_package_file}" || {
+      $err_command "Copying ${rvm_ruby_url} failed."
+      return 3
+    }
+  else
+    "$rvm_scripts_path/fetch" "${rvm_ruby_url}?rvm=${rvm_version%% *}" "${rvm_ruby_package_file}" || {
+      $err_command "Downloading ${rvm_ruby_url} failed."
+      return 2
+    }
+  fi
+
+  downloaded_names="$(
+    tar tjf "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
+  )"
+  [[ "${rvm_ruby_string}" == "${downloaded_names}" ]] || {
+    $err_command "The downloaded package ${rvm_ruby_url} contains '${downloaded_names}' instead of '${rvm_ruby_string}'."
+    return 4
+  }
+}
+
+external_import_extract()
+{
+  builtin cd "${rvm_rubies_path}"
+  tar xjf "$rvm_archives_path/${rvm_ruby_package_file}" || {
+    $err_command "Unpacking ${rvm_ruby_package_file} failed."
+    return 6
+  }
+  [[ -d "${rvm_rubies_path}/${rvm_ruby_string}" ]] || {
+    $err_command "Ruby directory was not created, make "
+    return 8
+  }
+}
+
+# validate libraries - make sure everything can be loaded
+external_import_validate()
+{
+  typeset IFS
+  typeset -a missing_libs
+  export _libdir
+  _libdir="$( "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["libdir"]' )"
+  missing_libs=( $(
+    case $(uname) in
+      (Linux)
+        find "${rvm_rubies_path}/${rvm_ruby_string}" -name '*.so' |
+          xargs env LD_LIBRARY_PATH="${_libdir}" ldd 2>/dev/null |
+          awk '/not found/{print $1}' | sort -u
+        ;;
+      (Darwin)
+        find "${rvm_rubies_path}/${rvm_ruby_string}" -name "*.bundle" |
+          xargs env LD_LIBRARY_PATH=/Users/mpapis/.rvm/rubies/ruby-1.9.3-p194/lib otool -L 2>&1 |
+          awk -F"[ :]" '{print $1}' |
+          sed 's#@executable_path#'"${rvm_rubies_path}/${rvm_ruby_string}"'/bin#' |
+          xargs ls -1 2>&1 1>/dev/null |
+          awk -F"[ :]" '{print $3}' | sort -u
+        ;;
+      (*)
+        rvm_warn "$(uname) libraries validation not yet implemented" >&2
+        ;;
+    esac
+  ) )
+  unset _libdir
+  [[ -z "${missing_libs[*]}" ]] || {
+    IFS=","
+    $err_command "Libraries missing for ${rvm_ruby_string}: ${missing_libs}. Refer to your system manual for installing libraries"
+    return 10
+  }
+}
+
+external_import_setup()
+{
+  rvm_create_flag=1 __rvm_use
+
+  __rvm_bin_script # environment + wrappers
+
+  if (( ${rvm_skip_gemsets_flag:-0} == 0 ))
+  then
+    rvm_create_flag=1 __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
+      "'$rvm_scripts_path/gemsets' initial" \
+      "$rvm_ruby_string - #importing default gemsets ($rvm_gemsets_path/)"
+  else
+    mkdir -p "$rvm_gems_path/$rvm_ruby_string@global/bin"
+    rvm_log "Skipped importing default gemsets"
+  fi
+
+  __rvm_record_install "$rvm_ruby_string"
+}
+
+external_import()
+{
+  typeset step err_command rvm_ruby_url rvm_ruby_string rvm_ruby_package_file
+
+  for step in configure download extract validate setup
+  do
+    rvm_log "${rvm_ruby_string:-$1} - #$step"
+    external_import_${step} "$@" || return $?
+  done
+}
+
+external_prepare()
+{
+  typeset remote_shell
+  rvm_ruby_string="${1:-}"
+  remote_shell="${2:-}"
+  shift || [[ -n "${rvm_ruby_string}" ]] || {
+    rvm_error_help "Missing ruby name to export for prepare." external prepare
+    return 3
+  }
+  __rvm_ruby_string
+
+  external_prepare_package &&
+  external_prepare_upload "${remote_shell}"
+}
+
+external_prepare_package()
+{
+  if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
+  then
+    if
+      (( ${rvm_install_flag:-0} > 0 ))
+    then
+      rvm_configure_flags+=( --enable-shared --enable-load-relative --sysconfdir=/etc )
+      __rvm_manage_wrapper install "${rvm_ruby_string}" || return $?
+    else
+      rvm_error "Ruby ${rvm_ruby_string} does not exist, maybe install first?."
+      return 2
+    fi
+  fi
+
+  rvm_log "Preparing ${rvm_ruby_string} ..."
+  tar cjf "${rvm_ruby_string}.tar.bz2" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
+  rvm_log "Prepared ${rvm_ruby_string}.tar.bz2."
+}
+
+#TODO: move to SMF ! RVM2 ?
+external_prepare_upload()
+{
+  typeset remote_shell remote_directory system_path remote_file local_file
+
+  remote_shell="${1:-rvm@rvm.io:~/shared/public/binaries}"
+  remote_directory="${remote_shell#*:}/$(__rvm_system_path - )"
+  remote_shell="${remote_shell%:*}"
+  local_file="${rvm_ruby_string}.tar.bz2"
+  remote_file="$( __rvm_remote_server_path "${local_file}" )"
+
+  rvm_log "--- upload:"
+  printf "%b" "ssh \"$remote_shell\" \"mkdir -p $remote_directory/\"\n"
+  printf "%b" "scp \"${local_file}\" \"$remote_shell:$remote_directory/${local_file}\"\n"
+  rvm_log "--- rvm/config/remote:"
+  printf "%b" "${remote_file}\n"
+  rvm_log "--- rvm/config/md5:"
+  printf "%b" "${remote_file}=$( __rvm_md5_calculate      "${rvm_ruby_string}.tar.bz2" )\n"
+  rvm_log "--- rvm/config/sha512:"
+  printf "%b" "${remote_file}=$( __rvm_sha__calculate 512 "${rvm_ruby_string}.tar.bz2" )\n"
+}
+
+action="${1:-}"
+shift || {
+  rvm_error_help "Missing action for external." external
+  exit 1
+}
+
+# skip first param if empty
+[[ -n "${1:-}" ]] || (( $#==0 )) || shift
 
 case "${action}" in
-  (automount)
-    external_$action
+  (automount|prepare)
+    external_$action "$@"
     ;;
   (mount|*_name)
-    external_mount_uniq "${args[@]}"
+    if
+      (( rvm_remote_flag > 0 )) ||
+      [[ "${next_token:-}" =~ ^http || "${next_token:-}" =~ tar.bz2$ ]]
+    then
+      external_import "$@"
+    else
+      external_mount_uniq "$@"
+    fi
     ;;
   (*)
-    echo "Wrong action '$action'"
+    rvm_error_help "Wrong action for external '$action'." external $action
+    exit 2
     ;;
 esac

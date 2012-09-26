@@ -8,8 +8,9 @@ __rvm_select()
   _original_env_string=${rvm_env_string}
 
   # Set Variable Defaults
+  export -a rvm_configure_flags rvm_patch_names rvm_ree_options rvm_make_flags
   export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
-  export rvm_env_string rvm_action rvm_alias_expanded rvm_archive_extension rvm_bin_flag rvm_bin_path rvm_configure_flags rvm_debug_flag rvm_default_flag rvm_delete_flag rvm_docs_type rvm_dump_environment_flag rvm_error_message rvm_expanding_aliases rvm_file_name rvm_gemdir_flag rvm_gemset_name rvm_gemstone_package_file rvm_gemstone_url rvm_head_flag rvm_hook rvm_install_args rvm_install_on_use_flag rvm_llvm_flag rvm_loaded_flag rvm_make_flags rvm_niceness rvm_nightly_flag rvm_only_path_flag rvm_parse_break rvm_patch_names rvm_patch_original_pwd rvm_pretty_print_flag rvm_proxy rvm_quiet_flag rvm_ree_options rvm_reload_flag rvm_remove_flag rvm_ruby_alias rvm_ruby_aliases rvm_ruby_args rvm_ruby_binary rvm_ruby_bits rvm_ruby_configure rvm_ruby_file rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_global_gems_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_load_path rvm_ruby_major_version rvm_ruby_make rvm_ruby_make_install rvm_ruby_minor_version rvm_ruby_mode rvm_ruby_name rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_patch rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_require rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_sha rvm_ruby_string rvm_ruby_strings rvm_ruby_tag rvm_ruby_url rvm_ruby_user_tag rvm_ruby_version rvm_script_name rvm_sdk rvm_silent_flag rvm_sticky_flag rvm_system_flag rvm_token rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_wrapper_name rvm_architectures
+  export rvm_env_string rvm_action rvm_alias_expanded rvm_archive_extension rvm_bin_flag rvm_bin_path rvm_debug_flag rvm_default_flag rvm_delete_flag rvm_docs_type rvm_dump_environment_flag rvm_error_message rvm_expanding_aliases rvm_file_name rvm_gemdir_flag rvm_gemset_name rvm_gemstone_package_file rvm_gemstone_url rvm_head_flag rvm_hook rvm_install_on_use_flag rvm_llvm_flag rvm_loaded_flag rvm_niceness rvm_nightly_flag rvm_only_path_flag rvm_parse_break rvm_patch_original_pwd rvm_pretty_print_flag rvm_proxy rvm_quiet_flag rvm_reload_flag rvm_remove_flag rvm_ruby_alias rvm_ruby_args rvm_ruby_binary rvm_ruby_bits rvm_ruby_configure rvm_ruby_file rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_global_gems_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_major_version rvm_ruby_make rvm_ruby_make_install rvm_ruby_minor_version rvm_ruby_mode rvm_ruby_name rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_patch rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_sha rvm_ruby_string rvm_ruby_strings rvm_ruby_tag rvm_ruby_url rvm_ruby_user_tag rvm_ruby_version rvm_script_name rvm_sdk rvm_silent_flag rvm_sticky_flag rvm_system_flag rvm_token rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_wrapper_name rvm_architectures
 
   if [[ -z "${rvm_ruby_string:-}" ]]
   then # First we build rvm_ruby_string from components if it is empty.
@@ -58,6 +59,7 @@ __rvm_select()
           rvm_ruby_revision="head"
           __rvm_db "macruby_repo_url" "rvm_ruby_repo_url"
           rvm_ruby_url="$rvm_ruby_repo_url"
+          rvm_disable_binary_flag=1
 
         elif [[ "nightly" == "${rvm_ruby_version:-}" ]]
         then
@@ -108,6 +110,7 @@ __rvm_select()
         rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_file"
       else
         rvm_ruby_version="head"
+        rvm_disable_binary_flag=1
       fi
 
       if [[ -n "${rvm_rbx_opt:-}" ]]
@@ -124,12 +127,14 @@ __rvm_select()
         rvm_ruby_version="head"
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
         rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
-      elif [[ ${rvm_18_flag:-0} == 1 || ${rvm_19_flag:-0} == 1 ]]
+        rvm_disable_binary_flag=1
+      elif (( ${rvm_18_flag:-0} || ${rvm_19_flag:-0} || ${#rvm_patch_names[@]} ))
       then
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
         rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
         rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "jruby_version")"}"
         rvm_ruby_tag="${rvm_ruby_tag:-${rvm_ruby_version}}"
+        rvm_disable_binary_flag=1
       else
         rvm_archive_extension="tar.gz"
         rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "jruby_version")"}"
@@ -138,6 +143,7 @@ __rvm_select()
         rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         rvm_ruby_url="${jruby_url}/${rvm_ruby_version}/${rvm_ruby_package_file}.tar.gz"
         jruby_url=""
+        rvm_disable_binary_flag=1
       fi
 
       alias jruby_ng="jruby --ng"
@@ -167,6 +173,7 @@ __rvm_select()
             GREP_OPTIONS="" \grep ^GEMSTONE | cut -f2 -d-
         )
         rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
+        rvm_disable_binary_flag=1
       else
         rvm_ruby_package_file="MagLev-${rvm_ruby_version}" # removed from 1.0: .${system}-${arch}
         rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "maglev_version")"}"
@@ -196,6 +203,7 @@ __rvm_select()
         rvm_ruby_package_name="${rvm_ruby_string}"
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "ironruby_repo_url")}"
         rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "ironruby_repo_url")}"
+        rvm_disable_binary_flag=1
 
       else
         rvm_archive_extension="zip"
@@ -258,6 +266,7 @@ __rvm_select()
       rvm_ruby_url=$rvm_ruby_repo_url
       rvm_ruby_repo_branch="${rvm_ruby_repo_branch:-"$(__rvm_db "tcs_repo_branch")"}"
       export rvm_head_flag=1
+      rvm_disable_binary_flag=1
       rvm_ruby_configure="" ; rvm_ruby_make="" ; rvm_ruby_make_install=""
       ;;
 
@@ -286,6 +295,7 @@ __rvm_select()
               rvm_archive_extension="tar.bz2"
               ;;
           esac
+        else rvm_disable_binary_flag=1
         fi
       fi
       ;;
@@ -299,8 +309,9 @@ __rvm_select()
 
     current)
       ruby_binary="$(builtin command -v ruby)"
-
-      if (( $? == 0)) && match "$ruby_binary" "*rvm*"
+      if
+        (( $? == 0)) &&
+        __rvm_string_match "$ruby_binary" "*rvm*"
       then
         rvm_ruby_string="$(dirname "$ruby_binary" | xargs dirname | xargs basename)"
       else
@@ -451,10 +462,11 @@ __rvm_use()
       if [[ ${rvm_install_on_use_flag:-0} -eq 1 ]]
       then
         rvm_warn "$rvm_ruby_string is not installed."
-        "$rvm_scripts_path/manage" "install" "$rvm_ruby_string"
+        __rvm_manage_wrapper "install" "$rvm_ruby_string"
       else
         rvm_error "$rvm_ruby_string is not installed."
         rvm_log "To install do: 'rvm install $rvm_ruby_string'"
+        export rvm_recommended_ruby="rvm install $rvm_ruby_string"
         return 1
       fi
     fi
@@ -645,7 +657,8 @@ __rvm_ruby_string()
     rvm_sticky_flag=1 # <- not sold on this.
   fi
 
-  strings=($(echo ${ruby_string//-/ }))
+  strings=()
+  __rvm_custom_separated_array strings - "${ruby_string}"
 
   if (( ${#strings[@]} == 0 ))
   then
