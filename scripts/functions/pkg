@@ -70,9 +70,12 @@ install_package()
         autoreconf "${rvm_autoconf_flags[@]}"
     fi
 
-    (( ${#configure[@]} )) ||
-      configure=( "${rvm_configure_env[@]}" ./configure --prefix="${prefix_path:-$rvm_usr_path}" )
-    configure+=( "${rvm_configure_flags[@]}" "${configure_flags[@]}" )
+    (( ${#configure[@]} )) || configure=( ./configure )
+    configure=(
+      "${rvm_configure_env[@]}"
+      "${configure[@]}" --prefix="${prefix_path:-$rvm_usr_path}"
+      "${rvm_configure_flags[@]}" "${configure_flags[@]}"
+    )
 
     __rvm_log_command "$package/configure" "Configuring $package in $rvm_src_path/$package-$version." \
       "${configure[@]}"
@@ -107,8 +110,9 @@ Please note that it's required to reinstall all rubies:
 readline()
 {
   package="readline" ; archive_format="tar.gz"
+  __rvm_update_configure_env CFLAGS="-I${rvm_usr_path}/include" LDFLAGS="-L${rvm_usr_path}/lib"
   configure=(
-    CFLAGS=-I${rvm_usr_path}/include LDFLAGS=-L${rvm_usr_path}/lib ./configure --prefix=${rvm_usr_path} --disable-dependency-tracking --disable-static --enable-shared
+    ./configure --disable-dependency-tracking --disable-static --enable-shared
   )
 
   version="5.2"
@@ -178,7 +182,7 @@ openssl()
     configure_command="./config"
   fi
   configure=(
-    $configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib --prefix=$rvm_usr_path zlib no-asm no-krb5 shared
+    $configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib zlib no-asm no-krb5 shared
   )
   install_package
   __rvm_log_command openssl.certs "Updating openssl certificates" update_openssl_certs
@@ -232,7 +236,7 @@ libxml2()
     [[ "Darwin" == "$(uname)" ]]
   then
     configure=(
-      ./configure --prefix=$rvm_usr_path --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)
+      ./configure --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)
     )
   fi
   install_package
@@ -276,9 +280,10 @@ glib()
   pkgconfig
   gettext
   package="glib" ; version="2.23.1" ; archive_format="tar.gz"
-  configure=(
-    CC="cc -L$rvm_usr_path/lib -I$rvm_usr_path/include" PKG_CONFIG="$rvm_usr_path/bin/pkg-config" ./configure --prefix="$rvm_usr_path"
-  )
+  __rvm_update_configure_env CC="cc" \
+    CFLAGS="-I${rvm_usr_path}/include" \
+    LDFLAGS="-L${rvm_usr_path}/lib" \
+    PKG_CONFIG="$rvm_usr_path/bin/pkg-config"
   install_package
 }
 
