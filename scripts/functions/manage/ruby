@@ -100,12 +100,25 @@ ruby_install()
   case ${rvm_ruby_string} in
     ruby-1.9*)
       # Ruby 1.9 should now use libyaml which is for Psych.
-      libyaml_installed || libyaml # Installs libyaml
+      if
+        [[ " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
+      then
+        # when relative is in effect libyaml is installed in ruby itself so it will be moved with ruby
+        prefix_path="${rvm_rubies_path}/${rvm_ruby_string}" libyaml
 
-      __rvm_update_configure_env CFLAGS="-I${rvm_path}/usr/include"
-      __rvm_update_configure_env LDFLAGS="-L${rvm_path}/usr/lib"
-      if [[ -d "${rvm_path}/usr/lib64" ]]
-      then __rvm_update_configure_env LDFLAGS="-L${rvm_path}/usr/lib64"
+        __rvm_update_configure_env CFLAGS="-I${rvm_rubies_path}/${rvm_ruby_string}/include"
+        __rvm_update_configure_env LDFLAGS="-L${rvm_rubies_path}/${rvm_ruby_string}/lib"
+        if [[ -d "${rvm_rubies_path}/${rvm_ruby_string}/lib64" ]]
+        then __rvm_update_configure_env LDFLAGS="-L${rvm_rubies_path}/${rvm_ruby_string}/lib64"
+        fi
+      else
+        libyaml_installed || libyaml # Installs libyaml
+
+        __rvm_update_configure_env CFLAGS="-I${rvm_path}/usr/include"
+        __rvm_update_configure_env LDFLAGS="-L${rvm_path}/usr/lib"
+        if [[ -d "${rvm_path}/usr/lib64" ]]
+        then __rvm_update_configure_env LDFLAGS="-L${rvm_path}/usr/lib64"
+        fi
       fi
 
       # Ruby 1.9 does not allow --with-<lib>-dir,
@@ -151,6 +164,18 @@ ruby_install()
 
   ( __rvm_install_source $* )
   result=$?
+
+  if
+    [[ "$MACHTYPE" == *darwin* && " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
+  then
+    typeset libyaml_lib_path_old libyaml_lib_path_new psych_lib_path target_path target_path_escaped
+    target_path="${rvm_rubies_path%/}/${rvm_ruby_string}"
+    target_path_escaped="${target_path//\//\/}"
+    libyaml_lib_path_old="$( find "$target_path/" -name libyaml-*.dylib )"
+    libyaml_lib_path_new="${libyaml_lib_path_old/${target_path_escaped}/@executable_path/..}"
+    psych_lib_path="$( find "${target_path}/" -name psych.bundle )"
+    __rvm_log_command fix.osx.dependencies "fix osx dependencies" install_name_tool -change "${libyaml_lib_path_old}" "${libyaml_lib_path_new}" "${psych_lib_path}"
+  fi
 
   if __rvm_compiler_is_llvm
   then
