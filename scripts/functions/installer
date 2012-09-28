@@ -928,6 +928,28 @@ fi
       fi
       break # process only first file found
     done
+
+    # Ubuntu does not source /etc/profile when we're running command such as "ssh my-ubuntu env"
+    # So we add source ${etc_profile_file} in /etc/bash.bashrc
+    typeset system_bashrc_file conditionnal_source_profile
+    system_bashrc_file="/etc/bash.bashrc"
+    conditionnal_source_profile="if ! type rvm >/dev/null 2>/dev/null && [ -r \"${etc_profile_file}\" ]; then source \"${etc_profile_file}\" ; fi"
+    if
+        [[ ! -f "${system_bashrc_file}" ]]
+    then
+        printf "%b" "\n${conditionnal_source_profile}\n" > "${system_bashrc_file}"
+    elif
+      ! GREP_OPTIONS="" \grep -F "${conditionnal_source_profile}" "${system_bashrc_file}"
+    then
+      typeset new_content
+      new_content=$(mktemp)
+      [ -f "${new_content}" ] && \
+          ( echo "${conditionnal_source_profile}" ; cat "${system_bashrc_file}" ) > "${new_content}" && \
+          cat "${new_content}" > "${system_bashrc_file}" && \
+          rm -f "${new_content}"
+      unset new_content
+    fi
+    unset system_bashrc_file conditionnal_source_profile
   fi
   return 0
 }
