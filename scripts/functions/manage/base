@@ -82,7 +82,7 @@ __rvm_install_source()
   (( rvm_ruby_selected_flag )) || __rvm_select
 
   rvm_log "Installing Ruby from source to: $rvm_ruby_home, this may take a while depending on your cpu(s)..."
-  builtin cd "${rvm_src_path}"
+  chpwd_functions="" builtin cd "${rvm_src_path}"
 
   if __rvm_fetch_ruby
   then true
@@ -92,7 +92,7 @@ __rvm_install_source()
     return $result
   fi
 
-  if builtin cd "${rvm_src_path}/$rvm_ruby_string"
+  if chpwd_functions="" builtin cd "${rvm_src_path}/$rvm_ruby_string"
   then true
   else
     result=$?
@@ -341,6 +341,9 @@ https://rvm.io/rubies/named/
       ;;
   esac
 
+  export -a rvm_configure_env
+  [[ -n "${rvm_configure_env[*]}" ]] || rvm_configure_env=() # zsh can assume empty var => ( '' )
+
   source "$rvm_scripts_path/functions/manage/${ruby_install_type}"
   ${ruby_install_type}_install
 
@@ -366,7 +369,7 @@ __rvm_fetch_from_git_revision_or_sha()
     [[ -n "$rvm_ruby_revision" ]]
   then
     (
-      builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+      chpwd_functions="" builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
       [[ "$rvm_ruby_revision" != "head" ]] || rvm_ruby_revision="master"
       git checkout -f "${rvm_ruby_revision}"
     )
@@ -374,7 +377,7 @@ __rvm_fetch_from_git_revision_or_sha()
     [[ -n "${rvm_ruby_sha:-}" ]]
   then
     (
-      builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+      chpwd_functions="" builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
       git checkout -f "${rvm_ruby_sha}"
     )
   fi
@@ -402,7 +405,7 @@ __rvm_fetch_from_github()
   then
     typeset existing_uri
     existing_uri="$(
-      builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}" >/dev/null
+      chpwd_functions="" builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}" >/dev/null
       git remote -v 2>/dev/null | awk '/^origin.*fetch/ {print $2}'
     )"
     if
@@ -418,7 +421,7 @@ __rvm_fetch_from_github()
     if [[ -d "${rvm_repos_path}/${rvm_ruby_interpreter}" ]]
     then \rm -rf "${rvm_repos_path}/${rvm_ruby_interpreter}"
     fi
-    builtin cd "$rvm_home"
+    chpwd_functions="" builtin cd "$rvm_home"
     if
       ! __rvm_log_command "$1.repo" "Cloning $rvm_ruby_repo_url" \
         git clone --depth 1 "$rvm_ruby_repo_url" "${rvm_repos_path}/${rvm_ruby_interpreter}"
@@ -433,7 +436,7 @@ __rvm_fetch_from_github()
   else
     typeset branch
     branch="${rvm_ruby_repo_branch:-"master"}"
-    builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+    chpwd_functions="" builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
     __rvm_log_command "$1.clean" "Cleaning git repo" __rvm_git_clean_repo
     __rvm_log_command "$1.fetch" "Fetching from origin" git fetch origin
@@ -441,7 +444,7 @@ __rvm_fetch_from_github()
 
   (
     remote="origin"
-    builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+    chpwd_functions="" builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
     if
       [[ -z "$(git branch | awk "/$rvm_ruby_repo_branch$/")" ]]
@@ -467,7 +470,7 @@ __rvm_fetch_from_github()
   __rvm_log_command "$1.copy" "Copying from repo to source..." \
     \cp -Rf "${rvm_repos_path}/${rvm_ruby_interpreter}/" "${rvm_src_path}/$rvm_ruby_string"
 
-  builtin cd "${rvm_src_path}/$rvm_ruby_string"
+  chpwd_functions="" builtin cd "${rvm_src_path}/$rvm_ruby_string"
 }
 
 __rvm_fetch_ruby()
@@ -547,7 +550,7 @@ __rvm_fetch_ruby()
 
       __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
 
-      mv "${rvm_tmp_path:-/tmp}/rvm_src_$$/$(builtin cd ${rvm_tmp_path:-/tmp}/rvm_src_$$ ; \ls )" "${rvm_src_path}/$rvm_ruby_string"
+      mv "${rvm_tmp_path:-/tmp}/rvm_src_$$/$(chpwd_functions="" builtin cd ${rvm_tmp_path:-/tmp}/rvm_src_$$ ; \ls )" "${rvm_src_path}/$rvm_ruby_string"
 
       __rvm_rm_rf "${rvm_tmp_path:-/tmp}/rvm_src_$$"
 
@@ -610,7 +613,7 @@ __rvm_fetch_ruby()
         return $?
       else
         (
-          builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+          chpwd_functions="" builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
           typeset current_url
           current_url="$(git remote -v | awk '$1=="origin" && $3=="(fetch)" {print $2}')"
           [[ "$current_url" == "$rvm_ruby_repo_url" ]] || git remote set-url origin "$rvm_ruby_repo_url"
@@ -619,7 +622,7 @@ __rvm_fetch_ruby()
 
       # Use the selected branch.
       (
-        builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+        chpwd_functions="" builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
         remote="${remote:-origin}"
         branch=$(git symbolic-ref -q HEAD 2>/dev/null)
@@ -698,7 +701,7 @@ __rvm_fetch_ruby()
         rvm_rev="-$rvm_ruby_revision"
       fi
       (
-        builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+        chpwd_functions="" builtin cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
         if
           [[ -d "${rvm_repos_path}/${rvm_ruby_interpreter}/.svn" ]]
         then
@@ -1043,7 +1046,7 @@ __rvm_manage_rubies()
       __rvm_ask_for "Are you SURE you wish to '$action' all rubies?" yes || return $?
     fi
     __rvm_read_lines rubies < <(
-      builtin cd "$rvm_rubies_path"
+      chpwd_functions="" builtin cd "$rvm_rubies_path"
       find . -maxdepth 1 -mindepth 1 -type d 2>/dev/null | cut -c 3-
     )
   fi
