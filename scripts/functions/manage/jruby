@@ -77,34 +77,38 @@ jruby_install()
   __rvm_log_command "install" "$rvm_ruby_string - #installing to $rvm_ruby_home" \
     /bin/cp -Rf "${rvm_src_path}/$rvm_ruby_string" "$rvm_ruby_home" || return $?
 
-  (
-  chpwd_functions="" builtin cd "$rvm_ruby_home/bin/"
-  for binary in jirb jruby jgem ; do
-    ln -fs "$binary" "${binary#j}"
-  done
-  )
+  case ${rvm_ruby_string} in
+    jruby-head*|jruby-1.7.*)
+      true # avoid this on newer jruby
+      ;;
+    *)
+      (
+        builtin cd "$rvm_ruby_home/bin/"
+        for binary in jirb jruby jgem ; do
+          ln -fs "$binary" "${binary#j}"
+        done
+      )
+      ;;
+  esac
 
   # -server is "a lot slower for short-lived scripts like rake tasks, and takes longer to load"
   #sed -e 's#^JAVA_VM=-client#JAVA_VM=-server#' $rvm_ruby_home/bin/jruby > $rvm_ruby_home/bin/jruby.new &&
     #  mv $rvm_ruby_home/bin/jruby.new $rvm_ruby_home/bin/jruby
   chmod +x "$rvm_ruby_home/bin/jruby"
 
-  binaries=(jrubyc jirb_swing jirb jgem rdoc ri spec autospec testrb ast generate_yaml_index.rb)
-
-  for binary in "${binaries[@]}"
-  do
-    __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
-  done
-
-  __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/rake"
-
-  __rvm_irbrc
-
   rvm_create_flag=1 __rvm_use
 
-  __rvm_bin_script
-
+  case ${rvm_ruby_string} in
+    jruby-head*|jruby-1.7.*)
+      binaries=()
+      ;;
+    *)
+      binaries=(jrubyc jirb_swing jirb jgem rdoc ri spec autospec testrb ast generate_yaml_index.rb rake)
+      ;;
+  esac
   __rvm_post_install
+
+  __rvm_bin_script
 
   # jruby ships with some built in gems, copy them in to place.
   if [[ -d "$rvm_ruby_home/lib/ruby/gems/1.8" ]]
