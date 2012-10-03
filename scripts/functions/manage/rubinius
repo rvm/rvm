@@ -94,7 +94,7 @@ rubinius_install()
     if (( result > 0 ))
     then
       rvm_error "There has been an error while trying to fetch the source. Halting the installation."
-      exit $result
+      return $result
     fi
     __rvm_run "extract" \
       "$rvm_tar_command xzf \"${rvm_archives_path}/$(basename ${rvm_ruby_package_file})\" -C ${rvm_src_path} ${rvm_tar_options:-}" \
@@ -104,7 +104,7 @@ rubinius_install()
     if (( result > 0 ))
     then
       rvm_error "There has been an error while trying to extract the source.  \nHalting the installation."
-      exit $result
+      return $result
     fi
 
     # Remove the left over folder first.
@@ -122,7 +122,7 @@ rubinius_install()
     if (( result > 0 ))
     then
       rvm_error "There has been an error while fetching the rbx git repo.  \nHalting the installation."
-      exit $result
+      return $result
     fi
   fi
 
@@ -138,28 +138,25 @@ rubinius_install()
     rvm_error "There has been an error while trying to apply patches to rubinius.  \nHalting the installation."
     return $result
   fi
+  (( ${#rvm_configure_flags[@]} )) || rvm_configure_flags=( --skip-system )
+  rvm_configure_flags=( --prefix="$rvm_ruby_home"  "${rvm_configure_flags[@]}" )
 
   __rvm_db "${rvm_ruby_interpreter}_configure_flags" "db_configure_flags"
-
-  (( ${#rvm_configure_flags[@]} )) || rvm_configure_flags=( --skip-system )
-  rvm_ruby_configure=(
-    $rvm_wrappers_path/$ruby/ruby "${rvm_configure_env[@]}" ./configure --prefix="$rvm_ruby_home"
-    $db_configure_flags "${rvm_configure_flags[@]}"
-  )
+  if [[ -n "${ZSH_VERSION:-}" ]]
+  then rvm_configure_flags=( ${=db_configure_flags} "${rvm_configure_flags[@]}" )
+  else rvm_configure_flags=( ${db_configure_flags}  "${rvm_configure_flags[@]}" )
+  fi
 
   # Explicitly disabled
-  if (( ${rvm_llvm_flag:=1} == 0 ))
-  then rvm_ruby_configure+=( --disable-llvm )
-  fi
+  (( ${rvm_llvm_flag:=1} )) || rvm_configure_flags+=( --disable-llvm )
 
-  __rvm_log_command "configure" "$rvm_ruby_string - #configuring" "${rvm_ruby_configure[@]}"
-  result=$?
-
-  if (( result > 0 ))
-  then
-    rvm_error "There has been an error while running '${rvm_ruby_configure[*]}'.  \nHalting the installation."
-    exit $result
-  fi
+  __rvm_log_command "configure" "$rvm_ruby_string - #configuring"
+    $rvm_wrappers_path/$ruby/ruby "${rvm_configure_env[@]}" ./configure "${rvm_configure_flags[@]}" ||
+  {
+    result=$?
+    rvm_error "There has been an error while running 'configure'.  \nHalting the installation."
+    return $result
+  }
 
   if [[ -n "${rvm_configure_args:-}" ]]
   then
@@ -173,7 +170,7 @@ rubinius_install()
   if (( result > 0 )) || ! [[ -d "$rvm_ruby_home" ]] || ! [[ -f "$rvm_ruby_home/bin/rbx" ]]
   then
     rvm_error "There has been an error while running '$rvm_ruby_make'.\nHalting the installation."
-    exit $result
+    return $result
   fi
   unset ruby
 
