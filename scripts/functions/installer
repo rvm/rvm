@@ -93,7 +93,7 @@ display_thank_you()
 # ${name:-"${USER:-$(id | sed -e 's/^[^(]*(//' -e 's/).*$//')}"},
 #
 #   Thank you for using RVM!
-#   I sincerely hope that RVM helps to make your life easier and 
+#   I sincerely hope that RVM helps to make your life easier and
 #   more enjoyable!!!
 #
 # ~Wayne
@@ -811,14 +811,13 @@ system_check()
 
 setup_etc_profile()
 {
-  export etc_profile_file
   if (( ${rvm_etc_profile_flag:-1} == 0 ))
-  then return 0 ; fi # opt-out
+  then return 0
+  fi # opt-out
 
   typeset executable add_to_profile_flag zshrc_file
   executable=0
   add_to_profile_flag=0
-  etc_profile_file="/etc/profile.d/rvm.sh"
 
   if [[ -d /etc/profile.d ]]
   then
@@ -929,30 +928,40 @@ fi
       fi
       break # process only first file found
     done
-
-    # Ubuntu does not source /etc/profile when we're running command such as "ssh my-ubuntu env"
-    # So we add source ${etc_profile_file} in /etc/bash.bashrc
-    typeset system_bashrc_file conditionnal_source_profile
-    system_bashrc_file="/etc/bash.bashrc"
-    conditionnal_source_profile="if ! type rvm >/dev/null 2>/dev/null && ! echo \${PATH} | GREP_OPTIONS \\\grep \"${rvm_path_bin}\" > /dev/null; then export rvm_path=\"${rvm_path}\" ; export PATH=\"\${PATH}:${rvm_path_bin}\"  ; fi"
-    if
-        [[ ! -f "${system_bashrc_file}" ]]
-    then
-        printf "%b" "\n${conditionnal_source_profile}\n" > "${system_bashrc_file}"
-    elif
-      ! GREP_OPTIONS="" \grep -F "${conditionnal_source_profile}" "${system_bashrc_file}"
-    then
-      typeset new_content
-      new_content=$(mktemp)
-      [ -f "${new_content}" ] && \
-          ( echo "${conditionnal_source_profile}" ; cat "${system_bashrc_file}" ) > "${new_content}" && \
-          cat "${new_content}" > "${system_bashrc_file}" && \
-          rm -f "${new_content}"
-      unset new_content
-    fi
-    unset system_bashrc_file conditionnal_source_profile
   fi
-  return 0
+}
+
+print_etc_bashrc_change()
+{
+  printf "%b" "
+type rvm >/dev/null 2>/dev/null || echo \${PATH} | GREP_OPTIONS \\\grep \"${rvm_path_bin}\" > /dev/null || export PATH=\"\${PATH}:${rvm_path_bin}\"
+"
+}
+
+# Ubuntu does not source /etc/profile when we're running command such as "ssh my-ubuntu env"
+# So we add source ${etc_profile_file} in /etc/bash.bashrc
+setup_etc_bashrc()
+{
+  typeset system_bashrc_file new_content_path
+  system_bashrc_file="/etc/bash.bashrc"
+  if ! [[ -s "${system_bashrc_file}" ]] || (( ${rvm_auto_flag:-0} == 1 ))
+  then
+    if
+      [[ ! -f "${system_bashrc_file}" ]]
+    then
+      print_etc_bashrc_change > "${system_bashrc_file}"
+    elif
+      ! GREP_OPTIONS="" \grep "PATH=.*${rvm_path_bin}" "${system_bashrc_file}"
+    then
+      new_content_path=$(mktemp)
+      [[ -f "${new_content_path}" ]] &&
+      {
+        print_etc_bashrc_change # prepend
+        cat "${system_bashrc_file}"
+      } > "${new_content_path}" &&
+      mv "${new_content_path}" "${system_bashrc_file}"
+    fi
+  fi
 }
 
 setup_rvmrc()
@@ -1104,12 +1113,13 @@ root_canal()
 {
   if (( UID == 0 )) && system_check
   then
+    export etc_profile_file
+    etc_profile_file="/etc/profile.d/rvm.sh"
     setup_rvm_group
     setup_etc_profile
+    setup_etc_bashrc
     setup_rvm_path_permissions
   fi
-
-  return 0
 }
 
 record_ruby_configs()
