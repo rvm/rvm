@@ -1,24 +1,102 @@
---- a/configure.in
-+++ b/configure.in
-@@ -2362,7 +2362,8 @@
- 	LIBRUBY_DLDFLAGS='-Wl,-soname,lib$(RUBY_SO_NAME).so.$(MAJOR).$(MINOR)'
- 	LIBRUBY_ALIASES='lib$(RUBY_SO_NAME).so.$(MAJOR).$(MINOR) lib$(RUBY_SO_NAME).so'
- 	if test "$load_relative" = yes; then
+diff -u -wr a/configure.in b/configure.in
+--- a/configure.in  2012-04-18 16:09:04.000000000 +0200
++++ b/configure.in  2012-10-08 04:34:25.722227142 +0200
+@@ -2354,6 +2354,14 @@
+   if test "$rb_cv_binary_elf" = yes; then
+     SOLIBS='$(LIBS)'
+   fi
++
++  # libdir can be overridden in config.site file (on OpenSUSE at least).
++  libdir_basename=lib
++  if test "$bindir" = '${exec_prefix}/bin'; then
++    AS_CASE(["$libdir"], ['${exec_prefix}/'*], [libdir_basename=`basename "$libdir"`])
++  fi
++  AC_DEFINE_UNQUOTED(LIBDIR_BASENAME, ["${libdir_basename}"])
++
+   AS_CASE(["$target_os"],
+     [sunos4*], [
+  LIBRUBY_ALIASES='lib$(RUBY_SO_NAME).so.$(MAJOR).$(MINOR) lib$(RUBY_SO_NAME).so'
+@@ -2362,7 +2370,7 @@
+  LIBRUBY_DLDFLAGS='-Wl,-soname,lib$(RUBY_SO_NAME).so.$(MAJOR).$(MINOR)'
+  LIBRUBY_ALIASES='lib$(RUBY_SO_NAME).so.$(MAJOR).$(MINOR) lib$(RUBY_SO_NAME).so'
+  if test "$load_relative" = yes; then
 -	    LIBRUBY_RPATHFLAGS="'-Wl,-rpath,\$\${ORIGIN}/../lib'"
-+	    lt_multi_os_dir=`$CC $CPPFLAGS $CFLAGS $LDFLAGS -print-multi-os-directory 2>/dev/null`
-+	    LIBRUBY_RPATHFLAGS="'-Wl,-rpath,\$\${ORIGIN}/../lib/${lt_multi_os_dir}'"
- 	    LIBRUBY_RELATIVE=yes
- 	fi
- 	],
---- a/ruby.c
-+++ b/ruby.c
-@@ -414,6 +414,9 @@
- 	if (p - libpath > 3 && !(STRCASECMP(p - 4, "/bin") && strcmp(p - 4, "/lib"))) {
- 	    p -= 4;
- 	    *p = 0;
-+	} else if (p - libpath > 5 && !(STRCASECMP(p - 4, "/bin") && strcmp(p - 6, "/lib64"))) {
-+	    p -= 6;
-+	    *p = 0;
- 	}
++	    LIBRUBY_RPATHFLAGS="'-Wl,-rpath,\$\${ORIGIN}/../${libdir_basename}'"
+      LIBRUBY_RELATIVE=yes
+  fi
+  ],
+@@ -2419,7 +2427,7 @@
+  RUBY_SO_NAME="$RUBY_SO_NAME"'.$(MAJOR).$(MINOR).$(TEENY)'
+  LIBRUBY_LDSHARED='$(CC) -dynamiclib'
+  if test "$load_relative" = yes; then
+-	    libprefix='@executable_path/../lib'
++	    libprefix='@executable_path/../${libdir_basename}'
+      LIBRUBY_RELATIVE=yes
+  fi
+  LIBRUBY_DLDFLAGS="$LIBRUBY_DLDFLAGS "'-install_name '${libprefix}'/$(LIBRUBY_SO)'
+diff -u -wr a/ruby.c b/ruby.c
+--- a/ruby.c  2012-02-06 21:35:30.000000000 +0100
++++ b/ruby.c  2012-10-08 04:40:59.940293797 +0200
+@@ -410,9 +410,21 @@
+ #endif
+     p = strrchr(libpath, '/');
+     if (p) {
++      static const char bindir[] = "/bin";
++#ifdef LIBDIR_BASENAME
++      static const char libdir[] = "/"LIBDIR_BASENAME;
++#else
++      static const char libdir[] = "/lib";
++#endif
++      const ptrdiff_t bindir_len = (ptrdiff_t)sizeof(bindir) - 1;
++      const ptrdiff_t libdir_len = (ptrdiff_t)sizeof(libdir) - 1;
+	*p = 0;
+-	if (p - libpath > 3 && !(STRCASECMP(p - 4, "/bin") && strcmp(p - 4, "/lib"))) {
+-	    p -= 4;
++   if (p - libpath >= bindir_len && !STRCASECMP(p - bindir_len, bindir)) {
++     p -= bindir_len;
++     *p = 0;
++   }
++   else if (p - libpath >= libdir_len && !strcmp(p - libdir_len, libdir)) {
++     p -= libdir_len;
+      *p = 0;
+  }
      }
- #if !VARIABLE_LIBPATH
+diff -u -wr a/tool/mkconfig.rb b/tool/mkconfig.rb
+--- a/tool/mkconfig.rb	2012-10-08 05:57:16.948702976 +0200
++++ b/tool/mkconfig.rb	2011-08-13 15:17:30.000000000 +0200
+@@ -40,6 +40,7 @@
+ v_fast = []
+ v_others = []
+ vars = {}
++v_runtime = {}
+ continued_name = nil
+ continued_line = nil
+ File.foreach "config.status" do |line|
+@@ -118,7 +119,10 @@
+     val = val.gsub(/\$(?:\$|\{?(\w+)\}?)/) {$1 ? "$(#{$1})" : $&}.dump
+     case name
+     when /^prefix$/
++      v_runtime[:prefix] = val.slice(1..-2)
+       val = "(TOPDIR || DESTDIR + #{val})"
++    when /^libdir$/
++      v_runtime[:libdir] = File.basename(val.slice(1..-2))
+     when /^ARCH_FLAG$/
+       val = "arch_flag || #{val}" if universal
+     when /^UNIVERSAL_ARCHNAMES$/
+@@ -145,7 +149,7 @@
+ 
+ drive = File::PATH_SEPARATOR == ';'
+ 
+-prefix = "/lib/ruby/#{version}/#{arch}"
++prefix = "/#{v_runtime[:libdir]}/ruby/#{version}/#{arch}"
+ print "  TOPDIR = File.dirname(__FILE__).chomp!(#{prefix.dump})\n"
+ print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
+ print <<'ARCH' if universal
+@@ -190,6 +194,7 @@
+     x
+   end
+ end
++v_others.map!{|x| x.gsub(v_runtime[:prefix], "$(prefix)") }
+ v_others.compact!
+ 
+ if $install_name
