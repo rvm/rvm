@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+opal_install()
+{
+  rvm_log "Running Opal prereqs checking script."
+
+  type node > /dev/null && type npm > /dev/null
+  result=$?
+
+  if (( result > 0 ))
+  then
+    rvm_error "Prerequisite checks have failed. \nHalting the installation."
+    exit $result
+  fi
+
+  builtin cd "${rvm_src_path}"
+
+  system="$(uname -s)"
+  arch=$(file `which node`)
+  arch=$(echo "${arch##* }")
+
+  { type opal-node > /dev/null 2> /dev/null && rvm_log "Found opal-node at $(which opal-node)..."; } ||
+    { rvm_log "Installing opal-node..." && npm install opal --global > /dev/null 2> /dev/null; }
+  result=$?
+
+  if (( result > 0 ))
+  then
+    rvm_error "There has been an error while trying to install opal-node from npm registry."
+    exit $result
+  fi
+
+  __rvm_rm_rf $rvm_ruby_home
+
+  __rvm_run "install" \
+    "mkdir -p ${rvm_ruby_home}/bin/" \
+    "Installing opal to $rvm_ruby_home"
+
+  opal_config="target_cpu=$arch"
+  opal_node_path="$(which opal-node)"
+
+  opal_fake_gem_command='#!/usr/bin/env bash
+echo "OPAL FAKE GEM COMMAND: $@"
+  '
+
+  builtin cd "$rvm_ruby_home/bin/"
+  ln -fs "$opal_node_path" "ruby"
+  echo "$opal_fake_gem_command" > "gem"
+  echo "$opal_config" > "../config"
+  chmod +x ruby gem ../config
+
+  __rvm_bin_script
+
+  rvm_create_flag=1 __rvm_use
+}
