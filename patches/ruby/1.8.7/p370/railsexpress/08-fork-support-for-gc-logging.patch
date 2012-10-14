@@ -14,10 +14,10 @@ index 9ad716f..a3cbe91 100644
 @@ -368,9 +370,148 @@ rb_gc_time()
  #endif
  }
-
+ 
 -
  VALUE rb_mGC;
-
+ 
 +/*
 + *  call-seq:
 + *     GC.enable_trace    => true or false
@@ -162,15 +162,15 @@ index 9ad716f..a3cbe91 100644
      VALUE *varptr;
      struct gc_list *next;
 @@ -477,10 +618,6 @@ static double heap_slots_growth_factor = 1.8;
-
+ 
  static long initial_malloc_limit = GC_MALLOC_LIMIT;
-
+ 
 -static int verbose_gc_stats = Qfalse;
 -
 -static FILE* gc_data_file = NULL;
 -
  static RVALUE *himem, *lomem;
-
+ 
  static void set_gc_parameters()
 @@ -496,6 +633,8 @@ static void set_gc_parameters()
          if (gc_stats_i > 0) {
@@ -179,7 +179,7 @@ index 9ad716f..a3cbe91 100644
 +        /* child processes should not inherit RUBY_GC_STATS */
 +        unsetenv("RUBY_GC_STATS");
      }
-
+ 
      gc_heap_file_ptr = getenv("RUBY_GC_DATA_FILE");
 @@ -508,6 +647,8 @@ static void set_gc_parameters()
              fprintf(stderr,
@@ -188,7 +188,7 @@ index 9ad716f..a3cbe91 100644
 +        /* child processes should not inherit RUBY_GC_DATA_FILE to avoid clobbering */
 +        unsetenv("RUBY_GC_DATA_FILE");
      }
-
+ 
      min_slots_ptr = getenv("RUBY_HEAP_MIN_SLOTS");
 @@ -2619,6 +2760,9 @@ Init_GC()
      rb_define_singleton_method(rb_mGC, "dump_file_and_line_info", rb_gc_dump_file_and_line_info, -1);
@@ -197,7 +197,7 @@ index 9ad716f..a3cbe91 100644
 +    rb_define_singleton_method(rb_mGC, "log_file", rb_gc_log_file, -1);
 +    rb_define_singleton_method(rb_mGC, "enable_trace", rb_gc_enable_trace, 0);
 +    rb_define_singleton_method(rb_mGC, "disable_trace", rb_gc_disable_trace, 0);
-
+ 
      rb_mObSpace = rb_define_module("ObjectSpace");
      rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
 diff --git a/intern.h b/intern.h
@@ -220,7 +220,7 @@ index 8f6285d..ea28cb8 100644
 @@ -1330,6 +1330,8 @@ rb_f_fork(obj)
      fflush(stderr);
  #endif
-
+ 
 +    rb_gc_before_fork();
 +
      before_exec();
@@ -228,22 +228,22 @@ index 8f6285d..ea28cb8 100644
      after_exec();
 @@ -1339,6 +1341,7 @@ rb_f_fork(obj)
  #ifdef linux
-	after_exec();
+ 	after_exec();
  #endif
 +        rb_gc_after_fork();
-	rb_thread_atfork();
-	if (rb_block_given_p()) {
-	    int status;
+ 	rb_thread_atfork();
+ 	if (rb_block_given_p()) {
+ 	    int status;
 @@ -1574,10 +1577,12 @@ rb_f_system(argc, argv)
-
+ 
      chfunc = signal(SIGCHLD, SIG_DFL);
    retry:
 +    rb_gc_before_fork();
      before_exec();
      pid = fork();
      if (pid == 0) {
-	/* child process */
+ 	/* child process */
 +        rb_gc_after_fork();
-	rb_thread_atfork();
-	rb_protect(proc_exec_args, (VALUE)&earg, NULL);
-	_exit(127);
+ 	rb_thread_atfork();
+ 	rb_protect(proc_exec_args, (VALUE)&earg, NULL);
+ 	_exit(127);

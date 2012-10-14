@@ -5,7 +5,7 @@ index fa45cd1..ab71d22 100644
 @@ -22,8 +22,16 @@
  #include <setjmp.h>
  #include <sys/types.h>
-
+ 
 +#ifdef _WIN32
 +#include <string.h>
 +#else
@@ -17,7 +17,7 @@ index fa45cd1..ab71d22 100644
 +#elif defined(_WIN32)
 +#include <time.h>
  #endif
-
+ 
  #ifdef HAVE_SYS_RESOURCE_H
 @@ -42,7 +50,6 @@ void rb_io_fptr_finalize _((struct rb_io_t*));
  #ifdef __CYGWIN__
@@ -29,7 +29,7 @@ index fa45cd1..ab71d22 100644
  # ifndef atarist
 @@ -86,12 +93,12 @@ rb_memerror()
      rb_thread_t th = rb_curr_thread;
-
+ 
      if (!nomem_error ||
 -	(rb_thread_raised_p(th, RAISED_NOMEMORY) && rb_safe_level() < 4)) {
 -	fprintf(stderr, "[FATAL] failed to allocate memory\n");
@@ -46,13 +46,13 @@ index fa45cd1..ab71d22 100644
      rb_exc_raise(nomem_error);
 @@ -139,7 +146,7 @@ ruby_xmalloc(size)
      void *mem;
-
+ 
      if (size < 0) {
 -	rb_raise(rb_eNoMemError, "negative allocation size (or too big)");
 +        rb_raise(rb_eNoMemError, "negative allocation size (or too big)");
      }
      if (size == 0) size = 1;
-
+ 
 @@ -148,11 +155,11 @@ ruby_xmalloc(size)
      }
      RUBY_CRITICAL(mem = malloc(size));
@@ -69,10 +69,10 @@ index fa45cd1..ab71d22 100644
 +        }
      }
      malloc_increase += size;
-
+ 
 @@ -179,17 +186,17 @@ ruby_xrealloc(ptr, size)
      void *mem;
-
+ 
      if (size < 0) {
 -	rb_raise(rb_eArgError, "negative re-allocation size");
 +        rb_raise(rb_eArgError, "negative re-allocation size");
@@ -100,7 +100,7 @@ index fa45cd1..ab71d22 100644
 -	RUBY_CRITICAL(free(x));
 +        RUBY_CRITICAL(free(x));
  }
-
+ 
 +#if HAVE_LONG_LONG
 +#define GC_TIME_TYPE LONG_LONG
 +#else
@@ -127,7 +127,7 @@ index fa45cd1..ab71d22 100644
 @@ -255,6 +271,104 @@ rb_gc_disable()
      return old;
  }
-
+ 
 +/*
 + *  call-seq:
 + *     GC.enable_stats    => true or false
@@ -227,11 +227,11 @@ index fa45cd1..ab71d22 100644
 +
 +
  VALUE rb_mGC;
-
+ 
  static struct gc_list {
 @@ -281,19 +395,19 @@ rb_gc_unregister_address(addr)
      struct gc_list *tmp = global_List;
-
+ 
      if (tmp->varptr == addr) {
 -	global_List = tmp->next;
 -	RUBY_CRITICAL(free(tmp));
@@ -245,7 +245,7 @@ index fa45cd1..ab71d22 100644
 -	    struct gc_list *t = tmp->next;
 +        if (tmp->next->varptr == addr) {
 +            struct gc_list *t = tmp->next;
-
+ 
 -	    tmp->next = tmp->next->next;
 -	    RUBY_CRITICAL(free(t));
 -	    break;
@@ -258,9 +258,9 @@ index fa45cd1..ab71d22 100644
 +        tmp = tmp->next;
      }
  }
-
+ 
 @@ -312,26 +426,26 @@ rb_global_variable(var)
-
+ 
  typedef struct RVALUE {
      union {
 -	struct {
@@ -309,7 +309,7 @@ index fa45cd1..ab71d22 100644
 @@ -346,7 +460,7 @@ typedef struct RVALUE {
  static RVALUE *freelist = 0;
  static RVALUE *deferred_final_list = 0;
-
+ 
 -#define HEAPS_INCREMENT 10
 +static int heaps_increment = 10;
  static struct heaps_slot {
@@ -318,12 +318,12 @@ index fa45cd1..ab71d22 100644
 @@ -355,45 +469,197 @@ static struct heaps_slot {
  static int heaps_length = 0;
  static int heaps_used   = 0;
-
+ 
 -#define HEAP_MIN_SLOTS 10000
 -static int heap_slots = HEAP_MIN_SLOTS;
 +static int heap_min_slots = 10000;
 +static int heap_slots = 10000;
-
+ 
 -#define FREE_MIN  4096
 +static int heap_free_min = 4096;
 +static int heap_slots_increment = 10000;
@@ -334,9 +334,9 @@ index fa45cd1..ab71d22 100644
 +static int verbose_gc_stats = Qfalse;
 +
 +static FILE* gc_data_file = NULL;
-
+ 
  static RVALUE *himem, *lomem;
-
+ 
 +static void set_gc_parameters()
 +{
 +    char *gc_stats_ptr, *min_slots_ptr, *free_min_ptr, *heap_slots_incr_ptr,
@@ -485,7 +485,7 @@ index fa45cd1..ab71d22 100644
  add_heap()
  {
      RVALUE *p, *pend;
-
+ 
      if (heaps_used == heaps_length) {
 -	/* Realloc heaps */
 -	struct heaps_slot *p;
@@ -518,7 +518,7 @@ index fa45cd1..ab71d22 100644
 +            });
 +        if (p == 0) rb_memerror();
      }
-
+ 
      for (;;) {
 -	RUBY_CRITICAL(p = (RVALUE*)malloc(sizeof(RVALUE)*(heap_slots+1)));
 -	if (p == 0) {
@@ -555,7 +555,7 @@ index fa45cd1..ab71d22 100644
 +    heap_slots += heap_slots_increment;
 +    heap_slots_increment *= heap_slots_growth_factor;
 +    if (heap_slots <= 0) heap_slots = heap_min_slots;
-
+ 
      while (p < pend) {
 -	p->as.free.flags = 0;
 -	p->as.free.next = freelist;
@@ -568,24 +568,24 @@ index fa45cd1..ab71d22 100644
      }
  }
  #define RANY(o) ((RVALUE*)(o))
-
--int
+ 
+-int 
 +int
  rb_during_gc()
  {
      return during_gc;
 @@ -431,7 +698,7 @@ rb_newobj()
      VALUE obj;
-
+ 
      if (during_gc)
 -	rb_bug("object allocation during garbage collection phase");
 +        rb_bug("object allocation during garbage collection phase");
-
+ 
      if (ruby_gc_stress || !freelist) garbage_collect();
-
+ 
 @@ -580,13 +847,13 @@ rb_source_filename(f)
      st_data_t name;
-
+ 
      if (!st_lookup(source_filenames, (st_data_t)f, &name)) {
 -	long len = strlen(f) + 1;
 -	char *ptr = ALLOC_N(char, len + 1);
@@ -612,7 +612,7 @@ index fa45cd1..ab71d22 100644
 +        f[-1] = 1;
      }
  }
-
+ 
 @@ -605,12 +872,12 @@ sweep_source_filename(key, value)
      char *key, *value;
  {
@@ -629,9 +629,9 @@ index fa45cd1..ab71d22 100644
 +        return ST_DELETE;
      }
  }
-
+ 
 @@ -625,14 +892,14 @@ gc_mark_all()
-
+ 
      init_mark_stack();
      for (i = 0; i < heaps_used; i++) {
 -	p = heaps[i].slot; pend = p + heaps[i].limit;
@@ -652,9 +652,9 @@ index fa45cd1..ab71d22 100644
 +        }
      }
  }
-
+ 
 @@ -647,8 +914,8 @@ gc_mark_rest()
-
+ 
      init_mark_stack();
      while(p != tmp_arry){
 -	p--;
@@ -663,9 +663,9 @@ index fa45cd1..ab71d22 100644
 +        gc_mark_children(*p, 0);
      }
  }
-
+ 
 @@ -665,9 +932,9 @@ is_pointer_to_heap(ptr)
-
+ 
      /* check if p looks like a pointer */
      for (i=0; i < heaps_used; i++) {
 -	heap_org = heaps[i].slot;
@@ -691,7 +691,7 @@ index fa45cd1..ab71d22 100644
 +        x++;
      }
  }
-
+ 
 @@ -780,7 +1047,7 @@ rb_gc_mark_maybe(obj)
      VALUE obj;
  {
@@ -700,24 +700,24 @@ index fa45cd1..ab71d22 100644
 +        gc_mark(obj, 0);
      }
  }
-
+ 
 @@ -828,7 +1095,7 @@ gc_mark_children(ptr, lev)
  {
      register RVALUE *obj = RANY(ptr);
-
+ 
 -    goto marking;		/* skip */
 +    goto marking;               /* skip */
-
+ 
    again:
      obj = RANY(ptr);
 @@ -839,148 +1106,148 @@ gc_mark_children(ptr, lev)
-
+ 
    marking:
      if (FL_TEST(obj, FL_EXIVAR)) {
 -	rb_mark_generic_ivar(ptr);
 +        rb_mark_generic_ivar(ptr);
      }
-
+ 
      switch (obj->as.basic.flags & T_MASK) {
        case T_NIL:
        case T_FIXNUM:
@@ -725,7 +725,7 @@ index fa45cd1..ab71d22 100644
 -	break;
 +        rb_bug("rb_gc_mark() called for broken object");
 +        break;
-
+ 
        case T_NODE:
 -	mark_source_filename(obj->as.node.nd_file);
 -	switch (nd_type(obj)) {
@@ -992,7 +992,7 @@ index fa45cd1..ab71d22 100644
 +        }
 +        return;                 /* no need to mark class. */
      }
-
+ 
      gc_mark(obj->as.basic.klass, lev);
 @@ -988,92 +1255,92 @@ gc_mark_children(ptr, lev)
        case T_ICLASS:
@@ -1006,7 +1006,7 @@ index fa45cd1..ab71d22 100644
 +        mark_tbl(obj->as.klass.iv_tbl, lev);
 +        ptr = obj->as.klass.super;
 +        goto again;
-
+ 
        case T_ARRAY:
 -	if (FL_TEST(obj, ELTS_SHARED)) {
 -	    ptr = obj->as.array.aux.shared;
@@ -1022,7 +1022,7 @@ index fa45cd1..ab71d22 100644
 +        else {
 +            long i, len = obj->as.array.len;
 +            VALUE *ptr = obj->as.array.ptr;
-
+ 
 -	    for (i=0; i < len; i++) {
 -		gc_mark(*ptr++, lev);
 -	    }
@@ -1033,7 +1033,7 @@ index fa45cd1..ab71d22 100644
 +            }
 +        }
 +        break;
-
+ 
        case T_HASH:
 -	mark_hash(obj->as.hash.tbl, lev);
 -	ptr = obj->as.hash.ifnone;
@@ -1041,7 +1041,7 @@ index fa45cd1..ab71d22 100644
 +        mark_hash(obj->as.hash.tbl, lev);
 +        ptr = obj->as.hash.ifnone;
 +        goto again;
-
+ 
        case T_STRING:
  #define STR_ASSOC FL_USER3   /* copied from string.c */
 -	if (FL_TEST(obj, ELTS_SHARED|STR_ASSOC)) {
@@ -1054,19 +1054,19 @@ index fa45cd1..ab71d22 100644
 +            goto again;
 +        }
 +        break;
-
+ 
        case T_DATA:
 -	if (obj->as.data.dmark) (*obj->as.data.dmark)(DATA_PTR(obj));
 -	break;
 +        if (obj->as.data.dmark) (*obj->as.data.dmark)(DATA_PTR(obj));
 +        break;
-
+ 
        case T_OBJECT:
 -	mark_tbl(obj->as.object.iv_tbl, lev);
 -	break;
 +        mark_tbl(obj->as.object.iv_tbl, lev);
 +        break;
-
+ 
        case T_FILE:
        case T_REGEXP:
        case T_FLOAT:
@@ -1074,7 +1074,7 @@ index fa45cd1..ab71d22 100644
        case T_BLKTAG:
 -	break;
 +        break;
-
+ 
        case T_MATCH:
 -	if (obj->as.match.str) {
 -	    ptr = obj->as.match.str;
@@ -1086,7 +1086,7 @@ index fa45cd1..ab71d22 100644
 +            goto again;
 +        }
 +        break;
-
+ 
        case T_VARMAP:
 -	gc_mark(obj->as.varmap.val, lev);
 -	ptr = (VALUE)obj->as.varmap.next;
@@ -1094,7 +1094,7 @@ index fa45cd1..ab71d22 100644
 +        gc_mark(obj->as.varmap.val, lev);
 +        ptr = (VALUE)obj->as.varmap.next;
 +        goto again;
-
+ 
        case T_SCOPE:
 -	if (obj->as.scope.local_vars && (obj->as.scope.flags & SCOPE_MALLOC)) {
 -	    int n = obj->as.scope.local_tbl[0]+1;
@@ -1102,7 +1102,7 @@ index fa45cd1..ab71d22 100644
 +        if (obj->as.scope.local_vars && (obj->as.scope.flags & SCOPE_MALLOC)) {
 +            int n = obj->as.scope.local_tbl[0]+1;
 +            VALUE *vars = &obj->as.scope.local_vars[-1];
-
+ 
 -	    while (n--) {
 -		gc_mark(*vars++, lev);
 -	    }
@@ -1113,7 +1113,7 @@ index fa45cd1..ab71d22 100644
 +            }
 +        }
 +        break;
-
+ 
        case T_STRUCT:
 -	{
 -	    long len = obj->as.rstruct.len;
@@ -1121,7 +1121,7 @@ index fa45cd1..ab71d22 100644
 +        {
 +            long len = obj->as.rstruct.len;
 +            VALUE *ptr = obj->as.rstruct.ptr;
-
+ 
 -	    while (len--) {
 -		gc_mark(*ptr++, lev);
 -	    }
@@ -1132,7 +1132,7 @@ index fa45cd1..ab71d22 100644
 +            }
 +        }
 +        break;
-
+ 
        default:
 -	rb_bug("rb_gc_mark(): unknown data type 0x%lx(0x%lx) %s",
 -	       obj->as.basic.flags & T_MASK, obj,
@@ -1142,11 +1142,11 @@ index fa45cd1..ab71d22 100644
 +               is_pointer_to_heap(obj) ? "corrupted object" : "non object");
      }
  }
-
+ 
 @@ -1102,22 +1369,55 @@ finalize_list(p)
      }
  }
-
+ 
 +static char* obj_type(int tp)
 +{
 +    switch (tp) {
@@ -1184,7 +1184,7 @@ index fa45cd1..ab71d22 100644
  free_unused_heaps()
  {
      int i, j;
-
+ 
      for (i = j = 1; j < heaps_used; i++) {
 -	if (heaps[i].limit == 0) {
 -	    free(heaps[i].membase);
@@ -1208,11 +1208,11 @@ index fa45cd1..ab71d22 100644
 +        }
      }
  }
-
+ 
 @@ -1134,24 +1434,33 @@ gc_sweep()
      unsigned long live = 0;
      unsigned long free_min = 0;
-
+ 
 +    unsigned long really_freed = 0;
 +    int free_counts[256];
 +    int live_counts[256];
@@ -1230,7 +1230,7 @@ index fa45cd1..ab71d22 100644
 +    if (do_gc_stats) {
 +        for (i = 0 ; i< 256; i++) { free_counts[i] = live_counts[i] = 0; }
 +    }
-
+ 
      if (ruby_in_compile && ruby_parser_stack_on_heap()) {
 -	/* should not reclaim nodes during compilation
 +        /* should not reclaim nodes during compilation
@@ -1252,42 +1252,42 @@ index fa45cd1..ab71d22 100644
 +            }
 +        }
      }
-
+ 
      mark_source_filename(ruby_sourcefile);
 @@ -1172,7 +1481,7 @@ gc_sweep()
-	while (p < pend) {
-	    if (!(p->as.basic.flags & FL_MARK)) {
-		if (p->as.basic.flags &&
+ 	while (p < pend) {
+ 	    if (!(p->as.basic.flags & FL_MARK)) {
+ 		if (p->as.basic.flags &&
 -		    ((deferred = obj_free((VALUE)p)) ||
 +		    (((do_gc_stats && really_freed++), deferred = obj_free((VALUE)p)) ||
-		     ((FL_TEST(p, FL_FINALIZE)) && need_call_final))) {
-		    if (!deferred) {
-			p->as.free.flags = T_DEFERRED;
+ 		     ((FL_TEST(p, FL_FINALIZE)) && need_call_final))) {
+ 		    if (!deferred) {
+ 			p->as.free.flags = T_DEFERRED;
 @@ -1183,6 +1492,12 @@ gc_sweep()
-		    final_list = p;
-		}
-		else {
+ 		    final_list = p;
+ 		}
+ 		else {
 +                    if (do_gc_stats) {
 +                       int obt = p->as.basic.flags & T_MASK;
 +                       if (obt) {
 +                           free_counts[obt]++;
 +                       }
 +                    }
-		    add_freelist(p);
-		}
-		n++;
+ 		    add_freelist(p);
+ 		}
+ 		n++;
 @@ -1194,6 +1509,9 @@ gc_sweep()
-	    else {
-		RBASIC(p)->flags &= ~FL_MARK;
-		live++;
+ 	    else {
+ 		RBASIC(p)->flags &= ~FL_MARK;
+ 		live++;
 +                if (do_gc_stats) {
 +                    live_counts[RANY((VALUE)p)->as.basic.flags & T_MASK]++;
 +                }
-	    }
-	    p++;
-	}
+ 	    }
+ 	    p++;
+ 	}
 @@ -1211,15 +1529,29 @@ gc_sweep()
-	}
+ 	}
      }
      if (malloc_increase > malloc_limit) {
 -	malloc_limit += (malloc_increase - malloc_limit) * (double)live / (live + freed);
@@ -1301,7 +1301,7 @@ index fa45cd1..ab71d22 100644
 +        add_heap();
      }
      during_gc = 0;
-
+ 
 +    if (do_gc_stats) {
 +        fprintf(gc_data_file, "objects processed: %.7d\n", live+freed);
 +        fprintf(gc_data_file, "live objects     : %.7d\n", live);
@@ -1318,7 +1318,7 @@ index fa45cd1..ab71d22 100644
 +
      /* clear finalization list */
      if (final_list) {
-	deferred_final_list = final_list;
+ 	deferred_final_list = final_list;
 @@ -1260,51 +1592,51 @@ obj_free(obj)
        case T_FIXNUM:
        case T_TRUE:
@@ -1328,12 +1328,12 @@ index fa45cd1..ab71d22 100644
 +        rb_bug("obj_free() called for broken object");
 +        break;
      }
-
+ 
      if (FL_TEST(obj, FL_EXIVAR)) {
 -	rb_free_generic_ivar((VALUE)obj);
 +        rb_free_generic_ivar((VALUE)obj);
      }
-
+ 
      switch (BUILTIN_TYPE(obj)) {
        case T_OBJECT:
 -	if (RANY(obj)->as.object.iv_tbl) {
@@ -1401,11 +1401,11 @@ index fa45cd1..ab71d22 100644
 +        }
 +        break;
        case T_DATA:
-	if (DATA_PTR(obj)) {
-	    if ((long)RANY(obj)->as.data.dfree == -1) {
+ 	if (DATA_PTR(obj)) {
+ 	    if ((long)RANY(obj)->as.data.dfree == -1) {
 @@ -1317,11 +1649,11 @@ obj_free(obj)
-	}
-	break;
+ 	}
+ 	break;
        case T_MATCH:
 -	if (RANY(obj)->as.match.regs) {
 -	    re_free_registers(RANY(obj)->as.match.regs);
@@ -1418,23 +1418,23 @@ index fa45cd1..ab71d22 100644
 +        }
 +        break;
        case T_FILE:
-	if (RANY(obj)->as.file.fptr) {
-	    struct rb_io_t *fptr = RANY(obj)->as.file.fptr;
+ 	if (RANY(obj)->as.file.fptr) {
+ 	    struct rb_io_t *fptr = RANY(obj)->as.file.fptr;
 @@ -1332,19 +1664,19 @@ obj_free(obj)
-	}
-	break;
+ 	}
+ 	break;
        case T_ICLASS:
 -	/* iClass shares table with the module */
 -	break;
 +        /* iClass shares table with the module */
 +        break;
-
+ 
        case T_FLOAT:
        case T_VARMAP:
        case T_BLKTAG:
 -	break;
 +        break;
-
+ 
        case T_BIGNUM:
 -	if (RANY(obj)->as.bignum.digits) {
 -	    RUBY_CRITICAL(free(RANY(obj)->as.bignum.digits));
@@ -1445,20 +1445,20 @@ index fa45cd1..ab71d22 100644
 +        }
 +        break;
        case T_NODE:
-	switch (nd_type(obj)) {
-	  case NODE_SCOPE:
+ 	switch (nd_type(obj)) {
+ 	  case NODE_SCOPE:
 @@ -1359,7 +1691,7 @@ obj_free(obj)
-	break;			/* no need to free iv_tbl */
-
+ 	break;			/* no need to free iv_tbl */
+ 
        case T_SCOPE:
 -	if (RANY(obj)->as.scope.local_vars &&
 +        if (RANY(obj)->as.scope.local_vars &&
              RANY(obj)->as.scope.flags != SCOPE_ALLOCA) {
-	    VALUE *vars = RANY(obj)->as.scope.local_vars-1;
-	    if (!(RANY(obj)->as.scope.flags & SCOPE_CLONE) && vars[0] == 0)
+ 	    VALUE *vars = RANY(obj)->as.scope.local_vars-1;
+ 	    if (!(RANY(obj)->as.scope.flags & SCOPE_CLONE) && vars[0] == 0)
 @@ -1370,14 +1702,14 @@ obj_free(obj)
-	break;
-
+ 	break;
+ 
        case T_STRUCT:
 -	if (RANY(obj)->as.rstruct.ptr) {
 -	    RUBY_CRITICAL(free(RANY(obj)->as.rstruct.ptr));
@@ -1468,14 +1468,14 @@ index fa45cd1..ab71d22 100644
 +            RUBY_CRITICAL(free(RANY(obj)->as.rstruct.ptr));
 +        }
 +        break;
-
+ 
        default:
 -	rb_bug("gc_sweep(): unknown data type 0x%lx(0x%lx)",
 -	       RANY(obj)->as.basic.flags & T_MASK, obj);
 +        rb_bug("gc_sweep(): unknown data type 0x%lx(0x%lx)",
 +               RANY(obj)->as.basic.flags & T_MASK, obj);
      }
-
+ 
      return 0;
 @@ -1407,18 +1739,18 @@ _rb_setjmp:\n\
  typedef unsigned long rb_jmp_buf[6];
@@ -1514,7 +1514,7 @@ index fa45cd1..ab71d22 100644
      jmp_buf save_regs_gc_mark;
 +    struct timeval gctv1, gctv2;
      SET_STACK_END;
-
+ 
  #ifdef HAVE_NATIVETHREAD
      if (!is_ruby_native_thread()) {
 -	rb_bug("cross-thread violation on rb_gc()");
@@ -1533,7 +1533,7 @@ index fa45cd1..ab71d22 100644
      }
      if (during_gc) return;
      during_gc++;
-
+ 
 +    if (gc_statistics) {
 +        gc_collections++;
 +        gettimeofday(&gctv1, NULL);
@@ -1543,9 +1543,9 @@ index fa45cd1..ab71d22 100644
 +    }
 +
      init_mark_stack();
-
+ 
      gc_mark((VALUE)ruby_current_node, 0);
-
+ 
      /* mark frame stack */
      for (frame = ruby_frame; frame; frame = frame->prev) {
 -	rb_gc_mark_frame(frame);
@@ -1571,7 +1571,7 @@ index fa45cd1..ab71d22 100644
 -	mark_tbl(finalizer_table, 0);
 +        mark_tbl(finalizer_table, 0);
      }
-
+ 
      FLUSH_REGISTER_WINDOWS;
 @@ -1478,9 +1819,9 @@ garbage_collect()
      rb_gc_mark_locations(rb_gc_stack_start, (VALUE*)STACK_END + 1);
@@ -1593,7 +1593,7 @@ index fa45cd1..ab71d22 100644
 +                         (VALUE*)((char*)rb_gc_stack_start + 2));
  #endif
      rb_gc_mark_threads();
-
+ 
      /* mark protected global variables */
      for (list = global_List; list; list = list->next) {
 -	rb_gc_mark_maybe(*list->varptr);
@@ -1602,7 +1602,7 @@ index fa45cd1..ab71d22 100644
      rb_mark_end_proc();
      rb_gc_mark_global_tbl();
 @@ -1510,18 +1851,30 @@ garbage_collect()
-
+ 
      /* gc_mark objects whose marking are not completed*/
      do {
 -	while (!MARK_STACK_EMPTY) {
@@ -1624,7 +1624,7 @@ index fa45cd1..ab71d22 100644
 +        }
 +        rb_gc_abort_threads();
      } while (!MARK_STACK_EMPTY);
-
+ 
      gc_sweep();
 +
 +    if (gc_statistics) {
@@ -1639,7 +1639,7 @@ index fa45cd1..ab71d22 100644
 +        }
 +    }
  }
-
+ 
  void
 @@ -1588,8 +1941,8 @@ Init_stack(addr)
      memset(&m, 0, sizeof(m));
@@ -1673,12 +1673,12 @@ index fa45cd1..ab71d22 100644
      {
 -	struct rlimit rlim;
 +        struct rlimit rlim;
-
+ 
 -	if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
 -	    unsigned int space = rlim.rlim_cur/5;
 +        if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
 +            unsigned int space = rlim.rlim_cur/5;
-
+ 
 -	    if (space > 1024*1024) space = 1024*1024;
 -	    STACK_LEVEL_MAX = (rlim.rlim_cur - space) / sizeof(VALUE);
 -	}
@@ -1725,16 +1725,16 @@ index fa45cd1..ab71d22 100644
 +    set_gc_parameters();
      add_heap();
  }
-
+ 
 @@ -1715,7 +2069,7 @@ os_obj_of(of)
      volatile VALUE v;
-
+ 
      for (i = 0; i < heaps_used; i++) {
 -	RVALUE *p, *pend;
 +        RVALUE *p, *pend;
-
-	p = heaps[i].slot; pend = p + heaps[i].limit;
-	for (;p < pend; p++) {
+ 
+ 	p = heaps[i].slot; pend = p + heaps[i].limit;
+ 	for (;p < pend; p++) {
 @@ -1808,8 +2162,8 @@ add_final(os, block)
  {
      rb_warn("ObjectSpace::add_finalizer is deprecated; use define_finalizer");
@@ -1756,7 +1756,7 @@ index fa45cd1..ab71d22 100644
      return obj;
  }
 @@ -1888,11 +2242,11 @@ define_final(argc, argv, os)
-
+ 
      rb_scan_args(argc, argv, "11", &obj, &block);
      if (argc == 1) {
 -	block = rb_block_proc();
@@ -1772,7 +1772,7 @@ index fa45cd1..ab71d22 100644
      if (!FL_ABLE(obj)) {
 @@ -1905,10 +2259,10 @@ define_final(argc, argv, os)
      OBJ_FREEZE(block);
-
+ 
      if (!finalizer_table) {
 -	finalizer_table = st_init_numtable();
 +        finalizer_table = st_init_numtable();
@@ -1782,7 +1782,7 @@ index fa45cd1..ab71d22 100644
 +        rb_ary_push(table, block);
      }
      else {
-	table = rb_ary_new3(1, block);
+ 	table = rb_ary_new3(1, block);
 @@ -1927,7 +2281,7 @@ rb_gc_copy_finalizer(dest, obj)
      if (!finalizer_table) return;
      if (!FL_TEST(obj, FL_FINALIZE)) return;
@@ -1822,7 +1822,7 @@ index fa45cd1..ab71d22 100644
      rb_thread_critical = critical_save;
  }
 @@ -1980,8 +2334,8 @@ rb_gc_finalize_deferred()
-
+ 
      deferred_final_list = 0;
      if (p) {
 -	finalize_list(p);
@@ -1831,18 +1831,18 @@ index fa45cd1..ab71d22 100644
 +        free_unused_heaps();
      }
  }
-
+ 
 @@ -2061,7 +2415,7 @@ id2ref(obj, objid)
      if (ptr == Qfalse) return Qfalse;
      if (ptr == Qnil) return Qnil;
      if (FIXNUM_P(ptr)) return (VALUE)ptr;
 -    ptr = objid ^ FIXNUM_FLAG;	/* unset FIXNUM_FLAG */
 +    ptr = objid ^ FIXNUM_FLAG;  /* unset FIXNUM_FLAG */
-
+ 
      if ((ptr % sizeof(RVALUE)) == (4 << 2)) {
          ID symid = ptr / sizeof(RVALUE);
 @@ -2075,7 +2429,7 @@ id2ref(obj, objid)
-	rb_raise(rb_eRangeError, "0x%lx is not id value", p0);
+ 	rb_raise(rb_eRangeError, "0x%lx is not id value", p0);
      }
      if (BUILTIN_TYPE(ptr) == 0 || RBASIC(ptr)->klass == 0) {
 -	rb_raise(rb_eRangeError, "0x%lx is recycled object", p0);
@@ -1853,7 +1853,7 @@ index fa45cd1..ab71d22 100644
 @@ -2166,6 +2520,14 @@ Init_GC()
      rb_define_singleton_method(rb_mGC, "stress=", gc_stress_set, 1);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
-
+ 
 +    rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "disable_stats", rb_gc_disable_stats, 0);
 +    rb_define_singleton_method(rb_mGC, "clear_stats", rb_gc_clear_stats, 0);
@@ -1866,10 +1866,11 @@ index fa45cd1..ab71d22 100644
      rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
      rb_define_module_function(rb_mObSpace, "garbage_collect", rb_gc_start, 0);
 @@ -2188,7 +2550,7 @@ Init_GC()
-
+ 
      rb_global_variable(&nomem_error);
      nomem_error = rb_exc_new3(rb_eNoMemError,
 -			      rb_obj_freeze(rb_str_new2("failed to allocate memory")));
 +                              rb_obj_freeze(rb_str_new2("failed to allocate memory")));
      OBJ_TAINT(nomem_error);
      OBJ_FREEZE(nomem_error);
+ 
