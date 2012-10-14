@@ -5,7 +5,7 @@ index c37136f..55fe096 100644
 @@ -8209,6 +8209,17 @@ rb_f_method_name()
      }
  }
-
+ 
 +/* Hash (Thread => Backtrace) used to collect backtrace for each threads. */
 +static VALUE backtrace_for_each_thread;
 +
@@ -22,10 +22,10 @@ index c37136f..55fe096 100644
  {
 @@ -8254,6 +8265,7 @@ Init_eval()
      rb_define_global_function("fail", rb_f_raise, -1);
-
+ 
      rb_define_global_function("caller", rb_f_caller, -1);
 +    rb_define_global_function("caller_for_all_threads", rb_f_caller_for_all_threads, -1);
-
+ 
      rb_define_global_function("exit", rb_f_exit, -1);
      rb_define_global_function("abort", rb_f_abort, -1);
 @@ -10609,6 +10621,7 @@ static int   th_sig, th_safe;
@@ -33,13 +33,13 @@ index c37136f..55fe096 100644
  #define RESTORE_SIGNAL		6
  #define RESTORE_EXIT		7
 +#define RESTORE_BACKTRACE	8
-
+ 
  extern VALUE *rb_gc_stack_start;
  #ifdef __ia64
 @@ -10715,6 +10728,15 @@ rb_thread_switch(n)
-	}
-	rb_exc_raise(th_raise_exception);
-	break;
+ 	}
+ 	rb_exc_raise(th_raise_exception);
+ 	break;
 +      case RESTORE_BACKTRACE:
 +        rb_hash_aset(backtrace_for_each_thread, curr_thread->thread,
 +                     backtrace(backtrace_level_for_each_thread));
@@ -51,7 +51,7 @@ index c37136f..55fe096 100644
 +        break;
        case RESTORE_NORMAL:
        default:
-	break;
+ 	break;
 @@ -13897,3 +13919,74 @@ rb_throw(tag, val)
      argv[1] = val;
      rb_f_throw(2, argv);
