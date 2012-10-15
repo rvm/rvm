@@ -370,12 +370,15 @@ external_prepare()
   }
   __rvm_ruby_string
 
-  external_prepare_package &&
-  external_prepare_upload "${remote_shell}"
+  external_prepare_package "${rvm_ruby_string}.tar.bz2" &&
+  external_prepare_upload "${rvm_ruby_string}.tar.bz2" "${remote_shell}"
 }
 
 external_prepare_package()
 {
+  typeset file_name
+  file_name="$1"
+
   if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
   then
     if
@@ -390,30 +393,59 @@ external_prepare_package()
   fi
 
   rvm_log "Preparing ${rvm_ruby_string} ..."
-  tar cjf "${rvm_ruby_string}.tar.bz2" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
-  rvm_log "Prepared ${rvm_ruby_string}.tar.bz2."
+  case "${file_name}" in
+    (*.tar.bz2)
+      tar cjf "${file_name}" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
+      ;;
+    (*.tar.gz|*.tgz)
+      tar czf "${file_name}" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
+      ;;
+    (*)
+      rvm_error "Do not know how to package '${file_name}'."
+      return 1
+      ;;
+  esac
+  rvm_log "Prepared $1."
 }
 
 #TODO: move to SMF ! RVM2 ?
 external_prepare_upload()
 {
-  typeset remote_shell remote_directory system_path remote_file local_file
+  typeset remote_path remote_shell remote_directory system_path remote_file file_name local_file path_prefix
 
-  remote_shell="${1:-rvm@rvm.io:~/shared/public/binaries}"
-  remote_directory="${remote_shell#*:}/$(__rvm_system_path - )"
-  remote_shell="${remote_shell%:*}"
-  local_file="${rvm_ruby_string}.tar.bz2"
-  remote_file="$( __rvm_remote_server_path "${local_file}" )"
+  file_name="$1"
+  remote_path="${2:-rvm@rvm.io:~/shared/public/binaries}"
+  system_path="$(__rvm_system_path - )"
+  remote_directory="${remote_path#*:}/${system_path}"
+  remote_shell="${remote_path%:*}"
+  if
+    [[ ${rvm_path_flag:-0} -eq 1 ]]
+  then
+    path_prefix="${remote_path#*:}"
+    path_prefix="${path_prefix##*/}"
+    mkdir -p "${path_prefix}/${system_path}"
+    local_file="${path_prefix}/${system_path}/${file_name}"
+    mv "${file_name}" "${local_file}"
+  else
+    local_file="${file_name}"
+  fi
+  remote_file="$( __rvm_remote_server_path "${file_name}" )"
 
   rvm_log "--- upload:"
   printf "%b" "ssh \"$remote_shell\" \"mkdir -p $remote_directory/\"\n"
-  printf "%b" "scp \"${local_file}\" \"$remote_shell:$remote_directory/${local_file}\"\n"
+  if
+    [[ ${rvm_path_flag:-0} -eq 1 ]]
+  then
+    printf "%b" "rsync -av --rsh=ssh \"${path_prefix}/\" \"${remote_path}/\"\n"
+  else
+    printf "%b" "scp \"${local_file}\" \"$remote_shell:$remote_directory/${file_name}\"\n"
+  fi
   rvm_log "--- rvm/config/remote:"
   printf "%b" "${remote_file}\n"
   rvm_log "--- rvm/config/md5:"
-  printf "%b" "${remote_file}=$( __rvm_md5_calculate      "${rvm_ruby_string}.tar.bz2" )\n"
+  printf "%b" "${remote_file}=$( __rvm_md5_calculate      "${local_file}" )\n"
   rvm_log "--- rvm/config/sha512:"
-  printf "%b" "${remote_file}=$( __rvm_sha__calculate 512 "${rvm_ruby_string}.tar.bz2" )\n"
+  printf "%b" "${remote_file}=$( __rvm_sha__calculate 512 "${local_file}" )\n"
 }
 
 action="${1:-}"
