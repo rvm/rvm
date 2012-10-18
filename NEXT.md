@@ -16,6 +16,8 @@ https://github.com/wayneeseguin/rvm/issues/1239
 git cherry-pick 83989b1
 git cherry-pick 1a6aa7e
 
+# 1.16.16
+
 https://github.com/wayneeseguin/rvm/issues/1146
 git cherry-pick 0840d94
 git cherry-pick af37a07
