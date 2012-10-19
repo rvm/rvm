@@ -14,3 +14,9 @@ git cherry-pick 5b50cab
 
 https://github.com/wayneeseguin/rvm/issues/1246
 git cherry-pick 0cb96cf
+
+https://github.com/wayneeseguin/rvm/pull/1247
+git cherry-pick 4f976aa -m 1
+
+https://github.com/wayneeseguin/rvm/issues/1245
+git cherry-pick 8008792
