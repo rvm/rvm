@@ -8,3 +8,6 @@ git cherry-pick 7cb9430 -m 1
 https://github.com/wayneeseguin/rvm/issues/1146
 git cherry-pick 0840d94
 git cherry-pick af37a07
+
+https://github.com/wayneeseguin/rvm/issues/1229
+git cherry-pick 5b50cab
