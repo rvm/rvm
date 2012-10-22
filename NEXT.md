@@ -8,10 +8,6 @@ git cherry-pick 1236ffd
 
 # 1.16.16
 
-https://github.com/wayneeseguin/rvm/issues/1146 - not ready
-git cherry-pick 0840d94
-git cherry-pick af37a07
-
 https://github.com/wayneeseguin/rvm/issues/1229
 git cherry-pick 5b50cab
 
@@ -48,3 +44,9 @@ git cherry-pick 9d4688e
 
 jruby-1.7.0
 git cherry-pick 1236ffd
+
+# 1.16.17
+
+https://github.com/wayneeseguin/rvm/issues/1146 - not ready
+git cherry-pick 0840d94
+git cherry-pick af37a07
