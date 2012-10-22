@@ -33,3 +33,6 @@ git cherry-pick 8c3fe99
 
 https://github.com/wayneeseguin/rvm/issues/1216
 git cherry-pick fcb3d7d
+
+https://github.com/wayneeseguin/rvm/issues/1249
+git cherry-pick ec78737
