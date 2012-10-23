@@ -260,16 +260,25 @@ libyaml()
 
 libyaml_installed()
 {
-  typeset __search_path
+  typeset __search_path __libyaml_file
   __search_path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
+
+  [[ -f "${__search_path}/include/yaml.h" ]] || return $?
+
   case "$(uname)" in
-    #TODO: add windows support
     (Darwin) extension="dylib" ;;
-    (*)      extension="so"    ;;
+    (CYGWIN*) extension="dll" ;;
+    (MINGW*) extension="dll" ;;
+    (*) extension="so" ;;
   esac
-  [[ -f "${__search_path}/include/yaml.h" ]] &&
-    \find "${__search_path}" -name "libyaml.${extension}" | GREP_OPTIONS="" \grep '.*' >/dev/null ||
-    return $?
+
+  __libyaml_file=$( \find "${__search_path}" -name "libyaml.${extension}" | head -n 1 )
+
+  [[ -n "${__libyaml_file}" ]] || return $?
+
+  case "$(uname)" in
+    (Darwin) lipo -info "${libyaml}" | grep "$(uname -m)" >/dev/null || return $? ;;
+  esac
 }
 
 glib()
