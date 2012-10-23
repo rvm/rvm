@@ -260,28 +260,25 @@ libyaml()
 
 libyaml_installed()
 {
-  typeset __search_path
+  typeset __search_path __libyaml_file
   __search_path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
-  uname=$(uname)
-  case "${uname}" in
-    #TODO: add windows support
+
+  [[ -f "${__search_path}/include/yaml.h" ]] || return $?
+
+  case "$(uname)" in
     (Darwin) extension="dylib" ;;
-    (*)      extension="so"    ;;
+    (CYGWIN*) extension="dll" ;;
+    (MINGW*) extension="dll" ;;
+    (*) extension="so" ;;
   esac
-  if [ "${extension}" == "so" ]; then
-    case "${uname:0:7}" in
-      (CYGWIN_) extension="dll" ;;
-      (MINGW32) extension="dll" ;;
-    esac
-  fi
-  if [[ -f "${__search_path}/include/yaml.h" ]]; then
-    libyaml=`\find "${__search_path}" -name "libyaml.${extension}" | GREP_OPTIONS="" \grep '.*' | head -n1` 
-    if [[ -f "${libyaml}" ]]; then 
-      ( [ "${uname}" != "Darwin" ] || `lipo -info "${libyaml}" | grep $(uname -m) >/dev/null` ) && return 0
-      echo "${libyaml} architecture is wrong. Reinstalling..."
-    fi
-  fi
-  return 1 #$?
+
+  __libyaml_file=$( \find "${__search_path}" -name "libyaml.${extension}" | head -n 1 )
+
+  [[ -n "${__libyaml_file}" ]] || return $?
+
+  case "$(uname)" in
+    (Darwin) lipo -info "${libyaml}" | grep "$(uname -m)" >/dev/null || return $? ;;
+  esac
 }
 
 glib()
