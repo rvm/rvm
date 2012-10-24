@@ -11,3 +11,6 @@ git cherry-pick 1f6b1fb
 git cherry-pick da53e9e
 git cherry-pick 3fd7ecc
 git cherry-pick 13b5671
+
+https://github.com/wayneeseguin/rvm/issues/1263
+git cherry-pick 0428653
