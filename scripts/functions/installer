@@ -138,7 +138,7 @@ print_install_header()
 
 configure_installation()
 {
-  typeset save_rvm_without_gems
+  typeset save_rvm_without_gems save_rvm_with_gems
   install_source_path="$(dirname "$0" | sed 's#\/scripts$##')"
 
   if [[ -d "$install_source_path/scripts" \
@@ -150,6 +150,7 @@ configure_installation()
   # Save scripts path
   scripts_path=${rvm_scripts_path:-""}
   rvm_scripts_path="${PWD%%+(\/)}/scripts"
+  save_rvm_with_gems="${rvm_with_gems:-}"
   save_rvm_without_gems="${rvm_without_gems:-}"
 
   # Load scripts.
@@ -160,6 +161,7 @@ configure_installation()
 
   # Restore Scripts Path
   rvm_scripts_path=${scripts_path:-"$rvm_path/scripts"}
+  rvm_with_gems="${save_rvm_with_gems:-${rvm_with_gems}}"
   rvm_without_gems="${save_rvm_without_gems:-${rvm_without_gems}}"
 
   item="* "
@@ -435,10 +437,24 @@ install_gemsets()
         else
           cp "$gemset_file" "$destination"
         fi
+        if
+          [[ -n "${rvm_with_gems:-}" ]]
+        then
+          printf "%b" "${rvm_with_gems// /\n}\n" >> "$destination"
+        fi
       fi
     done
   fi
 
+  if [[ -n "${rvm_with_gems:-}" ]]
+  then
+    if GREP_OPTIONS="" \grep "rvm_with_gems=" ~/.rvmrc >/dev/null
+    then
+      __rvm_sed_i ~/.rvmrc -e 's/^rvm_with_gems=.*$/rvm_with_gems="'"${rvm_with_gems}"'"/'
+    else
+      printf "%b" "\nrvm_with_gems=\"${rvm_with_gems}\"\n" >> ~/.rvmrc
+    fi
+  fi
   if [[ -n "${rvm_without_gems:-}" ]]
   then
     if GREP_OPTIONS="" \grep "rvm_without_gems=" ~/.rvmrc >/dev/null
