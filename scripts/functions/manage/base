@@ -66,14 +66,34 @@ __rvm_apply_patches()
       rvm_warn "Patch '$patch_name' not found."
       result=1
     elif
-      ! __rvm_log_command "patch.apply.${patch_name##*\/}" "Applying patch $full_patch_path" \
-        patch -F $patch_fuzziness -p$patch_level -N -f -i "$full_patch_path"
+      ! __rvm_apply_patch "${patch_name}" "$full_patch_path" "$patch_fuzziness" "$patch_level"
     then
       result=1
     fi
   done
   chpwd_functions="" builtin cd "${_save_dir}"
   return ${result:-0}
+}
+
+__rvm_apply_patch()
+{
+  typeset _patch_name _full_patch_path _patch_fuzziness _patch_level
+  _patch_name="$1"
+  _full_patch_path="$2"
+  _patch_fuzziness="$3"
+  _patch_level="$4"
+
+  if
+    [[ -r "patches.list" ]] &&
+    GREP_OPTIONS="" \grep "${_patch_name}" "patches.list" >/dev/null
+  then
+    rvm_warn "Patch ${_patch_name} was already applied."
+  else
+    touch "patches.list"
+    __rvm_log_command "patch.apply.${_patch_name##*\/}" "Applying patch ${_full_patch_path}" \
+      patch -F ${_patch_fuzziness} -p${_patch_level} -N -f -i "${_full_patch_path}" &&
+    printf "%b" "${_patch_name}" >> "patches.list"
+  fi
 }
 
 __rvm_install_source()
