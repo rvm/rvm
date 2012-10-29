@@ -475,9 +475,10 @@ __rvm_detect_system()
   _system_arch="${_system_arch//[ \/]/_}"
 }
 
+# params: [printf_if=-] [suffix]
 __rvm_system_path()
 {
-  true "${rvm_remote_server_path:=$(__rvm_db "rvm_remote_server_path")}"
+  rvm_remote_server_path="$(__rvm_db "rvm_remote_server_path${2:-}")"
   [[ -n "${rvm_remote_server_path}" ]] ||
   if __rvm_detect_system
   then rvm_remote_server_path="${_system_name}/${_system_version}/${_system_arch}"
@@ -488,11 +489,26 @@ __rvm_system_path()
   fi
 }
 
+# params: return_on_end return_on_failed_link [suffix] [file]
+__rvm_remote_server_path_single()
+{
+  rvm_remote_server_url="$( __rvm_db "rvm_remote_server_url${3:-}" )"
+  [[ -n "$rvm_remote_server_url" ]] || return $1
+  __rvm_system_path "" "${3:-}"
+  if file_exists_at_url "${rvm_remote_server_url}/${rvm_remote_server_path}${4:+/}${4:-}"
+  then printf "%b" "${rvm_remote_server_url}/${rvm_remote_server_path}${4:+/}${4:-}"
+  else return $2
+  fi
+}
+
+# params: [file_name]
 __rvm_remote_server_path()
 {
-  true "${rvm_remote_server_url:=$( __rvm_db "rvm_remote_server_url" )}"
-  __rvm_system_path
-  printf "%b" "${rvm_remote_server_url}/${rvm_remote_server_path}${1:+/}${1:-}"
+  typeset _iterator
+  _iterator=""
+  while ! __rvm_remote_server_path_single 0 1 "${_iterator}" "${1:-}"
+  do : $(( _iterator+=1 ))
+  done
 }
 
 __list_remote_rubies_for()
@@ -545,5 +561,20 @@ __rvm_gemsets_initial()
   else
     mkdir -p "$rvm_gems_path/$rvm_ruby_string@global/bin"
     rvm_log "Skipped importing default gemsets"
+  fi
+}
+
+file_exists_at_url()
+{
+  if
+    [[ -n "${1:-}" ]]
+  then
+    if \curl -slk --head "$1" 2>&1 | \head -n 1  | GREP_OPTIONS="" \grep '200 OK' >/dev/null 2>&1
+    then return 0
+    else return 1
+    fi
+  else
+    rvm_log "Warning: URL was not passed to file_exists_at_url"
+    return 1
   fi
 }
