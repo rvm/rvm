@@ -236,13 +236,14 @@ external_import_configure()
     (http*) true ;;
     (*)
       __rvm_ruby_string
-      rvm_ruby_url="$(__rvm_remote_server_path "${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}" )"
+      rvm_ruby_url="$(__rvm_remote_server_path "${rvm_ruby_string}" )"
       ;;
   esac
 
   rvm_ruby_string="${rvm_ruby_string##*/}"
   rvm_ruby_string="${rvm_ruby_string%.t*}"
-  rvm_ruby_package_file="bin-${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}"
+  __rvm_ruby_package_file "${rvm_ruby_string}"
+  rvm_ruby_package_file="bin-${rvm_ruby_string}.$(__rvm_remote_extension "${rvm_ruby_string}" -)"
 }
 
 external_import_download()
@@ -264,7 +265,7 @@ external_import_download()
   fi
 
   downloaded_names="$(
-    tar tjf "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
+    __rvm_package list "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
   )"
   [[ "${rvm_ruby_string}" == "${downloaded_names}" ]] || {
     $err_command "The downloaded package ${rvm_ruby_url} contains '${downloaded_names}' instead of '${rvm_ruby_string}'."
@@ -274,8 +275,7 @@ external_import_download()
 
 external_import_extract()
 {
-  chpwd_functions="" builtin cd "${rvm_rubies_path}"
-  tar xjf "$rvm_archives_path/${rvm_ruby_package_file}" || {
+  __rvm_package extract "$rvm_archives_path/${rvm_ruby_package_file}" "${rvm_rubies_path}" || {
     $err_command "Unpacking ${rvm_ruby_package_file} failed."
     return 6
   }
@@ -334,6 +334,12 @@ __rvm_fix_wrappers()
         -e "/^ENV\[[\"']PATH[\"']\]=/ d"
     fi
   done
+  if
+    [[ ! -f "$rvm_rubies_path/$rvm_ruby_string/bin/ruby" ]] &&
+    [[ -f "$rvm_rubies_path/$rvm_ruby_string/bin/jruby" ]]
+  then
+    ln -s "$rvm_rubies_path/$rvm_ruby_string/bin/jruby" "$rvm_rubies_path/$rvm_ruby_string/bin/ruby"
+  fi
 }
 
 __rvm_fix_lib_files()
@@ -353,9 +359,9 @@ __rvm_fix_lib_files()
 external_import_setup()
 {
   __rvm_ruby_string
-  __rvm_rubygems_create_link
   __rvm_fix_wrappers
   __rvm_fix_lib_files
+  __rvm_rubygems_create_link "$rvm_rubies_path/$rvm_ruby_string/bin/ruby"
 
   rvm_create_flag=1 __rvm_use
 
@@ -410,19 +416,22 @@ external_prepare_package()
   fi
 
   rvm_log "Preparing ${rvm_ruby_string} ..."
-  case "${file_name}" in
-    (*.tar.bz2)
-      tar cjf "${file_name}" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
-      ;;
-    (*.tar.gz|*.tgz)
-      tar czf "${file_name}" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
-      ;;
-    (*)
-      rvm_error "Do not know how to package '${file_name}'."
-      return 1
-      ;;
-  esac
-  rvm_log "Prepared $1."
+  if
+    __rvm_package create "${file_name}" "${rvm_rubies_path}" "${rvm_ruby_string}"
+  then
+    rvm_log "Prepared ${file_name}."
+  else
+    case $? in
+      199)
+        rvm_error "Unrecognized archive format for ${file_name}"
+        return 199
+        ;;
+      *)
+        rvm_error "Error packaging ${file_name}."
+        return 1
+        ;;
+    esac
+  fi
 }
 
 #TODO: move to SMF ! RVM2 ?

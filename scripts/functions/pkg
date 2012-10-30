@@ -7,27 +7,16 @@ install_package()
     chpwd_functions="" builtin cd "$rvm_src_path"
     rvm_log "Fetching $package-$version.$archive_format to $rvm_archives_path"
 
-    case "$archive_format" in
-      tar.gz|tgz)
-        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
-        __rvm_run "$package/extract" \
-          "$rvm_tar_command xmzf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-}" \
-          "Extracting $package-$version.$archive_format to $rvm_src_path"
-        ;;
-      tar.bz2)
-        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
-        __rvm_run "$package/extract" \
-          "$rvm_tar_command xmjf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-} "\
-          "Extracting $package-$version.$archive_format to $rvm_src_path"
-        ;;
-      zip)
-        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
-        __rvm_run "$package/extract" \
-          "unzip -q -o $rvm_archives_path/$package-$version.$archive_format -d $rvm_src_path/$package-$version" \
-          "Extracting $package-$version.$archive_format to $rvm_src_path"
+    "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
+    __rvm_log_command "$package/extract" "Extracting ${package} to $rvm_src_path/$package-$version" \
+      __rvm_package extract "$rvm_archives_path/$package-$version.$archive_format" "$rvm_src_path" ||
+    case $? in
+      199)
+        rvm_error "\nUnrecognized archive format '$archive_format'"
+        return 199
         ;;
       *)
-        printf "%b" "\nUnrecognized archive format '$archive_format'"
+        rvm_error "There has been an error while trying to extract the source. Halting the installation."
         return 1
         ;;
     esac
