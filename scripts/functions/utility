@@ -530,15 +530,20 @@ __rvm_ruby_package_file()
   esac
 }
 
-# params: return_on_end return_on_failed_link [suffix] [file]
-__rvm_remote_server_path_single()
+__rvm_calculate_remote_file()
 {
   rvm_remote_server_url="$( __rvm_db "rvm_remote_server_url${3:-}" )"
   [[ -n "$rvm_remote_server_url" ]] || return $1
   __rvm_system_path "" "${3:-}"
   __rvm_ruby_package_file "${4:-}"
-  typeset __remote_file
   __remote_file="${rvm_remote_server_url}/${rvm_remote_server_path}${rvm_ruby_package_file}"
+}
+
+# params: return_on_end return_on_failed_link [suffix] [file]
+__rvm_remote_server_path_single()
+{
+  typeset __remote_file
+  __rvm_calculate_remote_file "$@" || return $?
   if
     file_exists_at_url "${__remote_file}"
   then
@@ -619,7 +624,7 @@ file_exists_at_url()
     [[ -n "${1:-}" ]]
   then
     unset curl
-    if \curl -slk --head "$1" 2>&1 | \head -n 1  | GREP_OPTIONS="" \grep '200 OK' >/dev/null 2>&1
+    if \curl -slkL --head "$1" 2>&1 | GREP_OPTIONS="" \grep -E 'HTTP/[0-9\.]+ 200 OK' >/dev/null 2>&1
     then return 0
     else return 1
     fi
