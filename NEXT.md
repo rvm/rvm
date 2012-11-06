@@ -1,5 +1,8 @@
 # 1.16.18
 
+rubies:
+git cherry-pick a506d5e
+
 https://github.com/wayneeseguin/rvm/issues/1266
 git cherry-pick b7f137d
 
