@@ -245,11 +245,11 @@ __rvm_install_ruby_try_remote()
   : rvm_disable_binary_flag:${rvm_disable_binary_flag:=0}: rvm_remote_flag:${rvm_remote_flag:=0}:
   (( rvm_disable_binary_flag )) ||
   {
-    rubies=($(
-      __list_remote_rubies_for "$( __rvm_remote_server_path "${rvm_ruby_string//\./\.}\.tar\..*" )"
-    ))
-    case ${#rubies[@]} in
-      (0)
+    typeset __rvm_ruby_url
+    __rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}" )"
+    if
+      [[ -z "${__rvm_ruby_url}" ]]
+    then
         if
           (( rvm_remote_flag ))
         then
@@ -259,28 +259,16 @@ __rvm_install_ruby_try_remote()
           rvm_warn "No binary rubies available for: $(__rvm_system_path -)/${rvm_ruby_string}.
 Continuing with compilation. Please read 'rvm mount' to get more information on binary rubies."
         fi
-        ;;
-      (1)
+    else
         if
-          rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "$rvm_ruby_string"
+          rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "${__rvm_ruby_url}" "${rvm_ruby_string}"
         then
           return 0
         else
-          __rvm_rm_rf "$rvm_rubies_path/$rvm_ruby_string"
+          __rvm_rm_rf "$rvm_rubies_path/$rvm_ruby_string" # cleanup so standard installation works
           rvm_warn "Mounting remote ruby failed, trying to compile."
         fi
-        ;;
-      (*)
-        if
-          (( rvm_remote_flag ))
-        then
-          rvm_error "Requested binary installation but multiple rubies are available to download, this most likely is a bug, please report an issue!"
-          return 1
-        else
-          rvm_warn "More then one binary ruby found, this most likely is a bug, please report an issue!"
-        fi
-        ;;
-    esac
+    fi
   }
   return 2 # continue with compilation
 }
