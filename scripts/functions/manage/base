@@ -61,7 +61,7 @@ __rvm_apply_patches()
     full_patch_path="$(__rvm_lookup_full_patch_path "$patch_name")"
     rvm_debug "Patch full path '$full_patch_path'."
     if
-      [[ -z "${full_patch_path:-}" || ! -f "$full_patch_path" ]]
+      [[ -z "${full_patch_path:-}" ]]
     then
       rvm_warn "Patch '$patch_name' not found."
       result=1
@@ -75,9 +75,36 @@ __rvm_apply_patches()
   return ${result:-0}
 }
 
+__rvm_apply_patch_prepare()
+{
+  if
+    __rvm_string_match "${_full_patch_path}" "http://*" "https://*"
+  then
+    _local_patch_path="$(
+      mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX
+    )"
+    rvm_log "Fetching patch ${_full_patch_path}"
+    (
+      unset curl
+      \curl ${rvm_proxy:+-x}${rvm_proxy:-} -f -L --create-dirs -sS -C - -o "${_local_patch_path}" "${_full_patch_path}"
+    )
+  else
+    _local_patch_path="${_full_patch_path}"
+  fi
+}
+
+__rvm_apply_patch_remove()
+{
+  if
+    __rvm_string_match "${_full_patch_path}" "http://*" "https://*"
+  then
+    rm -f "${_local_patch_path}"
+  fi
+}
+
 __rvm_apply_patch()
 {
-  typeset _patch_name _full_patch_path _patch_fuzziness _patch_level
+  typeset _patch_name _full_patch_path _local_patch_path _patch_fuzziness _patch_level
   _patch_name="$1"
   _full_patch_path="$2"
   _patch_fuzziness="$3"
@@ -89,10 +116,12 @@ __rvm_apply_patch()
   then
     rvm_warn "Patch ${_patch_name} was already applied."
   else
+    __rvm_apply_patch_prepare
     touch "patches.list"
     __rvm_log_command "patch.apply.${_patch_name##*\/}" "Applying patch ${_full_patch_path}" \
-      patch -F ${_patch_fuzziness} -p${_patch_level} -N -f -i "${_full_patch_path}" &&
+      patch -F ${_patch_fuzziness} -p${_patch_level} -N -f -i "${_local_patch_path}" &&
     printf "%b" "${_patch_name}" >> "patches.list"
+    __rvm_apply_patch_remove
   fi
 }
 
