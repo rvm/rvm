@@ -97,6 +97,28 @@ Please note that it's required to reinstall all rubies:
 "
 }
 
+package_installed()
+{
+  typeset __search_path __lib_file __extension
+  __search_path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
+
+  [[ -f "${__search_path}/include/$1" ]] || return $?
+
+  case "$(uname)" in
+    (Darwin)  __extension="dylib" ;;
+    (CYGWIN*) __extension="dll" ;;
+    (MINGW*)  __extension="dll" ;;
+    (*)       __extension="so" ;;
+  esac
+  __lib_file=$( \find "${__search_path}" -name "$2.${__extension}" | head -n 1 )
+
+  [[ -n "${__lib_file}" ]] || return $?
+
+  case "$(uname)" in
+    (Darwin) lipo -info "${__lib_file}" | grep "$(uname -m)" >/dev/null || return $? ;;
+  esac
+}
+
 readline()
 {
   package="readline" ; archive_format="tar.gz"
@@ -184,6 +206,10 @@ update_openssl_certs()
   command curl -O http://curl.haxx.se/ca/cacert.pem &&
   mv cacert.pem cert.pem
 )
+openssl_installed()
+{
+  package_installed "openssl/opensslv.h" "libssl" || return $?
+}
 
 zlib()
 {
@@ -250,24 +276,7 @@ libyaml()
 
 libyaml_installed()
 {
-  typeset __search_path __libyaml_file __extension
-  __search_path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
-
-  [[ -f "${__search_path}/include/yaml.h" ]] || return $?
-
-  case "$(uname)" in
-    (Darwin)  __extension="dylib" ;;
-    (CYGWIN*) __extension="dll" ;;
-    (MINGW*)  __extension="dll" ;;
-    (*)       __extension="so" ;;
-  esac
-  __libyaml_file=$( \find "${__search_path}" -name "libyaml.${__extension}" | head -n 1 )
-
-  [[ -n "${__libyaml_file}" ]] || return $?
-
-  case "$(uname)" in
-    (Darwin) lipo -info "${libyaml}" | grep "$(uname -m)" >/dev/null || return $? ;;
-  esac
+  package_installed "yaml.h" "libyaml"
 }
 
 glib()
