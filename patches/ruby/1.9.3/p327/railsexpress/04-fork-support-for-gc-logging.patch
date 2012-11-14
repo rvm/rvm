@@ -1,0 +1,68 @@
+diff --git a/gc.c b/gc.c
+index 169dfab..629a73a 100644
+--- a/gc.c
++++ b/gc.c
+@@ -1322,6 +1322,34 @@ rb_gc_log_file(int argc, VALUE *argv, VALUE self)
+ }
+
+ /*
++ * Called from process.c before a fork. Flushes the gc log file to
++ * avoid writing the buffered output twice (once in the parent, and
++ * once in the child).
++ */
++void
++rb_gc_before_fork()
++{
++    rb_objspace_t *objspace = &rb_objspace;
++    fflush(gc_data_file);
++}
++
++/*
++ * Called from process.c after a fork in the child process. Turns off
++ * logging, disables GC stats and resets all gc counters and timing
++ * information.
++ */
++void
++rb_gc_after_fork()
++{
++    rb_objspace_t *objspace = &rb_objspace;
++    rb_gc_disable_stats();
++    rb_gc_clear_stats();
++    rb_gc_disable_trace();
++    gc_data_file = stderr;
++    rb_iv_set(rb_mGC, GC_LOGFILE_IVAR, Qnil);
++}
++
++/*
+  *  call-seq:
+  *     GC.log String  => String
+  *
+diff --git a/include/ruby/intern.h b/include/ruby/intern.h
+index 927b536..9da266e 100644
+--- a/include/ruby/intern.h
++++ b/include/ruby/intern.h
+@@ -425,6 +425,8 @@ void rb_gc_call_finalizer_at_exit(void);
+ VALUE rb_gc_enable(void);
+ VALUE rb_gc_disable(void);
+ VALUE rb_gc_start(void);
++void rb_gc_before_fork _((void));
++void rb_gc_after_fork _((void));
+ #define Init_stack(addr) ruby_init_stack(addr)
+ void rb_gc_set_params(void);
+ /* hash.c */
+diff --git a/process.c b/process.c
+index 99cfc69..8bee602 100644
+--- a/process.c
++++ b/process.c
+@@ -2804,9 +2804,11 @@ rb_f_fork(VALUE obj)
+     rb_pid_t pid;
+
+     rb_secure(2);
++    rb_gc_before_fork();
+
+     switch (pid = rb_fork(0, 0, 0, Qnil)) {
+       case 0:
++        rb_gc_after_fork();
+	rb_thread_atfork();
+	if (rb_block_given_p()) {
+	    int status;
