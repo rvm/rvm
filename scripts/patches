@@ -7,13 +7,9 @@
 __rvm_patch_lookup_path()
 {
   echo "/"
-
-  [[ -n "${rvm_patch_original_pwd:-""}" ]] && echo "$rvm_patch_original_pwd/"
-
+  [[ -z "${rvm_patch_original_pwd:-""}" ]] || echo "$rvm_patch_original_pwd/"
   echo "$PWD/"
-
   __rvm_ruby_string_paths_under "$rvm_patches_path" | sed 's/$/\//' | sort -r
-
   return $?
 }
 
@@ -22,9 +18,11 @@ __rvm_expand_patch_name()
   typeset name level expanded_patch_name
   name="${1:-""}"
   level="${2:-}"
-  [[ -z "$name" ]] && return 0
+  [[ -n "$name" ]] || return 0
   if
-    expanded_patch_name="$(rvm_ruby_string="${rvm_ruby_string}" "$rvm_scripts_path/patchsets" show "$name")"
+    expanded_patch_name="$(
+      rvm_ruby_string="${rvm_ruby_string}" "$rvm_scripts_path/patchsets" show "$name"
+    )"
   then
     echo "${expanded_patch_name}"
   elif
@@ -38,25 +36,26 @@ __rvm_expand_patch_name()
 __rvm_lookup_full_patch_path()
 {
   typeset extension patch_path directory directories
-
   # Absolute path, pwd and then finally the rvm patches path.
-  directories=($(__rvm_patch_lookup_path))
-
-  for directory in "${directories[@]}" ; do
-
-    for extension in {"",.patch,.diff}; do
-
+  directories=($( __rvm_patch_lookup_path ))
+  for directory in "${directories[@]}"
+  do
+    for extension in "" .patch .diff
+    do
       patch_path="${directory}${1}${extension}"
-
       # -s reports directories too - so additional check -f needed
-      if [[ -s "$patch_path" && -f "$patch_path" ]]; then
+      if
+        [[ -s "$patch_path" && -f "$patch_path" ]]
+      then
         echo "$patch_path"
         return 0
       fi
-
     done
-
   done
-
-  return 0
+  if
+    __rvm_string_match "$1" "http://*" "https://*" &&
+    file_exists_at_url "$1"
+  then
+    echo "$1"
+  fi
 }

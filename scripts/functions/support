@@ -68,24 +68,62 @@ __rvm_array_contains()
   return 1
 }
 
+__rvm_array_add_or_update()
+{
+  typeset _array_name _variable _separator _value _local_value
+  typeset -a _array_value_old _array_value_new
+
+  _array_name="$1"
+  _variable="$2"
+  _separator="$3"
+  _value="$4"
+  _array_value_new=()
+  eval "_array_value_old=( \"\${${_array_name}[@]}\" )"
+
+  case " ${_array_value_old[*]} " in
+    (*[[:space:]]${_variable}*)
+      for _local_value in "${_array_value_old[@]}"
+      do
+        case "${_local_value}" in
+          (${_variable}*)
+            _array_value_new+=( "${_local_value}${_separator}${_value}" )
+            ;;
+          (*)
+            _array_value_new+=( "${_local_value}" )
+            ;;
+        esac
+      done
+      ;;
+    (*)
+      _array_value_new=( "${_array_value_old[@]}" "${_variable}${_value}" )
+      ;;
+  esac
+
+  eval "${_array_name}=( \"\${_array_value_new[@]}\" )"
+}
+
 # Drop in replacement for sed -i compatible with OpenBSD
 # Assumes that filename is the first argument, all others are passed onto sed
 __rvm_sed_i()
 {
-    typeset _filename _executable
-    _filename="$1"
-    shift
+  typeset _filename _executable
+  [[ -n "${1:-}" ]] || {
+    rvm_debug "no file given for __rvm_sed_i"
+    return 0
+  }
+  _filename="$1"
+  shift
 
-    if [[ -x "${_filename}" ]]
-    then _executable=true
-    fi
+  if [[ -x "${_filename}" ]]
+  then _executable=true
+  fi
 
-    sed "$@" < "${_filename}" > "${_filename}.new"
-    \mv "${_filename}.new" "${_filename}"
+  sed "$@" < "${_filename}" > "${_filename}.new"
+  \mv "${_filename}.new" "${_filename}"
 
-    if [[ -n "${_executable:-}" ]]
-    then chmod +x "${_filename}"
-    fi
+  if [[ -n "${_executable:-}" ]]
+  then chmod +x "${_filename}"
+  fi
 }
 
 # Drop in replacement for which compatible with OSX / ZSH
@@ -93,11 +131,13 @@ __rvm_which()
 {
   if command which --skip-alias --skip-functions which >/dev/null 2>&1
   then command which --skip-alias --skip-functions "$@"
+  elif command whence whence >/dev/null 2>&1
+  then command whence -p "$@"
   elif command which which >/dev/null 2>&1
   then command which "$@"
-  elif [[ -n "${ZSH_VERSION:-}" ]]
-  then return 1 #TODO: zsh detects functions, it is very bad!
-  else which "$@"
+  elif which which >/dev/null 2>&1
+  then which "$@"
+  else return 1
   fi
 }
 

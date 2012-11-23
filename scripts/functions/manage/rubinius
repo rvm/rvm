@@ -20,7 +20,7 @@ rubinius_install()
   typeset rvm_configure_args
   typeset -a rvm_ruby_configure
   unset CFLAGS LDFLAGS ARCHFLAGS # Important.
-  unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC
+  unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC RBXOPT
   export PATH
   export ruby="$(__rvm_mri_ruby)"
 
@@ -74,22 +74,29 @@ rubinius_install()
       rvm_error "There has been an error while trying to fetch the source. Halting the installation."
       return $result
     fi
-    __rvm_run "extract" \
-      "$rvm_tar_command xzf \"${rvm_archives_path}/$(basename ${rvm_ruby_package_file})\" -C ${rvm_src_path} ${rvm_tar_options:-}" \
-      "$rvm_ruby_string - #extracting"
-    result=$?
 
-    if (( result > 0 ))
-    then
-      rvm_error "There has been an error while trying to extract the source.  \nHalting the installation."
-      return $result
-    fi
+    __rvm_log_command "extract" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string" \
+      __rvm_package extract "${rvm_archives_path}/$rvm_ruby_package_file" "${rvm_tmp_path:-/tmp}/rvm_src_$$" ||
+    case $? in
+      199)
+        rvm_error "\nUnrecognized archive format '$archive_format'"
+        return 199
+        ;;
+      *)
+        rvm_error "There has been an error while trying to extract the source. Halting the installation."
+        return 1
+        ;;
+    esac
 
     # Remove the left over folder first.
     __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
 
-    mv "${rvm_src_path}/rubinius-${rvm_ruby_version}" \
-      "${rvm_src_path}/$rvm_ruby_string"
+    if [[ -n "${rvm_ruby_patch_level:-}" ]]
+    then
+      mv "${rvm_tmp_path:-/tmp}/rvm_src_$$/rubinius-release-${rvm_ruby_version}-${rvm_ruby_patch_level}" "${rvm_src_path}/$rvm_ruby_string"
+    else
+      mv "${rvm_src_path}/rubinius-${rvm_ruby_version}" "${rvm_src_path}/$rvm_ruby_string"
+    fi
   else
     # Install from repository
     __rvm_db "rubinius_repo_url" "rvm_ruby_repo_url"

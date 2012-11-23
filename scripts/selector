@@ -49,6 +49,14 @@ __rvm_select()
     missing)
       return 2
       ;;
+    opal)
+      rvm_ruby_version="head"
+      rvm_ruby_revision="head"
+      rvm_ruby_interpreter="opal"
+      rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
+      rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
+      rvm_disable_binary_flag=1
+      ;;
     macruby)
       if [[ "Darwin" == "$(uname)" ]]
       then
@@ -94,7 +102,6 @@ __rvm_select()
       rvm_ruby_version=${rvm_ruby_version:-$(__rvm_db "rbx_version")}
       rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
       rbx_url=${rbx_url:-$(__rvm_db "rbx_url")}
-      rvm_ruby_patch_level=""
 
       case "${rvm_ruby_version}" in
         (2.0pre)
@@ -105,10 +112,21 @@ __rvm_select()
 
       if (( ${rvm_head_flag:=0} == 0 ))
       then
-        rvm_ruby_url="${rbx_url}"
-        rvm_ruby_package_file="rubinius-${rvm_ruby_version}.${rvm_archive_extension}"
-        rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_file"
+        if [[ -n "${rvm_ruby_patch_level:-}" ]]
+        then
+          rbx_url="$( __rvm_db "rbx_2.0.0_url" )"
+          rvm_archive_extension="zip"
+          rvm_ruby_url="${rbx_url}"
+          rvm_ruby_package_file="release-${rvm_ruby_version}-${rvm_ruby_patch_level}.${rvm_archive_extension}"
+          rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_file"
+        else
+          rvm_ruby_patch_level=""
+          rvm_ruby_url="${rbx_url}"
+          rvm_ruby_package_file="rubinius-${rvm_ruby_version}.${rvm_archive_extension}"
+          rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_file"
+        fi
       else
+        rvm_ruby_patch_level=""
         rvm_ruby_version="head"
         rvm_disable_binary_flag=1
       fi
@@ -143,7 +161,6 @@ __rvm_select()
         rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         rvm_ruby_url="${jruby_url}/${rvm_ruby_version}/${rvm_ruby_package_file}.tar.gz"
         jruby_url=""
-        rvm_disable_binary_flag=1
       fi
 
       alias jruby_ng="jruby --ng"
@@ -242,7 +259,7 @@ __rvm_select()
       rvm_head_flag=1
       rvm_ruby_string="kiji-head"
       rvm_ruby_patch_level=""
-      rvm_ruby_repo_url=${rvm_mput_repo_url:-"$(__rvm_db "kiji_repo_url")"}
+      rvm_ruby_repo_url=${rvm_ruby_repo_url:-"$(__rvm_db "kiji_repo_url")"}
       rvm_ruby_url=$rvm_ruby_repo_url
       rvm_ruby_configure="" ; rvm_ruby_make="" ; rvm_ruby_make_install=""
       ;;
@@ -252,8 +269,21 @@ __rvm_select()
       rvm_ruby_version="head"
       rvm_ruby_string="goruby"
       rvm_ruby_patch_level=""
-      rvm_ruby_repo_url=${rvm_mput_repo_url:-"$(__rvm_db "goruby_repo_url")"}
+      rvm_ruby_repo_url=${rvm_ruby_repo_url:-"$(__rvm_db "goruby_repo_url")"}
       rvm_ruby_url=$rvm_ruby_repo_url
+      rvm_ruby_configure="" ; rvm_ruby_make="" ; rvm_ruby_make_install=""
+      ;;
+
+    mruby)
+      rvm_ruby_interpreter="mruby"
+      rvm_ruby_version="head"
+      rvm_ruby_string="mruby-head"
+      rvm_ruby_patch_level=""
+      rvm_ruby_repo_url=${rvm_ruby_repo_url:-"$(__rvm_db "mruby_repo_url")"}
+      rvm_ruby_url=$rvm_ruby_repo_url
+      export rvm_head_flag=1
+      rvm_disable_binary_flag=1
+      export rvm_skip_autoreconf_flag=1
       rvm_ruby_configure="" ; rvm_ruby_make="" ; rvm_ruby_make_install=""
       ;;
 
@@ -269,6 +299,20 @@ __rvm_select()
       rvm_disable_binary_flag=1
       rvm_ruby_configure="" ; rvm_ruby_make="" ; rvm_ruby_make_install=""
       ;;
+
+    jamesgolick)
+      rvm_ruby_interpreter="jamesgolick"
+      rvm_ruby_version="head"
+      rvm_ruby_string="jamesgolick"
+      rvm_ruby_patch_level=""
+      rvm_ruby_repo_url=${rvm_jamesgolick_repo_url:-"$(__rvm_db "jamesgolick_repo_url")"}
+      rvm_ruby_url=$rvm_ruby_repo_url
+      rvm_ruby_repo_branch="${rvm_ruby_repo_branch:-"$(__rvm_db "jamesgolick_repo_branch")"}"
+      export rvm_head_flag=1
+      rvm_disable_binary_flag=1
+      rvm_ruby_configure="" ; rvm_ruby_make="" ; rvm_ruby_make_install=""
+      ;;
+
 
     ruby)
       if [[ -n "${rvm_ruby_patch_level}" ]]
@@ -287,14 +331,12 @@ __rvm_select()
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-"$(__rvm_db "ruby_repo_url")"}"
         if (( ${rvm_head_flag:=0} == 0 ))
         then
-          case "${rvm_ruby_version}" in
-            (1.8.4)
-              rvm_archive_extension="tar.gz"
-              ;;
-            (*)
-              rvm_archive_extension="tar.bz2"
-              ;;
-          esac
+          if __rvm_version_compare "${rvm_ruby_version}" -lt "1.8.5"
+          then
+            rvm_archive_extension="tar.gz"
+          else
+            rvm_archive_extension="tar.bz2"
+          fi
         else rvm_disable_binary_flag=1
         fi
       fi
@@ -833,7 +875,7 @@ __rvm_ruby_string()
         rvm_head_flag=1
         ;;
 
-      (ruby|rbx|jruby|macruby|ree|kiji|rubinius|maglev|ironruby|goruby|tcs)
+      (opal|ruby|rbx|jruby|macruby|ree|kiji|rubinius|maglev|ironruby|goruby|mruby|tcs|jamesgolick)
         rvm_ruby_interpreter="$string"
         ;;
 
@@ -856,8 +898,9 @@ __rvm_ruby_string()
       (0.[5-6]*) rvm_ruby_interpreter="macruby" ;;
       (1.[0-4]*) rvm_ruby_interpreter="rbx"     ;;
       (1.[5-7]*) rvm_ruby_interpreter="jruby"   ;;
+      (2.0.0*)   rvm_ruby_interpreter="ruby"    ;;
       (2.*)
-        rvm_error "Version '$rvm_ruby_version' is to confusing to select ruby interpreter."
+        rvm_error "Version '$rvm_ruby_version' is ambiguous. Cannot select Ruby implementation/version, please be more specific."
         return 2
         ;;
     esac

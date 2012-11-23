@@ -21,43 +21,43 @@ ree_install()
 
     chpwd_functions="" builtin cd "${rvm_src_path}"
 
-    if [[ -d "${rvm_src_path}/$rvm_ruby_string" &&
-      -x "${rvm_src_path}/$rvm_ruby_string/installer" ]]
+    if
+      [[ -d "${rvm_src_path}/$rvm_ruby_string" ]] &&
+      [[ -x "${rvm_src_path}/$rvm_ruby_string/installer" ]]
     then
       rvm_log "It appears that the archive has already been extracted. Skipping extract (use reinstall to do fresh installation)."
-
     else
       rvm_log "$rvm_ruby_string - #fetching ($rvm_ruby_package_file)"
-
-      "$rvm_scripts_path/fetch" "$rvm_ruby_url"
-      result=$?
-
-      if (( result > 0 ))
+      if
+        "$rvm_scripts_path/fetch" "$rvm_ruby_url"
       then
+        true
+      else
+        result=$?
         rvm_error "There has been an error while trying to fetch the source. \nHalting the installation."
         return $result
       fi
 
+      __rvm_log_command "extract" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string" \
+        __rvm_package extract "${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension" "${rvm_src_path}/" ||
+      case $? in
+        199)
+          rvm_error "\nUnrecognized archive format '$archive_format'"
+          return 199
+          ;;
+        *)
+          rvm_error "There has been an error while trying to extract the source. Halting the installation."
+          return 1
+          ;;
+      esac
+
       __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
-
-      __rvm_run "extract" \
-        "$rvm_tar_command xzf \"${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension\" -C ${rvm_src_path} ${rvm_tar_options:-}" \
-        "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string"
-      result=$?
-
-      if (( result > 0 ))
-      then
-        rvm_error "There has been an error while trying to extract the source. Halting the installation."
-        return $result
-      fi
-
-      mv "${rvm_src_path}/$rvm_ruby_package_file" \
-        "${rvm_src_path}/$rvm_ruby_string"
+      mv "${rvm_src_path}/$rvm_ruby_package_file" "${rvm_src_path}/$rvm_ruby_string"
     fi
 
     chpwd_functions="" builtin cd "${rvm_src_path}/$rvm_ruby_string"
 
-    __rvm_setup_compile_environment
+    __rvm_setup_compile_environment "${rvm_ruby_string}"
 
     #TODO: wait, what? Investigate line smell.
     mkdir -p "${rvm_ruby_home}/lib/ruby/gems/1.8/gems"
@@ -84,13 +84,7 @@ ree_install()
 
     if (( result == 0 )) && [[ "$(uname -m)" == "x86_64" ]]
     then
-      (
-        full_patch_path="$(__rvm_lookup_full_patch_path lib64)"
-        builtin cd "${rvm_src_path}/$rvm_ruby_string"
-        __rvm_run "patch.apply.lib64" \
-            "patch -F 3 -p1 -N -f -i \"$full_patch_path\"" \
-            "Applying patch 'lib64' (located at $full_patch_path)"
-      )
+      __rvm_apply_patches "${rvm_src_path}/$rvm_ruby_string" lib64
       result=$?
     fi
 
@@ -129,7 +123,7 @@ ree_install()
 
     else
       rvm_ruby_repo_url="$rvm_ruby_url"
-      __rvm_setup_compile_environment
+      __rvm_setup_compile_environment "${rvm_ruby_string}"
       __rvm_install_source $*
     fi
   fi

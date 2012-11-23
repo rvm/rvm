@@ -7,27 +7,16 @@ install_package()
     chpwd_functions="" builtin cd "$rvm_src_path"
     rvm_log "Fetching $package-$version.$archive_format to $rvm_archives_path"
 
-    case "$archive_format" in
-      tar.gz|tgz)
-        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
-        __rvm_run "$package/extract" \
-          "$rvm_tar_command xmzf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-}" \
-          "Extracting $package-$version.$archive_format to $rvm_src_path"
-        ;;
-      tar.bz2)
-        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
-        __rvm_run "$package/extract" \
-          "$rvm_tar_command xmjf $rvm_archives_path/$package-$version.$archive_format -C $rvm_src_path ${rvm_tar_options:-} "\
-          "Extracting $package-$version.$archive_format to $rvm_src_path"
-        ;;
-      zip)
-        "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
-        __rvm_run "$package/extract" \
-          "unzip -q -o $rvm_archives_path/$package-$version.$archive_format -d $rvm_src_path/$package-$version" \
-          "Extracting $package-$version.$archive_format to $rvm_src_path"
+    "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
+    __rvm_log_command "$package/extract" "Extracting ${package} to $rvm_src_path/$package-$version" \
+      __rvm_package extract "$rvm_archives_path/$package-$version.$archive_format" "$rvm_src_path" ||
+    case $? in
+      199)
+        rvm_error "\nUnrecognized archive format '$archive_format'"
+        return 199
         ;;
       *)
-        printf "%b" "\nUnrecognized archive format '$archive_format'"
+        rvm_error "There has been an error while trying to extract the source. Halting the installation."
         return 1
         ;;
     esac
@@ -100,7 +89,7 @@ install_package()
     fi
   )
 
-  __function_on_stack ruby_install ||
+  __function_on_stack __rvm_install_ruby ||
   rvm_warn "
 Please note that it's required to reinstall all rubies:
 
@@ -108,11 +97,34 @@ Please note that it's required to reinstall all rubies:
 "
 }
 
+package_installed()
+{
+  typeset __search_path __lib_file __extension
+  __search_path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
+
+  [[ -f "${__search_path}/include/$1" ]] || return $?
+
+  case "$(uname)" in
+    (Darwin)  __extension="dylib" ;;
+    (CYGWIN*) __extension="dll" ;;
+    (MINGW*)  __extension="dll" ;;
+    (*)       __extension="so" ;;
+  esac
+  __lib_file=$( \find "${__search_path}" -name "$2.${__extension}" | head -n 1 )
+
+  [[ -n "${__lib_file}" ]] || return $?
+
+  case "$(uname)" in
+    (Darwin) lipo -info "${__lib_file}" | grep "$(uname -m)" >/dev/null || return $? ;;
+  esac
+}
+
 readline()
 {
   package="readline" ; archive_format="tar.gz"
+  __rvm_update_configure_opt_dir readline "${rvm_usr_path}"
   configure=(
-    CFLAGS=-I${rvm_usr_path}/include LDFLAGS=-L${rvm_usr_path}/lib ./configure --prefix=${rvm_usr_path} --disable-dependency-tracking --disable-static --enable-shared
+    ./configure --disable-dependency-tracking --disable-static --enable-shared
   )
 
   version="5.2"
@@ -182,7 +194,7 @@ openssl()
     configure_command="./config"
   fi
   configure=(
-    $configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib --prefix=$rvm_usr_path zlib no-asm no-krb5 shared
+    $configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib zlib no-asm no-krb5 shared
   )
   install_package
   __rvm_log_command openssl.certs "Updating openssl certificates" update_openssl_certs
@@ -194,6 +206,10 @@ update_openssl_certs()
   command curl -O http://curl.haxx.se/ca/cacert.pem &&
   mv cacert.pem cert.pem
 )
+openssl_installed()
+{
+  package_installed "openssl/opensslv.h" "libssl" || return $?
+}
 
 zlib()
 {
@@ -236,7 +252,7 @@ libxml2()
     [[ "Darwin" == "$(uname)" ]]
   then
     configure=(
-      ./configure --prefix=$rvm_usr_path --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)
+      ./configure --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)
     )
   fi
   install_package
@@ -246,6 +262,7 @@ libxml2()
 libxslt()
 {
   package="libxslt" ; version="1.1.26" ; archive_format="tar.gz"
+  configure_flags=( --with-libxml-prefix="$rvm_usr_path" )
   install_package
   unset prefix_path
 }
@@ -254,25 +271,12 @@ libxslt()
 libyaml()
 {
   package="yaml" ; version="0.1.4" ; archive_format="tar.gz"
-  if [[ "Darwin" == "$(uname)" ]]
-  then
-    unset rvm_configure_env
-  fi
   install_package
 }
 
 libyaml_installed()
 {
-  typeset __search_path
-  __search_path="${prefix_path:-${rvm_usr_path:-${rvm_path}/usr}}"
-  case "$(uname)" in
-    #TODO: add windows support
-    (Darwin) extension="dylib" ;;
-    (*)      extension="so"    ;;
-  esac
-  [[ -f "${__search_path}/include/yaml.h" ]] &&
-    \find "${__search_path}" -name "libyaml.${extension}" | GREP_OPTIONS="" \grep '.*' >/dev/null ||
-    return $?
+  package_installed "yaml.h" "libyaml"
 }
 
 glib()
@@ -280,9 +284,10 @@ glib()
   pkgconfig
   gettext
   package="glib" ; version="2.23.1" ; archive_format="tar.gz"
-  configure=(
-    CC="cc -L$rvm_usr_path/lib -I$rvm_usr_path/include" PKG_CONFIG="$rvm_usr_path/bin/pkg-config" ./configure --prefix="$rvm_usr_path"
-  )
+  __rvm_update_configure_env CC="cc" \
+    CFLAGS="-I${rvm_usr_path}/include" \
+    LDFLAGS="-L${rvm_usr_path}/lib" \
+    PKG_CONFIG="$rvm_usr_path/bin/pkg-config"
   install_package
 }
 
@@ -311,9 +316,4 @@ llvm()
       sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make install
     fi
   )
-}
-
-reset()
-{
-  unset package version archive_format patches prefix_path configure configure_flags
 }

@@ -31,7 +31,14 @@ done
 
 if (( $# ))
 then
-  eval command sudo \"\${sudo_args[@]}\" /usr/bin/env $(
+  if
+    [[ -r "/etc/sudoers" ]] &&
+    grep -E '^[[:space:]]*Defaults[[:space:]]+secure_path=' "/etc/sudoers" >/dev/null
+  then
+    sudo_args+=( "/usr/bin/env" )
+    printf "%b" 'Warning: `secure_path` found in `/etc/sudoers`, falling back to call via `/usr/bin/env`, this breaks rules from `/etc/sudoers`.'
+  fi
+  eval command sudo \"\${sudo_args[@]}\" $(
     /usr/bin/env |
       awk -F= 'BEGIN{v=0;}/^[a-zA-Z_][a-zA-Z0-9_]*=/{v=1;}v==1&&$2~/^['\''\$]/{v=2;} v==1&&$2~/^\(\) \{/{v=0;} v==1&&$2~/^\(/{v=3;}v==2&&/'\''$/&&!/'\'\''$/{v=1;}v==3&&/\)$/{v=1;}v{print;}v==1{v=0;}' |
       GREP_OPTIONS="" \grep -E '^rvm|^gemset|^http_|^PATH|^IRBRC|RUBY|GEM' |

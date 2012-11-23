@@ -19,7 +19,7 @@ __rvm_current_patch_names()
     else level=1
     fi
     name="${name%${patch_level_separator}*}"
-    rvm_debug "Partch name '$name'."
+    rvm_debug "Patch name '$name'."
     while
       read -r expanded_name
     do
@@ -61,19 +61,68 @@ __rvm_apply_patches()
     full_patch_path="$(__rvm_lookup_full_patch_path "$patch_name")"
     rvm_debug "Patch full path '$full_patch_path'."
     if
-      [[ -z "${full_patch_path:-}" || ! -f "$full_patch_path" ]]
+      [[ -z "${full_patch_path:-}" ]]
     then
       rvm_warn "Patch '$patch_name' not found."
       result=1
     elif
-      ! __rvm_log_command "patch.apply.${patch_name##*\/}" "Applying patch $full_patch_path" \
-        patch -F $patch_fuzziness -p$patch_level -N -f -i "$full_patch_path"
+      ! __rvm_apply_patch "${patch_name}" "$full_patch_path" "$patch_fuzziness" "$patch_level"
     then
       result=1
     fi
   done
   chpwd_functions="" builtin cd "${_save_dir}"
   return ${result:-0}
+}
+
+__rvm_apply_patch_prepare()
+{
+  if
+    __rvm_string_match "${_full_patch_path}" "http://*" "https://*"
+  then
+    _local_patch_path="$(
+      mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX
+    )"
+    rvm_log "Fetching patch ${_full_patch_path}"
+    (
+      unset curl
+      \curl ${rvm_proxy:+-x}${rvm_proxy:-} -f -L --create-dirs -sS -C - -o "${_local_patch_path}" "${_full_patch_path}"
+    )
+  else
+    _local_patch_path="${_full_patch_path}"
+  fi
+}
+
+__rvm_apply_patch_remove()
+{
+  if
+    __rvm_string_match "${_full_patch_path}" "http://*" "https://*"
+  then
+    rm -f "${_local_patch_path}"
+  fi
+}
+
+__rvm_apply_patch()
+{
+  typeset _patch_name _full_patch_path _local_patch_path _patch_fuzziness _patch_level
+  _patch_name="$1"
+  _full_patch_path="$2"
+  _patch_fuzziness="$3"
+  _patch_level="$4"
+
+  if
+    [[ -r "patches.list" ]] &&
+    GREP_OPTIONS="" \grep "${_patch_name}" "patches.list" >/dev/null
+  then
+    rvm_warn "Patch ${_patch_name} was already applied."
+  else
+    __rvm_apply_patch_prepare
+    touch "patches.list"
+    __rvm_log_command "patch.apply.${_patch_name##*\/}" "Applying patch ${_full_patch_path}" \
+      patch -F ${_patch_fuzziness} -p${_patch_level} -N -f -i "${_local_patch_path}" &&
+    printf "%b" "${_patch_name}" >> "patches.list"
+    __rvm_apply_patch_remove
+  fi
 }
 
 __rvm_install_source()
@@ -246,7 +295,7 @@ __rvm_install_ruby_try_remote()
   (( rvm_disable_binary_flag )) ||
   {
     typeset __rvm_ruby_url
-    __rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}" )"
+    __rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}" )"
     if
       [[ -z "${__rvm_ruby_url}" ]]
     then
@@ -320,12 +369,12 @@ https://rvm.io/rubies/named/
   fi
 
   case "${rvm_ruby_interpreter}" in
-    macruby|ree|jruby|maglev|goruby|rubinius|ironruby|ruby)
+    opal|macruby|ree|jruby|maglev|goruby|rubinius|ironruby|ruby|mruby)
       ruby_install_type=$rvm_ruby_interpreter
       ;;
     rbx)      ruby_install_type=rubinius ;;
     ir)       ruby_install_type=ironruby ;;
-    kiji|tcs) ruby_install_type=ruby     ;;
+    kiji|tcs|jamesgolick) ruby_install_type=ruby     ;;
     default)
       rvm_error "a ruby interpreter to install must be specified and not simply 'default'."
       ;;
@@ -517,29 +566,18 @@ __rvm_fetch_ruby()
     then
       mkdir -p "${rvm_tmp_path:-/tmp}/rvm_src_$$"
 
-      case "$rvm_archive_extension" in
-        tar.gz|tgz)
-          _current_command=(
-            "$rvm_tar_command" xzf "${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension" -C "${rvm_tmp_path:-/tmp}/rvm_src_$$" ${rvm_tar_options:-}
-          )
-          ;;
-        tar.bz2)
-          _current_command=(
-            "$rvm_tar_command" xjf "${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension" -C "${rvm_tmp_path:-/tmp}/rvm_src_$$" ${rvm_tar_options:-}
-          )
-          ;;
-        zip)
-          _current_command=(
-            unzip -q -o "${rvm_archives_path}/$rvm_ruby_package_file" -d "${rvm_tmp_path:-/tmp}/rvm_src_$$"
-          )
+      __rvm_log_command "extract" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string" \
+        __rvm_package extract "${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension" "${rvm_tmp_path:-/tmp}/rvm_src_$$" ||
+      case $? in
+        199)
+          rvm_error "\nUnrecognized archive format '$archive_format'"
+          return 199
           ;;
         *)
-          rvm_error "Unknown archive format extension '$rvm_archive_extension'.\nHalting the installation."
+          rvm_error "There has been an error while trying to extract the source. Halting the installation."
           return 1
           ;;
       esac
-      __rvm_log_command "extract" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string" \
-        "${_current_command[@]}" || return $?
 
       __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
 
@@ -916,7 +954,7 @@ __rvm_remove_binaries()
 __rvm_post_install()
 {
   case "$rvm_ruby_interpreter" in
-  (jruby|ree|rbx) true ;; #skip
+  (jruby|ree|rbx|mruby) true ;; #skip
   (*)
     (( ${#binaries[@]} )) || binaries=(gem irb erb ri rdoc testrb rake)
     ;;
@@ -948,16 +986,7 @@ __rvm_post_install()
     done
   fi
   binaries=(gem irb erb ri rdoc testrb rake) #reset
-
-  # Import the initial gemsets, unless skipped.
-  if (( ${rvm_skip_gemsets_flag:-0} == 0 ))
-  then
-    __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
-      "'$rvm_scripts_path/gemsets' initial" \
-      "$rvm_ruby_string - #importing default gemsets ($rvm_gemsets_path/)"
-  else
-    rvm_log "Skipped importing default gemsets"
-  fi
+  __rvm_gemsets_initial
   __rvm_irbrc
   __rvm_generate_default_docs
 }

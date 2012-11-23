@@ -46,7 +46,7 @@ external_mount_uniq()
         echo "${ruby_path}"
       elif [[ ! -d "${ruby_path}" &&  -x "${ruby_path}" ]]
       then
-        "${ruby_path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']" 2>/dev/null
+        __rvm_ruby_config_get prefix "${ruby_path}"
       fi
     done | sort -u | external_grep_existing
   ) )
@@ -70,11 +70,11 @@ external_mount()
   if [[ ! -d "${_given_path}" && -x "${_given_path}" ]] && "${_given_path}" --version | GREP_OPTIONS="" \grep rub >/dev/null
   then
     ruby_path="${_given_path}"
-    prefix_path="$("${_given_path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']")"
+    prefix_path="$( __rvm_ruby_config_get prefix "${_given_path}" )"
   elif [[ -d "${_given_path}" && -x "${_given_path}/bin/ruby" ]] && "${_given_path}/bin/ruby" --version | GREP_OPTIONS="" \grep rub >/dev/null
   then
     ruby_path="${_given_path}/bin/ruby"
-    prefix_path="$("${ruby_path}" -rrbconfig -e "puts RbConfig::CONFIG['prefix']")"
+    prefix_path="$( __rvm_ruby_config_get prefix "${ruby_path}" )"
     if [[ "${_given_path}" != "${prefix_path}" ]]
     then
       rvm_error "The given path '$_given_path' contains ruby but it has different prefix '$prefix_path'."
@@ -114,18 +114,10 @@ external_mount()
 
   __rvm_bin_script
 
-  # Import the initial gemsets, unless skipped.
-  if (( ${rvm_skip_gemsets_flag:-0} == 0 ))
-  then
-    (
-      export rvm_gemset_name=global
-      __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
-        "'$rvm_scripts_path/gemsets' initial" \
-        "$rvm_ruby_string - #importing default gemsets ($rvm_gemsets_path/)"
-    )
-  else
-    rvm_log "Skipped importing default gemsets"
-  fi
+  (
+    export rvm_gemset_name=global
+    __rvm_gemsets_initial
+  )
 
   __rvm_ruby_config_save "$ruby_path" "$rvm_rubies_path/$rvm_ruby_string/config"
 
@@ -244,13 +236,14 @@ external_import_configure()
     (http*) true ;;
     (*)
       __rvm_ruby_string
-      rvm_ruby_url="$(__rvm_remote_server_path "${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}" )"
+      rvm_ruby_url="$(__rvm_remote_server_path "${rvm_ruby_string}" )"
       ;;
   esac
 
   rvm_ruby_string="${rvm_ruby_string##*/}"
   rvm_ruby_string="${rvm_ruby_string%.t*}"
-  rvm_ruby_package_file="bin-${rvm_ruby_string}.${rvm_remote_extension:-tar.bz2}"
+  __rvm_ruby_package_file "${rvm_ruby_string}"
+  rvm_ruby_package_file="bin-${rvm_ruby_string}.$(__rvm_remote_extension "${rvm_ruby_string}" -)"
 }
 
 external_import_download()
@@ -272,7 +265,7 @@ external_import_download()
   fi
 
   downloaded_names="$(
-    tar tjf "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
+    __rvm_package list "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
   )"
   [[ "${rvm_ruby_string}" == "${downloaded_names}" ]] || {
     $err_command "The downloaded package ${rvm_ruby_url} contains '${downloaded_names}' instead of '${rvm_ruby_string}'."
@@ -282,8 +275,7 @@ external_import_download()
 
 external_import_extract()
 {
-  chpwd_functions="" builtin cd "${rvm_rubies_path}"
-  tar xjf "$rvm_archives_path/${rvm_ruby_package_file}" || {
+  __rvm_package extract "$rvm_archives_path/${rvm_ruby_package_file}" "${rvm_rubies_path}" || {
     $err_command "Unpacking ${rvm_ruby_package_file} failed."
     return 6
   }
@@ -299,7 +291,7 @@ external_import_validate()
   typeset IFS
   typeset -a missing_libs
   export _libdir
-  _libdir="$( "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["libdir"]' )"
+  _libdir="$( __rvm_ruby_config_get libdir "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" )"
   missing_libs=( $(
     case $(uname) in
       (Linux)
@@ -342,6 +334,12 @@ __rvm_fix_wrappers()
         -e "/^ENV\[[\"']PATH[\"']\]=/ d"
     fi
   done
+  if
+    [[ ! -f "$rvm_rubies_path/$rvm_ruby_string/bin/ruby" ]] &&
+    [[ -f "$rvm_rubies_path/$rvm_ruby_string/bin/jruby" ]]
+  then
+    ln -s "$rvm_rubies_path/$rvm_ruby_string/bin/jruby" "$rvm_rubies_path/$rvm_ruby_string/bin/ruby"
+  fi
 }
 
 __rvm_fix_lib_files()
@@ -361,26 +359,15 @@ __rvm_fix_lib_files()
 external_import_setup()
 {
   __rvm_ruby_string
-  __rvm_rubygems_create_link
   __rvm_fix_wrappers
   __rvm_fix_lib_files
+  __rvm_rubygems_create_link "$rvm_rubies_path/$rvm_ruby_string/bin/ruby"
 
   rvm_create_flag=1 __rvm_use
 
   __rvm_bin_script # environment + wrappers
-
-  if (( ${rvm_skip_gemsets_flag:-0} == 0 ))
-  then
-    rvm_create_flag=1 __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
-      "'$rvm_scripts_path/gemsets' initial" \
-      "$rvm_ruby_string - #importing default gemsets ($rvm_gemsets_path/)"
-  else
-    mkdir -p "$rvm_gems_path/$rvm_ruby_string@global/bin"
-    rvm_log "Skipped importing default gemsets"
-  fi
-
+  __rvm_gemsets_initial
   __rvm_ruby_config_save "$rvm_rubies_path/$rvm_ruby_string/bin/ruby" "$rvm_rubies_path/$rvm_ruby_string/config"
-
   __rvm_record_install "$rvm_ruby_string"
 }
 
@@ -406,12 +393,15 @@ external_prepare()
   }
   __rvm_ruby_string
 
-  external_prepare_package &&
-  external_prepare_upload "${remote_shell}"
+  external_prepare_package "${rvm_ruby_string}.tar.bz2" &&
+  external_prepare_upload "${rvm_ruby_string}.tar.bz2" "${remote_shell}"
 }
 
 external_prepare_package()
 {
+  typeset file_name
+  file_name="$1"
+
   if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
   then
     if
@@ -426,30 +416,62 @@ external_prepare_package()
   fi
 
   rvm_log "Preparing ${rvm_ruby_string} ..."
-  tar cjf "${rvm_ruby_string}.tar.bz2" -C "${rvm_rubies_path}" "${rvm_ruby_string}"
-  rvm_log "Prepared ${rvm_ruby_string}.tar.bz2."
+  if
+    __rvm_package create "${file_name}" "${rvm_rubies_path}" "${rvm_ruby_string}"
+  then
+    rvm_log "Prepared ${file_name}."
+  else
+    case $? in
+      199)
+        rvm_error "Unrecognized archive format for ${file_name}"
+        return 199
+        ;;
+      *)
+        rvm_error "Error packaging ${file_name}."
+        return 1
+        ;;
+    esac
+  fi
 }
 
 #TODO: move to SMF ! RVM2 ?
 external_prepare_upload()
 {
-  typeset remote_shell remote_directory system_path remote_file local_file
+  typeset remote_path remote_shell remote_directory system_path __remote_file file_name local_file path_prefix
 
-  remote_shell="${1:-rvm@rvm.io:~/shared/public/binaries}"
-  remote_directory="${remote_shell#*:}/$(__rvm_system_path - )"
-  remote_shell="${remote_shell%:*}"
-  local_file="${rvm_ruby_string}.tar.bz2"
-  remote_file="$( __rvm_remote_server_path "${local_file}" )"
+  file_name="$1"
+  remote_path="${2:-rvm@rvm.io:~/shared/public/binaries}"
+  system_path="$(__rvm_system_path - 99 )"
+  remote_directory="${remote_path#*:}/${system_path}"
+  remote_shell="${remote_path%:*}"
+  if
+    [[ ${rvm_path_flag:-0} -eq 1 ]]
+  then
+    path_prefix="${remote_path#*:}"
+    path_prefix="${path_prefix##*/}"
+    mkdir -p "${path_prefix}/${system_path}"
+    local_file="${path_prefix}/${system_path}/${file_name}"
+    mv "${file_name}" "${local_file}"
+  else
+    local_file="${file_name}"
+  fi
+  __rvm_calculate_remote_file  0 1 1 "${file_name}"
 
   rvm_log "--- upload:"
   printf "%b" "ssh \"$remote_shell\" \"mkdir -p $remote_directory/\"\n"
-  printf "%b" "scp \"${local_file}\" \"$remote_shell:$remote_directory/${local_file}\"\n"
+  if
+    [[ ${rvm_path_flag:-0} -eq 1 ]]
+  then
+    printf "%b" "rsync -av --rsh=ssh \"${path_prefix}/\" \"${remote_path}/\"\n"
+  else
+    printf "%b" "scp \"${local_file}\" \"$remote_shell:$remote_directory/${file_name}\"\n"
+  fi
   rvm_log "--- rvm/config/remote:"
-  printf "%b" "${remote_file}\n"
+  printf "%b" "${__remote_file}\n"
   rvm_log "--- rvm/config/md5:"
-  printf "%b" "${remote_file}=$( __rvm_md5_calculate      "${rvm_ruby_string}.tar.bz2" )\n"
+  printf "%b" "${__remote_file}=$( __rvm_md5_calculate      "${local_file}" )\n"
   rvm_log "--- rvm/config/sha512:"
-  printf "%b" "${remote_file}=$( __rvm_sha__calculate 512 "${rvm_ruby_string}.tar.bz2" )\n"
+  printf "%b" "${__remote_file}=$( __rvm_sha__calculate 512 "${local_file}" )\n"
 }
 
 action="${1:-}"

@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+mruby_install()
+{
+  typeset result temp_flags
+
+  __rvm_check_for_bison # && Run like hell...
+  if __rvm_check_for_bison
+  then true
+  else
+    result=$?
+    rvm_log "Bison required but not found. Halting."
+    return $result
+  fi
+
+  __rvm_setup_compile_environment "${rvm_ruby_string}"
+
+  true ${rvm_ruby_selected_flag:=0} ${rvm_static_flag:=0}
+
+  typeset directory db_configure_flags
+  typeset -a autoconf_flags
+
+  (( rvm_ruby_selected_flag )) || __rvm_select
+
+  rvm_log "Installing Ruby from source to: $rvm_ruby_home, this may take a while depending on your cpu(s)..."
+  chpwd_functions="" builtin cd "${rvm_src_path}"
+
+  if __rvm_fetch_ruby
+  then true
+  else
+    result=$?
+    rvm_error "There has been an error fetching the ruby interpreter. Halting the installation."
+    return $result
+  fi
+
+  if chpwd_functions="" builtin cd "${rvm_src_path}/$rvm_ruby_string"
+  then true
+  else
+    result=$?
+    rvm_error "Source directory is missing.  \nDid the download or extraction fail?  \nHalting the installation."
+    return $result
+  fi
+
+  if [[ -d "${rvm_path}/usr" ]]
+  then
+    __rvm_add_to_path prepend "${rvm_path}/usr/bin"
+    builtin hash -r
+  fi
+
+  if __rvm_apply_patches
+  then true
+  else
+    result="$?"
+    rvm_error "There has been an error applying the specified patches. Halting the installation."
+    return $result
+  fi
+
+  if __rvm_log_command "make" "$rvm_ruby_string - #compiling" ${rvm_ruby_make:-make} "${rvm_make_flags[@]}"
+  then true
+  else
+    result=$?
+    rvm_error "There has been an error while running make. Halting the installation."
+    return $result
+  fi
+
+  mkdir -p "$rvm_ruby_home/";
+
+  rvm_ruby_make_install=${rvm_ruby_make_install:-"/bin/cp -Rf \"${rvm_src_path}/$rvm_ruby_string\"/{bin,lib,include} \"$rvm_ruby_home/\""}
+  if __rvm_run "install" "$rvm_ruby_make_install" "$rvm_ruby_string - #installing "
+  then true
+  else
+    result=$?
+    rvm_error "There has been an error while running make install. Halting the installation."
+    return $result
+  fi
+
+  typeset __bin_file __target_file
+  for __bin_file in "$rvm_ruby_home/bin"/m*
+  do
+    __target_file="${__bin_file##*/}"
+    __target_file="$rvm_ruby_home/bin/${__target_file#m}"
+    ln -s "${__bin_file}" "${__target_file}"
+  done
+
+  binaries=()
+  rvm_skip_gemsets_flag=1
+  rvm_create_flag=1 __rvm_use &&
+    __rvm_bin_script &&
+    __rvm_log_command "chmod.bin" "" chmod +x "$rvm_ruby_home/bin"/* &&
+    __rvm_post_install ||
+    return $?
+
+  rvm_log "Install of $rvm_ruby_string - #complete "
+}

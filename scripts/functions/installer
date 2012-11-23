@@ -93,7 +93,8 @@ display_thank_you()
 # ${name:-"${USER:-$(id | sed -e 's/^[^(]*(//' -e 's/).*$//')}"},
 #
 #   Thank you for using RVM!
-#   I sincerely hope that RVM helps to make your life easier and more enjoyable!!!
+#   I sincerely hope that RVM helps to make your life easier and
+#   more enjoyable!!!
 #
 # ~Wayne
 
@@ -137,7 +138,7 @@ print_install_header()
 
 configure_installation()
 {
-  typeset save_rvm_without_gems
+  typeset save_rvm_without_gems save_rvm_with_gems
   install_source_path="$(dirname "$0" | sed 's#\/scripts$##')"
 
   if [[ -d "$install_source_path/scripts" \
@@ -149,6 +150,7 @@ configure_installation()
   # Save scripts path
   scripts_path=${rvm_scripts_path:-""}
   rvm_scripts_path="${PWD%%+(\/)}/scripts"
+  save_rvm_with_gems="${rvm_with_gems:-}"
   save_rvm_without_gems="${rvm_without_gems:-}"
 
   # Load scripts.
@@ -159,6 +161,7 @@ configure_installation()
 
   # Restore Scripts Path
   rvm_scripts_path=${scripts_path:-"$rvm_path/scripts"}
+  rvm_with_gems="${save_rvm_with_gems:-${rvm_with_gems}}"
   rvm_without_gems="${save_rvm_without_gems:-${rvm_without_gems}}"
 
   item="* "
@@ -434,10 +437,24 @@ install_gemsets()
         else
           cp "$gemset_file" "$destination"
         fi
+        if
+          [[ -n "${rvm_with_gems:-}" ]]
+        then
+          printf "%b" "${rvm_with_gems// /\n}\n" >> "$destination"
+        fi
       fi
     done
   fi
 
+  if [[ -n "${rvm_with_gems:-}" ]]
+  then
+    if GREP_OPTIONS="" \grep "rvm_with_gems=" ~/.rvmrc >/dev/null
+    then
+      __rvm_sed_i ~/.rvmrc -e 's/^rvm_with_gems=.*$/rvm_with_gems="'"${rvm_with_gems}"'"/'
+    else
+      printf "%b" "\nrvm_with_gems=\"${rvm_with_gems}\"\n" >> ~/.rvmrc
+    fi
+  fi
   if [[ -n "${rvm_without_gems:-}" ]]
   then
     if GREP_OPTIONS="" \grep "rvm_without_gems=" ~/.rvmrc >/dev/null
@@ -814,14 +831,13 @@ system_check()
 
 setup_etc_profile()
 {
-  export etc_profile_file
   if (( ${rvm_etc_profile_flag:-1} == 0 ))
-  then return 0 ; fi # opt-out
+  then return 0
+  fi # opt-out
 
   typeset executable add_to_profile_flag zshrc_file
   executable=0
   add_to_profile_flag=0
-  etc_profile_file="/etc/profile.d/rvm.sh"
 
   if [[ -d /etc/profile.d ]]
   then
@@ -933,7 +949,39 @@ fi
       break # process only first file found
     done
   fi
-  return 0
+}
+
+print_etc_bashrc_change()
+{
+  printf "%b" "
+type rvm >/dev/null 2>/dev/null || echo \${PATH} | GREP_OPTIONS \\\grep \"${rvm_path_bin}\" > /dev/null || export PATH=\"\${PATH}:${rvm_path_bin}\"
+"
+}
+
+# Ubuntu does not source /etc/profile when we're running command such as "ssh my-ubuntu env"
+# So we add source ${etc_profile_file} in /etc/bash.bashrc
+setup_etc_bashrc()
+{
+  typeset system_bashrc_file new_content_path
+  system_bashrc_file="/etc/bash.bashrc"
+  if ! [[ -s "${system_bashrc_file}" ]] || (( ${rvm_auto_flag:-0} == 1 ))
+  then
+    if
+      [[ ! -f "${system_bashrc_file}" ]]
+    then
+      print_etc_bashrc_change > "${system_bashrc_file}"
+    elif
+      ! GREP_OPTIONS="" \grep "PATH=.*${rvm_path_bin}" "${system_bashrc_file}"
+    then
+      new_content_path=$(mktemp)
+      [[ -f "${new_content_path}" ]] &&
+      {
+        print_etc_bashrc_change # prepend
+        cat "${system_bashrc_file}"
+      } > "${new_content_path}" &&
+      mv "${new_content_path}" "${system_bashrc_file}"
+    fi
+  fi
 }
 
 setup_rvmrc()
@@ -1003,12 +1051,11 @@ setup_user_profile()
     ~/.zshenv ~/.zprofile ~/.zshrc ~/.zlogin
   )
 
-  target_rc=( ~/.bashrc )
-  pick_a_file target_rc    ~/.zshenv       ~/.zshrc
+  target_rc=( ~/.bashrc ~/.zshrc )
 
   target_login=()
   pick_a_file target_login ~/.bash_profile ~/.bash_login
-  pick_a_file target_login ~/.zprofile     ~/.zlogin
+  target_login+=( ~/.zprofile )
 
   for profile_file in ${search_list[@]}
   do
@@ -1086,12 +1133,13 @@ root_canal()
 {
   if (( UID == 0 )) && system_check
   then
+    export etc_profile_file
+    etc_profile_file="/etc/profile.d/rvm.sh"
     setup_rvm_group
     setup_etc_profile
+    setup_etc_bashrc
     setup_rvm_path_permissions
   fi
-
-  return 0
 }
 
 record_ruby_configs()

@@ -218,7 +218,7 @@ __rvm_parse_args()
             rvm_remove_flag=1
             ;;
 
-          rtfm|RTFM|rvmrc|usage|help|inspect|list|ls|info|strings|get|current|docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade|cron|group|switch)
+          rtfm|RTFM|rvmrc|usage|help|inspect|list|ls|info|strings|get|current|docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade|cron|group|switch|which)
             case "$rvm_token" in
               (ls)    rvm_action="list" ;;
               (usage) rvm_action="help" ;;
@@ -278,9 +278,8 @@ __rvm_parse_args()
             rvm_ruby_args=("$@") # list of binaries, or empty
             rvm_parse_break=1
             ;;
-
           reboot|damnit|wtf|argh|BOOM|boom|wth)
-            $rvm_action="reboot"
+            rvm_action="reboot"
             ;;
           in)
             rvm_token="${next_token}"
@@ -329,7 +328,7 @@ __rvm_parse_args()
             rvm_ruby_strings="$rvm_token"
             ;;
 
-          jruby*|ree*|kiji*|macruby*|rbx*|rubinius*|goruby|ironruby*|default*|maglev*|tcs*|ruby*|system|default|all)
+          opal*|jruby*|ree*|kiji*|macruby*|rbx*|rubinius*|goruby|mruby|ironruby*|default*|maglev*|tcs*|jamesgolick*|ruby*|system|default|all)
             rvm_action="${rvm_action:-use}"
             case "$rvm_token" in
               (rubinius) rvm_token="rbx" ;;
@@ -603,7 +602,7 @@ __rvm_parse_args()
             export "rvm_${rvm_token}_flag"=1
             ;;
 
-          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--cron|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--force-autoconf|--auto|--autoinstall-bundler|--disable-binary|--ignore-gemsets|--skip-gemsets|--debug|--quiet|--silent)
+          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--cron|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--force-autoconf|--auto|--autoinstall-bundler|--disable-binary|--ignore-gemsets|--skip-gemsets|--debug|--quiet|--silent|--skip-openssl)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
             export "rvm_${rvm_token}_flag"=1
@@ -670,6 +669,7 @@ __rvm_parse_args()
             ;;
 
           --movable)
+            rvm_make_flags+=( -j3 )
             rvm_configure_flags+=( --enable-shared --enable-load-relative --sysconfdir=/etc )
             rvm_disable_binary_flag=1
             ;;
@@ -815,6 +815,15 @@ Please do one of the following:
   next_token="$1"
   (( $# == 0 )) || shift
   __rvm_parse_args "$@"
+  (( rvm_trace_flag == 0 )) ||
+  {
+    export PS4
+    if [[ -n "$ZSH_VERSION" ]]
+    then PS4="%F{red}%x:%I %F{green}%N:%i%F{white} %_"
+    else PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+    fi
+    set -x
+  }
   result=$?
 : rvm_ruby_args:${#rvm_ruby_args[@]}:${rvm_ruby_args[*]}:
 
@@ -1005,7 +1014,7 @@ To reinstall use:
 "
         else
           if
-            [[ $(ls -1 $rvm_rubies_path/*/bin/ruby 2>/dev/null | wc -l) -eq 0 ]] &&
+            [[ $(find $rvm_rubies_path -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l) -eq 0 ]] &&
             rvm_is_a_shell_function no_warning
           then
             {
@@ -1050,6 +1059,10 @@ To reinstall use:
       __rvm_ultimate_question ; result=42
       ;;
 
+    which)
+      __rvm_which "${rvm_ruby_args[@]}"
+      ;;
+
     *)
       rvm_error "unknown action '$rvm_action'"
       false # result
@@ -1062,7 +1075,7 @@ To reinstall use:
   case "$rvm_action" in
     reinstall|try_install|install)
       if
-        [[ $(ls -1 $rvm_rubies_path/*/bin/ruby 2>/dev/null | wc -l) -eq 1 ]] &&
+        [[ $(find $rvm_rubies_path -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l) -eq 1 ]] &&
         [[ ! -f "${rvm_environments_path}/default" ]] &&
         rvm_is_a_shell_function no_warning
       then
@@ -1074,16 +1087,17 @@ To reinstall use:
   current_result=$? # Use the result of first found error
   (( result )) || result=${current_result}
 
-  if [[ ${rvm_reload_flag:-0} -eq 1 ]]
-  then
-    __rvm_project_rvmrc_lock=0
-    source "$rvm_scripts_path/rvm"
-  fi
-
   typeset __local_rvm_trace_flag
   __local_rvm_trace_flag=${rvm_trace_flag:-0}
 
-  __rvm_teardown
+  if
+    [[ ${rvm_reload_flag:-0} -eq 1 ]]
+  then
+    __rvm_project_rvmrc_lock=0
+    source "$rvm_scripts_path/rvm"
+  else
+    __rvm_teardown
+  fi
 
   if (( __local_rvm_trace_flag > 0 ))
   then

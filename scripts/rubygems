@@ -129,27 +129,25 @@ rubygems_setup()
   [[ -f "${rvm_src_path}/$rvm_gem_package_name/setup.rb" ]] ||
     __rvm_rm_rf "${rvm_src_path}/$rvm_gem_package_name"
 
-  if [[ ! -d "${rvm_src_path}/${rvm_gem_package_name}" ]]
+  if
+    [[ ! -d "${rvm_src_path}/${rvm_gem_package_name}" ]]
   then
     rvm_log "Retrieving $rvm_gem_package_name"
-
-    "$rvm_scripts_path/fetch" "$rvm_gem_url" "${rvm_gem_package_name}.tgz"
-    result=$?
-
-    if (( result > 0 ))
+    if
+      "$rvm_scripts_path/fetch" "$rvm_gem_url" "${rvm_gem_package_name}.tgz"
     then
+      true
+    else
+      result=$?
       rvm_error "There has been an error while trying to fetch the source. \nHalting the installation."
       return $result
     fi
 
-    if [[ ! -d "${rvm_src_path}/$rvm_gem_package_name" ]]
-    then
+    [[ -d "${rvm_src_path}/$rvm_gem_package_name" ]] ||
       \mkdir -p "${rvm_src_path}/$rvm_gem_package_name"
-    fi
 
-    __rvm_run "rubygems.extract" \
-      "$rvm_tar_command xzf ${rvm_archives_path}/$rvm_gem_package_name.tgz -C ${rvm_src_path}" \
-      "Extracting $rvm_gem_package_name ..."
+    __rvm_log_command "rubygems.extract" "Extracting $rvm_gem_package_name ..." \
+      __rvm_package extract "${rvm_archives_path}/$rvm_gem_package_name.tgz" "${rvm_src_path}"
   fi
 
   rubygems_remove # Remove old gems.
@@ -163,7 +161,7 @@ rubygems_setup()
   if (( result == 0 ))
   then
     typeset program_suffix
-    program_suffix="$(${rvm_ruby_binary} -rrbconfig -e "puts RbConfig::CONFIG['configure_args']")"
+    program_suffix="$( __rvm_ruby_config_get configure_args "${rvm_ruby_binary}" )"
     case "${program_suffix:-}" in
       (*--program-suffix=*)
         program_suffix="${program_suffix#*--program-suffix=}"
@@ -177,7 +175,7 @@ rubygems_setup()
     rvm_warn "Installation of rubygems did not complete successfully."
   fi
 
-  __rvm_rubygems_create_link
+  __rvm_rubygems_create_link "${rvm_ruby_binary}"
 }
 
 rubygems_link()
@@ -185,11 +183,10 @@ rubygems_link()
   __rvm_rubygems_create_link
 }
 
-if ! builtin command -v ruby > /dev/null
-then
+builtin command -v ruby > /dev/null || {
   rvm_error "'ruby' was not found, cannot install rubygems unless ruby is present (Do you have an RVM ruby installed & selected?)"
   exit 1
-fi
+}
 
 #
 # rvm rubygems X
@@ -199,11 +196,10 @@ export version
 version="${args[0]}"
 args="$(echo ${args[@]:1})" # Strip trailing / leading / extra spacing.
 
-if [[ -z "$version" ]]
-then
+[[ -n "$version" ]] || {
   rvm_error "Usage: rvm rubygems [x.y.z|latest-x.y|latest|remove]"
   exit 1
-fi
+}
 
 if can_switch_rubygems
 then
