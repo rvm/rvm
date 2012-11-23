@@ -32,11 +32,23 @@ done
 if (( $# ))
 then
   if
-    [[ -r "/etc/sudoers" ]] &&
-    grep -E '^[[:space:]]*Defaults[[:space:]]+secure_path=' "/etc/sudoers" >/dev/null
+    [[ "${rvmsudo_secure_path:-0}" == 1 ]]
   then
     sudo_args+=( "/usr/bin/env" )
-    printf "%b" 'Warning: `secure_path` found in `/etc/sudoers`, falling back to call via `/usr/bin/env`, this breaks rules from `/etc/sudoers`.'
+  elif
+    [[ -f "/etc/sudoers" ]]
+  then
+    if
+      [[ ! -r "/etc/sudoers" ]]
+    then
+      sudo_args+=( "/usr/bin/env" )
+      printf "%b" 'Warning: can not check `/etc/sudoers` for `secure_path`, falling back to call via `/usr/bin/env`, this breaks rules from `/etc/sudoers`. export rvmsudo_secure_path=1 to avoid the warning.'
+    elif
+      grep -E '^[[:space:]]*Defaults[[:space:]]+secure_path=' "/etc/sudoers" >/dev/null
+    then
+      sudo_args+=( "/usr/bin/env" )
+      printf "%b" 'Warning: `secure_path` found in `/etc/sudoers`, falling back to call via `/usr/bin/env`, this breaks rules from `/etc/sudoers`. export rvmsudo_secure_path=1 to avoid the warning.'
+    fi
   fi
   eval command sudo \"\${sudo_args[@]}\" $(
     /usr/bin/env |
