@@ -1,0 +1,2337 @@
+diff --git a/common.mk b/common.mk
+index c9ef641..56e52b6 100644
+--- a/common.mk
++++ b/common.mk
+@@ -638,7 +638,8 @@ file.$(OBJEXT): {$(VPATH)}file.c $(RUBY_H_INCLUDES) {$(VPATH)}io.h \
+ gc.$(OBJEXT): {$(VPATH)}gc.c $(RUBY_H_INCLUDES) {$(VPATH)}re.h \
+   {$(VPATH)}regex.h $(ENCODING_H_INCLUDES) $(VM_CORE_H_INCLUDES) \
+   {$(VPATH)}gc.h {$(VPATH)}io.h {$(VPATH)}eval_intern.h {$(VPATH)}util.h \
+-  {$(VPATH)}debug.h {$(VPATH)}internal.h {$(VPATH)}constant.h
++  {$(VPATH)}debug.h {$(VPATH)}internal.h {$(VPATH)}constant.h \
++  {$(VPATH)}pool_alloc.inc.h {$(VPATH)}pool_alloc.h
+ hash.$(OBJEXT): {$(VPATH)}hash.c $(RUBY_H_INCLUDES) {$(VPATH)}util.h \
+   $(ENCODING_H_INCLUDES)
+ inits.$(OBJEXT): {$(VPATH)}inits.c $(RUBY_H_INCLUDES) \
+@@ -702,7 +703,7 @@ signal.$(OBJEXT): {$(VPATH)}signal.c $(RUBY_H_INCLUDES) \
+   $(VM_CORE_H_INCLUDES) {$(VPATH)}debug.h
+ sprintf.$(OBJEXT): {$(VPATH)}sprintf.c $(RUBY_H_INCLUDES) {$(VPATH)}re.h \
+   {$(VPATH)}regex.h {$(VPATH)}vsnprintf.c $(ENCODING_H_INCLUDES)
+-st.$(OBJEXT): {$(VPATH)}st.c $(RUBY_H_INCLUDES)
++st.$(OBJEXT): {$(VPATH)}st.c $(RUBY_H_INCLUDES) {$(VPATH)}pool_alloc.h
+ strftime.$(OBJEXT): {$(VPATH)}strftime.c $(RUBY_H_INCLUDES) \
+   {$(VPATH)}timev.h
+ string.$(OBJEXT): {$(VPATH)}string.c $(RUBY_H_INCLUDES) {$(VPATH)}re.h \
+diff --git a/configure.in b/configure.in
+index af5acc4..354b9f2 100644
+--- a/configure.in
++++ b/configure.in
+@@ -1324,6 +1324,29 @@ main() {
+ CFLAGS="$save_CFLAGS"])
+ AC_DEFINE_UNQUOTED(GC_MARK_STACKFRAME_WORD, $rb_cv_gc_mark_stackframe_word)
+ 
++AS_CASE(["$target_os"],
++[openbsd*], [
++  AC_CACHE_CHECK(for heap align log on openbsd, rb_cv_page_size_log,
++    [rb_cv_page_size_log=no
++     for page_log in 12 13; do
++       AC_TRY_RUN([
++#include <math.h>
++#include <unistd.h>
++
++int
++main() {
++  if ((int)log2((double)sysconf(_SC_PAGESIZE)) != $page_log) return 1;
++  return 0;
++}
++       ],
++       rb_cv_page_size_log="$page_log"; break)
++     done])
++  if test $rb_cv_page_size_log != no; then
++    AC_DEFINE_UNQUOTED(HEAP_ALIGN_LOG, $rb_cv_page_size_log)
++  else
++    AC_DEFINE_UNQUOTED(HEAP_ALIGN_LOG, 12)
++  fi
++])
+ 
+ dnl Checks for library functions.
+ AC_TYPE_GETGROUPS
+@@ -1424,7 +1447,8 @@ AC_CHECK_FUNCS(fmod killpg wait4 waitpid fork spawnv syscall __syscall chroot ge
+ 	      setsid telldir seekdir fchmod cosh sinh tanh log2 round\
+ 	      setuid setgid daemon select_large_fdset setenv unsetenv\
+               mktime timegm gmtime_r clock_gettime gettimeofday poll ppoll\
+-              pread sendfile shutdown sigaltstack dl_iterate_phdr)
++              pread sendfile shutdown sigaltstack dl_iterate_phdr\
++              dup3 pipe2 posix_memalign memalign)
+ 
+ AC_CACHE_CHECK(for unsetenv returns a value, rb_cv_unsetenv_return_value,
+   [AC_TRY_COMPILE([
+diff --git a/ext/-test-/st/numhash/numhash.c b/ext/-test-/st/numhash/numhash.c
+index e186cd4..53d9e1b 100644
+--- a/ext/-test-/st/numhash/numhash.c
++++ b/ext/-test-/st/numhash/numhash.c
+@@ -54,7 +54,7 @@ numhash_i(st_data_t key, st_data_t value, st_data_t arg, int error)
+ static VALUE
+ numhash_each(VALUE self)
+ {
+-    return st_foreach((st_table *)DATA_PTR(self), numhash_i, self) ? Qtrue : Qfalse;
++    return st_foreach_check((st_table *)DATA_PTR(self), numhash_i, self, 0) ? Qtrue : Qfalse;
+ }
+ 
+ void
+diff --git a/gc.c b/gc.c
+index a77ef2c..41daff1 100644
+--- a/gc.c
++++ b/gc.c
+@@ -20,10 +20,12 @@
+ #include "vm_core.h"
+ #include "internal.h"
+ #include "gc.h"
++#include "pool_alloc.h"
+ #include "constant.h"
+ #include <stdio.h>
+ #include <setjmp.h>
+ #include <sys/types.h>
++#include <assert.h>
+ 
+ #ifdef HAVE_SYS_TIME_H
+ #include <sys/time.h>
+@@ -35,7 +37,12 @@
+ 
+ #if defined _WIN32 || defined __CYGWIN__
+ #include <windows.h>
++#elif defined(HAVE_POSIX_MEMALIGN)
++#elif defined(HAVE_MEMALIGN)
++#include <malloc.h>
+ #endif
++static void aligned_free(void *);
++static void *aligned_malloc(size_t alignment, size_t size);
+ 
+ #ifdef HAVE_VALGRIND_MEMCHECK_H
+ # include <valgrind/memcheck.h>
+@@ -329,6 +336,24 @@ struct gc_list {
+ 
+ #define CALC_EXACT_MALLOC_SIZE 0
+ 
++#ifdef POOL_ALLOC_API
++/* POOL ALLOC API */
++#define POOL_ALLOC_PART 1
++#include "pool_alloc.inc.h"
++#undef POOL_ALLOC_PART
++
++typedef struct pool_layout_t pool_layout_t;
++struct pool_layout_t {
++    pool_header
++      p6,  /* st_table && st_table_entry */
++      p11;  /* st_table.bins init size */
++} pool_layout = {
++    INIT_POOL(void*[6]),
++    INIT_POOL(void*[11])
++};
++static void pool_finalize_header(pool_header *header);
++#endif
++
+ typedef struct rb_objspace {
+     struct {
+ 	size_t limit;
+@@ -338,6 +363,9 @@ typedef struct rb_objspace {
+ 	size_t allocations;
+ #endif
+     } malloc_params;
++#ifdef POOL_ALLOC_API
++    pool_layout_t *pool_headers;
++#endif
+     struct {
+ 	size_t increment;
+ 	struct heaps_slot *ptr;
+@@ -407,7 +435,11 @@ typedef struct rb_objspace {
+ #define ruby_initial_gc_stress	initial_params.gc_stress
+ int *ruby_initial_gc_stress_ptr = &ruby_initial_gc_stress;
+ #else
++#  ifdef POOL_ALLOC_API
++static rb_objspace_t rb_objspace = {{GC_MALLOC_LIMIT}, &pool_layout, {HEAP_MIN_SLOTS}};
++#  else
+ static rb_objspace_t rb_objspace = {{GC_MALLOC_LIMIT}, {HEAP_MIN_SLOTS}};
++#  endif
+ int *ruby_initial_gc_stress_ptr = &rb_objspace.gc_stress;
+ #endif
+ #define malloc_limit		objspace->malloc_params.limit
+@@ -461,6 +493,10 @@ rb_objspace_alloc(void)
+     memset(objspace, 0, sizeof(*objspace));
+     malloc_limit = initial_malloc_limit;
+     ruby_gc_stress = ruby_initial_gc_stress;
++#ifdef POOL_ALLOC_API
++    objspace->pool_headers = (pool_layout_t*) malloc(sizeof(pool_layout));
++    memcpy(objspace->pool_headers, &pool_layout, sizeof(pool_layout));
++#endif
+ 
+     return objspace;
+ }
+@@ -601,6 +637,13 @@ rb_objspace_free(rb_objspace_t *objspace)
+ 	heaps_used = 0;
+ 	heaps = 0;
+     }
++#ifdef POOL_ALLOC_API
++    if (objspace->pool_headers) {
++        pool_finalize_header(&objspace->pool_headers->p6);
++        pool_finalize_header(&objspace->pool_headers->p11);
++        free(objspace->pool_headers);
++    }
++#endif
+     free(objspace);
+ }
+ #endif
+@@ -1125,6 +1168,27 @@ rb_gc_stats_enabled()
+     return gc_statistics ? Qtrue : Qfalse;
+ }
+ 
++#ifdef POOL_ALLOC_API
++/* POOL ALLOC API */
++#define POOL_ALLOC_PART 2
++#include "pool_alloc.inc.h"
++#undef POOL_ALLOC_PART
++
++void
++ruby_xpool_free(void *ptr)
++{
++    pool_free_entry((void**)ptr);
++}
++
++#define CONCRET_POOL_MALLOC(pnts) \
++void * ruby_xpool_malloc_##pnts##p () { \
++    return pool_alloc_entry(&rb_objspace.pool_headers->p##pnts ); \
++}
++CONCRET_POOL_MALLOC(6)
++CONCRET_POOL_MALLOC(11)
++#undef CONCRET_POOL_MALLOC
++
++#endif
+ 
+ /*
+  *  call-seq:
+@@ -1634,6 +1698,55 @@ allocate_sorted_heaps(rb_objspace_t *objspace, size_t next_heaps_length)
+     heaps_length = next_heaps_length;
+ }
+ 
++static void *
++aligned_malloc(size_t alignment, size_t size)
++{
++    void *res;
++
++#if defined __MINGW32__
++    res = __mingw_aligned_malloc(size, alignment);
++#elif defined _WIN32 && !defined __CYGWIN__
++    res = _aligned_malloc(size, alignment);
++#elif defined(HAVE_POSIX_MEMALIGN)
++    if (posix_memalign(&res, alignment, size) == 0) {
++        return res;
++    }
++    else {
++        return NULL;
++    }
++#elif defined(HAVE_MEMALIGN)
++    res = memalign(alignment, size);
++#else
++    char* aligned;
++    res = malloc(alignment + size + sizeof(void*));
++    aligned = (char*)res + alignment + sizeof(void*);
++    aligned -= ((VALUE)aligned & (alignment - 1));
++    ((void**)aligned)[-1] = res;
++    res = (void*)aligned;
++#endif
++
++#if defined(_DEBUG) || defined(GC_DEBUG)
++    /* alignment must be a power of 2 */
++    assert((alignment - 1) & alignment == 0);
++    assert(alignment % sizeof(void*) == 0);
++#endif
++    return res;
++}
++
++static void
++aligned_free(void *ptr)
++{
++#if defined __MINGW32__
++    __mingw_aligned_free(ptr);
++#elif defined _WIN32 && !defined __CYGWIN__
++    _aligned_free(ptr);
++#elif defined(HAVE_MEMALIGN) || defined(HAVE_POSIX_MEMALIGN)
++    free(ptr);
++#else
++    free(((void**)ptr)[-1]);
++#endif
++}
++
+ static void
+ assign_heap_slot(rb_objspace_t *objspace)
+ {
+diff --git a/hash.c b/hash.c
+index 8423558..4cb2e2d 100644
+--- a/hash.c
++++ b/hash.c
+@@ -44,7 +44,7 @@ rb_any_cmp(VALUE a, VALUE b)
+     if (FIXNUM_P(a) && FIXNUM_P(b)) {
+ 	return a != b;
+     }
+-    if (TYPE(a) == T_STRING && RBASIC(a)->klass == rb_cString &&
++    if (RB_TYPE_P(a, T_STRING) && RBASIC(a)->klass == rb_cString &&
+ 	TYPE(b) == T_STRING && RBASIC(b)->klass == rb_cString) {
+ 	return rb_str_hash_cmp(a, b);
+     }
+@@ -80,20 +80,14 @@ rb_any_hash(VALUE a)
+     VALUE hval;
+     st_index_t hnum;
+ 
+-    switch (TYPE(a)) {
+-      case T_FIXNUM:
+-      case T_SYMBOL:
+-      case T_NIL:
+-      case T_FALSE:
+-      case T_TRUE:
+-	hnum = rb_hash_end(rb_hash_start((unsigned int)a));
+-	break;
+-
+-      case T_STRING:
++    if (SPECIAL_CONST_P(a)) {
++	if (a == Qundef) return 0;
++	hnum = rb_hash_end(rb_hash_start((st_index_t)a));
++    }
++    else if (BUILTIN_TYPE(a) == T_STRING) {
+ 	hnum = rb_str_hash(a);
+-	break;
+-
+-      default:
++    }
++    else {
+         hval = rb_hash(a);
+ 	hnum = FIX2LONG(hval);
+     }
+@@ -106,10 +100,8 @@ static const struct st_hash_type objhash = {
+     rb_any_hash,
+ };
+ 
+-static const struct st_hash_type identhash = {
+-    st_numcmp,
+-    st_numhash,
+-};
++extern const struct st_hash_type st_hashtype_num;
++#define identhash st_hashtype_num
+ 
+ typedef int st_foreach_func(st_data_t, st_data_t, st_data_t);
+ 
+@@ -124,7 +116,6 @@ foreach_safe_i(st_data_t key, st_data_t value, struct foreach_safe_arg *arg)
+ {
+     int status;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     status = (*arg->func)(key, value, arg->arg);
+     if (status == ST_CONTINUE) {
+ 	return ST_CHECK;
+@@ -140,7 +131,7 @@ st_foreach_safe(st_table *table, int (*func)(ANYARGS), st_data_t a)
+     arg.tbl = table;
+     arg.func = (st_foreach_func *)func;
+     arg.arg = a;
+-    if (st_foreach(table, foreach_safe_i, (st_data_t)&arg)) {
++    if (st_foreach_check(table, foreach_safe_i, (st_data_t)&arg, 0)) {
+ 	rb_raise(rb_eRuntimeError, "hash modified during iteration");
+     }
+ }
+@@ -154,21 +145,21 @@ struct hash_foreach_arg {
+ };
+ 
+ static int
+-hash_foreach_iter(st_data_t key, st_data_t value, struct hash_foreach_arg *arg)
++hash_foreach_iter(st_data_t key, st_data_t value, st_data_t argp)
+ {
++    struct hash_foreach_arg *arg = (struct hash_foreach_arg *)argp;
+     int status;
+     st_table *tbl;
+ 
+     tbl = RHASH(arg->hash)->ntbl;
+-    if ((VALUE)key == Qundef) return ST_CONTINUE;
+     status = (*arg->func)((VALUE)key, (VALUE)value, arg->arg);
+     if (RHASH(arg->hash)->ntbl != tbl) {
+ 	rb_raise(rb_eRuntimeError, "rehash occurred during iteration");
+     }
+     switch (status) {
+       case ST_DELETE:
+-	st_delete_safe(tbl, &key, 0, Qundef);
+ 	FL_SET(arg->hash, HASH_DELETED);
++	return ST_DELETE;
+       case ST_CONTINUE:
+ 	break;
+       case ST_STOP:
+@@ -184,7 +175,7 @@ hash_foreach_ensure(VALUE hash)
+ 
+     if (RHASH(hash)->iter_lev == 0) {
+ 	if (FL_TEST(hash, HASH_DELETED)) {
+-	    st_cleanup_safe(RHASH(hash)->ntbl, Qundef);
++	    st_cleanup_safe(RHASH(hash)->ntbl, (st_data_t)Qundef);
+ 	    FL_UNSET(hash, HASH_DELETED);
+ 	}
+     }
+@@ -192,9 +183,10 @@ hash_foreach_ensure(VALUE hash)
+ }
+ 
+ static VALUE
+-hash_foreach_call(struct hash_foreach_arg *arg)
++hash_foreach_call(VALUE arg)
+ {
+-    if (st_foreach(RHASH(arg->hash)->ntbl, hash_foreach_iter, (st_data_t)arg)) {
++    VALUE hash = ((struct hash_foreach_arg *)arg)->hash;
++    if (st_foreach_check(RHASH(hash)->ntbl, hash_foreach_iter, (st_data_t)arg, (st_data_t)Qundef)) {
+ 	rb_raise(rb_eRuntimeError, "hash modified during iteration");
+     }
+     return Qnil;
+@@ -447,7 +439,7 @@ rb_hash_rehash_i(VALUE key, VALUE value, VALUE arg)
+ {
+     st_table *tbl = (st_table *)arg;
+ 
+-    if (key != Qundef) st_insert(tbl, key, value);
++    st_insert(tbl, (st_data_t)key, (st_data_t)value);
+     return ST_CONTINUE;
+ }
+ 
+@@ -490,6 +482,20 @@ rb_hash_rehash(VALUE hash)
+     return hash;
+ }
+ 
++static VALUE
++hash_default_value(VALUE hash, VALUE key)
++{
++    if (rb_method_basic_definition_p(CLASS_OF(hash), id_default)) {
++	VALUE ifnone = RHASH_IFNONE(hash);
++	if (!FL_TEST(hash, HASH_PROC_DEFAULT)) return ifnone;
++	if (key == Qundef) return Qnil;
++	return rb_funcall(ifnone, id_yield, 2, hash, key);
++    }
++    else {
++	return rb_funcall(hash, id_default, 1, key);
++    }
++}
++
+ /*
+  *  call-seq:
+  *     hsh[key]    ->  value
+@@ -510,13 +516,7 @@ rb_hash_aref(VALUE hash, VALUE key)
+     st_data_t val;
+ 
+     if (!RHASH(hash)->ntbl || !st_lookup(RHASH(hash)->ntbl, key, &val)) {
+-	if (!FL_TEST(hash, HASH_PROC_DEFAULT) &&
+-	    rb_method_basic_definition_p(CLASS_OF(hash), id_default)) {
+-	    return RHASH_IFNONE(hash);
+-	}
+-	else {
+-	    return rb_funcall(hash, id_default, 1, key);
+-	}
++	return hash_default_value(hash, key);
+     }
+     return (VALUE)val;
+ }
+@@ -659,7 +659,7 @@ rb_hash_default(int argc, VALUE *argv, VALUE hash)
+ static VALUE
+ rb_hash_set_default(VALUE hash, VALUE ifnone)
+ {
+-    rb_hash_modify(hash);
++    rb_hash_modify_check(hash);
+     RHASH_IFNONE(hash) = ifnone;
+     FL_UNSET(hash, HASH_PROC_DEFAULT);
+     return ifnone;
+@@ -707,7 +707,7 @@ rb_hash_set_default_proc(VALUE hash, VALUE proc)
+ {
+     VALUE b;
+ 
+-    rb_hash_modify(hash);
++    rb_hash_modify_check(hash);
+     b = rb_check_convert_type(proc, T_DATA, "Proc", "to_proc");
+     if (NIL_P(b) || !rb_obj_is_proc(b)) {
+ 	rb_raise(rb_eTypeError,
+@@ -776,7 +776,7 @@ rb_hash_delete_key(VALUE hash, VALUE key)
+     if (!RHASH(hash)->ntbl)
+         return Qundef;
+     if (RHASH(hash)->iter_lev > 0) {
+-	if (st_delete_safe(RHASH(hash)->ntbl, &ktmp, &val, Qundef)) {
++	if (st_delete_safe(RHASH(hash)->ntbl, &ktmp, &val, (st_data_t)Qundef)) {
+ 	    FL_SET(hash, HASH_DELETED);
+ 	    return (VALUE)val;
+ 	}
+@@ -809,7 +809,7 @@ rb_hash_delete(VALUE hash, VALUE key)
+ {
+     VALUE val;
+ 
+-    rb_hash_modify(hash);
++    rb_hash_modify_check(hash);
+     val = rb_hash_delete_key(hash, key);
+     if (val != Qundef) return val;
+     if (rb_block_given_p()) {
+@@ -828,7 +828,6 @@ shift_i(VALUE key, VALUE value, VALUE arg)
+ {
+     struct shift_var *var = (struct shift_var *)arg;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     if (var->key != Qundef) return ST_STOP;
+     var->key = key;
+     var->val = value;
+@@ -840,7 +839,6 @@ shift_i_safe(VALUE key, VALUE value, VALUE arg)
+ {
+     struct shift_var *var = (struct shift_var *)arg;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     var->key = key;
+     var->val = value;
+     return ST_STOP;
+@@ -864,29 +862,25 @@ rb_hash_shift(VALUE hash)
+ {
+     struct shift_var var;
+ 
+-    rb_hash_modify(hash);
+-    var.key = Qundef;
+-    rb_hash_foreach(hash, RHASH(hash)->iter_lev > 0 ? shift_i_safe : shift_i,
+-		    (VALUE)&var);
+-
+-    if (var.key != Qundef) {
+-	if (RHASH(hash)->iter_lev > 0) {
+-	    rb_hash_delete_key(hash, var.key);
++    rb_hash_modify_check(hash);
++    if (RHASH(hash)->ntbl) {
++	var.key = Qundef;
++	rb_hash_foreach(hash, RHASH(hash)->iter_lev > 0 ? shift_i_safe : shift_i,
++			(VALUE)&var);
++
++	if (var.key != Qundef) {
++	    if (RHASH(hash)->iter_lev > 0) {
++		rb_hash_delete_key(hash, var.key);
++	    }
++	    return rb_assoc_new(var.key, var.val);
+ 	}
+-	return rb_assoc_new(var.key, var.val);
+-    }
+-    else if (FL_TEST(hash, HASH_PROC_DEFAULT)) {
+-	return rb_funcall(RHASH_IFNONE(hash), id_yield, 2, hash, Qnil);
+-    }
+-    else {
+-	return RHASH_IFNONE(hash);
+     }
++    return hash_default_value(hash, Qnil);
+ }
+ 
+ static int
+ delete_if_i(VALUE key, VALUE value, VALUE hash)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     if (RTEST(rb_yield_values(2, key, value))) {
+ 	rb_hash_delete_key(hash, key);
+     }
+@@ -912,8 +906,9 @@ VALUE
+ rb_hash_delete_if(VALUE hash)
+ {
+     RETURN_ENUMERATOR(hash, 0, 0);
+-    rb_hash_modify(hash);
+-    rb_hash_foreach(hash, delete_if_i, hash);
++    rb_hash_modify_check(hash);
++    if (RHASH(hash)->ntbl)
++	rb_hash_foreach(hash, delete_if_i, hash);
+     return hash;
+ }
+ 
+@@ -984,7 +979,6 @@ rb_hash_values_at(int argc, VALUE *argv, VALUE hash)
+ static int
+ select_i(VALUE key, VALUE value, VALUE result)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     if (RTEST(rb_yield_values(2, key, value)))
+ 	rb_hash_aset(result, key, value);
+     return ST_CONTINUE;
+@@ -1018,7 +1012,6 @@ rb_hash_select(VALUE hash)
+ static int
+ keep_if_i(VALUE key, VALUE value, VALUE hash)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     if (!RTEST(rb_yield_values(2, key, value))) {
+ 	return ST_DELETE;
+     }
+@@ -1040,7 +1033,7 @@ rb_hash_select_bang(VALUE hash)
+     st_index_t n;
+ 
+     RETURN_ENUMERATOR(hash, 0, 0);
+-    rb_hash_modify(hash);
++    rb_hash_modify_check(hash);
+     if (!RHASH(hash)->ntbl)
+         return Qnil;
+     n = RHASH(hash)->ntbl->num_entries;
+@@ -1065,8 +1058,9 @@ VALUE
+ rb_hash_keep_if(VALUE hash)
+ {
+     RETURN_ENUMERATOR(hash, 0, 0);
+-    rb_hash_modify(hash);
+-    rb_hash_foreach(hash, keep_if_i, hash);
++    rb_hash_modify_check(hash);
++    if (RHASH(hash)->ntbl)
++	rb_hash_foreach(hash, keep_if_i, hash);
+     return hash;
+ }
+ 
+@@ -1144,9 +1138,7 @@ rb_hash_aset(VALUE hash, VALUE key, VALUE val)
+ static int
+ replace_i(VALUE key, VALUE val, VALUE hash)
+ {
+-    if (key != Qundef) {
+-	rb_hash_aset(hash, key, val);
+-    }
++    rb_hash_aset(hash, key, val);
+ 
+     return ST_CONTINUE;
+ }
+@@ -1227,7 +1219,6 @@ rb_hash_empty_p(VALUE hash)
+ static int
+ each_value_i(VALUE key, VALUE value)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     rb_yield(value);
+     return ST_CONTINUE;
+ }
+@@ -1262,7 +1253,6 @@ rb_hash_each_value(VALUE hash)
+ static int
+ each_key_i(VALUE key, VALUE value)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     rb_yield(key);
+     return ST_CONTINUE;
+ }
+@@ -1296,7 +1286,6 @@ rb_hash_each_key(VALUE hash)
+ static int
+ each_pair_i(VALUE key, VALUE value)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     rb_yield(rb_assoc_new(key, value));
+     return ST_CONTINUE;
+ }
+@@ -1334,7 +1323,6 @@ rb_hash_each_pair(VALUE hash)
+ static int
+ to_a_i(VALUE key, VALUE value, VALUE ary)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     rb_ary_push(ary, rb_assoc_new(key, value));
+     return ST_CONTINUE;
+ }
+@@ -1367,7 +1355,6 @@ inspect_i(VALUE key, VALUE value, VALUE str)
+ {
+     VALUE str2;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     str2 = rb_inspect(key);
+     if (RSTRING_LEN(str) > 1) {
+ 	rb_str_cat2(str, ", ");
+@@ -1434,7 +1421,6 @@ rb_hash_to_hash(VALUE hash)
+ static int
+ keys_i(VALUE key, VALUE value, VALUE ary)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     rb_ary_push(ary, key);
+     return ST_CONTINUE;
+ }
+@@ -1465,7 +1451,6 @@ rb_hash_keys(VALUE hash)
+ static int
+ values_i(VALUE key, VALUE value, VALUE ary)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     rb_ary_push(ary, value);
+     return ST_CONTINUE;
+ }
+@@ -1524,7 +1509,6 @@ rb_hash_search_value(VALUE key, VALUE value, VALUE arg)
+ {
+     VALUE *data = (VALUE *)arg;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     if (rb_equal(value, data[1])) {
+ 	data[0] = Qtrue;
+ 	return ST_STOP;
+@@ -1568,7 +1552,6 @@ eql_i(VALUE key, VALUE val1, VALUE arg)
+     struct equal_data *data = (struct equal_data *)arg;
+     st_data_t val2;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     if (!st_lookup(data->tbl, key, &val2)) {
+ 	data->result = Qfalse;
+ 	return ST_STOP;
+@@ -1599,7 +1582,7 @@ hash_equal(VALUE hash1, VALUE hash2, int eql)
+     struct equal_data data;
+ 
+     if (hash1 == hash2) return Qtrue;
+-    if (TYPE(hash2) != T_HASH) {
++    if (!RB_TYPE_P(hash2, T_HASH)) {
+ 	if (!rb_respond_to(hash2, rb_intern("to_hash"))) {
+ 	    return Qfalse;
+ 	}
+@@ -1670,7 +1653,6 @@ hash_i(VALUE key, VALUE val, VALUE arg)
+     st_index_t *hval = (st_index_t *)arg;
+     st_index_t hdata[2];
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     hdata[0] = rb_hash(key);
+     hdata[1] = rb_hash(val);
+     *hval ^= st_hash(hdata, sizeof(hdata), 0);
+@@ -1711,7 +1693,6 @@ rb_hash_hash(VALUE hash)
+ static int
+ rb_hash_invert_i(VALUE key, VALUE value, VALUE hash)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     rb_hash_aset(hash, value, key);
+     return ST_CONTINUE;
+ }
+@@ -1740,7 +1721,6 @@ rb_hash_invert(VALUE hash)
+ static int
+ rb_hash_update_i(VALUE key, VALUE value, VALUE hash)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     hash_update(hash, key);
+     st_insert(RHASH(hash)->ntbl, key, value);
+     return ST_CONTINUE;
+@@ -1749,7 +1729,6 @@ rb_hash_update_i(VALUE key, VALUE value, VALUE hash)
+ static int
+ rb_hash_update_block_i(VALUE key, VALUE value, VALUE hash)
+ {
+-    if (key == Qundef) return ST_CONTINUE;
+     if (rb_hash_has_key(hash, key)) {
+ 	value = rb_yield_values(3, key, rb_hash_aref(hash, key), value);
+     }
+@@ -1806,7 +1785,6 @@ rb_hash_update_func_i(VALUE key, VALUE value, VALUE arg0)
+     struct update_arg *arg = (struct update_arg *)arg0;
+     VALUE hash = arg->hash;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     if (rb_hash_has_key(hash, key)) {
+ 	value = (*arg->func)(key, rb_hash_aref(hash, key), value);
+     }
+@@ -1863,7 +1841,6 @@ assoc_i(VALUE key, VALUE val, VALUE arg)
+ {
+     VALUE *args = (VALUE *)arg;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     if (RTEST(rb_equal(args[0], key))) {
+ 	args[1] = rb_assoc_new(key, val);
+ 	return ST_STOP;
+@@ -1901,7 +1878,6 @@ rassoc_i(VALUE key, VALUE val, VALUE arg)
+ {
+     VALUE *args = (VALUE *)arg;
+ 
+-    if (key == Qundef) return ST_CONTINUE;
+     if (RTEST(rb_equal(args[0], val))) {
+ 	args[1] = rb_assoc_new(key, val);
+ 	return ST_STOP;
+@@ -2198,7 +2174,7 @@ rb_env_path_tainted(void)
+ }
+ 
+ #if defined(_WIN32) || (defined(HAVE_SETENV) && defined(HAVE_UNSETENV))
+-#elif defined __sun__
++#elif defined __sun
+ static int
+ in_origenv(const char *str)
+ {
+@@ -2286,7 +2262,7 @@ ruby_setenv(const char *name, const char *value)
+ 	    rb_sys_fail("unsetenv");
+ #endif
+     }
+-#elif defined __sun__
++#elif defined __sun
+     size_t len;
+     char **env_ptr, *str;
+     if (strchr(name, '=')) {
+@@ -3084,11 +3060,9 @@ env_invert(void)
+ static int
+ env_replace_i(VALUE key, VALUE val, VALUE keys)
+ {
+-    if (key != Qundef) {
+-	env_aset(Qnil, key, val);
+-	if (rb_ary_includes(keys, key)) {
+-	    rb_ary_delete(keys, key);
+-	}
++    env_aset(Qnil, key, val);
++    if (rb_ary_includes(keys, key)) {
++	rb_ary_delete(keys, key);
+     }
+     return ST_CONTINUE;
+ }
+@@ -3120,12 +3094,10 @@ env_replace(VALUE env, VALUE hash)
+ static int
+ env_update_i(VALUE key, VALUE val)
+ {
+-    if (key != Qundef) {
+-	if (rb_block_given_p()) {
+-	    val = rb_yield_values(3, key, rb_f_getenv(Qnil, key), val);
+-	}
+-	env_aset(Qnil, key, val);
++    if (rb_block_given_p()) {
++	val = rb_yield_values(3, key, rb_f_getenv(Qnil, key), val);
+     }
++    env_aset(Qnil, key, val);
+     return ST_CONTINUE;
+ }
+ 
+@@ -3150,15 +3122,116 @@ env_update(VALUE env, VALUE hash)
+ }
+ 
+ /*
+- *  A <code>Hash</code> is a collection of key-value pairs. It is
+- *  similar to an <code>Array</code>, except that indexing is done via
+- *  arbitrary keys of any object type, not an integer index. Hashes enumerate
+- *  their values in the order that the corresponding keys were inserted.
++ *  A Hash is a dictionary-like collection of unique keys and their values.
++ *  Also called associative arrays, they are similar to Arrays, but where an
++ *  Array uses integers as its index, a Hash allows you to use any object
++ *  type.
++ *
++ *  Hashes enumerate their values in the order that the corresponding keys
++ *  were inserted.
++ *
++ *  A Hash can be easily created by using its implicit form:
++ *
++ *    grades = { "Jane Doe" => 10, "Jim Doe" => 6 }
++ *
++ *  Hashes allow an alternate syntax form when your keys are always symbols.
++ *  Instead of
++ *
++ *    options = { :font_size => 10, :font_family => "Arial" }
++ *
++ *  You could write it as:
++ *
++ *    options = { font_size: 10, font_family: "Arial" }
++ *
++ *  Each named key is a symbol you can access in hash:
++ *
++ *    options[:font_size]  # => 10
++ *
++ *  A Hash can also be created through its ::new method:
++ *
++ *    grades = Hash.new
++ *    grades["Dorothy Doe"] = 9
+  *
+  *  Hashes have a <em>default value</em> that is returned when accessing
+- *  keys that do not exist in the hash. By default, that value is
+- *  <code>nil</code>.
++ *  keys that do not exist in the hash. If no default is set +nil+ is used.
++ *  You can set the default value by sending it as an argument to Hash.new:
++ *
++ *    grades = Hash.new(0)
++ *
++ *  Or by using the #default= method:
++ *
++ *    grades = {"Timmy Doe" => 8}
++ *    grades.default = 0
++ *
++ *  Accessing a value in a Hash requires using its key:
++ *
++ *    puts grades["Jane Doe"] # => 10
++ *
++ *  === Common Uses
++ *
++ *  Hashes are an easy way to represent data structures, such as
++ *
++ *    books         = {}
++ *    books[:matz]  = "The Ruby Language"
++ *    books[:black] = "The Well-Grounded Rubyist"
++ *
++ *  Hashes are also commonly used as a way to have named parameters in
++ *  functions. Note that no brackets are used below. If a hash is the last
++ *  argument on a method call, no braces are needed, thus creating a really
++ *  clean interface:
++ *
++ *    Person.create(name: "John Doe", age: 27)
++ *
++ *    def self.create(params)
++ *      @name = params[:name]
++ *      @age  = params[:age]
++ *    end
++ *
++ *  === Hash Keys
++ *
++ *  Two objects refer to the same hash key when their <code>hash</code> value
++ *  is identical and the two objects are <code>eql?</code> to each other.
++ *
++ *  A user-defined class may be used as a hash key if the <code>hash</code>
++ *  and <code>eql?</code> methods are overridden to provide meaningful
++ *  behavior.  By default, separate instances refer to separate hash keys.
++ *
++ *  A typical implementation of <code>hash</code> is based on the
++ *  object's data while <code>eql?</code> is usually aliased to the overridden
++ *  <code>==</code> method:
++ *
++ *    class Book
++ *      attr_reader :author, :title
++ *
++ *      def initialize(author, title)
++ *        @author = author
++ *        @title = title
++ *      end
++ *
++ *      def ==(other)
++ *        self.class === other and
++ *          other.author == @author and
++ *          other.title == @title
++ *      end
++ *
++ *      alias eql? ==
++ *
++ *      def hash
++ *        @author.hash ^ @title.hash # XOR
++ *      end
++ *    end
++ *
++ *    book1 = Book.new 'matz', 'Ruby in a Nutshell'
++ *    book2 = Book.new 'matz', 'Ruby in a Nutshell'
++ *
++ *    reviews = {}
++ *
++ *    reviews[book1] = 'Great reference!'
++ *    reviews[book2] = 'Nice and compact!'
++ *
++ *    reviews.length #=> 1
+  *
++ *  See also Object#hash and Object#eql?
+  */
+ 
+ void
+diff --git a/include/ruby/st.h b/include/ruby/st.h
+index 50f2a75..119dfde 100644
+--- a/include/ruby/st.h
++++ b/include/ruby/st.h
+@@ -36,7 +36,7 @@ typedef unsigned long st_data_t;
+ #elif SIZEOF_LONG_LONG == SIZEOF_VOIDP
+ typedef unsigned LONG_LONG st_data_t;
+ #else
+-# error ---->> st.c requires sizeof(void*) == sizeof(long) to be compiled. <<----
++# error ---->> st.c requires sizeof(void*) == sizeof(long) or sizeof(LONG_LONG) to be compiled. <<----
+ #endif
+ #define ST_DATA_T_DEFINED
+ 
+@@ -74,6 +74,11 @@ struct st_hash_type {
+ 
+ #define ST_INDEX_BITS (sizeof(st_index_t) * CHAR_BIT)
+ 
++typedef struct st_packed_entry {
++    st_index_t hash;
++    st_data_t key, val;
++} st_packed_entry;
++
+ struct st_table {
+     const struct st_hash_type *type;
+     st_index_t num_bins;
+@@ -91,8 +96,17 @@ struct st_table {
+     __extension__
+ #endif
+     st_index_t num_entries : ST_INDEX_BITS - 1;
+-    struct st_table_entry **bins;
+-    struct st_table_entry *head, *tail;
++    union {
++	struct {
++	    struct st_table_entry **bins;
++	    struct st_table_entry *head, *tail;
++	} big;
++	struct {
++	    struct st_packed_entry *entries;
++	    st_index_t real_entries;
++	} packed;
++	st_packed_entry upacked;
++    } as;
+ };
+ 
+ #define st_is_member(table,key) st_lookup((table),(key),(st_data_t *)0)
+@@ -114,6 +128,7 @@ int st_insert2(st_table *, st_data_t, st_data_t, st_data_t (*)(st_data_t));
+ int st_lookup(st_table *, st_data_t, st_data_t *);
+ int st_get_key(st_table *, st_data_t, st_data_t *);
+ int st_foreach(st_table *, int (*)(ANYARGS), st_data_t);
++int st_foreach_check(st_table *, int (*)(ANYARGS), st_data_t, st_data_t);
+ int st_reverse_foreach(st_table *, int (*)(ANYARGS), st_data_t);
+ void st_add_direct(st_table *, st_data_t, st_data_t);
+ void st_free_table(st_table *);
+diff --git a/pool_alloc.h b/pool_alloc.h
+new file mode 100644
+index 0000000..957708e
+--- /dev/null
++++ b/pool_alloc.h
+@@ -0,0 +1,11 @@
++#ifndef POOL_ALLOC_H
++#define POOL_ALLOC_H
++
++#define POOL_ALLOC_API
++#ifdef POOL_ALLOC_API
++void  ruby_xpool_free(void *ptr);
++void *ruby_xpool_malloc_6p();
++void *ruby_xpool_malloc_11p();
++#endif
++
++#endif
+diff --git a/pool_alloc.inc.h b/pool_alloc.inc.h
+new file mode 100644
+index 0000000..a7879ab
+--- /dev/null
++++ b/pool_alloc.inc.h
+@@ -0,0 +1,156 @@
++/*
++ * this is generic pool allocator
++ * you should define following macroses:
++ * ITEM_NAME - unique identifier, which allows to hold functions in a namespace
++ * ITEM_TYPEDEF(name) - passed to typedef to localize item type
++ * free_entry - desired name of function for free entry
++ * alloc_entry - defired name of function for allocate entry
++ */
++
++#if POOL_ALLOC_PART == 1
++#ifdef HEAP_ALIGN_LOG
++#define DEFAULT_POOL_SIZE (1 << HEAP_ALIGN_LOG)
++#else
++#define DEFAULT_POOL_SIZE (sizeof(void*) * 2048)
++#endif
++typedef unsigned int pool_holder_counter;
++
++typedef struct pool_entry_list pool_entry_list;
++typedef struct pool_holder pool_holder;
++
++typedef struct pool_header {
++    pool_holder         *first;
++    pool_holder         *_black_magick;
++    pool_holder_counter  size; // size of entry in sizeof(void*) items
++    pool_holder_counter  total; // size of entry in sizeof(void*) items
++} pool_header;
++
++struct pool_holder {
++    pool_holder_counter free, total;
++    pool_header  *header;
++    void               *freep;
++    pool_holder        *fore, *back;
++    void *data[1];
++};
++#define POOL_DATA_SIZE(pool_size) (((pool_size) - sizeof(void*) * 6 - offsetof(pool_holder, data)) / sizeof(void*))
++#define POOL_ENTRY_SIZE(item_type) ((sizeof(item_type) - 1) / sizeof(void*) + 1)
++#define POOL_HOLDER_COUNT(pool_size, item_type) (POOL_DATA_SIZE(pool_size)/POOL_ENTRY_SIZE(item_type))
++#define INIT_POOL(item_type) {NULL, NULL, POOL_ENTRY_SIZE(item_type), POOL_HOLDER_COUNT(DEFAULT_POOL_SIZE, item_type)}
++
++#elif POOL_ALLOC_PART == 2
++static pool_holder *
++pool_holder_alloc(pool_header *header)
++{
++    pool_holder *holder;
++    pool_holder_counter i, size, count;
++    register void **ptr;
++
++    size_t sz = offsetof(pool_holder, data) +
++	    header->size * header->total * sizeof(void*);
++#define objspace (&rb_objspace)
++    vm_malloc_prepare(objspace, DEFAULT_POOL_SIZE);
++    if (header->first != NULL) return header->first;
++    TRY_WITH_GC(holder = (pool_holder*) aligned_malloc(DEFAULT_POOL_SIZE, sz));
++    malloc_increase += DEFAULT_POOL_SIZE;
++#if CALC_EXACT_MALLOC_SIZE
++    objspace->malloc_params.allocated_size += DEFAULT_POOL_SIZE;
++    objspace->malloc_params.allocations++;
++#endif
++#undef objspace
++
++    size = header->size;
++    count = header->total;
++    holder->free = count;
++    holder->total = count;
++    holder->header = header;
++    holder->fore = NULL;
++    holder->back = NULL;
++    holder->freep = &holder->data;
++    ptr = holder->data;
++    for(i = count - 1; i; i-- ) {
++	ptr = *ptr = ptr + size;
++    }
++    *ptr = NULL;
++    header->first = holder;
++    return holder;
++}
++
++static inline void
++pool_holder_unchaing(pool_header *header, pool_holder *holder)
++{
++    register pool_holder *fore = holder->fore, *back = holder->back;
++    holder->fore = NULL;
++    holder->back = NULL;
++    if (fore != NULL)  fore->back     = back;
++    else               header->_black_magick = back;
++    if (back != NULL)  back->fore     = fore;
++    else               header->first = fore;
++}
++
++static inline pool_holder *
++entry_holder(void **entry)
++{
++    return (pool_holder*)(((uintptr_t)entry) & ~(DEFAULT_POOL_SIZE - 1));
++}
++
++static inline void
++pool_free_entry(void **entry)
++{
++    pool_holder *holder = entry_holder(entry);
++    pool_header *header = holder->header;
++
++    if (holder->free++ == 0) {
++	register pool_holder *first = header->first;
++	if (first == NULL) {
++	    header->first = holder;
++	} else {
++	    holder->back = first;
++	    holder->fore = first->fore;
++	    first->fore = holder;
++	    if (holder->fore)
++		holder->fore->back = holder;
++	    else
++		header->_black_magick = holder;
++	}
++    } else if (holder->free == holder->total && header->first != holder ) {
++	pool_holder_unchaing(header, holder);
++	aligned_free(holder);
++#if CALC_EXACT_MALLOC_SIZE
++	rb_objspace.malloc_params.allocated_size -= DEFAULT_POOL_SIZE;
++	rb_objspace.malloc_params.allocations--;
++#endif
++	return;
++    }
++
++    *entry = holder->freep;
++    holder->freep = entry;
++}
++
++static inline void*
++pool_alloc_entry(pool_header *header)
++{
++    pool_holder *holder = header->first;
++    void **result;
++    if (holder == NULL) {
++	holder = pool_holder_alloc(header);
++    }
++
++    result = holder->freep;
++    holder->freep = *result;
++
++    if (--holder->free == 0) {
++	pool_holder_unchaing(header, holder);
++    }
++
++    return result;
++}
++
++static void
++pool_finalize_header(pool_header *header)
++{
++    if (header->first) {
++        aligned_free(header->first);
++        header->first = NULL;
++    }
++}
++#endif
+diff --git a/st.c b/st.c
+index fda5784..20ec427 100644
+--- a/st.c
++++ b/st.c
+@@ -7,6 +7,7 @@
+ #include "st.h"
+ #else
+ #include "ruby/ruby.h"
++#include "pool_alloc.h"
+ #endif
+ 
+ #include <stdio.h>
+@@ -25,8 +26,17 @@ struct st_table_entry {
+     st_table_entry *fore, *back;
+ };
+ 
+-#define ST_DEFAULT_MAX_DENSITY 5
++#define STATIC_ASSERT(name, expr) typedef int static_assert_##name##_check[(expr) ? 1 : -1];
++
++#define ST_DEFAULT_MAX_DENSITY 2
+ #define ST_DEFAULT_INIT_TABLE_SIZE 11
++#define ST_DEFAULT_SECOND_TABLE_SIZE 19
++#define ST_DEFAULT_PACKED_TABLE_SIZE 18
++#define PACKED_UNIT (int)(sizeof(st_packed_entry) / sizeof(st_table_entry*))
++#define MAX_PACKED_HASH (int)(ST_DEFAULT_PACKED_TABLE_SIZE * sizeof(st_table_entry*) / sizeof(st_packed_entry))
++
++STATIC_ASSERT(st_packed_entry, sizeof(st_packed_entry) == sizeof(st_table_entry*[PACKED_UNIT]))
++STATIC_ASSERT(st_packed_bins, sizeof(st_packed_entry[MAX_PACKED_HASH]) <= sizeof(st_table_entry*[ST_DEFAULT_PACKED_TABLE_SIZE]))
+ 
+     /*
+      * DEFAULT_MAX_DENSITY is the default for the largest we allow the
+@@ -38,7 +48,8 @@ struct st_table_entry {
+      *
+      */
+ 
+-static const struct st_hash_type type_numhash = {
++#define type_numhash st_hashtype_num
++const struct st_hash_type st_hashtype_num = {
+     st_numcmp,
+     st_numhash,
+ };
+@@ -61,20 +72,128 @@ static void rehash(st_table *);
+ #ifdef RUBY
+ #define malloc xmalloc
+ #define calloc xcalloc
++#define realloc xrealloc
+ #define free(x) xfree(x)
+ #endif
+ 
+ #define numberof(array) (int)(sizeof(array) / sizeof((array)[0]))
+ 
+-#define alloc(type) (type*)malloc((size_t)sizeof(type))
+-#define Calloc(n,s) (char*)calloc((n),(s))
+-
+ #define EQUAL(table,x,y) ((x)==(y) || (*(table)->type->compare)((x),(y)) == 0)
+ 
+-/* remove cast to unsigned int in the future */
+-#define do_hash(key,table) (unsigned int)(st_index_t)(*(table)->type->hash)((key))
++#define do_hash(key,table) (st_index_t)(*(table)->type->hash)((key))
+ #define do_hash_bin(key,table) (do_hash((key), (table))%(table)->num_bins)
+ 
++/* preparation for possible allocation improvements */
++#ifdef POOL_ALLOC_API
++#define st_alloc_entry() (st_table_entry *)ruby_xpool_malloc_6p()
++#define st_free_entry(entry) ruby_xpool_free(entry)
++#define st_alloc_table() (st_table *)ruby_xpool_malloc_6p()
++#define st_dealloc_table(table) ruby_xpool_free(table)
++static inline st_table_entry **
++st_alloc_bins(st_index_t size)
++{
++    st_table_entry **result;
++    if (size == 11) {
++        result = (st_table_entry **) ruby_xpool_malloc_11p();
++        memset(result, 0, 11 * sizeof(st_table_entry *));
++    }
++    else
++        result = (st_table_entry **) ruby_xcalloc(size, sizeof(st_table_entry*));
++    return result;
++}
++static inline void
++st_free_bins(st_table_entry **bins, st_index_t size)
++{
++    if (size == 11)
++	ruby_xpool_free(bins);
++    else
++	ruby_xfree(bins);
++}
++static inline st_table_entry**
++st_realloc_bins(st_table_entry **bins, st_index_t newsize, st_index_t oldsize)
++{
++    st_table_entry **new_bins = st_alloc_bins(newsize);
++    st_free_bins(bins, oldsize);
++    return new_bins;
++}
++#else
++#define st_alloc_entry() (st_table_entry *)malloc(sizeof(st_table_entry))
++#define st_free_entry(entry) free(entry)
++#define st_alloc_table() (st_table *)malloc(sizeof(st_table))
++#define st_dealloc_table(table) free(table)
++#define st_alloc_bins(size) (st_table_entry **)calloc(size, sizeof(st_table_entry *))
++#define st_free_bins(bins, size) free(bins)
++static inline st_table_entry**
++st_realloc_bins(st_table_entry **bins, st_index_t newsize, st_index_t oldsize)
++{
++    bins = (st_table_entry **)realloc(bins, newsize * sizeof(st_table_entry *));
++    MEMZERO(bins, st_table_entry*, newsize);
++    return bins;
++}
++#endif
++
++/* Shortage */
++#define bins as.big.bins
++#define head as.big.head
++#define tail as.big.tail
++#define real_entries as.packed.real_entries
++
++/* preparation for possible packing improvements */
++#define PACKED_BINS(table) ((table)->as.packed.entries)
++#define PACKED_ENT(table, i) PACKED_BINS(table)[i]
++#define PKEY(table, i) PACKED_ENT((table), (i)).key
++#define PVAL(table, i) PACKED_ENT((table), (i)).val
++#define PHASH(table, i) PACKED_ENT((table), (i)).hash
++#define PKEY_SET(table, i, v) (PKEY((table), (i)) = (v))
++#define PVAL_SET(table, i, v) (PVAL((table), (i)) = (v))
++#define PHASH_SET(table, i, v) (PHASH((table), (i)) = (v))
++
++/* this function depends much on packed layout, so that it placed here */
++static inline void
++remove_packed_entry(st_table *table, st_index_t i)
++{
++    table->real_entries--;
++    table->num_entries--;
++    if (i < table->real_entries) {
++	MEMMOVE(&PACKED_ENT(table, i), &PACKED_ENT(table, i+1),
++		st_packed_entry, table->real_entries - i);
++    }
++}
++
++static inline void
++remove_safe_packed_entry(st_table *table, st_index_t i, st_data_t never)
++{
++    table->num_entries--;
++    PKEY_SET(table, i, never);
++    PVAL_SET(table, i, never);
++    PHASH_SET(table, i, 0);
++}
++
++/* ultrapacking */
++#define real_upacked num_bins
++#define MAX_UPACKED_HASH 1
++#define ULTRAPACKED(table) ((table)->real_upacked <= 1)
++#define UPACKED_ENT(table) ((table)->as.upacked)
++#define UPKEY(table) UPACKED_ENT(table).key
++#define UPVAL(table) UPACKED_ENT(table).val
++#define UPHASH(table) UPACKED_ENT(table).hash
++#define UPKEY_SET(table, v) (UPACKED_ENT(table).key = (v))
++#define UPVAL_SET(table, v) (UPACKED_ENT(table).val = (v))
++#define UPHASH_SET(table, v) (UPACKED_ENT(table).hash = (v))
++static inline void
++remove_upacked_entry(st_table *table)
++{
++    table->real_upacked = table->num_entries = 0;
++}
++
++static inline void
++remove_safe_upacked_entry(st_table *table, st_data_t never)
++{
++    table->num_entries = 0;
++    UPKEY_SET(table, never);
++    UPVAL_SET(table, never);
++    UPHASH_SET(table, 0);
++}
+ /*
+  * MINSIZE is the minimum size of a dictionary.
+  */
+@@ -85,8 +204,8 @@ static void rehash(st_table *);
+ Table of prime numbers 2^n+a, 2<=n<=30.
+ */
+ static const unsigned int primes[] = {
+-	8 + 3,
+-	16 + 3,
++	ST_DEFAULT_INIT_TABLE_SIZE,
++	ST_DEFAULT_SECOND_TABLE_SIZE,
+ 	32 + 5,
+ 	64 + 3,
+ 	128 + 3,
+@@ -161,8 +280,6 @@ stat_col(void)
+ }
+ #endif
+ 
+-#define MAX_PACKED_NUMHASH (ST_DEFAULT_INIT_TABLE_SIZE/2)
+-
+ st_table*
+ st_init_table_with_size(const struct st_hash_type *type, st_index_t size)
+ {
+@@ -181,14 +298,19 @@ st_init_table_with_size(const struct st_hash_type *type, st_index_t size)
+     }
+ #endif
+ 
+-    size = new_size(size);	/* round up to prime number */
+ 
+-    tbl = alloc(st_table);
++    tbl = st_alloc_table();
+     tbl->type = type;
+     tbl->num_entries = 0;
+-    tbl->entries_packed = type == &type_numhash && size/2 <= MAX_PACKED_NUMHASH;
++    tbl->entries_packed = size <= MAX_PACKED_HASH;
++    if (tbl->entries_packed) {
++	size = size <= MAX_UPACKED_HASH ? 0 : ST_DEFAULT_PACKED_TABLE_SIZE;
++    }
++    else {
++	size = new_size(size);	/* round up to prime number */
++    }
+     tbl->num_bins = size;
+-    tbl->bins = (st_table_entry **)Calloc(size, sizeof(st_table_entry*));
++    tbl->bins = size ? st_alloc_bins(size) : 0;
+     tbl->head = 0;
+     tbl->tail = 0;
+ 
+@@ -243,17 +365,23 @@ st_clear(st_table *table)
+     register st_table_entry *ptr, *next;
+     st_index_t i;
+ 
++    if (ULTRAPACKED(table)) {
++	remove_upacked_entry(table);
++	return;
++    }
++
+     if (table->entries_packed) {
+         table->num_entries = 0;
++        table->real_entries = 0;
+         return;
+     }
+ 
+-    for(i = 0; i < table->num_bins; i++) {
++    for (i = 0; i < table->num_bins; i++) {
+ 	ptr = table->bins[i];
+ 	table->bins[i] = 0;
+ 	while (ptr != 0) {
+ 	    next = ptr->next;
+-	    free(ptr);
++	    st_free_entry(ptr);
+ 	    ptr = next;
+ 	}
+     }
+@@ -266,14 +394,19 @@ void
+ st_free_table(st_table *table)
+ {
+     st_clear(table);
+-    free(table->bins);
+-    free(table);
++    if (!ULTRAPACKED(table)) {
++	st_free_bins(table->bins, table->num_bins);
++    }
++    st_dealloc_table(table);
+ }
+ 
+ size_t
+ st_memsize(const st_table *table)
+ {
+-    if (table->entries_packed) {
++    if (ULTRAPACKED(table)) {
++	return sizeof(st_table);
++    }
++    else if (table->entries_packed) {
+ 	return table->num_bins * sizeof (void *) + sizeof(st_table);
+     }
+     else {
+@@ -306,46 +439,77 @@ count_collision(const struct st_hash_type *type)
+ #define FOUND_ENTRY
+ #endif
+ 
+-#define FIND_ENTRY(table, ptr, hash_val, bin_pos) do {\
+-    (bin_pos) = (hash_val)%(table)->num_bins;\
+-    (ptr) = (table)->bins[(bin_pos)];\
+-    FOUND_ENTRY;\
+-    if (PTR_NOT_EQUAL((table), (ptr), (hash_val), key)) {\
+-	COLLISION;\
+-	while (PTR_NOT_EQUAL((table), (ptr)->next, (hash_val), key)) {\
+-	    (ptr) = (ptr)->next;\
+-	}\
+-	(ptr) = (ptr)->next;\
+-    }\
+-} while (0)
++#define FIND_ENTRY(table, ptr, hash_val, bin_pos) \
++    ((ptr) = find_entry((table), key, (hash_val), ((bin_pos) = (hash_val)%(table)->num_bins)))
++
++static st_table_entry *
++find_entry(st_table *table, st_data_t key, st_index_t hash_val, st_index_t bin_pos)
++{
++    register st_table_entry *ptr = table->bins[bin_pos];
++    FOUND_ENTRY;
++    if (PTR_NOT_EQUAL(table, ptr, hash_val, key)) {
++	COLLISION;
++	while (PTR_NOT_EQUAL(table, ptr->next, hash_val, key)) {
++	    ptr = ptr->next;
++	}
++	ptr = ptr->next;
++    }
++    return ptr;
++}
++
++static inline st_index_t
++find_packed_index(st_table *table, st_index_t hash_val, st_data_t key)
++{
++    st_index_t i = 0;
++    while (i < table->real_entries &&
++	   (PHASH(table, i) != hash_val || !EQUAL(table, key, PKEY(table, i)))) {
++	i++;
++    }
++    return i;
++}
++
++static inline int
++check_upacked(st_table *table, st_index_t hash_val, st_data_t key)
++{
++    return table->num_entries &&
++	UPHASH(table) == hash_val &&
++	EQUAL(table, key, UPKEY(table));
++}
+ 
+ #define collision_check 0
+ 
+ int
+ st_lookup(st_table *table, register st_data_t key, st_data_t *value)
+ {
+-    st_index_t hash_val, bin_pos;
++    st_index_t hash_val;
+     register st_table_entry *ptr;
+ 
++    hash_val = do_hash(key, table);
++
++    if (ULTRAPACKED(table)) {
++	if (check_upacked(table, hash_val, key)) {
++	    if (value != 0) *value = UPVAL(table);
++	    return 1;
++	}
++	return 0;
++    }
++
+     if (table->entries_packed) {
+-        st_index_t i;
+-        for (i = 0; i < table->num_entries; i++) {
+-            if ((st_data_t)table->bins[i*2] == key) {
+-                if (value !=0) *value = (st_data_t)table->bins[i*2+1];
+-                return 1;
+-            }
+-        }
++	st_index_t i = find_packed_index(table, hash_val, key);
++	if (i < table->real_entries) {
++	    if (value != 0) *value = PVAL(table, i);
++	    return 1;
++	}
+         return 0;
+     }
+ 
+-    hash_val = do_hash(key, table);
+-    FIND_ENTRY(table, ptr, hash_val, bin_pos);
++    ptr = find_entry(table, key, hash_val, hash_val % table->num_bins);
+ 
+     if (ptr == 0) {
+ 	return 0;
+     }
+     else {
+-	if (value != 0)  *value = ptr->record;
++	if (value != 0) *value = ptr->record;
+ 	return 1;
+     }
+ }
+@@ -353,22 +517,29 @@ st_lookup(st_table *table, register st_data_t key, st_data_t *value)
+ int
+ st_get_key(st_table *table, register st_data_t key, st_data_t *result)
+ {
+-    st_index_t hash_val, bin_pos;
++    st_index_t hash_val;
+     register st_table_entry *ptr;
+ 
++    hash_val = do_hash(key, table);
++
++    if (ULTRAPACKED(table)) {
++	if (check_upacked(table, hash_val, key)) {
++	    if (result != 0) *result = UPKEY(table);
++	    return 1;
++	}
++	return 0;
++    }
++
+     if (table->entries_packed) {
+-        st_index_t i;
+-        for (i = 0; i < table->num_entries; i++) {
+-            if ((st_data_t)table->bins[i*2] == key) {
+-                if (result !=0) *result = (st_data_t)table->bins[i*2];
+-                return 1;
+-            }
+-        }
++	st_index_t i = find_packed_index(table, hash_val, key);
++	if (i < table->real_entries) {
++	    if (result != 0) *result = PKEY(table, i);
++	    return 1;
++	}
+         return 0;
+     }
+ 
+-    hash_val = do_hash(key, table);
+-    FIND_ENTRY(table, ptr, hash_val, bin_pos);
++    ptr = find_entry(table, key, hash_val, hash_val % table->num_bins);
+ 
+     if (ptr == 0) {
+ 	return 0;
+@@ -382,85 +553,151 @@ st_get_key(st_table *table, register st_data_t key, st_data_t *result)
+ #undef collision_check
+ #define collision_check 1
+ 
+-#define MORE_PACKABLE_P(table) \
+-    ((st_index_t)((table)->num_entries+1) * 2 <= (table)->num_bins && \
+-     (table)->num_entries+1 <= MAX_PACKED_NUMHASH)
+-
+-#define ADD_DIRECT(table, key, value, hash_val, bin_pos)\
+-do {\
+-    st_table_entry *entry;\
+-    if ((table)->num_entries > ST_DEFAULT_MAX_DENSITY * (table)->num_bins) {\
+-	rehash(table);\
+-        (bin_pos) = (hash_val) % (table)->num_bins;\
+-    }\
+-    \
+-    entry = alloc(st_table_entry);\
+-    \
+-    entry->hash = (hash_val);\
+-    entry->key = (key);\
+-    entry->record = (value);\
+-    entry->next = (table)->bins[(bin_pos)];\
+-    if ((table)->head != 0) {\
+-	entry->fore = 0;\
+-	(entry->back = (table)->tail)->fore = entry;\
+-	(table)->tail = entry;\
+-    }\
+-    else {\
+-	(table)->head = (table)->tail = entry;\
+-	entry->fore = entry->back = 0;\
+-    }\
+-    (table)->bins[(bin_pos)] = entry;\
+-    (table)->num_entries++;\
+-} while (0)
++static inline st_table_entry *
++new_entry(st_table * table, st_data_t key, st_data_t value,
++	st_index_t hash_val, register st_index_t bin_pos)
++{
++    register st_table_entry *entry = st_alloc_entry();
++
++    entry->next = table->bins[bin_pos];
++    table->bins[bin_pos] = entry;
++    entry->hash = hash_val;
++    entry->key = key;
++    entry->record = value;
++
++    return entry;
++}
++
++static inline void
++add_direct(st_table *table, st_data_t key, st_data_t value,
++	   st_index_t hash_val, register st_index_t bin_pos)
++{
++    register st_table_entry *entry;
++    if (table->num_entries > ST_DEFAULT_MAX_DENSITY * table->num_bins) {
++	rehash(table);
++        bin_pos = hash_val % table->num_bins;
++    }
++
++    entry = new_entry(table, key, value, hash_val, bin_pos);
++
++    if (table->head != 0) {
++	entry->fore = 0;
++	(entry->back = table->tail)->fore = entry;
++	table->tail = entry;
++    }
++    else {
++	table->head = table->tail = entry;
++	entry->fore = entry->back = 0;
++    }
++    table->num_entries++;
++}
+ 
+ static void
+ unpack_entries(register st_table *table)
+ {
+     st_index_t i;
+-    struct st_table_entry *packed_bins[MAX_PACKED_NUMHASH*2];
++    st_packed_entry packed_bins[MAX_PACKED_HASH];
++    register st_table_entry *entry, *preventry = 0, **chain;
+     st_table tmp_table = *table;
+ 
+-    memcpy(packed_bins, table->bins, sizeof(struct st_table_entry *) * table->num_entries*2);
+-    table->bins = packed_bins;
++    MEMCPY(packed_bins, PACKED_BINS(table), st_packed_entry, MAX_PACKED_HASH);
++    table->as.packed.entries = packed_bins;
+     tmp_table.entries_packed = 0;
+-    tmp_table.num_entries = 0;
+-    memset(tmp_table.bins, 0, sizeof(struct st_table_entry *) * tmp_table.num_bins);
+-    for (i = 0; i < table->num_entries; i++) {
+-        st_insert(&tmp_table, (st_data_t)packed_bins[i*2], (st_data_t)packed_bins[i*2+1]);
+-    }
++#if ST_DEFAULT_INIT_TABLE_SIZE == ST_DEFAULT_PACKED_TABLE_SIZE
++    MEMZERO(tmp_table.bins, st_table_entry*, tmp_table.num_bins);
++#else
++    tmp_table.bins = st_realloc_bins(tmp_table.bins, ST_DEFAULT_INIT_TABLE_SIZE, tmp_table.num_bins);
++    tmp_table.num_bins = ST_DEFAULT_INIT_TABLE_SIZE;
++#endif
++    i = 0;
++    chain = &tmp_table.head;
++    do {
++	st_data_t key = packed_bins[i].key;
++	st_data_t val = packed_bins[i].val;
++	st_index_t hash = packed_bins[i].hash;
++	entry = new_entry(&tmp_table, key, val, hash,
++			  hash % ST_DEFAULT_INIT_TABLE_SIZE);
++	*chain = entry;
++	entry->back = preventry;
++	preventry = entry;
++	chain = &entry->fore;
++    } while (++i < MAX_PACKED_HASH);
++    *chain = NULL;
++    tmp_table.tail = entry;
+     *table = tmp_table;
+ }
+ 
++static void
++add_packed_direct(st_table *table, st_data_t key, st_data_t value, st_index_t hash_val)
++{
++    if (table->real_entries < MAX_PACKED_HASH) {
++	st_index_t i = table->real_entries++;
++	PKEY_SET(table, i, key);
++	PVAL_SET(table, i, value);
++	PHASH_SET(table, i, hash_val);
++	table->num_entries++;
++    }
++    else {
++	unpack_entries(table);
++	add_direct(table, key, value, hash_val, hash_val % table->num_bins);
++    }
++}
++
++static void
++add_upacked_direct(register st_table *table, register st_data_t key, st_data_t value, st_index_t hash_val)
++{
++    if (table->real_upacked) {
++	st_packed_entry *entries = (st_packed_entry *) st_alloc_bins(ST_DEFAULT_PACKED_TABLE_SIZE);
++	entries[0] = UPACKED_ENT(table);
++	entries[1].hash = hash_val;
++	entries[1].key = key;
++	entries[1].val = value;
++	table->num_bins = ST_DEFAULT_PACKED_TABLE_SIZE;
++	table->real_entries = 2;
++	table->num_entries++;
++	table->as.packed.entries = entries;
++    }
++    else {
++	table->real_upacked = 1;
++	table->num_entries = 1;
++	UPHASH_SET(table, hash_val);
++	UPKEY_SET(table, key);
++	UPVAL_SET(table, value);
++    }
++}
++
+ int
+ st_insert(register st_table *table, register st_data_t key, st_data_t value)
+ {
+-    st_index_t hash_val, bin_pos;
++    st_index_t hash_val;
++    register st_index_t bin_pos;
+     register st_table_entry *ptr;
+ 
++    hash_val = do_hash(key, table);
++
++    if (ULTRAPACKED(table)) {
++	if (check_upacked(table, hash_val, key)) {
++	    UPVAL_SET(table, value);
++	    return 1;
++	}
++	add_upacked_direct(table, key, value, hash_val);
++	return 0;
++    }
++
+     if (table->entries_packed) {
+-        st_index_t i;
+-        for (i = 0; i < table->num_entries; i++) {
+-            if ((st_data_t)table->bins[i*2] == key) {
+-                table->bins[i*2+1] = (struct st_table_entry*)value;
+-                return 1;
+-            }
+-        }
+-        if (MORE_PACKABLE_P(table)) {
+-            i = table->num_entries++;
+-            table->bins[i*2] = (struct st_table_entry*)key;
+-            table->bins[i*2+1] = (struct st_table_entry*)value;
+-            return 0;
+-        }
+-        else {
+-            unpack_entries(table);
++	st_index_t i = find_packed_index(table, hash_val, key);
++	if (i < table->real_entries) {
++	    PVAL_SET(table, i, value);
++	    return 1;
+         }
++	add_packed_direct(table, key, value, hash_val);
++	return 0;
+     }
+ 
+-    hash_val = do_hash(key, table);
+     FIND_ENTRY(table, ptr, hash_val, bin_pos);
+ 
+     if (ptr == 0) {
+-	ADD_DIRECT(table, key, value, hash_val, bin_pos);
++	add_direct(table, key, value, hash_val, bin_pos);
+ 	return 0;
+     }
+     else {
+@@ -473,34 +710,38 @@ int
+ st_insert2(register st_table *table, register st_data_t key, st_data_t value,
+ 	   st_data_t (*func)(st_data_t))
+ {
+-    st_index_t hash_val, bin_pos;
++    st_index_t hash_val;
++    register st_index_t bin_pos;
+     register st_table_entry *ptr;
+ 
++    hash_val = do_hash(key, table);
++
++    if (ULTRAPACKED(table)) {
++	if (check_upacked(table, hash_val, key)) {
++	    UPVAL_SET(table, value);
++	    return 1;
++	}
++	key = (*func)(key);
++	add_upacked_direct(table, key, value, hash_val);
++	return 0;
++    }
++
+     if (table->entries_packed) {
+-        st_index_t i;
+-        for (i = 0; i < table->num_entries; i++) {
+-            if ((st_data_t)table->bins[i*2] == key) {
+-                table->bins[i*2+1] = (struct st_table_entry*)value;
+-                return 1;
+-            }
+-        }
+-        if (MORE_PACKABLE_P(table)) {
+-            i = table->num_entries++;
+-            table->bins[i*2] = (struct st_table_entry*)key;
+-            table->bins[i*2+1] = (struct st_table_entry*)value;
+-            return 0;
+-        }
+-        else {
+-            unpack_entries(table);
+-        }
++	st_index_t i = find_packed_index(table, hash_val, key);
++	if (i < table->real_entries) {
++	    PVAL_SET(table, i, value);
++	    return 1;
++	}
++	key = (*func)(key);
++	add_packed_direct(table, key, value, hash_val);
++	return 0;
+     }
+ 
+-    hash_val = do_hash(key, table);
+     FIND_ENTRY(table, ptr, hash_val, bin_pos);
+ 
+     if (ptr == 0) {
+ 	key = (*func)(key);
+-	ADD_DIRECT(table, key, value, hash_val, bin_pos);
++	add_direct(table, key, value, hash_val, bin_pos);
+ 	return 0;
+     }
+     else {
+@@ -512,36 +753,30 @@ st_insert2(register st_table *table, register st_data_t key, st_data_t value,
+ void
+ st_add_direct(st_table *table, st_data_t key, st_data_t value)
+ {
+-    st_index_t hash_val, bin_pos;
++    st_index_t hash_val;
++
++    hash_val = do_hash(key, table);
++    if (ULTRAPACKED(table)) {
++	add_upacked_direct(table, key, value, hash_val);
++	return;
++    }
+ 
+     if (table->entries_packed) {
+-        int i;
+-        if (MORE_PACKABLE_P(table)) {
+-            i = table->num_entries++;
+-            table->bins[i*2] = (struct st_table_entry*)key;
+-            table->bins[i*2+1] = (struct st_table_entry*)value;
+-            return;
+-        }
+-        else {
+-            unpack_entries(table);
+-        }
++	add_packed_direct(table, key, value, hash_val);
++	return;
+     }
+ 
+-    hash_val = do_hash(key, table);
+-    bin_pos = hash_val % table->num_bins;
+-    ADD_DIRECT(table, key, value, hash_val, bin_pos);
++    add_direct(table, key, value, hash_val, hash_val % table->num_bins);
+ }
+ 
+ static void
+ rehash(register st_table *table)
+ {
+     register st_table_entry *ptr, **new_bins;
+-    st_index_t i, new_num_bins, hash_val;
++    st_index_t new_num_bins, hash_val;
+ 
+     new_num_bins = new_size(table->num_bins+1);
+-    new_bins = (st_table_entry**)
+-	xrealloc(table->bins, new_num_bins * sizeof(st_table_entry*));
+-    for (i = 0; i < new_num_bins; ++i) new_bins[i] = 0;
++    new_bins = st_realloc_bins(table->bins, new_num_bins, table->num_bins);
+     table->num_bins = new_num_bins;
+     table->bins = new_bins;
+ 
+@@ -558,34 +793,37 @@ st_table*
+ st_copy(st_table *old_table)
+ {
+     st_table *new_table;
+-    st_table_entry *ptr, *entry, *prev, **tail;
++    st_table_entry *ptr, *entry, *prev, **tailp;
+     st_index_t num_bins = old_table->num_bins;
+     st_index_t hash_val;
+ 
+-    new_table = alloc(st_table);
++    new_table = st_alloc_table();
+     if (new_table == 0) {
+ 	return 0;
+     }
+ 
+     *new_table = *old_table;
+-    new_table->bins = (st_table_entry**)
+-	Calloc((unsigned)num_bins, sizeof(st_table_entry*));
++    if (ULTRAPACKED(old_table)) {
++	return new_table;
++    }
++
++    new_table->bins = st_alloc_bins(num_bins);
+ 
+     if (new_table->bins == 0) {
+-	free(new_table);
++	st_dealloc_table(new_table);
+ 	return 0;
+     }
+ 
+     if (old_table->entries_packed) {
+-        memcpy(new_table->bins, old_table->bins, sizeof(struct st_table_entry *) * old_table->num_bins);
++        MEMCPY(new_table->bins, old_table->bins, st_table_entry*, old_table->num_bins);
+         return new_table;
+     }
+ 
+     if ((ptr = old_table->head) != 0) {
+ 	prev = 0;
+-	tail = &new_table->head;
++	tailp = &new_table->head;
+ 	do {
+-	    entry = alloc(st_table_entry);
++	    entry = st_alloc_entry();
+ 	    if (entry == 0) {
+ 		st_free_table(new_table);
+ 		return 0;
+@@ -595,8 +833,8 @@ st_copy(st_table *old_table)
+ 	    entry->next = new_table->bins[hash_val];
+ 	    new_table->bins[hash_val] = entry;
+ 	    entry->back = prev;
+-	    *tail = prev = entry;
+-	    tail = &entry->fore;
++	    *tailp = prev = entry;
++	    tailp = &entry->fore;
+ 	} while ((ptr = ptr->fore) != 0);
+ 	new_table->tail = prev;
+     }
+@@ -604,21 +842,22 @@ st_copy(st_table *old_table)
+     return new_table;
+ }
+ 
+-#define REMOVE_ENTRY(table, ptr) do					\
+-    {									\
+-	if ((ptr)->fore == 0 && (ptr)->back == 0) {			\
+-	    (table)->head = 0;						\
+-	    (table)->tail = 0;						\
+-	}								\
+-	else {								\
+-	    st_table_entry *fore = (ptr)->fore, *back = (ptr)->back;	\
+-	    if (fore) fore->back = back;				\
+-	    if (back) back->fore = fore;				\
+-	    if ((ptr) == (table)->head) (table)->head = fore;		\
+-	    if ((ptr) == (table)->tail) (table)->tail = back;		\
+-	}								\
+-	(table)->num_entries--;						\
+-    } while (0)
++static inline void
++remove_entry(st_table *table, st_table_entry *ptr)
++{
++    if (ptr->fore == 0 && ptr->back == 0) {
++	table->head = 0;
++	table->tail = 0;
++    }
++    else {
++	st_table_entry *fore = ptr->fore, *back = ptr->back;
++	if (fore) fore->back = back;
++	if (back) back->fore = fore;
++	if (ptr == table->head) table->head = fore;
++	if (ptr == table->tail) table->tail = back;
++    }
++    table->num_entries--;
++}
+ 
+ int
+ st_delete(register st_table *table, register st_data_t *key, st_data_t *value)
+@@ -627,30 +866,38 @@ st_delete(register st_table *table, register st_data_t *key, st_data_t *value)
+     st_table_entry **prev;
+     register st_table_entry *ptr;
+ 
++    hash_val = do_hash(*key, table);
++
++    if (ULTRAPACKED(table)) {
++	if (check_upacked(table, hash_val, *key)) {
++	    if (value != 0) *value = UPVAL(table);
++	    *key = UPKEY(table);
++	    remove_upacked_entry(table);
++	    return 1;
++	}
++	return 0;
++    }
++
+     if (table->entries_packed) {
+-        st_index_t i;
+-        for (i = 0; i < table->num_entries; i++) {
+-            if ((st_data_t)table->bins[i*2] == *key) {
+-                if (value != 0) *value = (st_data_t)table->bins[i*2+1];
+-                table->num_entries--;
+-                memmove(&table->bins[i*2], &table->bins[(i+1)*2],
+-                        sizeof(struct st_table_entry*) * 2*(table->num_entries-i));
+-                return 1;
+-            }
++	st_index_t i = find_packed_index(table, hash_val, *key);
++	if (i < table->real_entries) {
++	    if (value != 0) *value = PVAL(table, i);
++	    *key = PKEY(table, i);
++	    remove_packed_entry(table, i);
++	    return 1;
+         }
+         if (value != 0) *value = 0;
+         return 0;
+     }
+ 
+-    hash_val = do_hash_bin(*key, table);
+-
+-    for (prev = &table->bins[hash_val]; (ptr = *prev) != 0; prev = &ptr->next) {
++    prev = &table->bins[hash_val % table->num_bins];
++    for (;(ptr = *prev) != 0; prev = &ptr->next) {
+ 	if (EQUAL(table, *key, ptr->key)) {
+ 	    *prev = ptr->next;
+-	    REMOVE_ENTRY(table, ptr);
++	    remove_entry(table, ptr);
+ 	    if (value != 0) *value = ptr->record;
+ 	    *key = ptr->key;
+-	    free(ptr);
++	    st_free_entry(ptr);
+ 	    return 1;
+ 	}
+     }
+@@ -665,25 +912,36 @@ st_delete_safe(register st_table *table, register st_data_t *key, st_data_t *val
+     st_index_t hash_val;
+     register st_table_entry *ptr;
+ 
++    hash_val = do_hash(*key, table);
++
++    if (ULTRAPACKED(table)) {
++	if (check_upacked(table, hash_val, *key)) {
++	    if (value != 0) *value = UPVAL(table);
++	    *key = UPKEY(table);
++	    remove_safe_upacked_entry(table, never);
++	    return 1;
++	}
++	if (value != 0) *value = 0;
++	return 0;
++    }
++
+     if (table->entries_packed) {
+-	st_index_t i;
+-	for (i = 0; i < table->num_entries; i++) {
+-	    if ((st_data_t)table->bins[i*2] == *key) {
+-		if (value != 0) *value = (st_data_t)table->bins[i*2+1];
+-		table->bins[i*2] = (void *)never;
+-		return 1;
+-	    }
++	st_index_t i = find_packed_index(table, hash_val, *key);
++	if (i < table->real_entries) {
++	    if (value != 0) *value = PVAL(table, i);
++	    *key = PKEY(table, i);
++	    remove_safe_packed_entry(table, i, never);
++	    return 1;
+ 	}
+ 	if (value != 0) *value = 0;
+ 	return 0;
+     }
+ 
+-    hash_val = do_hash_bin(*key, table);
+-    ptr = table->bins[hash_val];
++    ptr = table->bins[hash_val % table->num_bins];
+ 
+     for (; ptr != 0; ptr = ptr->next) {
+ 	if ((ptr->key != never) && EQUAL(table, ptr->key, *key)) {
+-	    REMOVE_ENTRY(table, ptr);
++	    remove_entry(table, ptr);
+ 	    *key = ptr->key;
+ 	    if (value != 0) *value = ptr->record;
+ 	    ptr->key = ptr->record = never;
+@@ -701,17 +959,23 @@ st_cleanup_safe(st_table *table, st_data_t never)
+     st_table_entry *ptr, **last, *tmp;
+     st_index_t i;
+ 
++    if (ULTRAPACKED(table)) {
++	table->real_upacked = table->num_entries;
++	return;
++    }
++
+     if (table->entries_packed) {
+ 	st_index_t i = 0, j = 0;
+-	while ((st_data_t)table->bins[i*2] != never) {
+-	    if (i++ == table->num_entries) return;
++	while (PKEY(table, i) != never) {
++	    if (i++ == table->real_entries) return;
+ 	}
+-	for (j = i; ++i < table->num_entries;) {
+-	    if ((st_data_t)table->bins[i*2] == never) continue;
+-	    table->bins[j*2] = table->bins[i*2];
+-	    table->bins[j*2+1] = table->bins[i*2+1];
++	for (j = i; ++i < table->real_entries;) {
++	    if (PKEY(table, i) == never) continue;
++	    PACKED_ENT(table, j) = PACKED_ENT(table, i);
+ 	    j++;
+ 	}
++	table->real_entries = j;
++	/* table->num_entries really should be equal j at this moment, but let set it anyway */
+ 	table->num_entries = j;
+ 	return;
+     }
+@@ -722,7 +986,7 @@ st_cleanup_safe(st_table *table, st_data_t never)
+ 	    if (ptr->key == never) {
+ 		tmp = ptr;
+ 		*last = ptr = ptr->next;
+-		free(tmp);
++		st_free_entry(tmp);
+ 	    }
+ 	    else {
+ 		ptr = *(last = &ptr->next);
+@@ -732,50 +996,78 @@ st_cleanup_safe(st_table *table, st_data_t never)
+ }
+ 
+ int
+-st_foreach(st_table *table, int (*func)(ANYARGS), st_data_t arg)
++st_foreach_check(st_table *table, int (*func)(ANYARGS), st_data_t arg, st_data_t never)
+ {
+     st_table_entry *ptr, **last, *tmp;
+     enum st_retval retval;
+-    st_index_t i;
++    st_data_t key, val;
++    st_index_t hash, i = 0;
++
++    if (table->num_entries == 0) {
++	return 0;
++    }
++
++    if (ULTRAPACKED(table)) {
++	key = UPKEY(table);
++	val = UPVAL(table);
++	hash = UPHASH(table);
++	if (key == never) return 0;
++	retval = (*func)(key, val, arg);
++	if (!ULTRAPACKED(table)) {
++	    goto packed;
++	}
++	switch(retval) {
++	  case ST_CHECK:
++	    if (UPHASH(table) == 0 && UPKEY(table) == never)
++		break;
++	    if (check_upacked(table, hash, key))
++		break;
++	    goto deleted;
++	  case ST_DELETE:
++	    remove_safe_upacked_entry(table, never);
++	  case ST_CONTINUE:
++	  case ST_STOP:
++	    break;
++	}
++	return 0;
++    }
+ 
+     if (table->entries_packed) {
+-        for (i = 0; i < table->num_entries; i++) {
+-            st_index_t j;
+-            st_data_t key, val;
+-            key = (st_data_t)table->bins[i*2];
+-            val = (st_data_t)table->bins[i*2+1];
+-            retval = (*func)(key, val, arg);
++	for (i = 0; i < table->real_entries; i++) {
++	    key = PKEY(table, i);
++	    val = PVAL(table, i);
++	    hash = PHASH(table, i);
++	    if (key == never) continue;
++	    retval = (*func)(key, val, arg);
++	  packed:
+ 	    if (!table->entries_packed) {
+-		FIND_ENTRY(table, ptr, key, i);
++		FIND_ENTRY(table, ptr, hash, i);
+ 		if (retval == ST_CHECK) {
+ 		    if (!ptr) goto deleted;
+ 		    goto unpacked_continue;
+ 		}
+ 		goto unpacked;
+ 	    }
+-            switch (retval) {
++	    switch (retval) {
+ 	      case ST_CHECK:	/* check if hash is modified during iteration */
+-                for (j = 0; j < table->num_entries; j++) {
+-                    if ((st_data_t)table->bins[j*2] == key)
+-                        break;
+-                }
+-                if (j == table->num_entries) {
++		if (PHASH(table, i) == 0 && PKEY(table, i) == never) {
++		    break;
++		}
++		i = find_packed_index(table, hash, key);
++		if (i == table->real_entries) {
+ 		    goto deleted;
+-                }
++		}
+ 		/* fall through */
+ 	      case ST_CONTINUE:
+ 		break;
+ 	      case ST_STOP:
+ 		return 0;
+ 	      case ST_DELETE:
+-                table->num_entries--;
+-                memmove(&table->bins[i*2], &table->bins[(i+1)*2],
+-                        sizeof(struct st_table_entry*) * 2*(table->num_entries-i));
+-                i--;
+-                break;
+-            }
+-        }
+-        return 0;
++		remove_safe_packed_entry(table, i, never);
++		break;
++	    }
++	}
++	return 0;
+     }
+     else {
+ 	ptr = table->head;
+@@ -783,6 +1075,8 @@ st_foreach(st_table *table, int (*func)(ANYARGS), st_data_t arg)
+ 
+     if (ptr != 0) {
+ 	do {
++	    if (ptr->key == never)
++		goto unpacked_continue;
+ 	    i = ptr->hash % table->num_bins;
+ 	    retval = (*func)(ptr->key, ptr->record, arg);
+ 	  unpacked:
+@@ -808,10 +1102,100 @@ st_foreach(st_table *table, int (*func)(ANYARGS), st_data_t arg)
+ 		for (; (tmp = *last) != 0; last = &tmp->next) {
+ 		    if (ptr == tmp) {
+ 			tmp = ptr->fore;
++			remove_entry(table, ptr);
++			ptr->key = ptr->record = never;
++			ptr->hash = 0;
++			ptr = tmp;
++			break;
++		    }
++		}
++	    }
++	} while (ptr && table->head);
++    }
++    return 0;
++}
++
++int
++st_foreach(st_table *table, int (*func)(ANYARGS), st_data_t arg)
++{
++    st_table_entry *ptr, **last, *tmp;
++    enum st_retval retval;
++    st_data_t key, val;
++    st_index_t hash, i = 0;
++
++    if (table->num_entries == 0) {
++	return 0;
++    }
++
++    if (ULTRAPACKED(table)) {
++	key = UPKEY(table);
++	val = UPVAL(table);
++	hash = UPHASH(table);
++	retval = (*func)(key, val, arg);
++	if (!ULTRAPACKED(table)) {
++	    goto packed;
++	}
++	switch (retval) {
++	  case ST_DELETE:
++	    remove_upacked_entry(table);
++	  case ST_CONTINUE:
++	  case ST_CHECK:
++	  case ST_STOP:
++	    break;
++	}
++	return 0;
++    }
++
++    if (table->entries_packed) {
++	for (i = 0; i < table->real_entries; i++) {
++	    key = PKEY(table, i);
++	    val = PVAL(table, i);
++	    hash = PHASH(table, i);
++	    retval = (*func)(key, val, arg);
++	  packed:
++	    if (!table->entries_packed) {
++		FIND_ENTRY(table, ptr, hash, i);
++		if (!ptr) return 0;
++		goto unpacked;
++	    }
++	    switch (retval) {
++	      case ST_CONTINUE:
++		break;
++	      case ST_CHECK:
++	      case ST_STOP:
++		return 0;
++	      case ST_DELETE:
++		remove_packed_entry(table, i);
++		i--;
++		break;
++	    }
++	}
++	return 0;
++    }
++    else {
++	ptr = table->head;
++    }
++
++    if (ptr != 0) {
++	do {
++	    i = ptr->hash % table->num_bins;
++	    retval = (*func)(ptr->key, ptr->record, arg);
++	  unpacked:
++	    switch (retval) {
++	      case ST_CONTINUE:
++		ptr = ptr->fore;
++		break;
++	      case ST_CHECK:
++	      case ST_STOP:
++		return 0;
++	      case ST_DELETE:
++		last = &table->bins[ptr->hash % table->num_bins];
++		for (; (tmp = *last) != 0; last = &tmp->next) {
++		    if (ptr == tmp) {
++			tmp = ptr->fore;
+ 			*last = ptr->next;
+-			REMOVE_ENTRY(table, ptr);
+-			free(ptr);
+-			if (ptr == tmp) return 0;
++			remove_entry(table, ptr);
++			st_free_entry(ptr);
+ 			ptr = tmp;
+ 			break;
+ 		    }
+@@ -834,13 +1218,13 @@ st_reverse_foreach(st_table *table, int (*func)(ANYARGS), st_data_t arg)
+         for (i = table->num_entries-1; 0 <= i; i--) {
+             int j;
+             st_data_t key, val;
+-            key = (st_data_t)table->bins[i*2];
+-            val = (st_data_t)table->bins[i*2+1];
++            key = PKEY(table, i);
++            val = PVAL(table, i);
+             retval = (*func)(key, val, arg);
+             switch (retval) {
+ 	      case ST_CHECK:	/* check if hash is modified during iteration */
+                 for (j = 0; j < table->num_entries; j++) {
+-                    if ((st_data_t)table->bins[j*2] == key)
++                    if (PKEY(table, j) == key)
+                         break;
+                 }
+                 if (j == table->num_entries) {
+@@ -854,9 +1238,7 @@ st_reverse_foreach(st_table *table, int (*func)(ANYARGS), st_data_t arg)
+ 	      case ST_STOP:
+ 		return 0;
+ 	      case ST_DELETE:
+-                table->num_entries--;
+-                memmove(&table->bins[i*2], &table->bins[(i+1)*2],
+-                        sizeof(struct st_table_entry*) * 2*(table->num_entries-i));
++		remove_packed_entry(table, i);
+                 break;
+             }
+         }
+@@ -889,8 +1271,8 @@ st_reverse_foreach(st_table *table, int (*func)(ANYARGS), st_data_t arg)
+ 		    if (ptr == tmp) {
+ 			tmp = ptr->back;
+ 			*last = ptr->next;
+-			REMOVE_ENTRY(table, ptr);
+-			free(ptr);
++			remove_entry(table, ptr);
++			st_free_entry(ptr);
+ 			ptr = tmp;
+ 			break;
+ 		    }
