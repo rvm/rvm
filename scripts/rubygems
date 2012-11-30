@@ -38,13 +38,43 @@ rubygems_remove()
 can_switch_rubygems()
 {
   case "$rvm_ruby_string" in
-    jruby*|maglev*)
+    maglev*)
       return 1
       ;;
     *)
       return 0
       ;;
   esac
+}
+
+make_sure_jruby_can_work_with_rubygems()
+{
+  case "$rvm_ruby_string" in
+    jruby-head*)
+      true
+      ;;
+    jruby*)
+      __rvm_version_compare "$rvm_ruby_version" -ge 1.7.1 || return 1
+      ;;
+    *)
+      return 0 # do not care about other rubies
+      ;;
+  esac
+
+  case "${rvm_rubygems_version}" in
+    head|master)
+      true
+      ;;
+    *)
+      __rvm_version_compare "$rvm_rubygems_version" -ge 2.0.0 || return 1
+      ;;
+  esac
+}
+
+does_not_work_with_rubygems()
+{
+  rvm_error "RVM can not install rubygems for maglev and older jruby, select other ruby and try again."
+  exit 1
 }
 
 rubygems_version_list()
@@ -124,6 +154,8 @@ rubygems_setup()
 
   rubygems_select_version_url
 
+  make_sure_jruby_can_work_with_rubygems || does_not_work_with_rubygems
+
   # Sanity check... If setup.rb is missing from the rubygems source path,
   # something went wrong. Cleanup, aisle 3!
   [[ -f "${rvm_src_path}/$rvm_gem_package_name/setup.rb" ]] ||
@@ -201,8 +233,8 @@ args="$(echo ${args[@]:1})" # Strip trailing / leading / extra spacing.
   exit 1
 }
 
-if can_switch_rubygems
-then
+can_switch_rubygems || does_not_work_with_rubygems
+
   case "$version" in
     remove|link)
       rubygems_$version
@@ -211,9 +243,5 @@ then
       rubygems_setup
       ;;
   esac
-else
-  rvm_error "Rubygems version may only be set for an RVM MRI based Ruby, please select one and rerun."
-  result=1
-fi
 
 exit $result
