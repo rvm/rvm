@@ -26,3 +26,6 @@ git cherry-pick 6c5f235
 git cherry-pick 257e5e1
 git cherry-pick d885718
 git cherry-pick 620009c
+
+# fix order of default gems
+git cherry-pick 9fe917f
