@@ -15,6 +15,10 @@ then
     rm -f "${file}"
     tee "${file}" > /dev/null
   }
+  important_message()
+  {
+    rvm_error "$@"
+  }
 elif [[ "$1" == "upgrade" ]]
 then
   notes_type=Upgrade
@@ -31,11 +35,19 @@ then
     ) | sed '/^[^<]/ d ; s/^< //'
     mv -f "${file}.new" "${file}"
   }
+  important_message()
+  {
+    rvm_error "$@"
+  }
 else
   notes_type=Installation
   new_notes()
   {
     cat
+  }
+  important_message()
+  {
+    rvm_warn "$@"
   }
 fi
 
@@ -82,17 +94,16 @@ $notes_type Notes:
   if [[ -f /etc/profile.d/rvm.sh ]] &&
     ! GREP_OPTIONS="" \grep rvm_stored_umask /etc/profile.d/rvm.sh >/dev/null
   then
-    printf "%b" "
+    important_message "
   * WARNING: your RVM loading script \`/etc/profile.d/rvm.sh\` is deprecated
     and causes you to have \`umask g+w\` set in your shell,
     run \`rvm get head --auto\` again to fix your scripts.
-
 "
   fi
 
   if [[ "$rvm_path" == "/usr/share/ruby-rvm" ]]
   then
-    printf "%b" "
+    important_message "
   * WARNING: You are using apt-get broken RVM, you should now:
 
       sudo apt-get --purge remove ruby-rvm
@@ -109,54 +120,63 @@ $notes_type Notes:
     for details check:
 
       http://stackoverflow.com/a/9056395/497756
-
 "
   fi
 
   if [[ -n "${RUBYOPT:-""}" ]]
   then
-    printf "%b" "
+    important_message "
   * WARNING: You have RUBYOPT set in your current environment.
     This may cause rubies to not work as you expect them to as it is not supported
     by all of them If errors show up, please try unsetting RUBYOPT first.
-
 "
   fi
 
-  if [[ -f ~/.profile ]] && ! [[ "$rvm_path" == "/usr/local/rvm" || $UID == 0 ]]
+  if
+    [[ -f ~/.profile ]] && ! [[ "$rvm_path" == "/usr/local/rvm" || $UID == 0 ]] &&
+    ! GREP_OPTIONS="" \grep 'source.*profile' ~/.bash_profile >/dev/null 2>&1 &&
+    ! GREP_OPTIONS="" \grep 'source.*profile' ~/.bash_login >/dev/null 2>&1
   then
-    printf "%b" "
+    important_message "
   * WARNING: You're using ~/.profile, make sure you load it,
     add the following line to ~/.bash_profile if it exists
     otherwise add it to ~/.bash_login:
 
       source ~/.profile
-
 "
   fi
 
   if [[ -n "${ZSH_VERSION:-}" ]] &&
     (( 65536 * ${ZSH_VERSION:0:1} + 256 * ${ZSH_VERSION:2:1} + ${ZSH_VERSION:4} != 262924 ))
   then
-        printf "%b" "
+    important_message "
   * WARNING: ZSH 4.3.12 is recommended, you have $ZSH_VERSION.
+"
+  fi
 
+  typeset __matched_any __matched_with
+  __matched_any=$(  GREP_OPTIONS="" \grep 'PATH='        ~/.zshrc | wc -l )
+  __matched_with=$( GREP_OPTIONS="" \grep 'PATH=.*$PATH' ~/.zshrc | wc -l )
+  if
+    [[ -f ~/.zshrc ]] && (( __matched_any > __matched_with ))
+  then
+    important_message "
+  * WARNING: Your \`~/.zshrc\` contains \`PATH=\` with no \`\$PATH\` inside, this can break RVM,
+    for details check https://github.com/wayneeseguin/rvm/issues/1351#issuecomment-10939525
 "
   fi
 
   if [[ -n "${GEM_HOME:-}" ]] && ! [[ "${GEM_HOME}" =~ "$rvm_path/" ]]
   then
-        printf "%b" "
+    important_message "
   * WARNING: you have GEM_HOME=\"${GEM_HOME}\" this is conflicting with RVM, make sure to:
 
       unset GEM_HOME
-
 "
   fi
 } | new_notes | eval "${PAGER:-cat}"
 
-printf "%b" \
-"
+rvm_warn "
 # RVM:  Shell scripts enabling management of multiple ruby environments.
 # RTFM: https://rvm.io/
 # HELP: http://webchat.freenode.net/?channels=rvm (#rvm on irc.freenode.net)
@@ -164,6 +184,5 @@ printf "%b" \
 # Screencast: http://screencasts.org/episodes/how-to-use-rvm
 "
 
-rvm_log "
-# In case of any issues read output of 'rvm requirements' and/or 'rvm notes'
+rvm_log "# In case of any issues read output of 'rvm requirements' and/or 'rvm notes'
 "
