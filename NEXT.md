@@ -29,3 +29,6 @@ git cherry-pick 620009c
 
 # fix order of default gems
 git cherry-pick 9fe917f
+
+# jruby-1.7.1
+git cherry-pick e64308f
