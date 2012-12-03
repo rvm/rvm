@@ -14,6 +14,26 @@ rbx_configure_with_path()
   return 0
 }
 
+make_sure_its_enough_ram_for_rbx()
+{
+  typeset rvm_rbx_required_ram
+  rvm_rbx_required_ram_mb=500
+
+  __rvm_is_enough_ram ${rvm_rbx_required_ram_mb} ||
+  {
+    if
+      (( ${rvm_force_flag:-0} == 0 ))
+    then
+      rvm_error "
+For rbx (Rubinius) more than ${rvm_rbx_required_ram_mb}MB of free RAM required.
+Use \`--force\` to compile rbx anyway.
+"
+      return 1
+    else
+      rvm_warn "Forced build with less than ${rvm_rbx_required_ram_mb}MB of free RAM."
+    fi
+  }
+}
 
 rubinius_install()
 {
@@ -24,12 +44,15 @@ rubinius_install()
   export PATH
   export ruby="$(__rvm_mri_ruby)"
 
+  make_sure_its_enough_ram_for_rbx || return $?
+
   rvm_log "$rvm_ruby_string installing #dependencies "
   __rvm_ensure_has_mri_ruby ||
   {
     rvm_log "No MRI ruby found, cannot build rbx."
     return 1
   }
+
   __rvm_remove_rvm_from_path
   __rvm_conditionally_add_bin_path
 
