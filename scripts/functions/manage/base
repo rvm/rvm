@@ -1059,6 +1059,30 @@ __rvm_manage_rubies()
 
   # Given list of ruby strings.
   if
+    __rvm_string_match "${rubies_string:-}" "old:*"
+  then
+    typeset _older_then
+    _older_then=${rubies_string#old:}
+    if
+      [[ -z "${_older_then}" ]]
+    then
+      # minified https://github.com/mpapis/home_dotfiles/blob/master/bin/git-summary#L5-L50
+      case "$(uname)" in
+        (Darwin) _older_then="$( date -j -v6m           +%F )" ;;
+        (*)      _older_then="$( date --date="-6months" +%F )" ;;
+      esac
+    fi
+    __rvm_read_lines rubies < <(
+      chpwd_functions="" builtin cd "$rvm_rubies_path"
+      find . -maxdepth 1 -mindepth 1 -type d -not -newermt $_older_then 2>/dev/null | cut -c 3-
+    )
+    (( ${#rubies[*]} )) ||
+    {
+      rvm_warn "No rubies older then ${_older_then}."
+      return 1
+    }
+    __rvm_ask_for "Are you SURE you wish to '$action' ${rubies[*]}?" yes || return $?
+  elif
     [[ -n "${rubies_string:-}" && "${rubies_string}" != "all" ]]
   then
     __rvm_custom_separated_array rubies , "${rubies_string}"
