@@ -31,6 +31,27 @@ __rvm_found_compiler()
   __rvm_selected_compiler || \which gcc 2>/dev/null
 }
 
+__rvm_fix_gcc_path()
+{
+  typeset __config_file __cc_value __cc_new
+  __rvm_which $(
+    "$rvm_ruby_home/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]||"true"' 2>/dev/null
+  ) >/dev/null 2>/dev/null ||
+  {
+    __cc_value="$( "$rvm_ruby_home/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]' 2>/dev/null )"
+    if
+      __config_file="$( find $rvm_ruby_home/ -name rbconfig.rb )" &&
+      GREP_OPTIONS="" \grep "CONFIG\[\"CC\"\]" "${__config_file}" >/dev/null
+    then
+      __cc_new="$( __rvm_found_compiler )"
+      rvm_debug "Fixing ruby compiler from '${__cc_value}' to '${__cc_new}'."
+      sed -i'' "s#CONFIG\[\"CC\"\].*$#CONFIG\[\"CC\"\] = ENV[\"CC\"] || \"${__cc_new}\"#" "${__config_file}"
+    else
+      rvm_warn "Installed ruby contains path to non existing compiler '${__config_file}', compiling native gems might be impossible."
+    fi
+  }
+}
+
 __rvm_run_compiler()
 {
   typeset compiler
