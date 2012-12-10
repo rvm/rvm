@@ -292,18 +292,24 @@ external_import_extract()
 external_import_validate()
 {
   typeset IFS
-  typeset -a missing_libs
+  typeset -a missing_libs excluded_libs
   export _libdir
   _libdir="$( __rvm_ruby_config_get libdir "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" )"
+  excluded_libs=(
+    melbourne/build/melbourne20 # rbx build of melbourne for the ruby used to build rbx
+  )
   missing_libs=( $(
+    IFS="|"
     case $(uname) in
       (Linux)
         find "${rvm_rubies_path}/${rvm_ruby_string}" -name '*.so' |
+          grep -v -E "${excluded_libs[*]}" |
           xargs env LD_LIBRARY_PATH="${_libdir}" ldd 2>/dev/null |
           awk '/not found/{print $1}' | sort -u
         ;;
       (Darwin)
         find "${rvm_rubies_path}/${rvm_ruby_string}" -name "*.bundle" |
+          grep -v -E "${excluded_libs[*]}" |
           xargs env LD_LIBRARY_PATH="${_libdir}" otool -L 2>&1 |
           awk -F"[ :]" '{print $1}' |
           sed 's#@executable_path#'"${rvm_rubies_path}/${rvm_ruby_string}"'/bin#' |
@@ -318,7 +324,7 @@ external_import_validate()
   unset _libdir
   [[ -z "${missing_libs[*]}" ]] || {
     IFS=","
-    $err_command "Libraries missing for ${rvm_ruby_string}: ${missing_libs}. Refer to your system manual for installing libraries"
+    $err_command "Libraries missing for ${rvm_ruby_string}: ${missing_libs[*]}. Refer to your system manual for installing libraries"
     return 10
   }
 }
