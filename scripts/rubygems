@@ -125,13 +125,17 @@ rubygems_select_version_url()
       ;;
   esac
 
-  case "${version}" in
+  case "${version:-missing}" in
     head|master)
       typeset sha
       sha="$(rubygems_master_sha)"
       rvm_rubygems_version="$version"
       rvm_gem_package_name="rubygems-rubygems-${sha:0:7}"
       rvm_gem_url="https://github.com/rubygems/rubygems/tarball/${sha}"
+      ;;
+    missing)
+      rvm_error "There was an error while trying to resolve rubygems version for '$1'. \nHalting the installation."
+      return 4
       ;;
     *)
       rvm_rubygems_version="$version"
@@ -152,7 +156,7 @@ rubygems_setup()
 
   (( rvm_ruby_selected_flag == 0 )) || __rvm_select
 
-  rubygems_select_version_url
+  rubygems_select_version_url "$version" || return $?
 
   make_sure_jruby_can_work_with_rubygems || does_not_work_with_rubygems
 
@@ -223,10 +227,8 @@ builtin command -v ruby > /dev/null || {
 #
 # rvm rubygems X
 #
-args=($*)
 export version
-version="${args[0]}"
-args="$(echo ${args[@]:1})" # Strip trailing / leading / extra spacing.
+version="$1"
 
 [[ -n "$version" ]] || {
   rvm_error "Usage: rvm rubygems [x.y.z|latest-x.y|latest|remove]"
@@ -235,13 +237,11 @@ args="$(echo ${args[@]:1})" # Strip trailing / leading / extra spacing.
 
 can_switch_rubygems || does_not_work_with_rubygems
 
-  case "$version" in
-    remove|link)
-      rubygems_$version
-      ;;
-    *)
-      rubygems_setup
-      ;;
-  esac
-
-exit $result
+case "$version" in
+  remove|link)
+    rubygems_$version
+    ;;
+  *)
+    rubygems_setup
+    ;;
+esac
