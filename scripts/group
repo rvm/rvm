@@ -6,51 +6,66 @@ source "$rvm_scripts_path/functions/group"
 
 group_add()
 {
-  for user in "${users[@]}"
+  typeset user group
+  group="$1"
+  shift
+  for user in "$@"
   do
-    printf "%b" "Ensuring '$user' is in group '$rvm_group_name'\n"
-    add_user_to_rvm_group $user
+    if
+      __rvm_is_user_in_group "$group" "$user"
+    then
+      echo "User '$user' already in the group '$group'"
+    else
+      echo "Adding user '$user' to the group '$group'"
+      __rvm_add_user_to_group "$group" "$user"
+    fi
   done
 }
 
-group_remove()
+group_create()
 {
-  :
+  typeset -a _params
+  _params=( "${1:-$rvm_group_name}" )
+  shift
+  if
+    (( $# ))
+  then
+    _params+=( "$1" )
+  else
+    if [[ "$1" == "${rvm_group_name}" && -n "${rvm_group_id:-}" ]]
+    then _params+=( "${rvm_group_id:-}" )
+    fi
+  fi
+  __rvm_create_group "${_params[@]}"
 }
 
-group_help
+group_help()
+{
+  rvm_log "
+Usage:
+    rvm group help
+    rvm group add <group_name> <user_name> [user_name...]
+    rvm group create <group_name> [group_id]
+"
+}
 
-args=($*)
-action="${users[$__array_start]}"
-users[$__array_start]=""
-users=(${args[@]})
+(( UID == 0 )) ||
+{
+  rvm_log "rvm group must be run as root."
+  exit 1
+}
+
+action="$1"
+shift
 
 true "${rvm_group_name:=rvm}"
 
-if (( UID > 0 ))
-then
-  rvm_log "rvm group must be run as root."
-  exit 1
-fi
-
 case "$action" in
-
-  add)
-    group_add
+  add|create|help)
+    group_$action "$@"
     ;;
-
-  rm|remove)
-    group_remove
-    ;;
-
-  help)
-    get_help
-    true
-    ;;
-
   *)
+    get_help "$@"
     false
     ;;
 esac
-
-exit $?

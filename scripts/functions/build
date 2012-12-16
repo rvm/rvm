@@ -45,7 +45,8 @@ __rvm_fix_gcc_path()
     then
       __cc_new="$( __rvm_found_compiler )"
       rvm_debug "Fixing ruby compiler from '${__cc_value}' to '${__cc_new}'."
-      sed -i'' "s#CONFIG\[\"CC\"\].*$#CONFIG\[\"CC\"\] = ENV[\"CC\"] || \"${__cc_new}\"#" "${__config_file}"
+      __rvm_sed_i "${__config_file}" \
+        -e "s#CONFIG\[\"CC\"\].*\$#CONFIG[\"CC\"] = ENV[\"CC\"] || \"${__cc_new}\"#"
     else
       rvm_warn "Installed ruby contains path to non existing compiler '${__config_file}', compiling native gems might be impossible."
     fi
@@ -194,15 +195,29 @@ __rvm_setup_compile_environment_osx_architectures()
 {
   [[ -n "${rvm_architectures:-}" ]] || return 0
 
+  typeset architectures architecture
+  typeset -a _local_osx_env
+
   # Ruby 1.9.x supports the easy way
   case "$1" in
   ruby-1.9*|ruby-2*|ruby-head*)
     rvm_configure_flags+=( --with-arch="${rvm_architectures}" )
     ;;
-  *)
-    typeset architectures architecture
-    typeset -a _local_osx_env
+  libyaml*)
+    for architecture in ${rvm_architectures//,/ }
+    do architectures="${architectures} -arch ${architecture}"
+    done
 
+    _local_osx_env=(
+      CFLAGS="${architectures} -O3"
+      CCFLAGS="${architectures} -O3"
+      CXXFLAGS="${architectures} -O3"
+      LDFLAGS="${architectures}"
+    )
+    __rvm_update_configure_env "${_local_osx_env[@]}"
+    rvm_configure_flags+=( --disable-dependency-tracking )
+    ;;
+  *)
     for architecture in ${rvm_architectures//,/ }
     do architectures="${architectures} -arch ${architecture}"
     done

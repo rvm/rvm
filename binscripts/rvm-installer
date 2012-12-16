@@ -121,6 +121,19 @@ install_head()
     ${_repo}-rvm-
 }
 
+# duplication marker dfkjdjngdfjngjcszncv
+# Drop in cd which _desotn't_ respect cdpath
+__rvm_cd()
+{
+    typeset old_cdpath ret
+    ret=0
+    old_cdpath="${CDPATH}"
+    CDPATH="."
+    chpwd_functions="" builtin cd "$@" || ret=$?
+    CDPATH="${old_cdpath}"
+    return $ret
+}
+
 get_and_unpack()
 {
   typeset _url _file _patern
@@ -153,7 +166,7 @@ Could not download '${_url}'.
   fi
 
   [[ -d "${rvm_src_path}/rvm" ]] || \mkdir -p "${rvm_src_path}/rvm"
-  if ! builtin cd "${rvm_src_path}/rvm"
+  if ! __rvm_cd "${rvm_src_path}/rvm"
   then
     log "Could not change directory '${rvm_src_path}/rvm'."
     return 2
@@ -315,6 +328,11 @@ do
       install_gems+=( ${token//,/ } )
       ;;
 
+    (--add-to-rvm-group)
+      export rvm_add_users_to_rvm_group="$1"
+      shift
+      ;;
+
     help|usage)
       usage
       exit 0
@@ -434,6 +452,10 @@ fi
 
 if [[ -n "${rvm_without_gems:-}" ]]
 then flags+=("--without-gems=${rvm_without_gems}")
+fi
+
+if [[ -n "${rvm_add_users_to_rvm_group:-}" ]]
+then flags+=(--add-to-rvm-group "${rvm_add_users_to_rvm_group}")
 fi
 
 chmod +x ./scripts/install

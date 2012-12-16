@@ -136,6 +136,19 @@ print_install_header()
   fi
 }
 
+# duplication marker dfkjdjngdfjngjcszncv
+# Drop in cd which _desotn't_ respect cdpath
+__rvm_cd()
+{
+    typeset old_cdpath ret
+    ret=0
+    old_cdpath="${CDPATH}"
+    CDPATH="."
+    chpwd_functions="" builtin cd "$@" || ret=$?
+    CDPATH="${old_cdpath}"
+    return $ret
+}
+
 configure_installation()
 {
   typeset save_rvm_without_gems save_rvm_with_gems
@@ -144,7 +157,7 @@ configure_installation()
   if [[ -d "$install_source_path/scripts" \
     && -s "$install_source_path/scripts/functions/utility" ]]
   then
-    chpwd_functions="" builtin cd "$install_source_path"
+    __rvm_cd "$install_source_path"
   fi
 
   # Save scripts path
@@ -313,7 +326,7 @@ setup_configuration_files()
 {
   typeset _save_dir
   _save_dir="$PWD"
-  chpwd_functions="" builtin cd "$rvm_path"
+  __rvm_cd "$rvm_path"
 
   if [[ -f config/user ]]
   then
@@ -345,7 +358,7 @@ setup_configuration_files()
   GREP_OPTIONS="" \grep '^_' user/rvmrcs > user/rvmrcs.new || true
   mv user/rvmrcs.new user/rvmrcs
 
-  chpwd_functions="" builtin cd "${_save_dir}"
+  __rvm_cd "${_save_dir}"
 }
 
 ensure_scripts_are_executable()
@@ -510,32 +523,30 @@ update_gemsets_install_rvm()
 
 install_patchsets()
 {
-  if [[ ${rvm_keep_patchsets_flag:-0} == 0 && -d "$rvm_path/patchsets" ]]
+  if
+    [[ ${rvm_keep_patchsets_flag:-0} == 0 && -d "$rvm_path/patchsets" ]]
   then
     rm -rf "$rvm_path/patchsets"
   fi
-
-  if [[ -d patchsets/ ]]
+  if
+    [[ -d patchsets/ ]]
   then
     [[ -d "$rvm_path/patchsets" ]] || mkdir -p "$rvm_path/patchsets"
-
     patchsets=($(
-      chpwd_functions="" builtin cd patchsets
-      find \. -type f "${name_opt}" '*' | sed 's/^\.\///'
+      find patchsets/ -type f "${name_opt}" '*'
     ))
-
     for patchset_file in "${patchsets[@]}"
     do
-      destination="$rvm_path/patchsets/$patchset_file"
-      if [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
+      destination="$rvm_path/$patchset_file"
+      if
+        [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
       then
         destination_path="${destination%/*}"
         [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
         [[ -f "$destination"      ]] && rm -f "$destination"
-        cp "patchsets/$patchset_file" "$destination"
+        cp "$patchset_file" "$destination"
       fi
     done
-
   fi
 }
 
@@ -645,7 +656,7 @@ is_file_group() [[ "$(get_file_group "$1")" == "$2" ]]
 install_man_pages()
 {
   files=($(
-  chpwd_functions="" builtin cd "$install_source_path/man"
+  __rvm_cd "$install_source_path/man"
   find . -maxdepth 2 -mindepth 1 -type f -print
   ))
 
@@ -750,68 +761,42 @@ setup_rvm_path_permissions()
 
 setup_rvm_group()
 {
-  typeset __group_params
-  __group_params=""
-  if [[ -n "${rvm_group_id}" ]]
-  then __group_params="${__group_params} -g ${rvm_group_id}"
-  fi
-
-  if [[ -n "$ZSH_VERSION" ]]
-  then __group_params=( ${=__group_params} )
-  else __group_params=( ${__group_params} )
-  fi
-
-  if GREP_OPTIONS="" \grep "$rvm_group_name" /etc/group >/dev/null 2>&1
+  source "$PWD/scripts/functions/group"
+  if
+    __rvm_group_exists "$rvm_group_name"
   then
-    echo "    RVM system user group '$rvm_group_name' exists, proceeding with installation."
+    echo "    Group '$rvm_group_name' already exists"
   else
-    echo "    Creating RVM system user group '$rvm_group_name'"
-
-    case "$(uname)" in
-      "OpenBSD")
-        groupadd ${__group_params[@]} "$rvm_group_name"
-        ;;
-      "FreeBSD")
-        pw groupadd ${__group_params[@]} "$rvm_group_name" -q
-        ;;
-      "Linux")
-        if [[ -f "/etc/SuSE-release" ]]
-        then
-          groupadd ${__group_params[@]} "$rvm_group_name"
-        else
-          groupadd -f ${__group_params[@]} "$rvm_group_name"
-        fi
-        ;;
-      "Darwin")
-        if ! dscl . -read "/Groups/$rvm_group_name" 1>/dev/null 2>&1
-        then
-          if [[ -n "${rvm_group_id}" ]]
-          then
-            __group_params="${rvm_group_id}"
-          else
-            __group_params="501" #only gids > 500 show up in user preferences
-            #Find an open gid
-            while true
-            do
-              name=$(dscl . search /groups PrimaryGroupID ${__group_params} | cut -f1 -s)
-              if [[ -z "$name" ]]
-              then break
-              fi
-              __group_params=$(( __group_params + 1 ))
-            done
-          fi
-          # Create the group, isn't OSX "fun"?! :)
-          # Thanks for the assist frogor of ##osx-server on freenode! Appreciate the assist!
-          dscl . -create "/Groups/$rvm_group_name" gid "${__group_params}"
-        fi
-        ;;
-      "SunOS")
-        groupadd ${__group_params[@]} "$rvm_group_name"
-        ;;
-    esac
+    echo "    Creating group '$rvm_group_name'"
+    __rvm_create_group "${rvm_group_name}" "${rvm_group_id:-}"
   fi
-
-  return 0
+  if
+    [[ -n "${rvm_add_users_to_rvm_group:-}" ]]
+  then
+    typeset __user
+    typeset -a __users
+    if
+      [[ "$rvm_add_users_to_rvm_group" == "all" ]]
+    then
+      __users=( $( __rvm_list_all_users ) )
+    else
+      if [[ -n "${ZSH_VERSION:-}" ]]
+      then __users=( ${=rvm_add_users_to_rvm_group//,/ } )
+      else __users=( ${rvm_add_users_to_rvm_group//,/ } )
+      fi
+    fi
+    for __user in "${__users[@]}"
+    do
+      if
+        __rvm_is_user_in_group "$rvm_group_name" "$__user"
+      then
+        echo "    User '$__user' already in the RVM group '${rvm_group_name}'"
+      else
+        echo "    Adding user '$__user' to the RVM group '${rvm_group_name}'"
+        __rvm_add_user_to_group "$rvm_group_name" "$__user"
+      fi
+    done
+  fi
 }
 
 system_check()
