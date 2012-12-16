@@ -1,54 +1,102 @@
 #!/usr/bin/env bash
 
-
-add_user_to_rvm_group()
+__rvm_add_user_to_group()
 {
-  echo "Adding user '$user' to the RVM group '${rvm_group_name}'"
-
   case "$(uname)" in
     "OpenBSD")
-      usermod -G "$rvm_group_name" "$user"
+      usermod -G "$1" "$2"
       ;;
     "FreeBSD")
-      pw usermod "$user" -G "$rvm_group_name"
+      pw usermod "$2" -G "$1"
       ;;
     "Linux")
       if [[ -f "/etc/SuSE-release" ]] ; then
-        groupmod -A "$user" "$rvm_group_name"
+        groupmod -A "$2" "$1"
       else
-        /usr/sbin/usermod -a -G "$rvm_group_name" "$user"
+        /usr/sbin/usermod -a -G "$1" "$2"
       fi
     ;;
     "Darwin")
-      dscl . -append "/Groups/$rvm_group_name" GroupMembership "$user"
+      dscl . -append "/Groups/$1" GroupMembership "$2"
       ;;
     "SunOS")
-      groups="$(id -G "$user") \"$rvm_group_name\""
-      usermod -G "${groups// /, }" "$user"
+      groups="$(id -G "$2") \"$1\""
+      usermod -G "${1// /, }" "$2"
       ;;
   esac
-
-  return 0
 }
 
-# TODO: Remove this... it is now replaced with rvm group cli api.
-setup_rvm_group_users()
+__rvm_show_user_groups()
+{
+  groups "$1" | sed -e 's/.*:[[:space:]]*//' | tr ' ' $'\n'
+}
+
+__rvm_is_user_in_group()
+{
+  __rvm_show_user_groups "$2" | grep "^$1$" >/dev/null
+}
+
+__rvm_list_all_users()
 {
   case "$(uname)" in
     "Darwin")
-      usernames=$(dscl . -search /Users PrimaryGroupID 20 | GREP_OPTIONS="" \grep PrimaryGroupID | cut -f 1)
+      dscl . -search /Users PrimaryGroupID 20 | GREP_OPTIONS="" \grep PrimaryGroupID | cut -f 1
       ;;
     *)
-      usernames=($(GREP_OPTIONS="" \grep -xF -f <(cat /etc/passwd | cut -d: -f1) <(find /home -mindepth 1 -maxdepth 1 -type d | cut -d '/' -f 3)))
+      GREP_OPTIONS="" \grep -xF -f <(cat /etc/passwd | cut -d: -f1) <(find /home -mindepth 1 -maxdepth 1 -type d | cut -d '/' -f 3)
       ;;
   esac
+}
 
-  for user in ${usernames[@]}
-  do
-    if ! groups "$user" | GREP_OPTIONS="" \grep 'rvm' >/dev/null 2>&1
-    then
-      printf "%b" "Ensuring '$user' is in group '$rvm_group_name'\n"
-      add_user_to_rvm_group $user
-    fi
-  done
+__rvm_group_exists()
+{
+  case "$(uname)" in
+    (Darwin)
+      dscl . -read "/Groups/$1" 1>/dev/null 2>&1 || return $?
+      ;;
+    (*)
+      GREP_OPTIONS="" \grep "$1" /etc/group >/dev/null 2>&1
+      ;;
+  esac
+}
+
+__rvm_create_group()
+{
+  typeset -a __group_params
+  __group_params=()
+
+  if [[ -n "${2:-}" ]]
+  then __group_params+=( -g "$2" )
+  fi
+
+  case "$(uname)" in
+    (Linux|SunOS|OpenBSD)
+      groupadd "${__group_params[@]}" "$1"
+      ;;
+    (FreeBSD)
+      pw groupadd "${__group_params[@]}" "$1" -q
+      ;;
+    (Darwin)
+      typeset _new_group_id
+      if
+        [[ -n "${2:-}" ]]
+      then
+        _new_group_id="$2"
+      else
+        _new_group_id="501" #only gids > 500 show up in user preferences
+        #Find an open gid
+        while true
+        do
+          name=$(dscl . search /groups PrimaryGroupID ${_new_group_id} | cut -f1 -s)
+          if [[ -z "$name" ]]
+          then break
+          fi
+          _new_group_id=$(( _new_group_id + 1 ))
+        done
+      fi
+      # Create the group, isn't OSX "fun"?! :)
+      # Thanks for the assist frogor of ##osx-server on freenode! Appreciate the assist!
+      dscl . -create "/Groups/$1" gid "${_new_group_id}"
+      ;;
+  esac
 }

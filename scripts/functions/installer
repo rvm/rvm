@@ -761,68 +761,42 @@ setup_rvm_path_permissions()
 
 setup_rvm_group()
 {
-  typeset __group_params
-  __group_params=""
-  if [[ -n "${rvm_group_id}" ]]
-  then __group_params="${__group_params} -g ${rvm_group_id}"
-  fi
-
-  if [[ -n "$ZSH_VERSION" ]]
-  then __group_params=( ${=__group_params} )
-  else __group_params=( ${__group_params} )
-  fi
-
-  if GREP_OPTIONS="" \grep "$rvm_group_name" /etc/group >/dev/null 2>&1
+  source "$PWD/scripts/functions/group"
+  if
+    __rvm_group_exists "$rvm_group_name"
   then
-    echo "    RVM system user group '$rvm_group_name' exists, proceeding with installation."
+    echo "    Group '$rvm_group_name' already exists"
   else
-    echo "    Creating RVM system user group '$rvm_group_name'"
-
-    case "$(uname)" in
-      "OpenBSD")
-        groupadd ${__group_params[@]} "$rvm_group_name"
-        ;;
-      "FreeBSD")
-        pw groupadd ${__group_params[@]} "$rvm_group_name" -q
-        ;;
-      "Linux")
-        if [[ -f "/etc/SuSE-release" ]]
-        then
-          groupadd ${__group_params[@]} "$rvm_group_name"
-        else
-          groupadd -f ${__group_params[@]} "$rvm_group_name"
-        fi
-        ;;
-      "Darwin")
-        if ! dscl . -read "/Groups/$rvm_group_name" 1>/dev/null 2>&1
-        then
-          if [[ -n "${rvm_group_id}" ]]
-          then
-            __group_params="${rvm_group_id}"
-          else
-            __group_params="501" #only gids > 500 show up in user preferences
-            #Find an open gid
-            while true
-            do
-              name=$(dscl . search /groups PrimaryGroupID ${__group_params} | cut -f1 -s)
-              if [[ -z "$name" ]]
-              then break
-              fi
-              __group_params=$(( __group_params + 1 ))
-            done
-          fi
-          # Create the group, isn't OSX "fun"?! :)
-          # Thanks for the assist frogor of ##osx-server on freenode! Appreciate the assist!
-          dscl . -create "/Groups/$rvm_group_name" gid "${__group_params}"
-        fi
-        ;;
-      "SunOS")
-        groupadd ${__group_params[@]} "$rvm_group_name"
-        ;;
-    esac
+    echo "    Creating group '$rvm_group_name'"
+    __rvm_create_group "${rvm_group_name}" "${rvm_group_id:-}"
   fi
-
-  return 0
+  if
+    [[ -n "${rvm_add_users_to_rvm_group:-}" ]]
+  then
+    typeset __user
+    typeset -a __users
+    if
+      [[ "$rvm_add_users_to_rvm_group" == "all" ]]
+    then
+      __users=( $( __rvm_list_all_users ) )
+    else
+      if [[ -n "${ZSH_VERSION:-}" ]]
+      then __users=( ${=rvm_add_users_to_rvm_group//,/ } )
+      else __users=( ${rvm_add_users_to_rvm_group//,/ } )
+      fi
+    fi
+    for __user in "${__users[@]}"
+    do
+      if
+        __rvm_is_user_in_group "$rvm_group_name" "$__user"
+      then
+        echo "    User '$__user' already in the RVM group '${rvm_group_name}'"
+      else
+        echo "    Adding user '$__user' to the RVM group '${rvm_group_name}'"
+        __rvm_add_user_to_group "$rvm_group_name" "$__user"
+      fi
+    done
+  fi
 }
 
 system_check()
