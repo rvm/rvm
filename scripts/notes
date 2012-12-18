@@ -154,15 +154,28 @@ $notes_type Notes:
 "
   fi
 
-  typeset __matched_any __matched_with
-  __matched_any=$(  GREP_OPTIONS="" \grep 'PATH='        ~/.zshrc 2>/dev/null | wc -l )
-  __matched_with=$( GREP_OPTIONS="" \grep 'PATH=.*$PATH' ~/.zshrc 2>/dev/null | wc -l )
+  typeset -a __files
+  __files=()
+  for __file in ~/.zlogin ~/.zshrc ~/.bash_profile ~/.bashrc
+  do
+    if [[ -f "${__file}" ]]
+    then __files+=( "${__file}" )
+    fi
+  done
   if
-    [[ -f ~/.zshrc ]] && (( __matched_any > __matched_with ))
+    (( ${#__files[@]} )) &&
+    GREP_OPTIONS="" \grep -rn 'PATH=' "${__files[@]}" |
+      GREP_OPTIONS="" \grep -vE '[[:alnum:]_]PATH=|PATH=.*PATH'
   then
+    # account for grep not showing file name for just one file checked
+    if (( ${#__files[*]} == 1 ))
+    then __file="Your '${__files[*]}'"
+    else __file="Above files"
+    fi
     important_message "
-  * WARNING: Your \`~/.zshrc\` contains \`PATH=\` with no \`\$PATH\` inside, this can break RVM,
+  * WARNING: ${__file} contains \`PATH=\` with no \`\$PATH\` inside, this can break RVM,
     for details check https://github.com/wayneeseguin/rvm/issues/1351#issuecomment-10939525
+    to avoid this warning append #PATH.
 "
   fi
 
