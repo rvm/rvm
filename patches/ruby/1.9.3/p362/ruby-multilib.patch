@@ -1,0 +1,39 @@
+diff -u -wr a/tool/mkconfig.rb b/tool/mkconfig.rb
+--- a/tool/mkconfig.rb  2012-10-08 05:57:16.948702976 +0200
++++ b/tool/mkconfig.rb  2011-08-13 15:17:30.000000000 +0200
+@@ -40,6 +40,7 @@
+ v_fast = []
+ v_others = []
+ vars = {}
++v_runtime = {}
+ continued_name = nil
+ continued_line = nil
+ File.foreach "config.status" do |line|
+@@ -118,7 +119,10 @@
+     val = val.gsub(/\$(?:\$|\{?(\w+)\}?)/) {$1 ? "$(#{$1})" : $&}.dump
+     case name
+     when /^prefix$/
++      v_runtime[:prefix] = val.slice(1..-2)
+       val = "(TOPDIR || DESTDIR + #{val})"
++    when /^libdir$/
++      v_runtime[:libdir] = File.basename(val.slice(1..-2))
+     when /^ARCH_FLAG$/
+       val = "arch_flag || #{val}" if universal
+     when /^UNIVERSAL_ARCHNAMES$/
+@@ -145,7 +149,7 @@
+
+ drive = File::PATH_SEPARATOR == ';'
+
+-prefix = "/lib/ruby/#{version}/#{arch}"
++prefix = "/#{v_runtime[:libdir]}/ruby/#{version}/#{arch}"
+ print "  TOPDIR = File.dirname(__FILE__).chomp!(#{prefix.dump})\n"
+ print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
+ print <<'ARCH' if universal
+@@ -190,6 +194,7 @@
+     x
+   end
+ end
++v_others.map!{|x| x.gsub(v_runtime[:prefix], "$(prefix)") }
+ v_others.compact!
+
+ if $install_name
