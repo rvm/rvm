@@ -193,7 +193,10 @@ __rvm_remove_from_path()
   typeset _value
 
   # remove multiple slashes https://github.com/wayneeseguin/rvm/issues/1364
-  PATH="${PATH//+(\/)//}"
+  if [[ `uname -s` = "Darwin" ]]
+  then PATH="$(sed -E 's#/+#/#g' <<<$PATH)"
+  else PATH="$(sed -r 's#/+#/#g' <<<$PATH)"
+  fi
   _value="${1//+(\/)//}"
 
   typeset -a _path
@@ -501,11 +504,8 @@ __rvm_remote_extension()
     *.tar.*)
       rvm_remote_extension="tar${1##*tar}"
       ;;
-    jruby-*)
+    jruby-*|rbx-*|rubinius-*)
       rvm_remote_extension="tar.gz"
-      ;;
-    rbx-*|rubinius-*)
-      rvm_remote_extension="zip"
       ;;
     *)
       rvm_remote_extension="tar.bz2"
@@ -641,7 +641,7 @@ file_exists_at_url()
     [[ -n "${1:-}" ]]
   then
     unset curl
-    \curl -slkL --max-time 10 --head "$1" 2>&1 |
+    \curl -slkL --max-time 3 --head "$1" 2>&1 |
       GREP_OPTIONS="" \grep -E 'HTTP/[0-9\.]+ 200 OK' >/dev/null 2>&1 ||
       return $?
   else

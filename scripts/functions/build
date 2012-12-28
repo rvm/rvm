@@ -23,6 +23,13 @@ __rvm_selected_compiler()
     echo "${CC}"
     return 0
   fi
+  if # autoselect on osx as there is no standard
+    __rvm_find_osx_gcc42 &&
+    [[ -n "${CC:-}" ]]
+  then
+    echo "$CC"
+    return 0
+  fi
   return 1
 }
 
@@ -157,9 +164,10 @@ __rvm_update_configure_opt_dir_flags()
   fi
 }
 
-__rvm_setup_compile_environment_osx_gcc()
+__rvm_find_osx_gcc42()
 {
-  if [[ "Darwin" == "$(uname)" ]] && ! __rvm_selected_compiler > /dev/null
+  if
+    [[ "Darwin" == "$(uname)" ]]
   then
     export CC
     # override CC if gcc-4.2 available (OSX)
@@ -183,8 +191,15 @@ __rvm_setup_compile_environment_osx_gcc()
       [[ -x /usr/bin/gcc-4.2 ]] # OSX-GCC-Installer / Xcode - might be LLVM
     then
       CC=/usr/bin/gcc-4.2
+    else
+      return 1
     fi
   fi
+}
+
+__rvm_setup_compile_environment_osx_gcc()
+{
+  __rvm_selected_compiler > /dev/null || __rvm_find_osx_gcc42
 
   if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
   then rvm_force_autoconf_flag=1
@@ -239,7 +254,7 @@ __rvm_setup_compile_environment_osx_architectures()
 __rvm_setup_compile_environment_gcc47()
 {
   __rvm_compiler_is_gcc47 || return 0
-  __rvm_string_match "$1" "ruby-1.8.*" || return 0
+  __rvm_string_match "$1" "ruby-1.8.*" "ree*" || return 0
 
   # -g -O2 from 1.8.7-p370 is not enough, need all the flags to fix it
   __rvm_update_configure_env CFLAGS="-O2 -fno-tree-dce -fno-optimize-sibling-calls"
@@ -375,7 +390,7 @@ __rvm_is_enough_ram()
   __required_ram=$(( $1 * 1024 * 1024 ))
 
   __existing_ram="$(free -b 2>/dev/null | awk '{if (NR==3) print $4}')"
-  : ${__existing_ram:="$(sysctl hw.physmem 2>/dev/null | cut -f 2 -d =)"}
+  : ${__existing_ram:="$(sysctl hw.physmem 2>/dev/null | cut -f 2 -d :)"}
   : __existing_ram: ${__existing_ram:=0}
   rvm_debug "Existing ram $(( __existing_ram /1024 /1024 ))MB."
 

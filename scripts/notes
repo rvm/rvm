@@ -154,15 +154,28 @@ $notes_type Notes:
 "
   fi
 
-  typeset __matched_any __matched_with
-  __matched_any=$(  GREP_OPTIONS="" \grep 'PATH='        ~/.zshrc 2>/dev/null | wc -l )
-  __matched_with=$( GREP_OPTIONS="" \grep 'PATH=.*$PATH' ~/.zshrc 2>/dev/null | wc -l )
+  typeset -a __files
+  __files=()
+  for __file in ~/.zlogin ~/.zshrc ~/.bash_profile ~/.bashrc
+  do
+    if [[ -f "${__file}" ]]
+    then __files+=( "${__file}" )
+    fi
+  done
   if
-    [[ -f ~/.zshrc ]] && (( __matched_any > __matched_with ))
+    (( ${#__files[@]} )) &&
+    GREP_OPTIONS="" \grep -rn 'PATH=' "${__files[@]}" |
+      GREP_OPTIONS="" \grep -vE '[[:alnum:]_]PATH=|PATH=.*PATH'
   then
+    # account for grep not showing file name for just one file checked
+    if (( ${#__files[*]} == 1 ))
+    then __file="Your '${__files[*]}'"
+    else __file="Above files"
+    fi
     important_message "
-  * WARNING: Your \`~/.zshrc\` contains \`PATH=\` with no \`\$PATH\` inside, this can break RVM,
+  * WARNING: ${__file} contains \`PATH=\` with no \`\$PATH\` inside, this can break RVM,
     for details check https://github.com/wayneeseguin/rvm/issues/1351#issuecomment-10939525
+    to avoid this warning append #PATH.
 "
   fi
 
@@ -173,6 +186,38 @@ $notes_type Notes:
 
       unset GEM_HOME
 "
+  fi
+
+  if
+    grep "rvm_configure_env=('LDFLAGS=-L/opt/sm/pkg/active/lib CFLAGS=-I/opt/sm/pkg/active/include CPATH=/opt/sm/pkg/active/include')"  /etc/rvmrc >/dev/null
+  then
+    important_message "
+  * WARNING: you have 'rvm_configure_env' in /etc/rvmrc, run the following to fix:
+
+      sudo sed -i'' -e \"s#rvm_configure_env=('LDFLAGS=-L/opt/sm/pkg/active/lib CFLAGS=-I/opt/sm/pkg/active/include CPATH=/opt/sm/pkg/active/include')#rvm_configure_env=('LDFLAGS=-L/opt/sm/pkg/active/lib' 'CFLAGS=-I/opt/sm/pkg/active/include' 'CPATH=/opt/sm/pkg/active/include')#\" /etc/rvmrc
+"
+  fi
+
+  if
+    [[ -z "${rvm_ignore_gemrc_issues:-}" ]]
+  then
+    typeset -a _gemrc_files
+    _gemrc_files=()
+    for gemrc in "/etc/gemrc" "${HOME}/.gemrc"
+    do
+      if [[ -r "${gemrc}" ]]
+      then _gemrc_files+=( "${gemrc}" )
+      fi
+    done
+    if
+      (( ${#_gemrc_files[@]} )) &&
+      GREP_OPTIONS="" \grep -E -- ' -n|--user-install' "${_gemrc_files[@]}" >/dev/null
+    then
+      important_message "
+  * WARNING: Found -n / --user-install in one of ${_gemrc_files[@]}, please remove it, as it will break rubygems in RVM.
+    If it is intended or a mistake 'export rvm_ignore_gemrc_issues=1' to avoid this warning.
+"
+    fi
   fi
 } | new_notes | eval "${PAGER:-cat}"
 

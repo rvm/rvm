@@ -29,11 +29,12 @@ install_setup()
 
     rvm_rvmrc_files=("/etc/rvmrc" "$HOME/.rvmrc")
     if [[ -n "${rvm_prefix:-}" ]] && ! [[ "$HOME/.rvmrc" -ef "${rvm_prefix}/.rvmrc" ]]
-       then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
+    then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
     fi
     for file in "${rvm_rvmrc_files[@]}"
     do
-      if [[ -s "$file" ]]
+      if
+        [[ -s "$file" ]]
       then
         . $file
       fi
@@ -63,7 +64,7 @@ install_setup()
   fi
   export rvm_user_install_flag
 
-  unset rvm_auto_flag
+  unset rvm_auto_dotfiles_flag
 }
 
 
@@ -76,7 +77,9 @@ install_usage()
 
   options:
 
-    --auto    : Automatically update shell profile files.
+    --auto-dotfiles   : Automatically update shell profile files.
+
+    --ignore-dotfiles : Do not update shell profile files.
 
     --path    : Installation directory (rvm_path).
 
@@ -448,7 +451,10 @@ install_gemsets()
         if
           [[ -n "${rvm_without_gems:-}" ]]
         then
-          sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+          if [[ `uname -s` = "Darwin" ]]
+          then sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+          else sed -r '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+          fi
         else
           cp "$gemset_file" "$destination"
         fi
@@ -835,7 +841,7 @@ setup_etc_profile()
     executable=0
   fi
 
-  if ! [[ -s "${etc_profile_file}" ]] || (( ${rvm_auto_flag:-0} == 1 ))
+  if ! [[ -s "${etc_profile_file}" ]] || (( ${rvm_auto_dotfiles_flag:-0} == 1 ))
   then
     printf "%b" "#
 # RVM profile
@@ -951,7 +957,7 @@ setup_etc_bashrc()
 {
   typeset system_bashrc_file new_content_path
   system_bashrc_file="/etc/bash.bashrc"
-  if ! [[ -s "${system_bashrc_file}" ]] || (( ${rvm_auto_flag:-0} == 1 ))
+  if ! [[ -s "${system_bashrc_file}" ]] || (( ${rvm_auto_dotfiles_flag:-0} == 1 ))
   then
     if
       [[ ! -f "${system_bashrc_file}" ]]
@@ -977,15 +983,18 @@ setup_rvmrc()
   then
     rvmrc_file="/etc/rvmrc"
     if
-      GREP_OPTIONS="" \grep '#umask' $rvmrc_file >/dev/null 2>&1
+      [[ -f $rvmrc_file ]] &&
+      GREP_OPTIONS="" \grep '#umask' $rvmrc_file >/dev/null
     then
       true # commented out, skip it!
     elif
-      GREP_OPTIONS="" \grep 'umask g+w' $rvmrc_file >/dev/null 2>&1
+      [[ -f $rvmrc_file ]] &&
+      GREP_OPTIONS="" \grep 'umask g+w' $rvmrc_file >/dev/null
     then
       __rvm_sed_i $rvmrc_file -e 's/umask g+w/umask u=rwx,g=rwx,o=rx/'
     elif
-      ! GREP_OPTIONS="" \grep 'umask' $rvmrc_file >/dev/null 2>&1
+      ! [[ -f $rvmrc_file ]] ||
+      ! GREP_OPTIONS="" \grep 'umask' $rvmrc_file >/dev/null
     then
       echo 'umask u=rwx,g=rwx,o=rx' >> $rvmrc_file
     fi
@@ -1070,7 +1079,7 @@ setup_user_profile()
       } } || true
   done
 
-  if (( rvm_auto_flag == 1 && ${#found_rc[@]} > 0 ))
+  if (( rvm_auto_dotfiles_flag == 1 && ${#found_rc[@]} > 0 ))
   then
     printf "%b" "    Removing rvm PATH line from ${found_rc[*]}.\n"
     for profile_file in ${found_rc[@]}
@@ -1081,7 +1090,7 @@ setup_user_profile()
     done
     found_rc=()
   fi
-  if (( rvm_auto_flag == 1 || ${#found_rc[@]} == 0 ))
+  if (( rvm_auto_dotfiles_flag == 1 || ${#found_rc[@]} == 0 ))
   then
     printf "%b" "    Adding rvm PATH line to ${target_rc[*]}.\n"
     for profile_file in ${target_rc[@]}
@@ -1097,7 +1106,7 @@ PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
     user_rc_files=( ${found_rc[@]} )
   fi
 
-  if (( rvm_auto_flag == 1 && ${#found_login[@]} > 0 ))
+  if (( rvm_auto_dotfiles_flag == 1 && ${#found_login[@]} > 0 ))
   then
     printf "%b" "    Removing rvm loading line from ${found_login[*]}.\n"
     for profile_file in ${found_login[@]}
@@ -1108,7 +1117,7 @@ PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
     done
     found_rc=()
   fi
-  if (( rvm_auto_flag == 1 || ${#found_login[@]} == 0 ))
+  if (( rvm_auto_dotfiles_flag == 1 || ${#found_login[@]} == 0 ))
   then
     printf "%b" "    Adding rvm loading line to ${target_login[*]}.\n"
     for profile_file in ${target_login[@]}
