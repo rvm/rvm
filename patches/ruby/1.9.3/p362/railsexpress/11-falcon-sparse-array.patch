@@ -1,0 +1,2588 @@
+diff --git a/class.c b/class.c
+index 4fbdf18..c6adcc9 100644
+--- a/class.c
++++ b/class.c
+@@ -31,7 +31,7 @@
+ #include "internal.h"
+ #include <ctype.h>
+ 
+-extern st_table *rb_class_tbl;
++extern sa_table rb_class_tbl;
+ static ID id_attached;
+ 
+ /**
+@@ -50,14 +50,24 @@ static VALUE
+ class_alloc(VALUE flags, VALUE klass)
+ {
+     rb_classext_t *ext = ALLOC(rb_classext_t);
++    rb_class_cache_t *cache = ALLOC(rb_class_cache_t);
+     NEWOBJ(obj, struct RClass);
+     OBJSETUP(obj, klass, flags);
+     obj->ptr = ext;
+-    RCLASS_IV_TBL(obj) = 0;
+-    RCLASS_CONST_TBL(obj) = 0;
+-    RCLASS_M_TBL(obj) = 0;
+-    RCLASS_SUPER(obj) = 0;
+-    RCLASS_IV_INDEX_TBL(obj) = 0;
++    obj->cache = cache;
++    MEMZERO(ext, struct rb_classext_struct, 1);
++    MEMZERO(cache, struct rb_class_cache_struct, 1);
++    return (VALUE)obj;
++}
++
++static VALUE
++iclass_alloc()
++{
++    rb_class_cache_t *cache = ALLOC(rb_class_cache_t);
++    NEWOBJ(obj, struct RClass);
++    OBJSETUP(obj, rb_cClass, T_ICLASS);
++    obj->cache = cache;
++    MEMZERO(cache, struct rb_class_cache_struct, 1);
+     return (VALUE)obj;
+ }
+ 
+@@ -77,7 +87,6 @@ rb_class_boot(VALUE super)
+     VALUE klass = class_alloc(T_CLASS, rb_cClass);
+ 
+     RCLASS_SUPER(klass) = super;
+-    RCLASS_M_TBL(klass) = st_init_numtable();
+ 
+     OBJ_INFECT(klass, super);
+     return (VALUE)klass;
+@@ -120,43 +129,30 @@ rb_class_new(VALUE super)
+     return rb_class_boot(super);
+ }
+ 
+-struct clone_method_data {
+-    st_table *tbl;
+-    VALUE klass;
+-};
+-
+ VALUE rb_iseq_clone(VALUE iseqval, VALUE newcbase);
+ 
+-static int
+-clone_method(ID mid, const rb_method_entry_t *me, struct clone_method_data *data)
++static void
++clone_method(ID mid, const rb_method_entry_t *me, VALUE klass)
+ {
+     VALUE newiseqval;
+     if (me->def && me->def->type == VM_METHOD_TYPE_ISEQ) {
+ 	rb_iseq_t *iseq;
+-	newiseqval = rb_iseq_clone(me->def->body.iseq->self, data->klass);
++	newiseqval = rb_iseq_clone(me->def->body.iseq->self, klass);
+ 	GetISeqPtr(newiseqval, iseq);
+-	rb_add_method(data->klass, mid, VM_METHOD_TYPE_ISEQ, iseq, me->flag);
++	rb_add_method(klass, mid, VM_METHOD_TYPE_ISEQ, iseq, me->flag);
+ 	RB_GC_GUARD(newiseqval);
+     }
+     else {
+-	rb_method_entry_set(data->klass, mid, me, me->flag);
++	rb_method_entry_set(klass, mid, me, me->flag);
+     }
+-    return ST_CONTINUE;
+ }
+ 
+-static int
+-clone_const(ID key, const rb_const_entry_t *ce, st_table *tbl)
++static void
++clone_const(sa_index_t key, st_data_t ce, sa_table *tbl)
+ {
+     rb_const_entry_t *nce = ALLOC(rb_const_entry_t);
+-    *nce = *ce;
+-    st_insert(tbl, key, (st_data_t)nce);
+-    return ST_CONTINUE;
+-}
+-
+-static int
+-clone_const_i(st_data_t key, st_data_t value, st_data_t data)
+-{
+-    return clone_const((ID)key, (const rb_const_entry_t *)value, (st_table *)data);
++    *nce = *(const rb_const_entry_t*)ce;
++    sa_insert(tbl, (sa_index_t)key, (st_data_t)nce);
+ }
+ 
+ static void
+@@ -177,6 +173,7 @@ class_init_copy_check(VALUE clone, VALUE orig)
+ VALUE
+ rb_mod_init_copy(VALUE clone, VALUE orig)
+ {
++    ID id;
+     if (RB_TYPE_P(clone, T_CLASS)) {
+ 	class_init_copy_check(clone, orig);
+     }
+@@ -186,36 +183,22 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
+ 	rb_singleton_class_attached(RBASIC(clone)->klass, (VALUE)clone);
+     }
+     RCLASS_SUPER(clone) = RCLASS_SUPER(orig);
+-    if (RCLASS_IV_TBL(orig)) {
+-	st_data_t id;
+ 
+-	if (RCLASS_IV_TBL(clone)) {
+-	    st_free_table(RCLASS_IV_TBL(clone));
+-	}
+-	RCLASS_IV_TBL(clone) = st_copy(RCLASS_IV_TBL(orig));
+-	CONST_ID(id, "__classpath__");
+-	st_delete(RCLASS_IV_TBL(clone), &id, 0);
+-	CONST_ID(id, "__classid__");
+-	st_delete(RCLASS_IV_TBL(clone), &id, 0);
+-    }
+-    if (RCLASS_CONST_TBL(orig)) {
+-	if (RCLASS_CONST_TBL(clone)) {
+-	    rb_free_const_table(RCLASS_CONST_TBL(clone));
+-	}
+-	RCLASS_CONST_TBL(clone) = st_init_numtable();
+-	st_foreach(RCLASS_CONST_TBL(orig), clone_const_i, (st_data_t)RCLASS_CONST_TBL(clone));
+-    }
+-    if (RCLASS_M_TBL(orig)) {
+-	struct clone_method_data data;
++    sa_copy_to(RCLASS_IV_TBL(orig), RCLASS_IV_TBL(clone));
++    CONST_ID(id, "__classpath__");
++    sa_delete(RCLASS_IV_TBL(clone), (sa_index_t)id, 0);
++    CONST_ID(id, "__classid__");
++    sa_delete(RCLASS_IV_TBL(clone), (sa_index_t)id, 0);
+ 
+-	if (RCLASS_M_TBL(clone)) {
+-	    rb_free_m_table(RCLASS_M_TBL(clone));
+-	}
+-	data.tbl = RCLASS_M_TBL(clone) = st_init_numtable();
+-	data.klass = clone;
+-	st_foreach(RCLASS_M_TBL(orig), clone_method,
+-		   (st_data_t)&data);
+-    }
++    sa_clear(RCLASS_CONST_TBL(clone));
++    SA_FOREACH_START(RCLASS_CONST_TBL(orig));
++    clone_const(entry->key, value, RCLASS_CONST_TBL(clone));
++    SA_FOREACH_END();
++
++    rb_free_m_table(RCLASS_M_TBL(clone));
++    SA_FOREACH_START(RCLASS_M_TBL(orig));
++    clone_method(entry->key, (const rb_method_entry_t *)value, clone);
++    SA_FOREACH_END();
+ 
+     return clone;
+ }
+@@ -228,7 +211,6 @@ rb_singleton_class_clone(VALUE obj)
+     if (!FL_TEST(klass, FL_SINGLETON))
+ 	return klass;
+     else {
+-	struct clone_method_data data;
+ 	/* copy singleton(unnamed) class */
+ 	VALUE clone = class_alloc((RBASIC(klass)->flags & ~(FL_MARK)), 0);
+ 
+@@ -240,18 +222,16 @@ rb_singleton_class_clone(VALUE obj)
+ 	}
+ 
+ 	RCLASS_SUPER(clone) = RCLASS_SUPER(klass);
+-	if (RCLASS_IV_TBL(klass)) {
+-	    RCLASS_IV_TBL(clone) = st_copy(RCLASS_IV_TBL(klass));
+-	}
+-	if (RCLASS_CONST_TBL(klass)) {
+-	    RCLASS_CONST_TBL(clone) = st_init_numtable();
+-	    st_foreach(RCLASS_CONST_TBL(klass), clone_const_i, (st_data_t)RCLASS_CONST_TBL(clone));
+-	}
+-	RCLASS_M_TBL(clone) = st_init_numtable();
+-	data.tbl = RCLASS_M_TBL(clone);
+-	data.klass = (VALUE)clone;
+-	st_foreach(RCLASS_M_TBL(klass), clone_method,
+-		   (st_data_t)&data);
++        sa_copy_to(RCLASS_IV_TBL(klass), RCLASS_IV_TBL(clone));
++
++        SA_FOREACH_START(RCLASS_CONST_TBL(klass));
++        clone_const(entry->key, value, RCLASS_CONST_TBL(clone));
++        SA_FOREACH_END();
++
++        SA_FOREACH_START(RCLASS_M_TBL(klass));
++        clone_method(entry->key, (const rb_method_entry_t*)value, clone);
++        SA_FOREACH_END();
++
+ 	rb_singleton_class_attached(RBASIC(clone)->klass, (VALUE)clone);
+ 	FL_SET(clone, FL_SINGLETON);
+ 	return (VALUE)clone;
+@@ -266,10 +246,7 @@ void
+ rb_singleton_class_attached(VALUE klass, VALUE obj)
+ {
+     if (FL_TEST(klass, FL_SINGLETON)) {
+-	if (!RCLASS_IV_TBL(klass)) {
+-	    RCLASS_IV_TBL(klass) = st_init_numtable();
+-	}
+-	st_insert(RCLASS_IV_TBL(klass), id_attached, obj);
++	sa_insert(RCLASS_IV_TBL(klass), (sa_index_t)id_attached, obj);
+     }
+ }
+ 
+@@ -356,12 +333,12 @@ make_singleton_class(VALUE obj)
+ static VALUE
+ boot_defclass(const char *name, VALUE super)
+ {
+-    extern st_table *rb_class_tbl;
++    extern sa_table rb_class_tbl;
+     VALUE obj = rb_class_boot(super);
+     ID id = rb_intern(name);
+ 
+     rb_name_class(obj, id);
+-    st_add_direct(rb_class_tbl, id, obj);
++    sa_insert(&rb_class_tbl, (sa_index_t)id, obj);
+     rb_const_set((rb_cObject ? rb_cObject : obj), id, obj);
+     return obj;
+ }
+@@ -485,7 +462,7 @@ rb_define_class(const char *name, VALUE super)
+ 	rb_warn("no super class for `%s', Object assumed", name);
+     }
+     klass = rb_define_class_id(id, super);
+-    st_add_direct(rb_class_tbl, id, klass);
++    sa_insert(&rb_class_tbl, (sa_index_t)id, klass);
+     rb_name_class(klass, id);
+     rb_const_set(rb_cObject, id, klass);
+     rb_class_inherited(super, klass);
+@@ -566,8 +543,6 @@ rb_module_new(void)
+ {
+     VALUE mdl = class_alloc(T_MODULE, rb_cModule);
+ 
+-    RCLASS_M_TBL(mdl) = st_init_numtable();
+-
+     return (VALUE)mdl;
+ }
+ 
+@@ -596,7 +571,7 @@ rb_define_module(const char *name)
+ 	rb_raise(rb_eTypeError, "%s is not a module", rb_obj_classname(module));
+     }
+     module = rb_define_module_id(id);
+-    st_add_direct(rb_class_tbl, id, module);
++    sa_insert(&rb_class_tbl, (sa_index_t)id, module);
+     rb_const_set(rb_cObject, id, module);
+ 
+     return module;
+@@ -631,27 +606,15 @@ rb_define_module_id_under(VALUE outer, ID id)
+ static VALUE
+ include_class_new(VALUE module, VALUE super)
+ {
+-    VALUE klass = class_alloc(T_ICLASS, rb_cClass);
++    VALUE klass;
+ 
+     if (BUILTIN_TYPE(module) == T_ICLASS) {
+ 	module = RBASIC(module)->klass;
+     }
+-    if (!RCLASS_IV_TBL(module)) {
+-	RCLASS_IV_TBL(module) = st_init_numtable();
+-    }
+-    if (!RCLASS_CONST_TBL(module)) {
+-	RCLASS_CONST_TBL(module) = st_init_numtable();
+-    }
+-    RCLASS_IV_TBL(klass) = RCLASS_IV_TBL(module);
+-    RCLASS_CONST_TBL(klass) = RCLASS_CONST_TBL(module);
+-    RCLASS_M_TBL(klass) = RCLASS_M_TBL(module);
++    klass = iclass_alloc();
++    RBASIC(klass)->klass = module;
++    RCLASS_EXT(klass) = RCLASS_EXT(module);
+     RCLASS_SUPER(klass) = super;
+-    if (TYPE(module) == T_ICLASS) {
+-	RBASIC(klass)->klass = RBASIC(module)->klass;
+-    }
+-    else {
+-	RBASIC(klass)->klass = module;
+-    }
+     OBJ_INFECT(klass, module);
+     OBJ_INFECT(klass, super);
+ 
+@@ -678,13 +641,13 @@ rb_include_module(VALUE klass, VALUE module)
+     while (module) {
+ 	int superclass_seen = FALSE;
+ 
+-	if (RCLASS_M_TBL(klass) == RCLASS_M_TBL(module))
++	if (RCLASS_EXT(klass) == RCLASS_EXT(module))
+ 	    rb_raise(rb_eArgError, "cyclic include detected");
+ 	/* ignore if the module included already in superclasses */
+ 	for (p = RCLASS_SUPER(klass); p; p = RCLASS_SUPER(p)) {
+ 	    switch (BUILTIN_TYPE(p)) {
+ 	      case T_ICLASS:
+-		if (RCLASS_M_TBL(p) == RCLASS_M_TBL(module)) {
++		if (RCLASS_EXT(p) == RCLASS_EXT(module)) {
+ 		    if (!superclass_seen) {
+ 			c = p;  /* move insertion point */
+ 		    }
+@@ -697,7 +660,7 @@ rb_include_module(VALUE klass, VALUE module)
+ 	    }
+ 	}
+ 	c = RCLASS_SUPER(c) = include_class_new(module, RCLASS_SUPER(c));
+-	if (RMODULE_M_TBL(module) && RMODULE_M_TBL(module)->num_entries)
++	if (RMODULE_M_TBL(module)->num_entries)
+ 	    changed = 1;
+       skip:
+ 	module = RCLASS_SUPER(module);
+@@ -828,58 +791,58 @@ ins_methods_push(ID name, long type, VALUE ary, long visi)
+ }
+ 
+ static int
+-ins_methods_i(st_data_t name, st_data_t type, st_data_t ary)
++ins_methods_i(sa_index_t name, st_data_t type, st_data_t ary)
+ {
+     return ins_methods_push((ID)name, (long)type, (VALUE)ary, -1); /* everything but private */
+ }
+ 
+ static int
+-ins_methods_prot_i(st_data_t name, st_data_t type, st_data_t ary)
++ins_methods_prot_i(sa_index_t name, st_data_t type, st_data_t ary)
+ {
+     return ins_methods_push((ID)name, (long)type, (VALUE)ary, NOEX_PROTECTED);
+ }
+ 
+ static int
+-ins_methods_priv_i(st_data_t name, st_data_t type, st_data_t ary)
++ins_methods_priv_i(sa_index_t name, st_data_t type, st_data_t ary)
+ {
+     return ins_methods_push((ID)name, (long)type, (VALUE)ary, NOEX_PRIVATE);
+ }
+ 
+ static int
+-ins_methods_pub_i(st_data_t name, st_data_t type, st_data_t ary)
++ins_methods_pub_i(sa_index_t name, st_data_t type, st_data_t ary)
+ {
+     return ins_methods_push((ID)name, (long)type, (VALUE)ary, NOEX_PUBLIC);
+ }
+ 
+ static int
+-method_entry_i(st_data_t key, st_data_t value, st_data_t data)
++method_entry_i(sa_index_t key, st_data_t value, st_data_t data)
+ {
+     const rb_method_entry_t *me = (const rb_method_entry_t *)value;
+-    st_table *list = (st_table *)data;
++    sa_table *list = (sa_table *)data;
+     long type;
+ 
+     if ((ID)key == ID_ALLOCATOR) {
+ 	return ST_CONTINUE;
+     }
+ 
+-    if (!st_lookup(list, key, 0)) {
++    if (!sa_lookup(list, key, 0)) {
+ 	if (UNDEFINED_METHOD_ENTRY_P(me)) {
+ 	    type = -1; /* none */
+ 	}
+ 	else {
+ 	    type = VISI(me->flag);
+ 	}
+-	st_add_direct(list, key, type);
++	sa_insert(list, key, type);
+     }
+     return ST_CONTINUE;
+ }
+ 
+ static VALUE
+-class_instance_method_list(int argc, VALUE *argv, VALUE mod, int obj, int (*func) (st_data_t, st_data_t, st_data_t))
++class_instance_method_list(int argc, VALUE *argv, VALUE mod, int obj, int (*func) (sa_index_t, st_data_t, st_data_t))
+ {
+     VALUE ary;
+     int recur;
+-    st_table *list;
++    sa_table list = SA_EMPTY_TABLE;
+ 
+     if (argc == 0) {
+ 	recur = TRUE;
+@@ -890,16 +853,14 @@ class_instance_method_list(int argc, VALUE *argv, VALUE mod, int obj, int (*func
+ 	recur = RTEST(r);
+     }
+ 
+-    list = st_init_numtable();
+     for (; mod; mod = RCLASS_SUPER(mod)) {
+-	st_foreach(RCLASS_M_TBL(mod), method_entry_i, (st_data_t)list);
++	sa_foreach(RCLASS_M_TBL(mod), method_entry_i, (st_data_t)&list);
+ 	if (BUILTIN_TYPE(mod) == T_ICLASS) continue;
+ 	if (obj && FL_TEST(mod, FL_SINGLETON)) continue;
+ 	if (!recur) break;
+     }
+     ary = rb_ary_new();
+-    st_foreach(list, func, ary);
+-    st_free_table(list);
++    sa_foreach(&list, func, ary);
+ 
+     return ary;
+ }
+@@ -1113,7 +1074,7 @@ VALUE
+ rb_obj_singleton_methods(int argc, VALUE *argv, VALUE obj)
+ {
+     VALUE recur, ary, klass;
+-    st_table *list;
++    sa_table list = SA_EMPTY_TABLE;
+ 
+     if (argc == 0) {
+ 	recur = Qtrue;
+@@ -1122,20 +1083,18 @@ rb_obj_singleton_methods(int argc, VALUE *argv, VALUE obj)
+ 	rb_scan_args(argc, argv, "01", &recur);
+     }
+     klass = CLASS_OF(obj);
+-    list = st_init_numtable();
+     if (klass && FL_TEST(klass, FL_SINGLETON)) {
+-	st_foreach(RCLASS_M_TBL(klass), method_entry_i, (st_data_t)list);
++	sa_foreach(RCLASS_M_TBL(klass), method_entry_i, (st_data_t)&list);
+ 	klass = RCLASS_SUPER(klass);
+     }
+     if (RTEST(recur)) {
+ 	while (klass && (FL_TEST(klass, FL_SINGLETON) || TYPE(klass) == T_ICLASS)) {
+-	    st_foreach(RCLASS_M_TBL(klass), method_entry_i, (st_data_t)list);
++	    sa_foreach(RCLASS_M_TBL(klass), method_entry_i, (st_data_t)&list);
+ 	    klass = RCLASS_SUPER(klass);
+ 	}
+     }
+     ary = rb_ary_new();
+-    st_foreach(list, ins_methods_i, ary);
+-    st_free_table(list);
++    sa_foreach(&list, ins_methods_i, ary);
+ 
+     return ary;
+ }
+diff --git a/common.mk b/common.mk
+index 1d8e442..0d767ab 100644
+--- a/common.mk
++++ b/common.mk
+@@ -79,6 +79,7 @@ COMMONOBJS    = array.$(OBJEXT) \
+ 		safe.$(OBJEXT) \
+ 		signal.$(OBJEXT) \
+ 		sprintf.$(OBJEXT) \
++		sp_ar.$(OBJEXT) \
+ 		st.$(OBJEXT) \
+ 		strftime.$(OBJEXT) \
+ 		string.$(OBJEXT) \
+@@ -703,6 +704,7 @@ signal.$(OBJEXT): {$(VPATH)}signal.c $(RUBY_H_INCLUDES) \
+   $(VM_CORE_H_INCLUDES) {$(VPATH)}debug.h
+ sprintf.$(OBJEXT): {$(VPATH)}sprintf.c $(RUBY_H_INCLUDES) {$(VPATH)}re.h \
+   {$(VPATH)}regex.h {$(VPATH)}vsnprintf.c $(ENCODING_H_INCLUDES)
++sp_ar.$(OBJEXT): {$(VPATH)}sp_ar.c $(RUBY_H_INCLUDES)
+ st.$(OBJEXT): {$(VPATH)}st.c $(RUBY_H_INCLUDES) {$(VPATH)}pool_alloc.h
+ strftime.$(OBJEXT): {$(VPATH)}strftime.c $(RUBY_H_INCLUDES) \
+   {$(VPATH)}timev.h
+diff --git a/constant.h b/constant.h
+index 8232910..9106847 100644
+--- a/constant.h
++++ b/constant.h
+@@ -23,7 +23,7 @@ typedef struct rb_const_entry_struct {
+ 
+ VALUE rb_mod_private_constant(int argc, VALUE *argv, VALUE obj);
+ VALUE rb_mod_public_constant(int argc, VALUE *argv, VALUE obj);
+-void rb_free_const_table(st_table *tbl);
++void rb_free_const_table(sa_table *tbl);
+ VALUE rb_public_const_get(VALUE klass, ID id);
+ VALUE rb_public_const_get_at(VALUE klass, ID id);
+ VALUE rb_public_const_get_from(VALUE klass, ID id);
+diff --git a/ext/objspace/objspace.c b/ext/objspace/objspace.c
+index 66e33a3..4b31f92 100644
+--- a/ext/objspace/objspace.c
++++ b/ext/objspace/objspace.c
+@@ -60,20 +60,10 @@ memsize_of(VALUE obj)
+ 	break;
+       case T_MODULE:
+       case T_CLASS:
+-	size += st_memsize(RCLASS_M_TBL(obj));
+-	if (RCLASS_IV_TBL(obj)) {
+-	    size += st_memsize(RCLASS_IV_TBL(obj));
+-	}
+-	if (RCLASS_IV_INDEX_TBL(obj)) {
+-	    size += st_memsize(RCLASS_IV_INDEX_TBL(obj));
+-	}
+-	if (RCLASS(obj)->ptr->iv_tbl) {
+-	    size += st_memsize(RCLASS(obj)->ptr->iv_tbl);
+-	}
+-	if (RCLASS(obj)->ptr->const_tbl) {
+-	    size += st_memsize(RCLASS(obj)->ptr->const_tbl);
+-	}
+-	size += sizeof(rb_classext_t);
++	size += sa_memsize(RCLASS_M_TBL(obj));
++        size += sa_memsize(RCLASS_IV_TBL(obj));
++        size += sa_memsize(RCLASS_IV_INDEX_TBL(obj));
++        size += sa_memsize(RCLASS_CONST_TBL(obj));
+ 	break;
+       case T_STRING:
+ 	size += rb_str_memsize(obj);
+diff --git a/gc.c b/gc.c
+index 7f78316..95875da 100644
+--- a/gc.c
++++ b/gc.c
+@@ -688,7 +688,7 @@ rb_objspace_free(rb_objspace_t *objspace)
+ 
+ #define HEAP_OBJ_LIMIT (unsigned int)(HEAP_SIZE / sizeof(struct RVALUE))
+ 
+-extern st_table *rb_class_tbl;
++extern sa_table rb_class_tbl;
+ 
+ int ruby_disable_gc_stress = 0;
+ 
+@@ -2352,6 +2352,15 @@ mark_tbl(rb_objspace_t *objspace, st_table *tbl)
+     st_foreach(tbl, mark_entry, (st_data_t)&arg);
+ }
+ 
++static void
++mark_sa_tbl(rb_objspace_t *objspace, sa_table *tbl)
++{
++    if (!tbl) return;
++    SA_FOREACH_START(tbl);
++    gc_mark(objspace, (VALUE)value);
++    SA_FOREACH_END();
++}
++
+ static int
+ mark_key(VALUE key, VALUE value, st_data_t data)
+ {
+@@ -2428,74 +2437,52 @@ rb_mark_method_entry(const rb_method_entry_t *me)
+     mark_method_entry(&rb_objspace, me);
+ }
+ 
+-static int
+-mark_method_entry_i(ID key, const rb_method_entry_t *me, st_data_t data)
+-{
+-    struct mark_tbl_arg *arg = (void*)data;
+-    mark_method_entry(arg->objspace, me);
+-    return ST_CONTINUE;
+-}
+-
+ static void
+-mark_m_tbl(rb_objspace_t *objspace, st_table *tbl)
+-{
+-    struct mark_tbl_arg arg;
+-    if (!tbl) return;
+-    arg.objspace = objspace;
+-    st_foreach(tbl, mark_method_entry_i, (st_data_t)&arg);
+-}
+-
+-static int
+-free_method_entry_i(ID key, rb_method_entry_t *me, st_data_t data)
++mark_m_tbl(rb_objspace_t *objspace, sa_table *tbl)
+ {
+-    if (!me->mark) {
+-	rb_free_method_entry(me);
+-    }
+-    return ST_CONTINUE;
++    SA_FOREACH_START(tbl);
++    mark_method_entry(objspace, (const rb_method_entry_t*)value);
++    SA_FOREACH_END();
+ }
+ 
+ void
+-rb_free_m_table(st_table *tbl)
++rb_free_m_table(sa_table *tbl)
+ {
+-    st_foreach(tbl, free_method_entry_i, 0);
+-    st_free_table(tbl);
+-}
+-
+-static int
+-mark_const_entry_i(ID key, const rb_const_entry_t *ce, st_data_t data)
+-{
+-    struct mark_tbl_arg *arg = (void*)data;
+-    gc_mark(arg->objspace, ce->value);
+-    return ST_CONTINUE;
++    SA_FOREACH_START(tbl);
++    if (!((rb_method_entry_t*)value)->mark) {
++	rb_free_method_entry((rb_method_entry_t*)value);
++    }
++    SA_FOREACH_END();
++    sa_clear(tbl);
+ }
+ 
+ static void
+-mark_const_tbl(rb_objspace_t *objspace, st_table *tbl)
++mark_const_tbl(rb_objspace_t *objspace, sa_table *tbl)
+ {
+-    struct mark_tbl_arg arg;
+-    if (!tbl) return;
+-    arg.objspace = objspace;
+-    st_foreach(tbl, mark_const_entry_i, (st_data_t)&arg);
++    SA_FOREACH_START(tbl);
++    gc_mark(objspace, ((const rb_const_entry_t*)value)->value);
++    SA_FOREACH_END();
+ }
+ 
+-static int
+-free_const_entry_i(ID key, rb_const_entry_t *ce, st_data_t data)
++void
++rb_free_const_table(sa_table *tbl)
+ {
+-    xfree(ce);
+-    return ST_CONTINUE;
++    SA_FOREACH_START(tbl);
++    xfree((rb_const_entry_t*)value);
++    SA_FOREACH_END();
++    sa_clear(tbl);
+ }
+ 
+ void
+-rb_free_const_table(st_table *tbl)
++rb_mark_tbl(st_table *tbl)
+ {
+-    st_foreach(tbl, free_const_entry_i, 0);
+-    st_free_table(tbl);
++    mark_tbl(&rb_objspace, tbl);
+ }
+ 
+ void
+-rb_mark_tbl(st_table *tbl)
++rb_mark_sa_tbl(sa_table *tbl)
+ {
+-    mark_tbl(&rb_objspace, tbl);
++    mark_sa_tbl(&rb_objspace, tbl);
+ }
+ 
+ void
+@@ -2703,7 +2690,7 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr)
+       case T_CLASS:
+       case T_MODULE:
+ 	mark_m_tbl(objspace, RCLASS_M_TBL(obj));
+-	mark_tbl(objspace, RCLASS_IV_TBL(obj));
++	mark_sa_tbl(objspace, RCLASS_IV_TBL(obj));
+ 	mark_const_tbl(objspace, RCLASS_CONST_TBL(obj));
+ 	ptr = RCLASS_SUPER(obj);
+ 	goto again;
+@@ -3278,15 +3265,11 @@ obj_free(rb_objspace_t *objspace, VALUE obj)
+       case T_CLASS:
+ 	rb_clear_cache_by_class((VALUE)obj);
+ 	rb_free_m_table(RCLASS_M_TBL(obj));
+-	if (RCLASS_IV_TBL(obj)) {
+-	    st_free_table(RCLASS_IV_TBL(obj));
+-	}
+-	if (RCLASS_CONST_TBL(obj)) {
+-	    rb_free_const_table(RCLASS_CONST_TBL(obj));
+-	}
+-	if (RCLASS_IV_INDEX_TBL(obj)) {
+-	    st_free_table(RCLASS_IV_INDEX_TBL(obj));
+-	}
++        sa_clear(RCLASS_IV_TBL(obj));
++        rb_free_const_table(RCLASS_CONST_TBL(obj));
++        sa_clear(RCLASS_IV_INDEX_TBL(obj));
++        sa_clear(&RCLASS(obj)->cache->m_cache_tbl);
++        xfree(RCLASS(obj)->cache);
+         xfree(RANY(obj)->as.klass.ptr);
+ 	break;
+       case T_STRING:
+@@ -3338,8 +3321,9 @@ obj_free(rb_objspace_t *objspace, VALUE obj)
+       case T_COMPLEX:
+ 	break;
+       case T_ICLASS:
++        sa_clear(&RCLASS(obj)->cache->m_cache_tbl);
++        xfree(RCLASS(obj)->cache);
+ 	/* iClass shares table with the module */
+-	xfree(RANY(obj)->as.klass.ptr);
+ 	break;
+ 
+       case T_FLOAT:
+@@ -3454,7 +3438,7 @@ gc_marks(rb_objspace_t *objspace)
+     rb_mark_end_proc();
+     rb_gc_mark_global_tbl();
+ 
+-    mark_tbl(objspace, rb_class_tbl);
++    mark_sa_tbl(objspace, &rb_class_tbl);
+ 
+     /* mark generic instance variables for special constants */
+     rb_mark_generic_ivar_tbl();
+diff --git a/include/ruby/intern.h b/include/ruby/intern.h
+index ab1cc94..53ca8b0 100644
+--- a/include/ruby/intern.h
++++ b/include/ruby/intern.h
+@@ -415,6 +415,7 @@ size_t ruby_stack_length(VALUE**);
+ int rb_during_gc(void);
+ void rb_gc_mark_locations(VALUE*, VALUE*);
+ void rb_mark_tbl(struct st_table*);
++void rb_mark_sa_tbl(sa_table*);
+ void rb_mark_set(struct st_table*);
+ void rb_mark_hash(struct st_table*);
+ void rb_gc_mark_maybe(VALUE);
+@@ -848,7 +849,7 @@ VALUE rb_f_trace_var(int, VALUE*);
+ VALUE rb_f_untrace_var(int, VALUE*);
+ VALUE rb_f_global_variables(void);
+ void rb_alias_variable(ID, ID);
+-struct st_table* rb_generic_ivar_table(VALUE);
++sa_table* rb_generic_ivar_table(VALUE);
+ void rb_copy_generic_ivar(VALUE,VALUE);
+ void rb_mark_generic_ivar(VALUE);
+ void rb_mark_generic_ivar_tbl(void);
+diff --git a/include/ruby/ruby.h b/include/ruby/ruby.h
+index 2f97b33..1c84e14 100644
+--- a/include/ruby/ruby.h
++++ b/include/ruby/ruby.h
+@@ -605,7 +605,7 @@ struct RObject {
+ 	struct {
+ 	    long numiv;
+ 	    VALUE *ivptr;
+-            struct st_table *iv_index_tbl; /* shortcut for RCLASS_IV_INDEX_TBL(rb_obj_class(obj)) */
++            struct sa_table *iv_index_tbl; /* shortcut for RCLASS_IV_INDEX_TBL(rb_obj_class(obj)) */
+ 	} heap;
+ 	VALUE ary[ROBJECT_EMBED_LEN_MAX];
+     } as;
+@@ -626,12 +626,13 @@ struct RObject {
+ 
+ /** @internal */
+ typedef struct rb_classext_struct rb_classext_t;
++typedef struct rb_class_cache_struct rb_class_cache_t;
+ 
+ struct RClass {
+     struct RBasic basic;
++    VALUE super;
+     rb_classext_t *ptr;
+-    struct st_table *m_tbl;
+-    struct st_table *iv_index_tbl;
++    rb_class_cache_t *cache;
+ };
+ #define RCLASS_SUPER(c) rb_class_get_superclass(c)
+ #define RMODULE_IV_TBL(m) RCLASS_IV_TBL(m)
+diff --git a/include/ruby/st.h b/include/ruby/st.h
+index 119dfde..aff94fc 100644
+--- a/include/ruby/st.h
++++ b/include/ruby/st.h
+@@ -151,6 +151,51 @@ st_index_t st_hash_start(st_index_t h);
+ #pragma GCC visibility pop
+ #endif
+ 
++typedef unsigned int sa_index_t;
++#define SA_STOP     ST_STOP
++#define SA_CONTINUE ST_CONTINUE
++
++#define SA_EMPTY   0
++
++typedef struct sa_entry {
++    sa_index_t next;
++    sa_index_t key;
++    st_data_t value;
++} sa_entry;
++
++typedef struct sa_table {
++    sa_index_t num_bins;
++    sa_index_t num_entries;
++    sa_index_t free_pos;
++    sa_entry *entries;
++} sa_table;
++
++#define SA_EMPTY_TABLE {0, 0, 0, 0};
++void sa_init_table(sa_table *, sa_index_t);
++sa_table *sa_new_table();
++int  sa_insert(sa_table *, sa_index_t, st_data_t);
++int  sa_lookup(sa_table *, sa_index_t, st_data_t *);
++int  sa_delete(sa_table *, sa_index_t, st_data_t *);
++void sa_clear(sa_table *);
++void sa_clear_no_free(sa_table *);
++void sa_free_table(sa_table *);
++int  sa_foreach(sa_table *, int (*)(ANYARGS), st_data_t);
++size_t sa_memsize(const sa_table *);
++sa_table *sa_copy(sa_table*);
++void sa_copy_to(sa_table*, sa_table*);
++typedef int (*sa_iter_func)(sa_index_t key, st_data_t val, st_data_t arg);
++
++#define SA_FOREACH_START_I(table, entry) do { \
++    sa_table *T##entry = (table); \
++    sa_index_t K##entry; \
++    for(K##entry = 0; K##entry < T##entry->num_bins; K##entry++) { \
++	sa_entry *entry = T##entry->entries + K##entry; \
++	if (entry->next != SA_EMPTY) { \
++	    st_data_t value = entry->value
++#define SA_FOREACH_END() } } } while(0)
++
++#define SA_FOREACH_START(table) SA_FOREACH_START_I(table, entry)
++
+ #if defined(__cplusplus)
+ #if 0
+ { /* satisfy cc-mode */
+diff --git a/internal.h b/internal.h
+index f5af903..4af90b6 100644
+--- a/internal.h
++++ b/internal.h
+@@ -24,18 +24,24 @@ struct rb_deprecated_classext_struct {
+ };
+ 
+ struct rb_classext_struct {
+-    VALUE super;
+-    struct st_table *iv_tbl;
+-    struct st_table *const_tbl;
++    sa_table m_tbl;
++    sa_table iv_tbl;
++    sa_table const_tbl;
++    sa_table iv_index_tbl;
++};
++
++struct rb_class_cache_struct {
++    VALUE method_cache_version;
++    sa_table m_cache_tbl;
+ };
+ 
+ #undef RCLASS_SUPER
+ #define RCLASS_EXT(c) (RCLASS(c)->ptr)
+-#define RCLASS_SUPER(c) (RCLASS_EXT(c)->super)
+-#define RCLASS_IV_TBL(c) (RCLASS_EXT(c)->iv_tbl)
+-#define RCLASS_CONST_TBL(c) (RCLASS_EXT(c)->const_tbl)
+-#define RCLASS_M_TBL(c) (RCLASS(c)->m_tbl)
+-#define RCLASS_IV_INDEX_TBL(c) (RCLASS(c)->iv_index_tbl)
++#define RCLASS_SUPER(c) (RCLASS(c)->super)
++#define RCLASS_IV_TBL(c) (&RCLASS_EXT(c)->iv_tbl)
++#define RCLASS_CONST_TBL(c) (&RCLASS_EXT(c)->const_tbl)
++#define RCLASS_M_TBL(c) (&RCLASS_EXT(c)->m_tbl)
++#define RCLASS_IV_INDEX_TBL(c) (&RCLASS_EXT(c)->iv_index_tbl)
+ 
+ struct vtm; /* defined by timev.h */
+ 
+diff --git a/marshal.c b/marshal.c
+index 6ae3a55..48d9d9b 100644
+--- a/marshal.c
++++ b/marshal.c
+@@ -506,7 +506,7 @@ w_uclass(VALUE obj, VALUE super, struct dump_arg *arg)
+ }
+ 
+ static int
+-w_obj_each(ID id, VALUE value, struct dump_call_arg *arg)
++w_obj_each(sa_index_t id, VALUE value, struct dump_call_arg *arg)
+ {
+     if (id == rb_id_encoding()) return ST_CONTINUE;
+     if (id == rb_intern("E")) return ST_CONTINUE;
+@@ -553,13 +553,13 @@ w_encoding(VALUE obj, long num, struct dump_call_arg *arg)
+ }
+ 
+ static void
+-w_ivar(VALUE obj, st_table *tbl, struct dump_call_arg *arg)
++w_ivar(VALUE obj, sa_table *tbl, struct dump_call_arg *arg)
+ {
+     long num = tbl ? tbl->num_entries : 0;
+ 
+     w_encoding(obj, num, arg);
+     if (tbl) {
+-	st_foreach_safe(tbl, w_obj_each, (st_data_t)arg);
++	sa_foreach(tbl, w_obj_each, (st_data_t)arg);
+     }
+ }
+ 
+@@ -586,7 +586,7 @@ static void
+ w_object(VALUE obj, struct dump_arg *arg, int limit)
+ {
+     struct dump_call_arg c_arg;
+-    st_table *ivtbl = 0;
++    sa_table *ivtbl = 0;
+     st_data_t num;
+     int hasiv = 0;
+ #define has_ivars(obj, ivtbl) (((ivtbl) = rb_generic_ivar_table(obj)) != 0 || \
+@@ -651,7 +651,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
+ 	}
+ 	if (rb_respond_to(obj, s_dump)) {
+ 	    VALUE v;
+-            st_table *ivtbl2 = 0;
++            sa_table *ivtbl2 = 0;
+             int hasiv2;
+ 
+ 	    v = rb_funcall(obj, s_dump, 1, INT2NUM(limit));
+diff --git a/method.h b/method.h
+index 9229896..2fecd57 100644
+--- a/method.h
++++ b/method.h
+@@ -100,6 +100,6 @@ int rb_method_entry_eq(const rb_method_entry_t *m1, const rb_method_entry_t *m2)
+ void rb_mark_method_entry(const rb_method_entry_t *me);
+ void rb_free_method_entry(rb_method_entry_t *me);
+ void rb_sweep_method_entry(void *vm);
+-void rb_free_m_table(st_table *tbl);
++void rb_free_m_table(sa_table *tbl);
+ 
+ #endif /* METHOD_H */
+diff --git a/object.c b/object.c
+index e8cb328..d99323f 100644
+--- a/object.c
++++ b/object.c
+@@ -236,17 +236,8 @@ init_copy(VALUE dest, VALUE obj)
+         break;
+       case T_CLASS:
+       case T_MODULE:
+-	if (RCLASS_IV_TBL(dest)) {
+-	    st_free_table(RCLASS_IV_TBL(dest));
+-	    RCLASS_IV_TBL(dest) = 0;
+-	}
+-	if (RCLASS_CONST_TBL(dest)) {
+-	    rb_free_const_table(RCLASS_CONST_TBL(dest));
+-	    RCLASS_CONST_TBL(dest) = 0;
+-	}
+-	if (RCLASS_IV_TBL(obj)) {
+-	    RCLASS_IV_TBL(dest) = st_copy(RCLASS_IV_TBL(obj));
+-	}
++        rb_free_const_table(RCLASS_CONST_TBL(dest));
++        sa_copy_to(RCLASS_IV_TBL(obj), RCLASS_IV_TBL(dest));
+         break;
+     }
+ }
+@@ -537,7 +528,7 @@ rb_obj_is_kind_of(VALUE obj, VALUE c)
+     }
+ 
+     while (cl) {
+-	if (cl == c || RCLASS_M_TBL(cl) == RCLASS_M_TBL(c))
++	if (cl == c || RCLASS_EXT(cl) == RCLASS_EXT(c))
+ 	    return Qtrue;
+ 	cl = RCLASS_SUPER(cl);
+     }
+@@ -1362,13 +1353,13 @@ rb_class_inherited_p(VALUE mod, VALUE arg)
+ 	rb_raise(rb_eTypeError, "compared with non class/module");
+     }
+     while (mod) {
+-	if (RCLASS_M_TBL(mod) == RCLASS_M_TBL(arg))
++	if (RCLASS_EXT(mod) == RCLASS_EXT(arg))
+ 	    return Qtrue;
+ 	mod = RCLASS_SUPER(mod);
+     }
+     /* not mod < arg; check if mod > arg */
+     while (arg) {
+-	if (RCLASS_M_TBL(arg) == RCLASS_M_TBL(start))
++	if (RCLASS_EXT(arg) == RCLASS_EXT(start))
+ 	    return Qfalse;
+ 	arg = RCLASS_SUPER(arg);
+     }
+diff --git a/sp_ar.c b/sp_ar.c
+new file mode 100644
+index 0000000..2ed69bf
+--- /dev/null
++++ b/sp_ar.c
+@@ -0,0 +1,374 @@
++/*
++ * sparse array lib
++ * inspired by Lua table
++ * written by Sokolov Yura aka funny_falcon
++ */
++#ifdef NOT_RUBY
++#include "regint.h"
++#include "st.h"
++#else
++#include "ruby/ruby.h"
++#endif
++
++#include <stdio.h>
++#ifdef HAVE_STDLIB_H
++#include <stdlib.h>
++#endif
++#include <string.h>
++
++#ifdef RUBY
++#define malloc xmalloc
++#define calloc xcalloc
++#define realloc xrealloc
++#define free   xfree
++#endif
++
++#define sa_table_alloc()          (sa_table*)malloc(sizeof(sa_table))
++#define sa_table_xalloc()         (sa_table*)calloc(1, sizeof(sa_table))
++#define sa_table_dealloc(table)   free(table)
++#define sa_entry_alloc(n)         (sa_entry*)calloc((n), sizeof(sa_entry))
++#define sa_entry_dealloc(entries) free(entries)
++
++#define SA_LAST   1
++#define SA_OFFSET 2
++
++#define SA_MIN_SIZE 4
++
++void
++sa_init_table(register sa_table *table, sa_index_t num_bins)
++{
++    if (num_bins) {
++        table->num_entries = 0;
++        table->entries = sa_entry_alloc(num_bins);
++        table->num_bins = num_bins;
++        table->free_pos = num_bins;
++    }
++    else {
++        memset(table, 0, sizeof(sa_table));
++    }
++}
++
++sa_table*
++sa_new_table()
++{
++    sa_table* table = sa_table_alloc();
++    sa_init_table(table, 0);
++    return table;
++}
++
++static inline sa_index_t
++calc_pos(register sa_table* table, sa_index_t key)
++{
++    /* this formula is empirical */
++    /* it has no good avalance, but works well in our case */
++    key ^= key >> 16;
++    key *= 0x445229;
++    return (key + (key >> 16)) % table->num_bins;
++}
++
++static void
++fix_empty(register sa_table* table)
++{
++    while(--table->free_pos &&
++            table->entries[table->free_pos-1].next != SA_EMPTY);
++}
++
++#define FLOOR_TO_4 ((~((sa_index_t)0)) << 2)
++static sa_index_t
++find_empty(register sa_table* table, register sa_index_t pos)
++{
++    sa_index_t new_pos = table->free_pos-1;
++    sa_entry *entry;
++    pos &= FLOOR_TO_4;
++    entry = table->entries+pos;
++
++    if (entry->next == SA_EMPTY) { new_pos = pos; goto check; }
++    pos++; entry++;
++    if (entry->next == SA_EMPTY) { new_pos = pos; goto check; }
++    pos++; entry++;
++    if (entry->next == SA_EMPTY) { new_pos = pos; goto check; }
++    pos++; entry++;
++    if (entry->next == SA_EMPTY) { new_pos = pos; goto check; }
++
++check:
++    if (new_pos+1 == table->free_pos) fix_empty(table);
++    return new_pos;
++}
++
++static void resize(register sa_table* table);
++static int insert_into_chain(register sa_table*, register sa_index_t, st_data_t, sa_index_t pos);
++static int insert_into_main(register sa_table*, sa_index_t, st_data_t, sa_index_t pos, sa_index_t prev_pos);
++
++int
++sa_insert(register sa_table* table, register sa_index_t key, st_data_t value)
++{
++    sa_index_t pos, main_pos;
++    register sa_entry *entry;
++
++    if (table->num_bins == 0) {
++        sa_init_table(table, SA_MIN_SIZE);
++    }
++
++    pos = calc_pos(table, key);
++    entry = table->entries + pos;
++
++    if (entry->next == SA_EMPTY) {
++        entry->next = SA_LAST;
++        entry->key = key;
++        entry->value = value;
++        table->num_entries++;
++        if (pos+1 == table->free_pos) fix_empty(table);
++        return 0;
++    }
++
++    if (entry->key == key) {
++        entry->value = value;
++        return 1;
++    }
++
++    if (table->num_entries + (table->num_entries >> 2) > table->num_bins) {
++        resize(table);
++        return sa_insert(table, key, value);
++    }
++
++    main_pos = calc_pos(table, entry->key);
++    if (main_pos == pos) {
++        return insert_into_chain(table, key, value, pos);
++    }
++    else {
++        if (!table->free_pos) {
++            resize(table);
++            return sa_insert(table, key, value);
++        }
++        return insert_into_main(table, key, value, pos, main_pos);
++    }
++}
++
++static int
++insert_into_chain(register sa_table* table, register sa_index_t key, st_data_t value, sa_index_t pos)
++{
++    sa_entry *entry = table->entries + pos, *new_entry;
++    sa_index_t new_pos;
++
++    while (entry->next != SA_LAST) {
++        pos = entry->next - SA_OFFSET;
++        entry = table->entries + pos;
++        if (entry->key == key) {
++            entry->value = value;
++            return 1;
++        }
++    }
++
++    if (!table->free_pos) {
++        resize(table);
++        return sa_insert(table, key, value);
++    }
++
++    new_pos = find_empty(table, pos);
++    new_entry = table->entries + new_pos;
++    entry->next = new_pos + SA_OFFSET;
++
++    new_entry->next = SA_LAST;
++    new_entry->key = key;
++    new_entry->value = value;
++    table->num_entries++;
++    return 0;
++}
++
++static int
++insert_into_main(register sa_table* table, sa_index_t key, st_data_t value, sa_index_t pos, sa_index_t prev_pos)
++{
++    sa_entry *entry = table->entries + pos;
++    sa_index_t new_pos = find_empty(table, pos);
++    sa_entry *new_entry = table->entries + new_pos;
++    sa_index_t npos;
++
++    *new_entry = *entry;
++
++    while((npos = table->entries[prev_pos].next - SA_OFFSET) != pos) {
++        prev_pos = npos;
++    }
++    table->entries[prev_pos].next = new_pos + SA_OFFSET;
++
++    entry->next = SA_LAST;
++    entry->key = key;
++    entry->value = value;
++    table->num_entries++;
++    return 0;
++}
++
++static sa_index_t
++new_size(sa_index_t num_entries)
++{
++    sa_index_t msb = num_entries;
++    msb |= msb >> 1;
++    msb |= msb >> 2;
++    msb |= msb >> 4;
++    msb |= msb >> 8;
++    msb |= msb >> 16;
++    msb = ((msb >> 4) + 1) << 3;
++    return (num_entries & (msb | (msb >> 1))) + (msb >> 1);
++}
++
++static void
++resize(register sa_table *table)
++{
++    sa_table tmp_table;
++    sa_entry *entry;
++    sa_index_t i;
++
++    if (table->num_entries == 0) {
++        sa_entry_dealloc(table->entries);
++        memset(table, 0, sizeof(sa_table));
++        return;
++    }
++
++    sa_init_table(&tmp_table, new_size(table->num_entries + (table->num_entries >> 2)));
++    entry = table->entries;
++
++    for(i = 0; i < table->num_bins; i++, entry++) {
++        if (entry->next != SA_EMPTY) {
++            sa_insert(&tmp_table, entry->key, entry->value);
++        }
++    }
++    sa_entry_dealloc(table->entries);
++    *table = tmp_table;
++}
++
++int
++sa_lookup(register sa_table *table, register sa_index_t key, st_data_t *value)
++{
++    register sa_entry *entry;
++
++    if (table->num_entries == 0) return 0;
++
++    entry = table->entries + calc_pos(table, key);
++    if (entry->next == SA_EMPTY) return 0;
++
++    if (entry->key == key) goto found;
++    if (entry->next == SA_LAST) return 0;
++
++    entry = table->entries + (entry->next - SA_OFFSET);
++    if (entry->key == key) goto found;
++
++    while(entry->next != SA_LAST) {
++        entry = table->entries + (entry->next - SA_OFFSET);
++        if (entry->key == key) goto found;
++    }
++    return 0;
++found:
++    if (value) *value = entry->value;
++    return 1;
++}
++
++void
++sa_clear(sa_table *table)
++{
++    sa_entry_dealloc(table->entries);
++    memset(table, 0, sizeof(sa_table));
++}
++
++void
++sa_clear_no_free(sa_table *table)
++{
++    memset(table->entries, 0, sizeof(sa_entry) * table->num_bins);
++    table->num_entries = 0;
++    table->free_pos = table->num_bins;
++}
++
++void
++sa_free_table(sa_table *table)
++{
++    sa_entry_dealloc(table->entries);
++    sa_table_dealloc(table);
++}
++
++int
++sa_delete(sa_table *table, sa_index_t key, st_data_t *value)
++{
++    sa_index_t pos, prev_pos = ~0;
++    sa_entry *entry;
++
++    if (table->num_entries == 0) goto not_found;
++
++    pos = calc_pos(table, key);
++    entry = table->entries + pos;
++
++    if (entry->next == SA_EMPTY) goto not_found;
++
++    do {
++        if (entry->key == key) {
++            if (value) *value = entry->value;
++            if (entry->next != SA_LAST) {
++                sa_index_t npos = entry->next - SA_OFFSET;
++                *entry = table->entries[npos];
++                memset(table->entries + npos, 0, sizeof(sa_entry));
++            }
++            else {
++                memset(table->entries + pos, 0, sizeof(sa_entry));
++                if (~prev_pos) {
++                    table->entries[prev_pos].next = SA_LAST;
++                }
++            }
++            table->num_entries--;
++            if (table->num_entries < table->num_bins / 4) {
++                resize(table);
++            }
++            return 1;
++        }
++        if (entry->next == SA_LAST) break;
++        prev_pos = pos;
++        pos = entry->next - SA_OFFSET;
++        entry = table->entries + pos;
++    } while(1);
++
++not_found:
++    if (value) *value = 0;
++    return 0;
++}
++
++int
++sa_foreach(register sa_table *table, int (*func)(), st_data_t arg)
++{
++    sa_index_t i;
++    if (table->num_bins == 0) {
++        return 0;
++    }
++    for(i = 0; i < table->num_bins ; i++) {
++	if (table->entries[i].next != SA_EMPTY) {
++	    sa_index_t key = table->entries[i].key;
++	    st_data_t val = table->entries[i].value;
++	    if ((*func)(key, val, arg) == SA_STOP) break;
++	}
++    }
++    return 0;
++}
++
++size_t
++sa_memsize(const sa_table *table)
++{
++    return sizeof(sa_table) + table->num_bins * sizeof(sa_entry);
++}
++
++sa_table*
++sa_copy(sa_table *table)
++{
++    sa_table *new_table = sa_table_alloc();
++    *new_table = *table;
++    if (table->num_bins) {
++        new_table->entries = sa_entry_alloc(table->num_bins);
++        memcpy(new_table->entries, table->entries, table->num_bins*sizeof(sa_entry));
++    }
++    return new_table;
++}
++
++void
++sa_copy_to(sa_table *from, sa_table *to)
++{
++    sa_entry_dealloc(to->entries);
++    *to = *from;
++    if (to->num_bins) {
++	to->entries = sa_entry_alloc(to->num_bins);
++	memcpy(to->entries, from->entries, from->num_bins*sizeof(sa_entry));
++    }
++}
+diff --git a/test/ruby/test_marshal.rb b/test/ruby/test_marshal.rb
+index 0f3f794..2316c15 100644
+--- a/test/ruby/test_marshal.rb
++++ b/test/ruby/test_marshal.rb
+@@ -312,7 +312,7 @@ class TestMarshal < Test::Unit::TestCase
+         assert_equal(a.instance_variable_get(i), b.instance_variable_get(i), bug1932)
+       end
+     end
+-    a.__send__(a.methods(true).grep(/=\z/)[0], a)
++    a.__send__(a.methods(true).grep(/\Ar.+=\z/)[0], a)
+     assert_nothing_raised(bug1932) do
+       b = Marshal.load(Marshal.dump(a))
+       assert_equal(ClassISO8859_1, b.class, bug1932)
+diff --git a/test/ruby/test_method.rb b/test/ruby/test_method.rb
+index ea6c5f2..6ccd37c 100644
+--- a/test/ruby/test_method.rb
++++ b/test/ruby/test_method.rb
+@@ -406,7 +406,7 @@ class TestMethod < Test::Unit::TestCase
+     obj = a.new
+     assert_equal([:a], obj.public_methods(false), bug)
+     obj.extend(m)
+-    assert_equal([:m1, :a], obj.public_methods(false), bug)
++    assert_equal([:a, :m1], obj.public_methods(false).sort, bug)
+   end
+ 
+   def test_visibility
+diff --git a/test/ruby/test_module.rb b/test/ruby/test_module.rb
+index 6176f48..a67d845 100644
+--- a/test/ruby/test_module.rb
++++ b/test/ruby/test_module.rb
+@@ -870,7 +870,7 @@ class TestModule < Test::Unit::TestCase
+       (class << self ; self ; end).class_eval do
+         define_method :method_added do |sym|
+           memo << sym
+-          memo << mod.instance_methods(false)
++          memo << mod.instance_methods(false).sort
+           memo << (mod.instance_method(sym) rescue nil)
+         end
+       end
+@@ -887,10 +887,10 @@ class TestModule < Test::Unit::TestCase
+     assert_equal [:f, :g], memo.shift
+     assert_equal mod.instance_method(:f), memo.shift
+     assert_equal :a, memo.shift
+-    assert_equal [:f, :g, :a], memo.shift
++    assert_equal [:a, :f, :g], memo.shift
+     assert_equal mod.instance_method(:a), memo.shift
+     assert_equal :a=, memo.shift
+-    assert_equal [:f, :g, :a, :a=], memo.shift
++    assert_equal [:a, :a=, :f, :g], memo.shift
+     assert_equal mod.instance_method(:a=), memo.shift
+   end
+ 
+diff --git a/time.c b/time.c
+index 755812f..83edc83 100644
+--- a/time.c
++++ b/time.c
+@@ -4712,16 +4712,14 @@ time_mload(VALUE time, VALUE str)
+     long nsec;
+     VALUE submicro, nano_num, nano_den, offset;
+     wideval_t timew;
+-    st_data_t data;
+ 
+     time_modify(time);
+ 
+ #define get_attr(attr, iffound) \
+     attr = rb_attr_get(str, id_##attr); \
+     if (!NIL_P(attr)) { \
+-	data = id_##attr; \
+ 	iffound; \
+-        st_delete(rb_generic_ivar_table(str), &data, 0); \
++        sa_delete(rb_generic_ivar_table(str), (sa_index_t)id_##attr, 0); \
+     }
+ 
+     get_attr(nano_num, {});
+diff --git a/variable.c b/variable.c
+index 3da500e..4a61453 100644
+--- a/variable.c
++++ b/variable.c
+@@ -19,15 +19,15 @@
+ #include "constant.h"
+ #include "internal.h"
+ 
+-st_table *rb_global_tbl;
+-st_table *rb_class_tbl;
++sa_table rb_global_tbl;
++sa_table rb_class_tbl;
+ static ID autoload, classpath, tmp_classpath, classid;
+ 
+ void
+ Init_var_tables(void)
+ {
+-    rb_global_tbl = st_init_numtable();
+-    rb_class_tbl = st_init_numtable();
++    sa_init_table(&rb_global_tbl, 0);
++    sa_init_table(&rb_class_tbl, 0);
+     CONST_ID(autoload, "__autoload__");
+     CONST_ID(classpath, "__classpath__");
+     CONST_ID(tmp_classpath, "__tmp_classpath__");
+@@ -43,7 +43,7 @@ struct fc_result {
+ };
+ 
+ static VALUE
+-fc_path(struct fc_result *fc, ID name)
++fc_path(struct fc_result *fc, sa_index_t name)
+ {
+     VALUE path, tmp;
+ 
+@@ -51,8 +51,7 @@ fc_path(struct fc_result *fc, ID name)
+     while (fc) {
+ 	st_data_t n;
+ 	if (fc->track == rb_cObject) break;
+-	if (RCLASS_IV_TBL(fc->track) &&
+-	    st_lookup(RCLASS_IV_TBL(fc->track), (st_data_t)classpath, &n)) {
++	if (sa_lookup(RCLASS_IV_TBL(fc->track), (sa_index_t)classpath, &n)) {
+ 	    tmp = rb_str_dup((VALUE)n);
+ 	    rb_str_cat2(tmp, "::");
+ 	    rb_str_append(tmp, path);
+@@ -70,7 +69,7 @@ fc_path(struct fc_result *fc, ID name)
+ }
+ 
+ static int
+-fc_i(ID key, rb_const_entry_t *ce, struct fc_result *res)
++fc_i(sa_index_t key, rb_const_entry_t *ce, struct fc_result *res)
+ {
+     VALUE value = ce->value;
+     if (!rb_is_const_id(key)) return ST_CONTINUE;
+@@ -98,7 +97,7 @@ fc_i(ID key, rb_const_entry_t *ce, struct fc_result *res)
+ 	    arg.klass = res->klass;
+ 	    arg.track = value;
+ 	    arg.prev = res;
+-	    st_foreach(RCLASS_CONST_TBL(value), fc_i, (st_data_t)&arg);
++	    sa_foreach(RCLASS_CONST_TBL(value), fc_i, (st_data_t)&arg);
+ 	    if (arg.path) {
+ 		res->path = arg.path;
+ 		return ST_STOP;
+@@ -123,18 +122,14 @@ find_class_path(VALUE klass)
+     arg.track = rb_cObject;
+     arg.prev = 0;
+     if (RCLASS_CONST_TBL(rb_cObject)) {
+-	st_foreach_safe(RCLASS_CONST_TBL(rb_cObject), fc_i, (st_data_t)&arg);
++	sa_foreach(RCLASS_CONST_TBL(rb_cObject), fc_i, (st_data_t)&arg);
+     }
+     if (arg.path == 0) {
+-	st_foreach_safe(rb_class_tbl, fc_i, (st_data_t)&arg);
++	sa_foreach(&rb_class_tbl, fc_i, (st_data_t)&arg);
+     }
+     if (arg.path) {
+-	st_data_t tmp = tmp_classpath;
+-	if (!RCLASS_IV_TBL(klass)) {
+-	    RCLASS_IV_TBL(klass) = st_init_numtable();
+-	}
+-	st_insert(RCLASS_IV_TBL(klass), (st_data_t)classpath, arg.path);
+-	st_delete(RCLASS_IV_TBL(klass), &tmp, 0);
++	sa_insert(RCLASS_IV_TBL(klass), (sa_index_t)classpath, arg.path);
++	sa_delete(RCLASS_IV_TBL(klass), (sa_index_t)tmp_classpath, 0);
+ 	return arg.path;
+     }
+     return Qnil;
+@@ -147,16 +142,15 @@ classname(VALUE klass)
+     st_data_t n;
+ 
+     if (!klass) klass = rb_cObject;
+-    if (RCLASS_IV_TBL(klass)) {
+-	if (!st_lookup(RCLASS_IV_TBL(klass), (st_data_t)classpath, &n)) {
+-	    if (!st_lookup(RCLASS_IV_TBL(klass), (st_data_t)classid, &n)) {
++    if (RCLASS_IV_TBL(klass)->num_entries) {
++	if (!sa_lookup(RCLASS_IV_TBL(klass), (sa_index_t)classpath, &n)) {
++	    if (!sa_lookup(RCLASS_IV_TBL(klass), (sa_index_t)classid, &n)) {
+ 		return find_class_path(klass);
+ 	    }
+ 	    path = rb_str_dup(rb_id2str(SYM2ID((VALUE)n)));
+ 	    OBJ_FREEZE(path);
+-	    st_insert(RCLASS_IV_TBL(klass), (st_data_t)classpath, (st_data_t)path);
+-	    n = classid;
+-	    st_delete(RCLASS_IV_TBL(klass), &n, 0);
++	    sa_insert(RCLASS_IV_TBL(klass), (sa_index_t)classpath, (st_data_t)path);
++	    sa_delete(RCLASS_IV_TBL(klass), (sa_index_t)classid, 0);
+ 	}
+ 	else {
+ 	    path = (VALUE)n;
+@@ -192,8 +186,7 @@ rb_class_path(VALUE klass)
+     st_data_t n = (st_data_t)path;
+ 
+     if (!NIL_P(path)) return path;
+-    if (RCLASS_IV_TBL(klass) && st_lookup(RCLASS_IV_TBL(klass),
+-					  (st_data_t)tmp_classpath, &n)) {
++    if (sa_lookup(RCLASS_IV_TBL(klass), (sa_index_t)tmp_classpath, &n)) {
+ 	return (VALUE)n;
+     }
+     else {
+@@ -364,7 +357,7 @@ rb_global_entry(ID id)
+     struct global_entry *entry;
+     st_data_t data;
+ 
+-    if (!st_lookup(rb_global_tbl, (st_data_t)id, &data)) {
++    if (!sa_lookup(&rb_global_tbl, (sa_index_t)id, &data)) {
+ 	struct global_variable *var;
+ 	entry = ALLOC(struct global_entry);
+ 	var = ALLOC(struct global_variable);
+@@ -378,7 +371,7 @@ rb_global_entry(ID id)
+ 
+ 	var->block_trace = 0;
+ 	var->trace = 0;
+-	st_add_direct(rb_global_tbl, id, (st_data_t)entry);
++	sa_insert(&rb_global_tbl, (sa_index_t)id, (st_data_t)entry);
+     }
+     else {
+ 	entry = (struct global_entry *)data;
+@@ -454,8 +447,8 @@ readonly_setter(VALUE val, ID id, void *data, struct global_variable *gvar)
+     rb_name_error(id, "%s is a read-only variable", rb_id2name(id));
+ }
+ 
+-static int
+-mark_global_entry(ID key, struct global_entry *entry)
++static void
++mark_global_entry(struct global_entry *entry)
+ {
+     struct trace_var *trace;
+     struct global_variable *var = entry->var;
+@@ -466,14 +459,14 @@ mark_global_entry(ID key, struct global_entry *entry)
+ 	if (trace->data) rb_gc_mark_maybe(trace->data);
+ 	trace = trace->next;
+     }
+-    return ST_CONTINUE;
+ }
+ 
+ void
+ rb_gc_mark_global_tbl(void)
+ {
+-    if (rb_global_tbl)
+-        st_foreach_safe(rb_global_tbl, mark_global_entry, 0);
++    SA_FOREACH_START(&rb_global_tbl);
++    mark_global_entry((struct global_entry*) value);
++    SA_FOREACH_END();
+ }
+ 
+ static ID
+@@ -635,7 +628,7 @@ rb_f_untrace_var(int argc, VALUE *argv)
+     rb_secure(4);
+     rb_scan_args(argc, argv, "11", &var, &cmd);
+     id = rb_to_id(var);
+-    if (!st_lookup(rb_global_tbl, (st_data_t)id, &data)) {
++    if (!sa_lookup(&rb_global_tbl, (sa_index_t)id, &data)) {
+ 	rb_name_error(id, "undefined global variable %s", rb_id2name(id));
+     }
+ 
+@@ -742,13 +735,6 @@ rb_gvar_defined(struct global_entry *entry)
+     return Qtrue;
+ }
+ 
+-static int
+-gvar_i(ID key, struct global_entry *entry, VALUE ary)
+-{
+-    rb_ary_push(ary, ID2SYM(key));
+-    return ST_CONTINUE;
+-}
+-
+ /*
+  *  call-seq:
+  *     global_variables    -> array
+@@ -765,7 +751,9 @@ rb_f_global_variables(void)
+     char buf[2];
+     int i;
+ 
+-    st_foreach_safe(rb_global_tbl, gvar_i, ary);
++    SA_FOREACH_START(&rb_global_tbl);
++    rb_ary_push(ary, ID2SYM(entry->key));
++    SA_FOREACH_END();
+     buf[0] = '$';
+     for (i = 1; i <= 9; ++i) {
+ 	buf[1] = (char)(i + '0');
+@@ -784,10 +772,10 @@ rb_alias_variable(ID name1, ID name2)
+ 	rb_raise(rb_eSecurityError, "Insecure: can't alias global variable");
+ 
+     entry2 = rb_global_entry(name2);
+-    if (!st_lookup(rb_global_tbl, (st_data_t)name1, &data1)) {
++    if (!sa_lookup(&rb_global_tbl, (sa_index_t)name1, &data1)) {
+ 	entry1 = ALLOC(struct global_entry);
+ 	entry1->id = name1;
+-	st_add_direct(rb_global_tbl, name1, (st_data_t)entry1);
++	sa_insert(&rb_global_tbl, (sa_index_t)name1, (st_data_t)entry1);
+     }
+     else if ((entry1 = (struct global_entry *)data1)->var != entry2->var) {
+ 	struct global_variable *var = entry1->var;
+@@ -815,7 +803,7 @@ rb_alias_variable(ID name1, ID name2)
+ static int special_generic_ivar = 0;
+ static st_table *generic_iv_tbl;
+ 
+-st_table*
++sa_table*
+ rb_generic_ivar_table(VALUE obj)
+ {
+     st_data_t tbl;
+@@ -823,7 +811,7 @@ rb_generic_ivar_table(VALUE obj)
+     if (!FL_TEST(obj, FL_EXIVAR)) return 0;
+     if (!generic_iv_tbl) return 0;
+     if (!st_lookup(generic_iv_tbl, (st_data_t)obj, &tbl)) return 0;
+-    return (st_table *)tbl;
++    return (sa_table *)tbl;
+ }
+ 
+ static VALUE
+@@ -833,7 +821,7 @@ generic_ivar_get(VALUE obj, ID id, int warn)
+ 
+     if (generic_iv_tbl) {
+ 	if (st_lookup(generic_iv_tbl, (st_data_t)obj, &tbl)) {
+-	    if (st_lookup((st_table *)tbl, (st_data_t)id, &val)) {
++	    if (sa_lookup((sa_table *)tbl, (sa_index_t)id, &val)) {
+ 		return (VALUE)val;
+ 	    }
+ 	}
+@@ -847,7 +835,6 @@ generic_ivar_get(VALUE obj, ID id, int warn)
+ static void
+ generic_ivar_set(VALUE obj, ID id, VALUE val)
+ {
+-    st_table *tbl;
+     st_data_t data;
+ 
+     if (rb_special_const_p(obj)) {
+@@ -859,24 +846,22 @@ generic_ivar_set(VALUE obj, ID id, VALUE val)
+     }
+     if (!st_lookup(generic_iv_tbl, (st_data_t)obj, &data)) {
+ 	FL_SET(obj, FL_EXIVAR);
+-	tbl = st_init_numtable();
+-	st_add_direct(generic_iv_tbl, (st_data_t)obj, (st_data_t)tbl);
+-	st_add_direct(tbl, (st_data_t)id, (st_data_t)val);
+-	return;
++	data = (st_data_t)sa_new_table();
++	st_add_direct(generic_iv_tbl, (st_data_t)obj, data);
+     }
+-    st_insert((st_table *)data, (st_data_t)id, (st_data_t)val);
++    sa_insert((sa_table *)data, (sa_index_t)id, (st_data_t)val);
+ }
+ 
+ static VALUE
+ generic_ivar_defined(VALUE obj, ID id)
+ {
+-    st_table *tbl;
++    sa_table *tbl;
+     st_data_t data;
+ 
+     if (!generic_iv_tbl) return Qfalse;
+     if (!st_lookup(generic_iv_tbl, (st_data_t)obj, &data)) return Qfalse;
+-    tbl = (st_table *)data;
+-    if (st_lookup(tbl, (st_data_t)id, &data)) {
++    tbl = (sa_table *)data;
++    if (sa_lookup(tbl, (sa_index_t)id, &data)) {
+ 	return Qtrue;
+     }
+     return Qfalse;
+@@ -885,18 +870,18 @@ generic_ivar_defined(VALUE obj, ID id)
+ static int
+ generic_ivar_remove(VALUE obj, ID id, st_data_t *valp)
+ {
+-    st_table *tbl;
++    sa_table *tbl;
+     st_data_t data, key = (st_data_t)id;
+     int status;
+ 
+     if (!generic_iv_tbl) return 0;
+     if (!st_lookup(generic_iv_tbl, (st_data_t)obj, &data)) return 0;
+-    tbl = (st_table *)data;
+-    status = st_delete(tbl, &key, valp);
++    tbl = (sa_table *)data;
++    status = sa_delete(tbl, (sa_index_t)id, valp);
+     if (tbl->num_entries == 0) {
+ 	key = (st_data_t)obj;
+ 	st_delete(generic_iv_tbl, &key, &data);
+-	st_free_table((st_table *)data);
++	sa_free_table(tbl);
+     }
+     return status;
+ }
+@@ -908,22 +893,17 @@ rb_mark_generic_ivar(VALUE obj)
+ 
+     if (!generic_iv_tbl) return;
+     if (st_lookup(generic_iv_tbl, (st_data_t)obj, &tbl)) {
+-	rb_mark_tbl((st_table *)tbl);
++	rb_mark_sa_tbl((sa_table *)tbl);
+     }
+ }
+ 
+ static int
+-givar_mark_i(ID key, VALUE value)
+-{
+-    rb_gc_mark(value);
+-    return ST_CONTINUE;
+-}
+-
+-static int
+-givar_i(VALUE obj, st_table *tbl)
++givar_i(VALUE obj, sa_table *tbl)
+ {
+     if (rb_special_const_p(obj)) {
+-	st_foreach_safe(tbl, givar_mark_i, 0);
++        SA_FOREACH_START(tbl);
++        rb_gc_mark((VALUE)value);
++        SA_FOREACH_END();
+     }
+     return ST_CONTINUE;
+ }
+@@ -943,7 +923,7 @@ rb_free_generic_ivar(VALUE obj)
+ 
+     if (!generic_iv_tbl) return;
+     if (st_delete(generic_iv_tbl, &key, &tbl))
+-	st_free_table((st_table *)tbl);
++	sa_free_table((sa_table *)tbl);
+ }
+ 
+ RUBY_FUNC_EXPORTED size_t
+@@ -951,7 +931,7 @@ rb_generic_ivar_memsize(VALUE obj)
+ {
+     st_data_t tbl;
+     if (st_lookup(generic_iv_tbl, (st_data_t)obj, &tbl))
+-	return st_memsize((st_table *)tbl);
++	return sa_memsize((sa_table *)tbl);
+     return 0;
+ }
+ 
+@@ -970,17 +950,17 @@ rb_copy_generic_ivar(VALUE clone, VALUE obj)
+         return;
+     }
+     if (st_lookup(generic_iv_tbl, (st_data_t)obj, &data)) {
+-	st_table *tbl = (st_table *)data;
++	sa_table *tbl = (sa_table *)data;
+ 
+         if (tbl->num_entries == 0)
+             goto clear;
+ 
+ 	if (st_lookup(generic_iv_tbl, (st_data_t)clone, &data)) {
+-	    st_free_table((st_table *)data);
+-	    st_insert(generic_iv_tbl, (st_data_t)clone, (st_data_t)st_copy(tbl));
++	    sa_free_table((sa_table *)data);
++	    st_insert(generic_iv_tbl, (st_data_t)clone, (st_data_t)sa_copy(tbl));
+ 	}
+ 	else {
+-	    st_add_direct(generic_iv_tbl, (st_data_t)clone, (st_data_t)st_copy(tbl));
++	    st_add_direct(generic_iv_tbl, (st_data_t)clone, (st_data_t)sa_copy(tbl));
+ 	    FL_SET(clone, FL_EXIVAR);
+ 	}
+     }
+@@ -990,7 +970,7 @@ static VALUE
+ ivar_get(VALUE obj, ID id, int warn)
+ {
+     VALUE val, *ptr;
+-    struct st_table *iv_index_tbl;
++    sa_table *iv_index_tbl;
+     long len;
+     st_data_t index;
+ 
+@@ -1000,7 +980,7 @@ ivar_get(VALUE obj, ID id, int warn)
+         ptr = ROBJECT_IVPTR(obj);
+         iv_index_tbl = ROBJECT_IV_INDEX_TBL(obj);
+         if (!iv_index_tbl) break;
+-        if (!st_lookup(iv_index_tbl, (st_data_t)id, &index)) break;
++        if (!sa_lookup(iv_index_tbl, (sa_index_t)id, &index)) break;
+         if (len <= (long)index) break;
+         val = ptr[index];
+         if (val != Qundef)
+@@ -1008,7 +988,7 @@ ivar_get(VALUE obj, ID id, int warn)
+ 	break;
+       case T_CLASS:
+       case T_MODULE:
+-	if (RCLASS_IV_TBL(obj) && st_lookup(RCLASS_IV_TBL(obj), (st_data_t)id, &index))
++	if (sa_lookup(RCLASS_IV_TBL(obj), (sa_index_t)id, &index))
+ 	    return (VALUE)index;
+ 	break;
+       default:
+@@ -1037,7 +1017,7 @@ rb_attr_get(VALUE obj, ID id)
+ VALUE
+ rb_ivar_set(VALUE obj, ID id, VALUE val)
+ {
+-    struct st_table *iv_index_tbl;
++    struct sa_table *iv_index_tbl;
+     st_data_t index;
+     long i, len;
+     int ivar_extended;
+@@ -1051,14 +1031,11 @@ rb_ivar_set(VALUE obj, ID id, VALUE val)
+         if (!iv_index_tbl) {
+             VALUE klass = rb_obj_class(obj);
+             iv_index_tbl = RCLASS_IV_INDEX_TBL(klass);
+-            if (!iv_index_tbl) {
+-                iv_index_tbl = RCLASS_IV_INDEX_TBL(klass) = st_init_numtable();
+-            }
+         }
+         ivar_extended = 0;
+-        if (!st_lookup(iv_index_tbl, (st_data_t)id, &index)) {
++        if (!sa_lookup(iv_index_tbl, (sa_index_t)id, &index)) {
+             index = iv_index_tbl->num_entries;
+-            st_add_direct(iv_index_tbl, (st_data_t)id, index);
++            sa_insert(iv_index_tbl, (sa_index_t)id, index);
+             ivar_extended = 1;
+         }
+         len = ROBJECT_NUMIV(obj);
+@@ -1098,8 +1075,7 @@ rb_ivar_set(VALUE obj, ID id, VALUE val)
+ 	break;
+       case T_CLASS:
+       case T_MODULE:
+-	if (!RCLASS_IV_TBL(obj)) RCLASS_IV_TBL(obj) = st_init_numtable();
+-	st_insert(RCLASS_IV_TBL(obj), (st_data_t)id, val);
++	sa_insert(RCLASS_IV_TBL(obj), (sa_index_t)id, val);
+         break;
+       default:
+ 	generic_ivar_set(obj, id, val);
+@@ -1112,13 +1088,13 @@ VALUE
+ rb_ivar_defined(VALUE obj, ID id)
+ {
+     VALUE val;
+-    struct st_table *iv_index_tbl;
++    struct sa_table *iv_index_tbl;
+     st_data_t index;
+     switch (TYPE(obj)) {
+       case T_OBJECT:
+         iv_index_tbl = ROBJECT_IV_INDEX_TBL(obj);
+         if (!iv_index_tbl) break;
+-        if (!st_lookup(iv_index_tbl, (st_data_t)id, &index)) break;
++        if (!sa_lookup(iv_index_tbl, (sa_index_t)id, &index)) break;
+         if (ROBJECT_NUMIV(obj) <= (long)index) break;
+         val = ROBJECT_IVPTR(obj)[index];
+         if (val != Qundef)
+@@ -1126,7 +1102,7 @@ rb_ivar_defined(VALUE obj, ID id)
+ 	break;
+       case T_CLASS:
+       case T_MODULE:
+-	if (RCLASS_IV_TBL(obj) && st_lookup(RCLASS_IV_TBL(obj), (st_data_t)id, 0))
++	if (sa_lookup(RCLASS_IV_TBL(obj), (sa_index_t)id, 0))
+ 	    return Qtrue;
+ 	break;
+       default:
+@@ -1137,40 +1113,26 @@ rb_ivar_defined(VALUE obj, ID id)
+     return Qfalse;
+ }
+ 
+-struct obj_ivar_tag {
+-    VALUE obj;
+-    int (*func)(ID key, VALUE val, st_data_t arg);
+-    st_data_t arg;
+-};
+-
+-static int
+-obj_ivar_i(st_data_t key, st_data_t index, st_data_t arg)
+-{
+-    struct obj_ivar_tag *data = (struct obj_ivar_tag *)arg;
+-    if ((long)index < ROBJECT_NUMIV(data->obj)) {
+-        VALUE val = ROBJECT_IVPTR(data->obj)[(long)index];
+-        if (val != Qundef) {
+-            return (data->func)((ID)key, val, data->arg);
+-        }
+-    }
+-    return ST_CONTINUE;
+-}
+-
+ static void
+ obj_ivar_each(VALUE obj, int (*func)(ANYARGS), st_data_t arg)
+ {
+-    st_table *tbl;
+-    struct obj_ivar_tag data;
++    sa_table *tbl;
++    long numiv = ROBJECT_NUMIV(obj);
++    VALUE *vars = ROBJECT_IVPTR(obj);
+ 
+     tbl = ROBJECT_IV_INDEX_TBL(obj);
+-    if (!tbl)
++    if (!tbl || !numiv)
+         return;
+ 
+-    data.obj = obj;
+-    data.func = (int (*)(ID key, VALUE val, st_data_t arg))func;
+-    data.arg = arg;
+-
+-    st_foreach_safe(tbl, obj_ivar_i, (st_data_t)&data);
++    SA_FOREACH_START(tbl);
++    if ((long)value < numiv) {
++	VALUE val = vars[value];
++	if (val != Qundef) {
++	    if (((sa_iter_func)func)(entry->key, val, arg) == SA_STOP)
++		break;
++	}
++    }
++    SA_FOREACH_END();
+ }
+ 
+ void
+@@ -1182,9 +1144,7 @@ rb_ivar_foreach(VALUE obj, int (*func)(ANYARGS), st_data_t arg)
+ 	break;
+       case T_CLASS:
+       case T_MODULE:
+-	if (RCLASS_IV_TBL(obj)) {
+-	    st_foreach_safe(RCLASS_IV_TBL(obj), func, arg);
+-	}
++        sa_foreach(RCLASS_IV_TBL(obj), func, arg);
+ 	break;
+       default:
+ 	if (!generic_iv_tbl) break;
+@@ -1192,7 +1152,7 @@ rb_ivar_foreach(VALUE obj, int (*func)(ANYARGS), st_data_t arg)
+ 	    st_data_t tbl;
+ 
+ 	    if (st_lookup(generic_iv_tbl, (st_data_t)obj, &tbl)) {
+-		st_foreach_safe((st_table *)tbl, func, arg);
++		sa_foreach((sa_table *)tbl, func, arg);
+ 	    }
+ 	}
+ 	break;
+@@ -1202,11 +1162,11 @@ rb_ivar_foreach(VALUE obj, int (*func)(ANYARGS), st_data_t arg)
+ st_index_t
+ rb_ivar_count(VALUE obj)
+ {
+-    st_table *tbl;
++    sa_table *tbl;
+     switch (TYPE(obj)) {
+       case T_OBJECT:
+ 	if ((tbl = ROBJECT_IV_INDEX_TBL(obj)) != 0) {
+-	    st_index_t i, count, num = tbl->num_entries;
++	    sa_index_t i, count, num = tbl->num_entries;
+ 	    const VALUE *const ivptr = ROBJECT_IVPTR(obj);
+ 	    for (i = count = 0; i < num; ++i) {
+ 		if (ivptr[i] != Qundef) {
+@@ -1228,7 +1188,7 @@ rb_ivar_count(VALUE obj)
+ 	    st_data_t data;
+ 
+ 	    if (st_lookup(generic_iv_tbl, (st_data_t)obj, &data) &&
+-		(tbl = (st_table *)data) != 0) {
++		(tbl = (sa_table *)data) != 0) {
+ 		return tbl->num_entries;
+ 	    }
+ 	}
+@@ -1238,7 +1198,7 @@ rb_ivar_count(VALUE obj)
+ }
+ 
+ static int
+-ivar_i(ID key, VALUE val, VALUE ary)
++ivar_i(sa_index_t key, VALUE val, VALUE ary)
+ {
+     if (rb_is_instance_id(key)) {
+ 	rb_ary_push(ary, ID2SYM(key));
+@@ -1301,7 +1261,7 @@ rb_obj_remove_instance_variable(VALUE obj, VALUE name)
+     VALUE val = Qnil;
+     const ID id = rb_to_id(name);
+     st_data_t n, v;
+-    struct st_table *iv_index_tbl;
++    struct sa_table *iv_index_tbl;
+     st_data_t index;
+ 
+     if (!OBJ_UNTRUSTED(obj) && rb_safe_level() >= 4)
+@@ -1315,7 +1275,7 @@ rb_obj_remove_instance_variable(VALUE obj, VALUE name)
+       case T_OBJECT:
+         iv_index_tbl = ROBJECT_IV_INDEX_TBL(obj);
+         if (!iv_index_tbl) break;
+-        if (!st_lookup(iv_index_tbl, (st_data_t)id, &index)) break;
++        if (!sa_lookup(iv_index_tbl, (sa_index_t)id, &index)) break;
+         if (ROBJECT_NUMIV(obj) <= (long)index) break;
+         val = ROBJECT_IVPTR(obj)[index];
+         if (val != Qundef) {
+@@ -1326,14 +1286,14 @@ rb_obj_remove_instance_variable(VALUE obj, VALUE name)
+       case T_CLASS:
+       case T_MODULE:
+ 	n = id;
+-	if (RCLASS_IV_TBL(obj) && st_delete(RCLASS_IV_TBL(obj), &n, &v)) {
++	if (sa_delete(RCLASS_IV_TBL(obj), (sa_index_t)id, &v)) {
+ 	    return (VALUE)v;
+ 	}
+ 	break;
+       default:
+ 	if (FL_TEST(obj, FL_EXIVAR) || rb_special_const_p(obj)) {
+ 	    v = val;
+-	    if (generic_ivar_remove(obj, (st_data_t)id, &v)) {
++	    if (generic_ivar_remove(obj, id, &v)) {
+ 		return (VALUE)v;
+ 	    }
+ 	}
+@@ -1410,20 +1370,20 @@ rb_mod_const_missing(VALUE klass, VALUE name)
+ static void
+ autoload_mark(void *ptr)
+ {
+-    rb_mark_tbl((st_table *)ptr);
++    rb_mark_sa_tbl((sa_table *)ptr);
+ }
+ 
+ static void
+ autoload_free(void *ptr)
+ {
+-    st_free_table((st_table *)ptr);
++    sa_free_table((sa_table *)ptr);
+ }
+ 
+ static size_t
+ autoload_memsize(const void *ptr)
+ {
+-    const st_table *tbl = ptr;
+-    return st_memsize(tbl);
++    const sa_table *tbl = ptr;
++    return sa_memsize(tbl);
+ }
+ 
+ static const rb_data_type_t autoload_data_type = {
+@@ -1432,14 +1392,14 @@ static const rb_data_type_t autoload_data_type = {
+ };
+ 
+ #define check_autoload_table(av) \
+-    (struct st_table *)rb_check_typeddata((av), &autoload_data_type)
++    (struct sa_table *)rb_check_typeddata((av), &autoload_data_type)
+ 
+ void
+ rb_autoload(VALUE mod, ID id, const char *file)
+ {
+     st_data_t av;
+     VALUE fn;
+-    struct st_table *tbl;
++    struct sa_table *tbl;
+ 
+     if (!rb_is_const_id(id)) {
+ 	rb_raise(rb_eNameError, "autoload must be constant name: %s", rb_id2name(id));
+@@ -1448,43 +1408,41 @@ rb_autoload(VALUE mod, ID id, const char *file)
+ 	rb_raise(rb_eArgError, "empty file name");
+     }
+ 
+-    if ((tbl = RCLASS_CONST_TBL(mod)) && st_lookup(tbl, (st_data_t)id, &av) && ((rb_const_entry_t*)av)->value != Qundef)
++    if (sa_lookup(RCLASS_CONST_TBL(mod), (sa_index_t)id, &av) && ((rb_const_entry_t*)av)->value != Qundef)
+ 	return;
+ 
+     rb_const_set(mod, id, Qundef);
+     tbl = RCLASS_IV_TBL(mod);
+-    if (tbl && st_lookup(tbl, (st_data_t)autoload, &av)) {
++    if (sa_lookup(tbl, (sa_index_t)autoload, &av)) {
+ 	tbl = check_autoload_table((VALUE)av);
+     }
+     else {
+-	if (!tbl) tbl = RCLASS_IV_TBL(mod) = st_init_numtable();
+ 	av = (st_data_t)TypedData_Wrap_Struct(0, &autoload_data_type, 0);
+-	st_add_direct(tbl, (st_data_t)autoload, av);
+-	DATA_PTR(av) = tbl = st_init_numtable();
++	sa_insert(tbl, (sa_index_t)autoload, av);
++	DATA_PTR(av) = tbl = sa_new_table();
+     }
+     fn = rb_str_new2(file);
+     FL_UNSET(fn, FL_TAINT);
+     OBJ_FREEZE(fn);
+-    st_insert(tbl, (st_data_t)id, (st_data_t)rb_node_newnode(NODE_MEMO, fn, rb_safe_level(), 0));
++    sa_insert(tbl, (sa_index_t)id, (st_data_t)rb_node_newnode(NODE_MEMO, fn, rb_safe_level(), 0));
+ }
+ 
+ static NODE*
+ autoload_delete(VALUE mod, ID id)
+ {
+-    st_data_t val, load = 0, n = id;
++    st_data_t val, load = 0;
+     rb_const_entry_t *ce;
+ 
+-    st_delete(RCLASS_CONST_TBL(mod), &n, &val);
++    sa_delete(RCLASS_CONST_TBL(mod), (sa_index_t)id, &val);
+     ce = (rb_const_entry_t*)val;
+     if (ce) xfree(ce);
+-    if (st_lookup(RCLASS_IV_TBL(mod), (st_data_t)autoload, &val)) {
+-	struct st_table *tbl = check_autoload_table((VALUE)val);
++    if (sa_lookup(RCLASS_IV_TBL(mod), (sa_index_t)autoload, &val)) {
++	struct sa_table *tbl = check_autoload_table((VALUE)val);
+ 
+-	st_delete(tbl, &n, &load);
++	sa_delete(tbl, (sa_index_t)id, &load);
+ 
+ 	if (tbl->num_entries == 0) {
+-	    n = autoload;
+-	    st_delete(RCLASS_IV_TBL(mod), &n, &val);
++	    sa_delete(RCLASS_IV_TBL(mod), (sa_index_t)autoload, &val);
+ 	}
+     }
+ 
+@@ -1509,14 +1467,14 @@ static NODE *
+ autoload_node(VALUE mod, ID id, const char **loadingpath)
+ {
+     VALUE file;
+-    struct st_table *tbl;
++    struct sa_table *tbl;
+     st_data_t val;
+     NODE *load;
+     const char *loading;
+     int safe;
+ 
+-    if (!st_lookup(RCLASS_IV_TBL(mod), autoload, &val) ||
+-	!(tbl = check_autoload_table((VALUE)val)) || !st_lookup(tbl, (st_data_t)id, &val)) {
++    if (!sa_lookup(RCLASS_IV_TBL(mod), (sa_index_t)autoload, &val) ||
++	!(tbl = check_autoload_table((VALUE)val)) || !sa_lookup(tbl, (sa_index_t)id, &val)) {
+ 	return 0;
+     }
+     load = (NODE *)val;
+@@ -1541,10 +1499,10 @@ autoload_node(VALUE mod, ID id, const char **loadingpath)
+ static int
+ autoload_node_id(VALUE mod, ID id)
+ {
+-    struct st_table *tbl = RCLASS_CONST_TBL(mod);
++    struct sa_table *tbl = RCLASS_CONST_TBL(mod);
+     st_data_t val;
+ 
+-    if (!tbl || !st_lookup(tbl, (st_data_t)id, &val) || ((rb_const_entry_t*)val)->value != Qundef) {
++    if (!tbl || !sa_lookup(tbl, (sa_index_t)id, &val) || ((rb_const_entry_t*)val)->value != Qundef) {
+ 	return 0;
+     }
+     return 1;
+@@ -1593,7 +1551,7 @@ rb_const_get_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
+     while (RTEST(tmp)) {
+ 	VALUE am = 0;
+ 	st_data_t data;
+-	while (RCLASS_CONST_TBL(tmp) && st_lookup(RCLASS_CONST_TBL(tmp), (st_data_t)id, &data)) {
++	while (sa_lookup(RCLASS_CONST_TBL(tmp), (sa_index_t)id, &data)) {
+ 	    rb_const_entry_t *ce = (rb_const_entry_t *)data;
+ 	    if (visibility && ce->flag == CONST_PRIVATE) {
+ 		rb_name_error(id, "private constant %s::%s referenced", rb_class2name(klass), rb_id2name(id));
+@@ -1686,12 +1644,12 @@ VALUE
+ rb_const_remove(VALUE mod, ID id)
+ {
+     VALUE val;
+-    st_data_t v, n = id;
++    st_data_t v;
+ 
+     if (!OBJ_UNTRUSTED(mod) && rb_safe_level() >= 4)
+ 	rb_raise(rb_eSecurityError, "Insecure: can't remove constant");
+     rb_check_frozen(mod);
+-    if (!RCLASS_CONST_TBL(mod) || !st_delete(RCLASS_CONST_TBL(mod), &n, &v)) {
++    if (!sa_delete(RCLASS_CONST_TBL(mod), (sa_index_t)id, &v)) {
+ 	if (rb_const_defined_at(mod, id)) {
+ 	    rb_name_error(id, "cannot remove %s::%s",
+ 			  rb_class2name(mod), rb_id2name(id));
+@@ -1711,27 +1669,20 @@ rb_const_remove(VALUE mod, ID id)
+     return val;
+ }
+ 
+-static int
+-sv_i(ID key, rb_const_entry_t *ce, st_table *tbl)
+-{
+-    if (rb_is_const_id(key)) {
+-	if (!st_lookup(tbl, (st_data_t)key, 0)) {
+-	    st_insert(tbl, (st_data_t)key, (st_data_t)ce);
+-	}
+-    }
+-    return ST_CONTINUE;
+-}
+-
+ void*
+ rb_mod_const_at(VALUE mod, void *data)
+ {
+-    st_table *tbl = data;
++    sa_table *tbl = data;
+     if (!tbl) {
+-	tbl = st_init_numtable();
++	tbl = sa_new_table();
+     }
+-    if (RCLASS_CONST_TBL(mod)) {
+-	st_foreach_safe(RCLASS_CONST_TBL(mod), sv_i, (st_data_t)tbl);
++    SA_FOREACH_START(RCLASS_CONST_TBL(mod));
++    if (rb_is_const_id(entry->key)) {
++	if (!sa_lookup(tbl, entry->key, 0)) {
++	    sa_insert(tbl, entry->key, value);
++	}
+     }
++    SA_FOREACH_END();
+     return tbl;
+ }
+ 
+@@ -1748,25 +1699,21 @@ rb_mod_const_of(VALUE mod, void *data)
+     return data;
+ }
+ 
+-static int
+-list_i(st_data_t key, st_data_t value, VALUE ary)
+-{
+-    ID sym = (ID)key;
+-    rb_const_entry_t *ce = (rb_const_entry_t *)value;
+-    if (ce->flag != CONST_PRIVATE) rb_ary_push(ary, ID2SYM(sym));
+-    return ST_CONTINUE;
+-}
+-
+ VALUE
+ rb_const_list(void *data)
+ {
+-    st_table *tbl = data;
++    sa_table *tbl = data;
+     VALUE ary;
+ 
+     if (!tbl) return rb_ary_new2(0);
+     ary = rb_ary_new2(tbl->num_entries);
+-    st_foreach_safe(tbl, list_i, ary);
+-    st_free_table(tbl);
++
++    SA_FOREACH_START(tbl);
++    rb_const_entry_t *ce = (rb_const_entry_t *)value;
++    if (ce->flag != CONST_PRIVATE) rb_ary_push(ary, ID2SYM(entry->key));
++    SA_FOREACH_END();
++
++    sa_free_table(tbl);
+ 
+     return ary;
+ }
+@@ -1790,7 +1737,7 @@ VALUE
+ rb_mod_constants(int argc, VALUE *argv, VALUE mod)
+ {
+     VALUE inherit;
+-    st_table *tbl;
++    sa_table *tbl;
+ 
+     if (argc == 0) {
+ 	inherit = Qtrue;
+@@ -1817,7 +1764,7 @@ rb_const_defined_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
+     tmp = klass;
+   retry:
+     while (tmp) {
+-	if (RCLASS_CONST_TBL(tmp) && st_lookup(RCLASS_CONST_TBL(tmp), (st_data_t)id, &value)) {
++	if (sa_lookup(RCLASS_CONST_TBL(tmp), (sa_index_t)id, &value)) {
+ 	    rb_const_entry_t *ce = (rb_const_entry_t *)value;
+ 	    if (visibility && ce->flag == CONST_PRIVATE) {
+ 		return (int)Qfalse;
+@@ -1885,6 +1832,7 @@ void
+ rb_const_set(VALUE klass, ID id, VALUE val)
+ {
+     rb_const_entry_t *ce;
++    st_data_t value;
+     VALUE visibility = CONST_PUBLIC;
+ 
+     if (NIL_P(klass)) {
+@@ -1893,21 +1841,14 @@ rb_const_set(VALUE klass, ID id, VALUE val)
+     }
+ 
+     check_before_mod_set(klass, id, val, "constant");
+-    if (!RCLASS_CONST_TBL(klass)) {
+-	RCLASS_CONST_TBL(klass) = st_init_numtable();
+-    }
+-    else {
+-	st_data_t value;
+-
+-	if (st_lookup(RCLASS_CONST_TBL(klass), (st_data_t)id, &value)) {
+-	    rb_const_entry_t *ce = (rb_const_entry_t*)value;
+-	    if (ce->value == Qundef)
+-		autoload_delete(klass, id);
+-	    else {
+-		visibility = ce->flag;
+-		rb_warn("already initialized constant %s", rb_id2name(id));
+-	    }
+-	}
++    if (sa_lookup(RCLASS_CONST_TBL(klass), (sa_index_t)id, &value)) {
++        rb_const_entry_t *ce = (rb_const_entry_t*)value;
++        if (ce->value == Qundef)
++            autoload_delete(klass, id);
++        else {
++            visibility = ce->flag;
++            rb_warn("already initialized constant %s", rb_id2name(id));
++        }
+     }
+ 
+     rb_vm_change_state();
+@@ -1916,7 +1857,7 @@ rb_const_set(VALUE klass, ID id, VALUE val)
+     ce->flag = (rb_const_flag_t)visibility;
+     ce->value = val;
+ 
+-    st_insert(RCLASS_CONST_TBL(klass), (st_data_t)id, (st_data_t)ce);
++    sa_insert(RCLASS_CONST_TBL(klass), (sa_index_t)id, (st_data_t)ce);
+ }
+ 
+ void
+@@ -1958,8 +1899,7 @@ set_const_visibility(VALUE mod, int argc, VALUE *argv, rb_const_flag_t flag)
+     for (i = 0; i < argc; i++) {
+ 	VALUE val = argv[i];
+ 	id = rb_to_id(val);
+-	if (RCLASS_CONST_TBL(mod) &&
+-	    st_lookup(RCLASS_CONST_TBL(mod), (st_data_t)id, &v)) {
++	if (sa_lookup(RCLASS_CONST_TBL(mod), (sa_index_t)id, &v)) {
+ 	    ((rb_const_entry_t*)v)->flag = flag;
+ 	}
+ 	else {
+@@ -2008,7 +1948,7 @@ original_module(VALUE c)
+ }
+ 
+ #define CVAR_LOOKUP(v,r) do {\
+-    if (RCLASS_IV_TBL(klass) && st_lookup(RCLASS_IV_TBL(klass),(st_data_t)id,(v))) {\
++    if (sa_lookup(RCLASS_IV_TBL(klass),(sa_index_t)id,(v))) {\
+ 	r;\
+     }\
+     if (FL_TEST(klass, FL_SINGLETON) ) {\
+@@ -2027,7 +1967,7 @@ original_module(VALUE c)
+ 	klass = RCLASS_SUPER(klass);\
+     }\
+     while (klass) {\
+-	if (RCLASS_IV_TBL(klass) && st_lookup(RCLASS_IV_TBL(klass),(st_data_t)id,(v))) {\
++	if (sa_lookup(RCLASS_IV_TBL(klass),(sa_index_t)id,(v))) {\
+ 	    r;\
+ 	}\
+ 	klass = RCLASS_SUPER(klass);\
+@@ -2043,15 +1983,13 @@ rb_cvar_set(VALUE klass, ID id, VALUE val)
+     CVAR_LOOKUP(0, {if (!front) front = klass; target = klass;});
+     if (target) {
+ 	if (front && target != front) {
+-	    st_data_t did = id;
+-
+ 	    if (RTEST(ruby_verbose)) {
+ 		rb_warning("class variable %s of %s is overtaken by %s",
+ 			   rb_id2name(id), rb_class2name(original_module(front)),
+ 			   rb_class2name(original_module(target)));
+ 	    }
+ 	    if (BUILTIN_TYPE(front) == T_CLASS) {
+-		st_delete(RCLASS_IV_TBL(front),&did,0);
++		sa_delete(RCLASS_IV_TBL(front),(sa_index_t)id,0);
+ 	    }
+ 	}
+     }
+@@ -2060,11 +1998,7 @@ rb_cvar_set(VALUE klass, ID id, VALUE val)
+     }
+ 
+     check_before_mod_set(target, id, val, "class variable");
+-    if (!RCLASS_IV_TBL(target)) {
+-	RCLASS_IV_TBL(target) = st_init_numtable();
+-    }
+-
+-    st_insert(RCLASS_IV_TBL(target), (st_data_t)id, (st_data_t)val);
++    sa_insert(RCLASS_IV_TBL(target), (sa_index_t)id, (st_data_t)val);
+ }
+ 
+ VALUE
+@@ -2080,15 +2014,13 @@ rb_cvar_get(VALUE klass, ID id)
+ 		      rb_id2name(id), rb_class2name(tmp));
+     }
+     if (front && target != front) {
+-	st_data_t did = id;
+-
+ 	if (RTEST(ruby_verbose)) {
+ 	    rb_warning("class variable %s of %s is overtaken by %s",
+ 		       rb_id2name(id), rb_class2name(original_module(front)),
+ 		       rb_class2name(original_module(target)));
+ 	}
+ 	if (BUILTIN_TYPE(front) == T_CLASS) {
+-	    st_delete(RCLASS_IV_TBL(front),&did,0);
++	    sa_delete(RCLASS_IV_TBL(front),(sa_index_t)id,0);
+ 	}
+     }
+     return (VALUE)value;
+@@ -2134,7 +2066,7 @@ rb_define_class_variable(VALUE klass, const char *name, VALUE val)
+ }
+ 
+ static int
+-cv_i(ID key, VALUE value, VALUE ary)
++cv_i(sa_index_t key, VALUE value, VALUE ary)
+ {
+     if (rb_is_class_id(key)) {
+ 	VALUE kval = ID2SYM(key);
+@@ -2167,7 +2099,7 @@ rb_mod_class_variables(VALUE obj)
+     VALUE ary = rb_ary_new();
+ 
+     if (RCLASS_IV_TBL(obj)) {
+-	st_foreach_safe(RCLASS_IV_TBL(obj), cv_i, ary);
++	sa_foreach(RCLASS_IV_TBL(obj), cv_i, ary);
+     }
+     return ary;
+ }
+@@ -2196,7 +2128,7 @@ VALUE
+ rb_mod_remove_cvar(VALUE mod, VALUE name)
+ {
+     const ID id = rb_to_id(name);
+-    st_data_t val, n = id;
++    st_data_t val;
+ 
+     if (!rb_is_class_id(id)) {
+ 	rb_name_error(id, "wrong class variable name %s", rb_id2name(id));
+@@ -2204,7 +2136,7 @@ rb_mod_remove_cvar(VALUE mod, VALUE name)
+     if (!OBJ_UNTRUSTED(mod) && rb_safe_level() >= 4)
+ 	rb_raise(rb_eSecurityError, "Insecure: can't remove class variable");
+     rb_check_frozen(mod);
+-    if (RCLASS_IV_TBL(mod) && st_delete(RCLASS_IV_TBL(mod), &n, &val)) {
++    if (RCLASS_IV_TBL(mod) && sa_delete(RCLASS_IV_TBL(mod), (sa_index_t)id, &val)) {
+ 	return (VALUE)val;
+     }
+     if (rb_cvar_defined(mod, id)) {
+diff --git a/vm.c b/vm.c
+index 4a97fba..ecfa90d 100644
+--- a/vm.c
++++ b/vm.c
+@@ -1046,7 +1046,7 @@ static void
+ add_opt_method(VALUE klass, ID mid, VALUE bop)
+ {
+     rb_method_entry_t *me;
+-    if (st_lookup(RCLASS_M_TBL(klass), mid, (void *)&me) && me->def &&
++    if (sa_lookup(RCLASS_M_TBL(klass), (sa_index_t)mid, (void *)&me) && me->def &&
+ 	me->def->type == VM_METHOD_TYPE_CFUNC) {
+ 	st_insert(vm_opt_method_table, (st_data_t)me, (st_data_t)bop);
+     }
+diff --git a/vm_insnhelper.c b/vm_insnhelper.c
+index 4f709e6..1bfd131 100644
+--- a/vm_insnhelper.c
++++ b/vm_insnhelper.c
+@@ -1183,7 +1183,7 @@ vm_get_ev_const(rb_thread_t *th, const rb_iseq_t *iseq,
+ 		st_data_t data;
+ 	      search_continue:
+ 		if (RCLASS_CONST_TBL(klass) &&
+-		    st_lookup(RCLASS_CONST_TBL(klass), id, &data)) {
++		    sa_lookup(RCLASS_CONST_TBL(klass), (sa_index_t)id, &data)) {
+ 		    val = ((rb_const_entry_t*)data)->value;
+ 		    if (val == Qundef) {
+ 			if (am == klass) break;
+@@ -1293,10 +1293,10 @@ vm_getivar(VALUE obj, ID id, IC ic)
+ 	    st_data_t index;
+ 	    long len = ROBJECT_NUMIV(obj);
+ 	    VALUE *ptr = ROBJECT_IVPTR(obj);
+-	    struct st_table *iv_index_tbl = ROBJECT_IV_INDEX_TBL(obj);
++	    struct sa_table *iv_index_tbl = ROBJECT_IV_INDEX_TBL(obj);
+ 
+ 	    if (iv_index_tbl) {
+-		if (st_lookup(iv_index_tbl, id, &index)) {
++		if (sa_lookup(iv_index_tbl, (sa_index_t)id, &index)) {
+ 		    if ((long)index < len) {
+ 			val = ptr[index];
+ 		    }
+@@ -1346,9 +1346,9 @@ vm_setivar(VALUE obj, ID id, VALUE val, IC ic)
+ 	    }
+ 	}
+ 	else {
+-	    struct st_table *iv_index_tbl = ROBJECT_IV_INDEX_TBL(obj);
++	    struct sa_table *iv_index_tbl = ROBJECT_IV_INDEX_TBL(obj);
+ 
+-	    if (iv_index_tbl && st_lookup(iv_index_tbl, (st_data_t)id, &index)) {
++	    if (iv_index_tbl && sa_lookup(iv_index_tbl, (sa_index_t)id, &index)) {
+ 		ic->ic_class = klass;
+ 		ic->ic_value.index = index;
+ 		ic->ic_vmstat = GET_VM_STATE_VERSION();
+diff --git a/vm_method.c b/vm_method.c
+index 6e33603..6567440 100644
+--- a/vm_method.c
++++ b/vm_method.c
+@@ -2,38 +2,33 @@
+  * This file is included by vm.c
+  */
+ 
+-#define CACHE_SIZE 0x800
+-#define CACHE_MASK 0x7ff
+-#define EXPR1(c,m) ((((c)>>3)^(m))&CACHE_MASK)
+-
+ static void rb_vm_check_redefinition_opt_method(const rb_method_entry_t *me);
+ 
+ static ID object_id, respond_to_missing;
+ static ID removed, singleton_removed, undefined, singleton_undefined;
+ static ID added, singleton_added, attached;
+ 
+-struct cache_entry {		/* method hash table. */
+-    VALUE filled_version;        /* filled state version */
+-    ID mid;			/* method's id */
+-    VALUE klass;		/* receiver's class */
+-    rb_method_entry_t *me;
+-};
+-
+-static struct cache_entry cache[CACHE_SIZE];
+ #define ruby_running (GET_VM()->running)
+ /* int ruby_running = 0; */
+ 
++static int
++methods_cache_clear_callback(void *vstart, void *vend, size_t stride, void *data)
++{
++    VALUE v = (VALUE)vstart;
++    for (; v != (VALUE)vend; v += stride) {
++	switch(BUILTIN_TYPE(v)) {
++	    case T_CLASS:
++	    case T_MODULE:
++	    case T_ICLASS:
++		RCLASS(v)->cache->method_cache_version = 0;
++	}
++    }
++    return 0;
++}
+ static void
+ vm_clear_global_method_cache(void)
+ {
+-    struct cache_entry *ent, *end;
+-
+-    ent = cache;
+-    end = ent + CACHE_SIZE;
+-    while (ent < end) {
+-	ent->filled_version = 0;
+-	ent++;
+-    }
++    rb_objspace_each_objects(methods_cache_clear_callback, NULL);
+ }
+ 
+ void
+@@ -162,7 +157,7 @@ rb_method_entry_make(VALUE klass, ID mid, rb_method_type_t type,
+ 		     rb_method_definition_t *def, rb_method_flag_t noex)
+ {
+     rb_method_entry_t *me;
+-    st_table *mtbl;
++    sa_table *mtbl;
+     st_data_t data;
+ 
+     if (NIL_P(klass)) {
+@@ -190,7 +185,7 @@ rb_method_entry_make(VALUE klass, ID mid, rb_method_type_t type,
+     mtbl = RCLASS_M_TBL(klass);
+ 
+     /* check re-definition */
+-    if (st_lookup(mtbl, mid, &data)) {
++    if (sa_lookup(mtbl, (sa_index_t)mid, &data)) {
+ 	rb_method_entry_t *old_me = (rb_method_entry_t *)data;
+ 	rb_method_definition_t *old_def = old_me->def;
+ 
+@@ -248,7 +243,7 @@ rb_method_entry_make(VALUE klass, ID mid, rb_method_type_t type,
+ 	}
+     }
+ 
+-    st_insert(mtbl, mid, (st_data_t) me);
++    sa_insert(mtbl, (sa_index_t)mid, (st_data_t) me);
+ 
+     return me;
+ }
+@@ -371,7 +366,7 @@ search_method(VALUE klass, ID id)
+ 	return 0;
+     }
+ 
+-    while (!st_lookup(RCLASS_M_TBL(klass), id, &body)) {
++    while (!sa_lookup(RCLASS_M_TBL(klass), (sa_index_t)id, &body)) {
+ 	klass = RCLASS_SUPER(klass);
+ 	if (!klass) {
+ 	    return 0;
+@@ -393,20 +388,10 @@ rb_method_entry_get_without_cache(VALUE klass, ID id)
+     rb_method_entry_t *me = search_method(klass, id);
+ 
+     if (ruby_running) {
+-	struct cache_entry *ent;
+-	ent = cache + EXPR1(klass, id);
+-	ent->filled_version = GET_VM_STATE_VERSION();
+-	ent->klass = klass;
+-
+ 	if (UNDEFINED_METHOD_ENTRY_P(me)) {
+-	    ent->mid = id;
+-	    ent->me = 0;
+-	    me = 0;
+-	}
+-	else {
+-	    ent->mid = id;
+-	    ent->me = me;
++            me = 0;
+ 	}
++        sa_insert(&RCLASS(klass)->cache->m_cache_tbl, (sa_index_t)id, (st_data_t)me);
+     }
+ 
+     return me;
+@@ -415,21 +400,23 @@ rb_method_entry_get_without_cache(VALUE klass, ID id)
+ rb_method_entry_t *
+ rb_method_entry(VALUE klass, ID id)
+ {
+-    struct cache_entry *ent;
++    rb_class_cache_t *cache = RCLASS(klass)->cache;
++    rb_method_entry_t *me;
+ 
+-    ent = cache + EXPR1(klass, id);
+-    if (ent->filled_version == GET_VM_STATE_VERSION() &&
+-	ent->mid == id && ent->klass == klass) {
+-	return ent->me;
++    if (cache->method_cache_version != GET_VM_STATE_VERSION()) {
++        sa_clear_no_free(&cache->m_cache_tbl);
++        cache->method_cache_version = GET_VM_STATE_VERSION();
++    }
++    else if (sa_lookup(&cache->m_cache_tbl, (sa_index_t)id, (st_data_t*)&me)) {
++        return me;
+     }
+-
+     return rb_method_entry_get_without_cache(klass, id);
+ }
+ 
+ static void
+ remove_method(VALUE klass, ID mid)
+ {
+-    st_data_t key, data;
++    st_data_t data;
+     rb_method_entry_t *me = 0;
+ 
+     if (klass == rb_cObject) {
+@@ -443,14 +430,13 @@ remove_method(VALUE klass, ID mid)
+ 	rb_warn("removing `%s' may cause serious problems", rb_id2name(mid));
+     }
+ 
+-    if (!st_lookup(RCLASS_M_TBL(klass), mid, &data) ||
++    if (!sa_lookup(RCLASS_M_TBL(klass), (sa_index_t)mid, &data) ||
+ 	!(me = (rb_method_entry_t *)data) ||
+ 	(!me->def || me->def->type == VM_METHOD_TYPE_UNDEF)) {
+ 	rb_name_error(mid, "method `%s' not defined in %s",
+ 		      rb_id2name(mid), rb_class2name(klass));
+     }
+-    key = (st_data_t)mid;
+-    st_delete(RCLASS_M_TBL(klass), &key, &data);
++    sa_delete(RCLASS_M_TBL(klass), (sa_index_t)mid, &data);
+ 
+     rb_vm_check_redefinition_opt_method(me);
+     rb_clear_cache_for_undef(klass, mid);
