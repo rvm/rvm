@@ -12,19 +12,27 @@ usage()
 
 list_remote()
 {
-  typeset version
+  is_a_function __list_remote_${1:-rubies}_for || {
+    rvm_error "Do not know how to display binary rubies for '${1:-rubies}'."
+    return 1
+  }
+  typeset version _system_path
+  _system_path="$( __rvm_system_path_for ${1:-rubies} )"
   rubies=($(
-    __list_remote_rubies_for "$( __rvm_remote_server_path "${rvm_ruby_string}" )" |
+    __list_remote_${1:-rubies}_for "${_system_path}" |
       awk -F/ '{print $NF}' | sed 's/.tar.*$//' | sort -u
   ))
 
   if (( ${#rubies[@]} == 0 ))
   then
-    printf "%b" "\n# No remote rubies available. Check 'rvm list known' for what can be installed.\n\n"
-    return
+    rvm_error "
+# No remote rubies available for ${_system_path}.
+# Check 'rvm list known' for what can be installed.
+"
+    return 1
   fi
 
-  printf "%b" "\n# Rubies available for '$(__rvm_system_path -)':\n\n"
+  printf "%b" "\n# Rubies available for '${_system_path}':\n\n"
 
   for version in "${rubies[@]}"
   do
@@ -363,7 +371,7 @@ action="${args[0]:-""}"
 args=${args[@]:1} # Strip trailing / leading / extra spacing.
 
 case "${action:-rubies}" in
-  -r|--remote|remote) list_remote     ;;
+  -r|--remote|remote) list_remote "${args// /}" ;;
   known)         list_known           ;;
   known_strings) list_known_strings   ;;
   gemsets)       list_gemsets "$args" ;;
