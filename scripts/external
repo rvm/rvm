@@ -251,8 +251,6 @@ external_import_configure()
 
 external_import_download()
 {
-  typeset downloaded_names
-
   if
     [[ -r "${rvm_ruby_url}" ]]
   then
@@ -266,49 +264,52 @@ external_import_download()
       return 2
     }
   fi
-
-  case "${rvm_ruby_string}" in
-    rbx*|rubinius*)
-      true # rubinius has different root see https://github.com/wayneeseguin/rvm/pull/1378
-      ;;
-    *)
-      downloaded_names="$(
-        __rvm_package list "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
-      )"
-      [[ "${rvm_ruby_string}" == "${downloaded_names}" ]] || {
-        $err_command "The downloaded package ${rvm_ruby_url} contains '${downloaded_names}' instead of '${rvm_ruby_string}'."
-        return 4
-      }
-      ;;
-  esac
 }
 
 external_import_extract()
 {
-  __rvm_package extract "$rvm_archives_path/${rvm_ruby_package_file}" "${rvm_rubies_path}" || {
+  typeset __archive __path_to_extract
+  typeset -a downloaded_names path_to_bin_ruby
+
+  __archive="$rvm_archives_path/${rvm_ruby_package_file}"
+
+  __rvm_read_lines path_to_bin_ruby < <(
+    __rvm_package list "${__archive}" | grep "bin/ruby$"
+  )
+  __rvm_read_lines downloaded_names < <(
+    __rvm_package list "${__archive}" | awk -F/ '{print $1}' | sort -u
+  )
+  if
+    [[ "${#path_to_bin_ruby[*]}" -eq 1 ]]
+  then
+    __path_to_extract="${path_to_bin_ruby[*]}"
+    __path_to_extract="${__path_to_extract%bin/ruby}"
+  elif
+    [[ "${rvm_ruby_string}" == "${downloaded_names[*]}" ]]
+  then
+    __path_to_extract="${rvm_ruby_string}"
+  else
+    $err_command "The downloaded package ${rvm_ruby_url} does not contains 'bin/ruby' or '${rvm_ruby_string}'.
+Only '${downloaded_names[*]}' were found instead."
+    return 4
+  fi
+
+  mkdir -p "${rvm_rubies_path}/${rvm_ruby_string}"
+  __rvm_package extract "${__archive}" "${rvm_rubies_path}/${rvm_ruby_string}" || {
     $err_command "Unpacking ${rvm_ruby_package_file} failed."
     return 6
   }
-  case "${rvm_ruby_string}" in
-    rbx*|rubinius*)
-      # rubinius has different root see https://github.com/wayneeseguin/rvm/pull/1378
-      typeset path_to_bin_ruby path_to_rbx
-      path_to_bin_ruby="$(
-        __rvm_package list "$rvm_archives_path/${rvm_ruby_package_file}" | grep "bin/ruby$"
-      )"
-      path_to_rbx="${path_to_bin_ruby%bin/ruby}"
-      [[ -n "${path_to_bin_ruby}" && -d "${rvm_rubies_path}/${path_to_rbx}" ]] || {
-        $err_command "The downloaded package ${rvm_ruby_url} does not contains bin/ruby."
-        return 7
-      }
-      mv "${rvm_rubies_path}/${path_to_rbx}" "${rvm_rubies_path}/${rvm_ruby_string}"
-      rm -rf "${rvm_rubies_path}/${path_to_rbx%%/*}"
-      ;;
-  esac
-  [[ -d "${rvm_rubies_path}/${rvm_ruby_string}" ]] || {
-    $err_command "Ruby directory was not created, make "
-    return 8
-  }
+
+  if
+    [[ -n "${__path_to_extract}" && "${__path_to_extract}" != "/" ]]
+  then
+    [[ -d "${rvm_rubies_path}/${rvm_ruby_string}/${__path_to_extract}" ]] || {
+      $err_command "Ruby directory was not created, make "
+      return 8
+    }
+    mv "${rvm_rubies_path}/${rvm_ruby_string}/${__path_to_extract}/*" "${rvm_rubies_path}/${rvm_ruby_string}/"
+    rm -rf "${rvm_rubies_path}/${rvm_ruby_string}/${__path_to_extract%%/*}"
+  fi
 }
 
 # validate libraries - make sure everything can be loaded
