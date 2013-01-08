@@ -97,6 +97,45 @@ __rvm_select()
       ;;
 
     rbx|rubinius)
+      if
+        (( ${rvm_nightly_flag:=0} == 1 ))
+      then
+        typeset org_rvm_ruby_patch_level
+        if [[ "$rvm_ruby_version" == head ]]
+        then rvm_ruby_version=""
+        fi
+        rvm_debug "searching for binary rbx ${rvm_ruby_version:-}${rvm_ruby_version:+-}${rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-}"
+        org_rvm_ruby_patch_level="$rvm_ruby_patch_level"
+        rvm_ruby_patch_level="$(
+          __list_remote_rbx_for $( __rvm_system_path_for rbx ) |
+            grep ${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-} |
+            tail -n 1
+        )"
+        [[ -n "${rvm_ruby_patch_level:-}" ]] ||
+        {
+          rvm_error "Could not find rbx binary '${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-}' release for '$( __rvm_system_path_for rbx )'."
+          return 1
+        }
+        rvm_ruby_patch_level="${rvm_ruby_patch_level##*/}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level%.tar.*}"
+        if
+          [[ -z "${rvm_ruby_version:-}" ]]
+        then
+          rvm_ruby_patch_level="${rvm_ruby_patch_level#rubinius-}"
+          rvm_ruby_version="${rvm_ruby_patch_level%%-*}"
+        fi
+        if
+          [[ -z "${rvm_ruby_name:-}" ]]
+        then
+          rvm_ruby_name="${rvm_ruby_patch_level##*-}"
+        fi
+        rvm_ruby_patch_level="${rvm_ruby_patch_level##*${org_rvm_ruby_patch_level}}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level%%-*}"
+        rvm_ruby_patch_level="${org_rvm_ruby_patch_level}${rvm_ruby_patch_level}"
+        rvm_ruby_string="rubinius-${rvm_ruby_version}-${rvm_ruby_patch_level}-${rvm_ruby_name}"
+        rvm_debug "detected rbx ${rvm_ruby_string}"
+      fi
+
       rvm_archive_extension="tar.gz"
       rvm_ruby_interpreter="rbx"
       rvm_ruby_version=${rvm_ruby_version:-$(__rvm_db "rbx_version")}
@@ -734,8 +773,11 @@ __rvm_ruby_string()
         break
         ;;
 
-      (nightly)
-        rvm_ruby_version="nightly"
+      (nightly|weekly)
+        if [[ "${rvm_ruby_interpreter}" == "rbx" ]]
+        then rvm_ruby_patch_level="$string"
+        else rvm_ruby_version="$string"
+        fi
         rvm_nightly_flag=1
         ;;
 
