@@ -4,178 +4,52 @@
 if ! typeset -f rvm_pretty_print >/dev/null 2>&1
 then source "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/logging"
 fi
+if ! typeset -f __rvm_detect_system >/dev/null 2>&1
+then source "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/utility"
+fi
 rvm_pretty_print stdout || unset rvm_error_clr rvm_warn_clr rvm_debug_clr rvm_notify_clr rvm_reset_clr
 
-system="$(uname)"
+__rvm_detect_system
 
-if [[ "Linux" == "$system" ]] || [[ "$(uname|tr a-z A-Z)" =~ "BSD" ]]
+if [[ "linux" == "$_system_type" || "bsd" == "$_system_type" ]]
 then
-  if
-    [[ -f /etc/lsb-release ]] && release="$( grep "^DISTRIB_DESCRIPTION=" /etc/lsb-release )"
-  then
-    release="${release#*=}"
-  elif
-    [[ -f /etc/os-release ]] && release="$( grep "^PRETTY_NAME=" /etc/os-release )"
-  then
-    release="${release#*=}"
-  elif
-    [[ -f /etc/debian_version ]]
-  then
-    release="Debian $(cat /etc/debian_version)"
-  else
-    for file in /etc/*-release
-    do
-      [[ -r $file ]] || continue
-      release="( $(cat $file) )"
-      break
-    done
-  fi
-  printf "%b" "
-Requirements for ${system} $release
-"
-
-  rvm_apt_binary="$(     builtin command -v apt-get )"
-  rvm_emerge_binary="$(  builtin command -v emerge  )"
-  rvm_pacman_binary="$(  builtin command -v pacman  )"
-  rvm_yum_binary="$(     builtin command -v yum     )"
-  rvm_zypper_binary="$(  builtin command -v zypper  )"
-  rvm_pkg_add_binary="$( builtin command -v pkg_add )"
-
+  printf "%b" "Requirements for $_system_name/$_system_version/$_system_arch\n"
   printf "%b" "
 NOTE: 'ruby' represents Matz's Ruby Interpreter (MRI) (1.8.X, 1.9.X)
              This is the *original* / standard Ruby Language Interpreter
       'ree'  represents Ruby Enterprise Edition
       'rbx'  represents Rubinius
 
-bash >= 4.1 required
-curl is required
-git is required (>= 1.7 for ruby-head)
-patch is required (for 1.8 rubies and some ruby-head's).
-
-To install rbx and/or Ruby 1.9 head (MRI) (eg. 1.9.2-head),
-then you must install and use rvm 1.8.7 first.
+Additional Dependencies:
 "
 
-  if [[ -n "$rvm_apt_binary" ]]
+  rvm_pkg_add_binary="$( builtin command -v pkg_add )"
+  if [[ -n "$rvm_pkg_add_binary" ]]
   then
     printf "%b" "
-Make sure to update system: sudo apt-get update
-
-Additional Dependencies:
-# For Ruby / Ruby HEAD (MRI, Rubinius, & REE), install the following:
-  ruby: sudo apt-get install build-essential openssl libreadline6 libreadline6-dev curl git-core zlib1g zlib1g-dev libssl-dev libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt-dev autoconf libc6-dev ncurses-dev automake libtool bison subversion pkg-config
-
-# optionally for dbm support: sudo apt-get install libgdbm-dev
-
-# For JRuby, install the following:
-  jruby: sudo apt-get install curl g++ openjdk-6-jre-headless
-  jruby-head: sudo apt-get install ant openjdk-6-jdk
-
-# For IronRuby, install the following:
-  ironruby: sudo apt-get install curl mono-2.0-devel
-
-# For Opal, install the following:
-  opal: sudo apt-get install nodejs npm
-"
-
-  elif [[ -n "$rvm_emerge_binary" ]]
-  then
-    printf "%b" "
-Additional Dependencies:
-# For Ruby / Ruby HEAD (MRI, Rubinius, & REE), install the following:
-  ruby|ruby-head: emerge libiconv readline zlib openssl curl git libyaml sqlite libxslt libtool gcc autoconf automake bison m4
-
-# For JRuby, install the following:
-  jruby: emerge dev-java/sun-jdk dev-java/sun-jre-bin
-
-# For IronRuby, install the following:
-  ironruby: emerge dev-lang/mono
-
-# For Opal, install the following:
-  opal: emerge nodejs
-    "
-
-  elif [[ -n "$rvm_pacman_binary" ]]
-  then
-    printf "%b" "
-Additional Dependencies:
-# For Ruby / Ruby HEAD (MRI, Rubinius, & REE), install the following:
-  ruby: pacman -Sy --noconfirm gcc patch curl zlib readline libxml2 libxslt git autoconf automake diffutils make libtool bison subversion
-
-# For JRuby, install the following:
-  jruby: pacman -Sy --noconfirm jdk7-openjdk jre7-openjdk curl
-  jruby-head: pacman -Sy apache-ant
-
-# For IronRuby, install the following:
-  ironruby: pacman -Sy --noconfirm mono
-
-# For Opal, install the following:
-  opal: pacman -S nodejs
-"
-
-  elif [[ -n "$rvm_yum_binary" ]]
-  then
-    printf "%b" "
-Additional Dependencies:
-# For Ruby / Ruby HEAD (MRI, Rubinius, & REE), install the following:
-  ruby: yum install -y gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison iconv-devel ## NOTE: For centos >= 5.4 iconv-devel is provided by glibc
-
-# For JRuby, install the following:
-  jruby: yum install -y java
-"
-
-  elif [[ -n "$rvm_zypper_binary" ]]
-  then
-    printf "%b" "
-Additional Dependencies:
-# For Ruby / Ruby HEAD (MRI, Rubinius, & REE), install the following:
-  ruby: sudo zypper install -y patterns-openSUSE-devel_basis gcc-c++ bzip2 readline-devel zlib-devel
-                           libxml2-devel libxslt-devel libyaml-devel libopenssl-devel libffi45-devel
-                           libtool bison
-
-# For JRuby, install the following:
-  jruby: sudo zypper install -y java-1_6_0-sun # Non-Oss repository required
-"
-
-  elif [[ -n "$rvm_pkg_add_binary" ]]
-  then
-    printf "%b" "
-Additional dependencies:
 # Ruby / Ruby HEAD (MRI, Rubinius, & REE)
-#
-# 'patch' and 'zlib' is already in base
-#
   ruby: pkg_add gcc curl readline libxml2 libxslt git autoconf automake diffutils make libtool bison subversion
 
 # JRuby
-#
   jruby: pkg_add jdk curl
   jruby-head: pkg_add apache-ant
 
 # IronRuby
-#
   ironruby: pkg_add mono
 
 # Opal
-#
   opal: pkg_add -r node-devel
 "
   else
-    printf "%b" "
-Additional Dependencies:
-# For Ruby / Ruby HEAD (MRI, Rubinius, & REE), install the following with development headers:
-  ruby: # gcc-c++ patch readline zlib libyaml iconv libxml2 libxslt libtool bison
 
-# For JRuby, install the following:
-  jruby: # The SUN java runtime environment and development kit.
+  for _type in update-system rvm ruby jruby
+  do
+    printf "%b" "# For $_type:\n"
+    bash "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/requirements/$_system_name" echo $_type
+  done
 
-# For IronRuby, install the following:
-  ironruby: #The Mono Runtime and Development Platform (version 2.6 or greater is recommended).
-
-# For Opal, install the following:
-  opal: # Nodejs with NPM (version 0.8 or greater is recommended)
-"
   fi
+
 elif [[ "SunOS" == "$system" ]]
 then
   version="$(uname -v)"
