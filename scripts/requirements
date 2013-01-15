@@ -1,20 +1,15 @@
 #!/usr/bin/env bash
 
-( # wrap color reseting
-  if ! typeset -f rvm_pretty_print >/dev/null 2>&1
-  then source "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/logging"
-  fi
-  if ! typeset -f __rvm_detect_system >/dev/null 2>&1
-  then source "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/utility"
-  fi
-  rvm_pretty_print stdout || unset rvm_error_clr rvm_warn_clr rvm_debug_clr rvm_notify_clr rvm_reset_clr
+if ! typeset -f __rvm_detect_system >/dev/null 2>&1
+then source "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/utility"
+fi
 
-  __rvm_detect_system
+__rvm_detect_system
 
-  case ${1:-echo} in
-    (echo)
-      printf "%b" "Requirements for $_system_name/$_system_version/$_system_arch\n"
-      printf "%b" "
+case ${1:-echo} in
+  (echo)
+    printf "%b" "Requirements for $_system_name/$_system_version/$_system_arch\n"
+    printf "%b" "
 NOTE: 'ruby' represents Matz's Ruby Interpreter (MRI) (1.8.X, 1.9.X)
              This is the *original* / standard Ruby Language Interpreter
       'ree'  represents Ruby Enterprise Edition
@@ -22,79 +17,15 @@ NOTE: 'ruby' represents Matz's Ruby Interpreter (MRI) (1.8.X, 1.9.X)
 
 Additional Dependencies:
 "
-      ;;
-    (run)
-      printf "%b" "Installing requirements for $_system_name/$_system_version/$_system_arch\n"
-      ;;
-  esac
-
-  for _type in update-system rvm ruby jruby
-  do
-    printf "%b" "# For $_type:\n"
-    bash "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/requirements/$_system_name" ${1:-echo} force $_type
-  done
-
-else [[ "$MACHTYPE" == *darwin* ]]
-then
-
-  xcode_version="$( __rvm_detect_xcode_version 2>&1 )"
-  : ${xcode_version:=0}
-
-
-  if __rvm_version_compare "$xcode_version" -ge 4.2
-  then
-    printf "%b" "
-For MacRuby: Install LLVM first.
-"
-  fi
-  printf "%b" "
-For JRuby:  Install the JDK. See http://developer.apple.com/java/download/  # Current Java version \"1.6.0_26\"
-For IronRuby: Install Mono >= 2.6
-For Ruby 1.9.3: Install libksba # If using Homebrew, 'brew install libksba'
-For Opal: Install Nodejs with NPM. See http://nodejs.org/download/
-"
-
-  if __rvm_version_compare "$xcode_version" -gt 0 && __rvm_version_compare "$xcode_version" -lt 4.1
-  then
-    printf "%b" "
-** Please note that Xcode 3.x will *not* work on OS X Lion. For notes about Xcode 4.1 and later, see below:
-"
-  fi
-
-  printf "%b" "
-${rvm_error_clr:-}Xcode and gcc${rvm_reset_clr:-}:
-
-Right now Ruby requires gcc to compile, but Xcode 4.2 and later no longer ship with gcc. Instead they ship with llvm-gcc (to which gcc is a symlink) and clang, neither of which are supported for building Ruby. Xcode 4.1 was the last version to ship gcc, which was /usr/bin/gcc-4.2.
-
-${rvm_notify_clr:-}Xcode 4.1${rvm_reset_clr:-} and earlier:
-- Ruby will build fine.
-
-${rvm_error_clr:-}Xcode 4.2${rvm_reset_clr:-} and later (including Command Line Tools for Xcode):
-- If you have gcc-4.2 (and friends) from an earlier Xcode version, Ruby will build fine.
-- If you don't have gcc-4.2, you have two options to get it:
- * Install apple-gcc42 from Homebrew
- * Install osx-gcc-installer
-
-  ${rvm_notify_clr:-}Homebrew${rvm_reset_clr:-}:
-
-  If you are using Homebrew, you can install the apple-gcc42 and required libraries from homebrew/dupes:
-
-      brew update
-      brew tap homebrew/dupes
-      brew install autoconf automake apple-gcc42
-      rvm pkg install openssl
-
-  Xcode 4.2+ install or/and Command Line Tools for Xcode is required to provide make and other tools.
-
-  ${rvm_notify_clr:-}osx-gcc-installer${rvm_reset_clr:-}:
-
-  If you don't use Homebrew, you can download and install osx-gcc-installer: https://github.com/kennethreitz/osx-gcc-installer.
-
-  ${rvm_error_clr:-}Warning${rvm_reset_clr:-}: Installing osx-gcc-installer on top of a recent Xcode is known to cause problems, so you must uninstall Xcode before installing osx-gcc-installer. Afterwards you may install Xcode 4.2+ or Command Line Tools for Xcode if you desire.
-
-  ** NOTE: Currently, Node.js is having issues building with osx-gcc-installer. The only fix is to install Xcode over osx-gcc-installer.
-"
-
-fi
-
-) # Finish color resetting block
+    for _type in update-system rvm ruby jruby
+    do
+      printf "%b" "# For $_type:\n"
+      bash "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/requirements/$_system_name" ${1:-echo} $_type
+      printf "%b" "\n"
+    done
+    ;;
+  (run)
+    printf "%b" "Installing requirements for $_system_name/$_system_version/$_system_arch\n"
+    bash "${rvm_scripts_path:-"$rvm_path/scripts"}/functions/requirements/$_system_name" ${1:-echo} force update-system rvm ${2:-ruby}
+    ;;
+esac
