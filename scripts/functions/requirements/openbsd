@@ -2,9 +2,11 @@
 
 function requirements_gentoo()
 {
-  typeset -a command_to_run command_flags
+  typeset -a command_to_run __ctr_sudo
+  typeset __ctr_echo
   command_to_run=()
-  command_flags=()
+  __ctr_sudo=()
+  __ctr_echo=0
 
   while
     (( $# ))
@@ -12,6 +14,7 @@ function requirements_gentoo()
     case "$1" in
       (echo)
         command_to_run+=( $1 )
+        __ctr_echo=1
         shift
         ;;
       (force)
@@ -23,14 +26,24 @@ function requirements_gentoo()
     esac
   done
 
-  (( UID == 0 )) || command_to_run+=( sudo )
+  (( UID == 0 )) ||
+  {
+    command_to_run+=( sudo )
+    __ctr_sudo+=( sudo )
+  }
 
   while
     (( $# ))
   do
     case "$1" in
       (update-system)
-        true
+        [[ -d /usr/ports ]] ||
+        {
+          if (( __ctr_echo ))
+          then echo "curl ftp://ftp.openbsd.org/pub/OpenBSD/$(uname -r)/ports.tar.gz | ${__ctr_sudo[$@]} tar -C /usr -zx"
+          else curl ftp://ftp.openbsd.org/pub/OpenBSD/$(uname -r)/ports.tar.gz | ${__ctr_sudo[$@]} tar -C /usr -zx
+          fi
+        }
         ;;
       (rvm)
         "${command_to_run[@]}" pkg_add bash curl git patch
@@ -45,7 +58,7 @@ function requirements_gentoo()
         "${command_to_run[@]}" pkg_add mono
         ;;
       (opal)
-        "${command_to_run[@]}" pkg_add node-devel
+        "${command_to_run[@]}" make -C /usr/ports/www/node install clean
         ;;
       (*)
         "${command_to_run[@]}" pkg_add gcc readline libxml2 libxslt autoconf automake diffutils make libtool bison
