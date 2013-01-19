@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+set -e
+
+function requirements_gentoo()
+{
+  typeset -a command_to_run __ctr_sudo
+  typeset __ctr_echo
+  command_to_run=()
+  __ctr_sudo=()
+  __ctr_echo=0
+
+  while
+    (( $# ))
+  do
+    case "$1" in
+      (echo)
+        command_to_run+=( $1 )
+        __ctr_echo=1
+        shift
+        ;;
+      (force)
+        shift
+        ;;
+      (*)
+        break
+        ;;
+    esac
+  done
+
+  (( UID == 0 )) ||
+  {
+    command_to_run+=( sudo )
+    __ctr_sudo+=( sudo )
+  }
+
+  while
+    (( $# ))
+  do
+    case "$1" in
+      (update-system)
+        [[ -d /usr/ports ]] ||
+        {
+          if (( __ctr_echo ))
+          then echo "curl ftp://ftp.openbsd.org/pub/OpenBSD/$(uname -r)/ports.tar.gz | ${__ctr_sudo[$@]} tar -C /usr -zx"
+          else curl ftp://ftp.openbsd.org/pub/OpenBSD/$(uname -r)/ports.tar.gz | ${__ctr_sudo[$@]} tar -C /usr -zx
+          fi
+        }
+        ;;
+      (rvm)
+        "${command_to_run[@]}" pkg_add bash curl git patch
+        ;;
+      (jruby-head*)
+        "${command_to_run[@]}" pkg_add jdk apache-ant
+        ;;
+      (jruby*)
+        "${command_to_run[@]}" pkg_add jdk
+        ;;
+      (ir*)
+        "${command_to_run[@]}" pkg_add mono
+        ;;
+      (opal)
+        "${command_to_run[@]}" make -C /usr/ports/www/node install clean
+        ;;
+      (*)
+        "${command_to_run[@]}" pkg_add gcc readline libxml2 libxslt autoconf automake diffutils make libtool bison
+        ;;
+    esac
+    shift
+  done
+}
+
+requirements_gentoo "$@"
