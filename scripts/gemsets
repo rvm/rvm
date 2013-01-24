@@ -44,7 +44,7 @@ gemset_update()
   then
     rvm_log "Running gem update for all rubies and gemsets."
     rvm_ruby_strings="$(
-      chpwd_functions="" builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
+      __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
       find . -maxdepth 1 -mindepth 1 -type d -print 2>/dev/null |
         GREP_OPTIONS="" \grep -v '^\(doc\|cache\|@\|system\)' | \tr '\n' ','
     )"
@@ -79,7 +79,7 @@ gemset_globalcache()
   then
     rvm_log "Removing the global cache (note: this will empty the caches)"
     __rvm_read_lines directories < <(
-      chpwd_functions="" builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
+      __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
       find . -maxdepth 1 -mindepth 1 -type d -print | cut -c 3-
     )
 
@@ -100,7 +100,7 @@ gemset_globalcache()
     rvm_log "Enabling global cache for gems."
     mkdir -p "$rvm_gems_cache_path"
     __rvm_read_lines directories < <(
-      chpwd_functions="" builtin cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
+      __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
       find . -maxdepth 1 -mindepth 1 -type d -print | cut -c 3-
     )
     for directory_name in "${directories[@]//.\/}"
@@ -289,6 +289,11 @@ gemset_delete_task()
 
 gemset_delete()
 {
+  [[ -n "${GEM_HOME:-}" ]] ||
+  {
+    rvm_error "A ruby must be selected in order to delete a gemset."
+    return 1
+  }
   if (( ${rvm_ruby_selected_flag:-0} == 0))
   then __rvm_ruby_string
   fi
@@ -327,7 +332,7 @@ gemset_empty()
   if [[ -n "${rvm_gemset_name}" ]]
   then
     rvm_gemset_name="${rvm_gemset_name#default}"
-    ruby_at_gemset="$rvm_ruby_string${rvm_gemset_name:+${rvm_gemset_separator:-"@"}}${rvm_gemset_name}"
+    ruby_at_gemset="${rvm_ruby_string%%${rvm_gemset_separator:-"@"}*}${rvm_gemset_name:+${rvm_gemset_separator:-"@"}}${rvm_gemset_name}"
     gemdir="${rvm_gems_path:-"$rvm_path/gems"}/${ruby_at_gemset}"
   else
     gemdir="${rvm_ruby_gem_home}"
@@ -878,12 +883,10 @@ gemset_initial()
 
   rvm_log "Importing initial gemsets for $(__rvm_env_string)."
 
-  if [[ ! -d "$rvm_gemsets_path/${rvm_ruby_string//-//}/cache" ]]
-  then
+  [[ -d "$rvm_gemsets_path/${rvm_ruby_string//-//}/cache" ]] ||
     mkdir -p "$rvm_gemsets_path/${rvm_ruby_string//-//}/cache" 2>/dev/null
-  fi
 
-  paths=($(__rvm_ruby_string_paths_under "$rvm_gemsets_path"))
+  paths=( $( __rvm_ruby_string_paths_under "$rvm_gemsets_path" | sort -r ) )
 
   echo "paths: ${paths[@]}"
 
@@ -894,6 +897,7 @@ gemset_initial()
       if [[ -s "${rvm_gemset_name}.gems" ]]
       then
         ( gemset_import "${rvm_gemset_name}.gems" )
+        break # stop right here
       fi
     else
       if [[ -s "${_iterator}/default.gems" ]]
@@ -907,6 +911,9 @@ gemset_initial()
           rvm_ruby_gem_home="${rvm_ruby_gem_home//@*/}@global"
           gemset_import "${_iterator}/global.gems"
         )
+      fi
+      if [[ -s "${_iterator}/default.gems" || -s "${_iterator}/global.gems" ]]
+      then break # stop right here
       fi
     fi
   done

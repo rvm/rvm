@@ -11,6 +11,7 @@ Other implementations allowing to switch ruby environment:
 - https://github.com/niw/rubies
 - https://github.com/hmans/rbfu
 - https://github.com/nkryptic/sandbox
+- https://github.com/regularfry/gemenv
 - https://github.com/sstephenson/rbenv
 - https://github.com/cpetschnig/switch-ruby
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)

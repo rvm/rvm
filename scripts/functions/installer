@@ -29,11 +29,12 @@ install_setup()
 
     rvm_rvmrc_files=("/etc/rvmrc" "$HOME/.rvmrc")
     if [[ -n "${rvm_prefix:-}" ]] && ! [[ "$HOME/.rvmrc" -ef "${rvm_prefix}/.rvmrc" ]]
-       then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
+    then rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
     fi
     for file in "${rvm_rvmrc_files[@]}"
     do
-      if [[ -s "$file" ]]
+      if
+        [[ -s "$file" ]]
       then
         . $file
       fi
@@ -63,7 +64,7 @@ install_setup()
   fi
   export rvm_user_install_flag
 
-  unset rvm_auto_flag
+  unset rvm_auto_dotfiles_flag
 }
 
 
@@ -76,7 +77,9 @@ install_usage()
 
   options:
 
-    --auto    : Automatically update shell profile files.
+    --auto-dotfiles   : Automatically update shell profile files.
+
+    --ignore-dotfiles : Do not update shell profile files.
 
     --path    : Installation directory (rvm_path).
 
@@ -136,15 +139,28 @@ print_install_header()
   fi
 }
 
+# duplication marker dfkjdjngdfjngjcszncv
+# Drop in cd which _desotn't_ respect cdpath
+__rvm_cd()
+{
+    typeset old_cdpath ret
+    ret=0
+    old_cdpath="${CDPATH}"
+    CDPATH="."
+    chpwd_functions="" builtin cd "$@" || ret=$?
+    CDPATH="${old_cdpath}"
+    return $ret
+}
+
 configure_installation()
 {
-  typeset save_rvm_without_gems save_rvm_with_gems
+  typeset save_rvm_without_gems save_rvm_with_gems save_rvm_ignore_dotfiles_flag
   install_source_path="$(dirname "$0" | sed 's#\/scripts$##')"
 
   if [[ -d "$install_source_path/scripts" \
     && -s "$install_source_path/scripts/functions/utility" ]]
   then
-    chpwd_functions="" builtin cd "$install_source_path"
+    __rvm_cd "$install_source_path"
   fi
 
   # Save scripts path
@@ -152,6 +168,7 @@ configure_installation()
   rvm_scripts_path="${PWD%%+(\/)}/scripts"
   save_rvm_with_gems="${rvm_with_gems:-}"
   save_rvm_without_gems="${rvm_without_gems:-}"
+  save_rvm_ignore_dotfiles_flag="${rvm_ignore_dotfiles_flag:-}"
 
   # Load scripts.
   source "$PWD/scripts/initialize"
@@ -163,6 +180,7 @@ configure_installation()
   rvm_scripts_path=${scripts_path:-"$rvm_path/scripts"}
   rvm_with_gems="${save_rvm_with_gems:-${rvm_with_gems}}"
   rvm_without_gems="${save_rvm_without_gems:-${rvm_without_gems}}"
+  rvm_ignore_dotfiles_flag="${save_rvm_ignore_dotfiles_flag:-${rvm_ignore_dotfiles_flag}}"
 
   item="* "
   question="\n<?>"
@@ -313,7 +331,7 @@ setup_configuration_files()
 {
   typeset _save_dir
   _save_dir="$PWD"
-  chpwd_functions="" builtin cd "$rvm_path"
+  __rvm_cd "$rvm_path"
 
   if [[ -f config/user ]]
   then
@@ -345,14 +363,14 @@ setup_configuration_files()
   GREP_OPTIONS="" \grep '^_' user/rvmrcs > user/rvmrcs.new || true
   mv user/rvmrcs.new user/rvmrcs
 
-  chpwd_functions="" builtin cd "${_save_dir}"
+  __rvm_cd "${_save_dir}"
 }
 
 ensure_scripts_are_executable()
 {
   files=(
-    alias cleanup current db disk-usage docs env fetch gemsets get hash help hook info
-    install list log maglev manage migrate monitor notes override_gem package patchsets
+    alias cleanup db disk-usage docs env fetch gemsets get hash help hook info
+    install list log maglev manage migrate monitor notes override_gem patchsets
     repair rtfm rubygems rvm selector selector_gemsets set snapshot tools upgrade wrapper
   )
   for file in "${files[@]}"
@@ -433,7 +451,10 @@ install_gemsets()
         if
           [[ -n "${rvm_without_gems:-}" ]]
         then
-          sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+          if [[ `uname -s` = "Darwin" ]]
+          then sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+          else sed -r '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+          fi
         else
           cp "$gemset_file" "$destination"
         fi
@@ -510,32 +531,30 @@ update_gemsets_install_rvm()
 
 install_patchsets()
 {
-  if [[ ${rvm_keep_patchsets_flag:-0} == 0 && -d "$rvm_path/patchsets" ]]
+  if
+    [[ ${rvm_keep_patchsets_flag:-0} == 0 && -d "$rvm_path/patchsets" ]]
   then
     rm -rf "$rvm_path/patchsets"
   fi
-
-  if [[ -d patchsets/ ]]
+  if
+    [[ -d patchsets/ ]]
   then
     [[ -d "$rvm_path/patchsets" ]] || mkdir -p "$rvm_path/patchsets"
-
     patchsets=($(
-      chpwd_functions="" builtin cd patchsets
-      find \. -type f "${name_opt}" '*' | sed 's/^\.\///'
+      find patchsets/ -type f "${name_opt}" '*'
     ))
-
     for patchset_file in "${patchsets[@]}"
     do
-      destination="$rvm_path/patchsets/$patchset_file"
-      if [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
+      destination="$rvm_path/$patchset_file"
+      if
+        [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
       then
         destination_path="${destination%/*}"
         [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
         [[ -f "$destination"      ]] && rm -f "$destination"
-        cp "patchsets/$patchset_file" "$destination"
+        cp "$patchset_file" "$destination"
       fi
     done
-
   fi
 }
 
@@ -645,7 +664,7 @@ is_file_group() [[ "$(get_file_group "$1")" == "$2" ]]
 install_man_pages()
 {
   files=($(
-  chpwd_functions="" builtin cd "$install_source_path/man"
+  __rvm_cd "$install_source_path/man"
   find . -maxdepth 2 -mindepth 1 -type f -print
   ))
 
@@ -750,68 +769,42 @@ setup_rvm_path_permissions()
 
 setup_rvm_group()
 {
-  typeset __group_params
-  __group_params=""
-  if [[ -n "${rvm_group_id}" ]]
-  then __group_params="${__group_params} -g ${rvm_group_id}"
-  fi
-
-  if [[ -n "$ZSH_VERSION" ]]
-  then __group_params=( ${=__group_params} )
-  else __group_params=( ${__group_params} )
-  fi
-
-  if GREP_OPTIONS="" \grep "$rvm_group_name" /etc/group >/dev/null 2>&1
+  source "$PWD/scripts/functions/group"
+  if
+    __rvm_group_exists "$rvm_group_name"
   then
-    echo "    RVM system user group '$rvm_group_name' exists, proceeding with installation."
+    echo "    Group '$rvm_group_name' already exists"
   else
-    echo "    Creating RVM system user group '$rvm_group_name'"
-
-    case "$(uname)" in
-      "OpenBSD")
-        groupadd ${__group_params[@]} "$rvm_group_name"
-        ;;
-      "FreeBSD")
-        pw groupadd ${__group_params[@]} "$rvm_group_name" -q
-        ;;
-      "Linux")
-        if [[ -f "/etc/SuSE-release" ]]
-        then
-          groupadd ${__group_params[@]} "$rvm_group_name"
-        else
-          groupadd -f ${__group_params[@]} "$rvm_group_name"
-        fi
-        ;;
-      "Darwin")
-        if ! dscl . -read "/Groups/$rvm_group_name" 1>/dev/null 2>&1
-        then
-          if [[ -n "${rvm_group_id}" ]]
-          then
-            __group_params="${rvm_group_id}"
-          else
-            __group_params="501" #only gids > 500 show up in user preferences
-            #Find an open gid
-            while true
-            do
-              name=$(dscl . search /groups PrimaryGroupID ${__group_params} | cut -f1 -s)
-              if [[ -z "$name" ]]
-              then break
-              fi
-              __group_params=$(( __group_params + 1 ))
-            done
-          fi
-          # Create the group, isn't OSX "fun"?! :)
-          # Thanks for the assist frogor of ##osx-server on freenode! Appreciate the assist!
-          dscl . -create "/Groups/$rvm_group_name" gid "${__group_params}"
-        fi
-        ;;
-      "SunOS")
-        groupadd ${__group_params[@]} "$rvm_group_name"
-        ;;
-    esac
+    echo "    Creating group '$rvm_group_name'"
+    __rvm_create_group "${rvm_group_name}" "${rvm_group_id:-}"
   fi
-
-  return 0
+  if
+    [[ -n "${rvm_add_users_to_rvm_group:-}" ]]
+  then
+    typeset __user
+    typeset -a __users
+    if
+      [[ "$rvm_add_users_to_rvm_group" == "all" ]]
+    then
+      __users=( $( __rvm_list_all_users ) )
+    else
+      if [[ -n "${ZSH_VERSION:-}" ]]
+      then __users=( ${=rvm_add_users_to_rvm_group//,/ } )
+      else __users=( ${rvm_add_users_to_rvm_group//,/ } )
+      fi
+    fi
+    for __user in "${__users[@]}"
+    do
+      if
+        __rvm_is_user_in_group "$rvm_group_name" "$__user"
+      then
+        echo "    User '$__user' already in the RVM group '${rvm_group_name}'"
+      else
+        echo "    Adding user '$__user' to the RVM group '${rvm_group_name}'"
+        __rvm_add_user_to_group "$rvm_group_name" "$__user"
+      fi
+    done
+  fi
 }
 
 system_check()
@@ -848,7 +841,7 @@ setup_etc_profile()
     executable=0
   fi
 
-  if ! [[ -s "${etc_profile_file}" ]] || (( ${rvm_auto_flag:-0} == 1 ))
+  if ! [[ -s "${etc_profile_file}" ]] || (( ${rvm_auto_dotfiles_flag:-0} == 1 ))
   then
     printf "%b" "#
 # RVM profile
@@ -964,7 +957,7 @@ setup_etc_bashrc()
 {
   typeset system_bashrc_file new_content_path
   system_bashrc_file="/etc/bash.bashrc"
-  if ! [[ -s "${system_bashrc_file}" ]] || (( ${rvm_auto_flag:-0} == 1 ))
+  if ! [[ -s "${system_bashrc_file}" ]] || (( ${rvm_auto_dotfiles_flag:-0} == 1 ))
   then
     if
       [[ ! -f "${system_bashrc_file}" ]]
@@ -990,15 +983,18 @@ setup_rvmrc()
   then
     rvmrc_file="/etc/rvmrc"
     if
-      GREP_OPTIONS="" \grep '#umask' $rvmrc_file >/dev/null 2>&1
+      [[ -f $rvmrc_file ]] &&
+      GREP_OPTIONS="" \grep '#umask' $rvmrc_file >/dev/null
     then
       true # commented out, skip it!
     elif
-      GREP_OPTIONS="" \grep 'umask g+w' $rvmrc_file >/dev/null 2>&1
+      [[ -f $rvmrc_file ]] &&
+      GREP_OPTIONS="" \grep 'umask g+w' $rvmrc_file >/dev/null
     then
       __rvm_sed_i $rvmrc_file -e 's/umask g+w/umask u=rwx,g=rwx,o=rx/'
     elif
-      ! GREP_OPTIONS="" \grep 'umask' $rvmrc_file >/dev/null 2>&1
+      ! [[ -f $rvmrc_file ]] ||
+      ! GREP_OPTIONS="" \grep 'umask' $rvmrc_file >/dev/null
     then
       echo 'umask u=rwx,g=rwx,o=rx' >> $rvmrc_file
     fi
@@ -1034,7 +1030,18 @@ pick_a_file()
 setup_user_profile()
 {
   (( UID > 0 )) || return 0
-  [[ "${rvm_ignore_dotfiles:-no}" == "no" ]] || return 0
+  if
+    [[ -n "${rvm_ignore_dotfiles_flag:-}" ]]
+  then
+    if
+      GREP_OPTIONS="" \grep "rvm_ignore_dotfiles_flag=" ~/.rvmrc >/dev/null
+    then
+      __rvm_sed_i ~/.rvmrc -e 's/^rvm_ignore_dotfiles_flag=.*$/rvm_ignore_dotfiles_flag="'"${rvm_ignore_dotfiles_flag}"'"/'
+    else
+      printf "%b" "\nrvm_ignore_dotfiles_flag=\"${rvm_ignore_dotfiles_flag}\"\n" >> ~/.rvmrc
+    fi
+  fi
+  [[ "${rvm_ignore_dotfiles_flag:-${rvm_ignore_dotfiles:-no}}" == "no"  ]] || return 0
 
   export user_profile_file
   export -a user_login_files user_rc_files
@@ -1072,7 +1079,7 @@ setup_user_profile()
       } } || true
   done
 
-  if (( rvm_auto_flag == 1 && ${#found_rc[@]} > 0 ))
+  if (( rvm_auto_dotfiles_flag == 1 && ${#found_rc[@]} > 0 ))
   then
     printf "%b" "    Removing rvm PATH line from ${found_rc[*]}.\n"
     for profile_file in ${found_rc[@]}
@@ -1083,7 +1090,7 @@ setup_user_profile()
     done
     found_rc=()
   fi
-  if (( rvm_auto_flag == 1 || ${#found_rc[@]} == 0 ))
+  if (( rvm_auto_dotfiles_flag == 1 || ${#found_rc[@]} == 0 ))
   then
     printf "%b" "    Adding rvm PATH line to ${target_rc[*]}.\n"
     for profile_file in ${target_rc[@]}
@@ -1099,7 +1106,7 @@ PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
     user_rc_files=( ${found_rc[@]} )
   fi
 
-  if (( rvm_auto_flag == 1 && ${#found_login[@]} > 0 ))
+  if (( rvm_auto_dotfiles_flag == 1 && ${#found_login[@]} > 0 ))
   then
     printf "%b" "    Removing rvm loading line from ${found_login[*]}.\n"
     for profile_file in ${found_login[@]}
@@ -1110,7 +1117,7 @@ PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
     done
     found_rc=()
   fi
-  if (( rvm_auto_flag == 1 || ${#found_login[@]} == 0 ))
+  if (( rvm_auto_dotfiles_flag == 1 || ${#found_login[@]} == 0 ))
   then
     printf "%b" "    Adding rvm loading line to ${target_login[*]}.\n"
     for profile_file in ${target_login[@]}

@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+set -e
+
+function requirements_brew()
+{
+  typeset -a command_to_run command_flags
+  command_to_run=()
+  command_flags=()
+
+  while
+    (( $# ))
+  do
+    case "$1" in
+      (echo)
+        command_to_run+=( $1 )
+        shift
+        ;;
+      (force|run)
+        shift
+        ;;
+      (*)
+        break
+        ;;
+    esac
+  done
+
+  (( UID == 0 )) || {
+    typeset brew_path
+    brew_path="$( \which brew 2>/dev/null )"
+    {
+      # has to be executable for the running user
+      [[ -x "${brew_path}" ]] &&
+      # must be owned by user or sticky bit set -- #TODO: might need improvement
+      [[ -O "${brew_path}" || -G "${brew_path}" || -u "${brew_path}" || -g "${brew_path}" ]]
+    } ||
+    command_to_run+=( sudo )
+  }
+
+  while
+    (( $# ))
+  do
+    case "$1" in
+      (update-system)
+        "${command_to_run[@]}" brew update
+        "${command_to_run[@]}" brew tap homebrew/dupes
+        ;;
+      (rvm)
+        "${command_to_run[@]}" brew install bash curl git
+        ;;
+      (jruby*)
+        which java >/dev/null 2>&1 || return $?
+        ;;
+      (ir*)
+        which mono >/dev/null 2>&1 || return $?
+        ;;
+      (opal)
+        "${command_to_run[@]}" brew install node
+        ;;
+      (*)
+        "${command_to_run[@]}" brew install autoconf automake apple-gcc42 libtool pkg-config openssl readline libyaml sqlite libxml2 libxslt libksba
+        ;;
+    esac
+    shift
+  done
+}
+
+# TODO it's the same as unknown
+function requirements_osx_show()
+{
+  typeset -a command_to_run
+  command_to_run=( echo )
+
+  while
+    (( $# ))
+  do
+    case "$1" in
+      (echo)
+        shift
+        ;;
+      (force)
+        shift
+        ;;
+      (*)
+        break
+        ;;
+    esac
+  done
+
+  while
+    (( $# ))
+  do
+    case "$1" in
+      (update-system)
+        "${command_to_run[@]}" "Always update your system first!"
+        ;;
+      (rvm)
+        "${command_to_run[@]}" "Install: bash curl git patch"
+        ;;
+      (jruby*)
+        "${command_to_run[@]}" "Install: openjdk ant"
+        ;;
+      (ir*)
+        "${command_to_run[@]}" "Install: mono"
+        ;;
+      (opal)
+        "${command_to_run[@]}" "Install: nodejs npm"
+        ;;
+      (*)
+        "${command_to_run[@]}" "Install: osx-gcc-installer libksba openssl libreadline git zlib1g libyaml libsqlite3 sqlite3 libxml2 libxslt autoconf libc6 libgdbm ncurses automake libtool bison pkg-config"
+        ;;
+    esac
+    shift
+  done
+}
+
+requirements_osx()
+{
+  if
+    \which brew >/dev/null 2>&1
+  then
+    requirements_brew "$@"
+  else
+    requirements_osx_show "$@"
+  fi
+}
+
+requirements_osx "$@"

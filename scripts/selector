@@ -97,6 +97,46 @@ __rvm_select()
       ;;
 
     rbx|rubinius)
+      if
+        (( ${rvm_nightly_flag:=0} == 1 ))
+      then
+        typeset org_rvm_ruby_patch_level
+        if [[ "$rvm_ruby_version" == head ]]
+        then rvm_ruby_version=""
+        fi
+        rvm_debug "searching for binary rbx ${rvm_ruby_version:-}${rvm_ruby_version:+-}${rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-}"
+        org_rvm_ruby_patch_level="$rvm_ruby_patch_level"
+        rvm_ruby_patch_level="$(
+          __list_remote_rbx_for $( __rvm_system_path_for rbx ) |
+            grep ${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-} |
+            tail -n 1
+        )"
+        [[ -n "${rvm_ruby_patch_level:-}" ]] ||
+        {
+          rvm_error "Could not find rbx binary '${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-}' release for '$( __rvm_system_path_for rbx )'."
+          return 1
+        }
+        rvm_ruby_patch_level="${rvm_ruby_patch_level##*/}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level%.tar.*}"
+        if
+          [[ -z "${rvm_ruby_version:-}" ]]
+        then
+          rvm_ruby_patch_level="${rvm_ruby_patch_level#rubinius-}"
+          rvm_ruby_version="${rvm_ruby_patch_level%%-*}"
+        fi
+        if
+          [[ -z "${rvm_ruby_name:-}" ]]
+        then
+          rvm_ruby_name="${rvm_ruby_patch_level##*-}"
+        fi
+        rvm_ruby_patch_level="${rvm_ruby_patch_level##*${org_rvm_ruby_patch_level}}"
+        rvm_ruby_patch_level="${rvm_ruby_patch_level%%-*}"
+        rvm_ruby_patch_level="${org_rvm_ruby_patch_level}${rvm_ruby_patch_level}"
+        rvm_ruby_string="rubinius-${rvm_ruby_version}-${rvm_ruby_patch_level}-${rvm_ruby_name}"
+        rvm_debug "detected rbx ${rvm_ruby_string}"
+        rvm_verify_downloads_flag=1
+      fi
+
       rvm_archive_extension="tar.gz"
       rvm_ruby_interpreter="rbx"
       rvm_ruby_version=${rvm_ruby_version:-$(__rvm_db "rbx_version")}
@@ -223,7 +263,7 @@ __rvm_select()
         rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "ironruby_version")"}
         rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         rvm_ruby_package_file="${rvm_ruby_interpreter}-${rvm_ruby_version}.${rvm_archive_extension}"
-        rvm_ruby_url="$(__rvm_db "ironruby_${rvm_ruby_version}_url")${rvm_ruby_package_file}"
+        rvm_ruby_url="$(__rvm_db "ironruby_${rvm_ruby_version}_url")"
       fi
 
       export rvm_ruby_version rvm_ruby_string rvm_ruby_package_name rvm_ruby_repo_url rvm_ruby_url rvm_archive_extension
@@ -598,21 +638,6 @@ __rvm_use()
       rvm_alias_expanded=1 "$rvm_scripts_path/alias" create "$rvm_ruby_alias" "$environment_id" > /dev/null 2>&1
       ruby_alias="" ; rvm_ruby_alias=""
     fi
-
-    if [[ "maglev" == "${rvm_ruby_interpreter:-""}" ]]
-    then
-      export MAGLEV_HOME="$rvm_ruby_home"
-      export GEMSTONE_GLOBAL_DIR=$MAGLEV_HOME
-
-      if [[ -x "$MAGLEV_HOME/gemstone/bin/gslist" ]]
-      then
-        "$MAGLEV_HOME/gemstone/bin/gslist" -clv > /dev/null 2>&1 ; result=$?
-        if (( result == 1 ))
-        then
-          "$rvm_ruby_home/bin/maglev" start
-        fi
-      fi
-    fi
   else
     if (( ${rvm_default_flag:=0} == 1 ))
     then
@@ -660,15 +685,18 @@ __rvm_ruby_string()
   if (( rvm_expanding_aliases == 0 )) &&
     [[ -n "${rvm_ruby_string}" && "$rvm_ruby_string" != "system" ]]
   then
-    if expanded_alias_name="$("$rvm_scripts_path/alias" show "$rvm_ruby_string" 2>/dev/null)" \
-      && [[ -n "$expanded_alias_name" ]]
-  then
-    rvm_ruby_string="$expanded_alias_name"
-  elif [[ "$rvm_ruby_string" == default ]]
-  then
-    # Default is not a known value. Instead, we need to therefore set it to system.
-    rvm_ruby_string="system"
-  fi
+
+    if
+      [[ -f "$rvm_path/config/alias" && -s "$rvm_path/config/alias" ]] &&
+      expanded_alias_name="$("$rvm_scripts_path"/db "$rvm_path/config/alias" "$rvm_ruby_string")" &&
+      [[ -n "$expanded_alias_name" ]]
+    then
+      rvm_ruby_string="$expanded_alias_name"
+    elif [[ "$rvm_ruby_string" == default ]]
+    then
+      # Default is not a known value. Instead, we need to therefore set it to system.
+      rvm_ruby_string="system"
+    fi
   fi
 
   if echo "$rvm_ruby_string" | GREP_OPTIONS="" \grep "${rvm_gemset_separator}" >/dev/null 2>&1 ; then
@@ -749,10 +777,16 @@ __rvm_ruby_string()
         break
         ;;
 
-      (nightly)
-        rvm_ruby_version="nightly"
+      (nightly|weekly)
+        if [[ "${rvm_ruby_interpreter}" == "rbx" ]]
+        then rvm_ruby_patch_level="$string"
+        else rvm_ruby_version="$string"
+        fi
         rvm_nightly_flag=1
-        break
+        ;;
+
+      (nightly*|weekly*) # rbx binary
+        rvm_ruby_patch_level="$string"
         ;;
 
       (preview*)
@@ -947,6 +981,29 @@ __rvm_ruby_string()
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_user_tag}"
 
   else
+    if
+      (( ${rvm_fuzzy_flag:-0} == 1 )) &&
+      [[ "${rvm_ruby_interpreter}" == "ruby" || "${rvm_ruby_interpreter}" == "ree" ]]
+    then
+      rvm_ruby_patch_level="$(
+        "${rvm_scripts_path:-$rvm_path/scripts}/list" strings |
+          grep "${rvm_ruby_interpreter}-${rvm_ruby_version}-" |
+          awk -F- '{print $3}' | sort | tail -n 1
+      )"
+    fi
+    if
+      (( ${rvm_latest_binary_flag:-0} == 1 )) &&
+      [[ "${rvm_ruby_interpreter}" == "ruby" || "${rvm_ruby_interpreter}" == "ree" ]]
+    then
+      #TODO: MRI only implementation, we need a better db/format/handling for this
+      rvm_ruby_patch_level="$(
+        __list_remote_rubies_for $( __rvm_system_path_for rubies ) |
+          awk -F/ '{x=$NF; gsub(".tar.*","",x); print x}' |
+          grep "${rvm_ruby_interpreter}-${rvm_ruby_version}-" |
+          awk -F- '{print $3}' | sort | tail -n 1
+      )"
+    fi
+    [[ -n "${rvm_ruby_patch_level:-""}" ]] ||
     rvm_ruby_patch_level="$(
       __rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level"
     )"

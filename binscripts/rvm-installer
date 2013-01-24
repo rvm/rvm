@@ -106,7 +106,7 @@ install_head()
       _branch=master
       ;;
     (*/*)
-      _repo=${1%/*}
+      _repo=${1%%/*}
       _branch=${1#*/}
       ;;
     (*)
@@ -117,8 +117,21 @@ install_head()
   log "Downloading RVM from ${_repo} branch ${_branch}"
   get_and_unpack \
     https://github.com/${_repo}/rvm/tarball/${_branch} \
-    ${_repo}-rvm-${_branch}.tgz \
+    ${_repo}-rvm-${_branch//\//_}.tgz \
     ${_repo}-rvm-
+}
+
+# duplication marker dfkjdjngdfjngjcszncv
+# Drop in cd which _desotn't_ respect cdpath
+__rvm_cd()
+{
+    typeset old_cdpath ret
+    ret=0
+    old_cdpath="${CDPATH}"
+    CDPATH="."
+    chpwd_functions="" builtin cd "$@" || ret=$?
+    CDPATH="${old_cdpath}"
+    return $ret
 }
 
 get_and_unpack()
@@ -153,7 +166,7 @@ Could not download '${_url}'.
   fi
 
   [[ -d "${rvm_src_path}/rvm" ]] || \mkdir -p "${rvm_src_path}/rvm"
-  if ! builtin cd "${rvm_src_path}/rvm"
+  if ! __rvm_cd "${rvm_src_path}/rvm"
   then
     log "Could not change directory '${rvm_src_path}/rvm'."
     return 2
@@ -261,11 +274,16 @@ do
       fi
       ;;
 
-    --user-install|--auto)
+    --user-install|--auto-dotfiles|--ignore-dotfiles)
       token=${token#--}
       token=${token//-/_}
       export "rvm_${token}_flag"=1
       printf "%b" "Turning on ${token/_/ } mode.\n"
+      ;;
+
+    --auto)
+      export "rvm_auto_dotfiles_flag"=1
+      printf "%b" "Warning, --auto is deprecated in favor of --auto-dotfiles.\n"
       ;;
 
     --with-gems=*)
@@ -313,6 +331,11 @@ do
     --gems=*)
       token=${token#--gems=}
       install_gems+=( ${token//,/ } )
+      ;;
+
+    (--add-to-rvm-group)
+      export rvm_add_users_to_rvm_group="$1"
+      shift
       ;;
 
     help|usage)
@@ -424,8 +447,8 @@ if (( rvm_debug_flag == 1 ))
 then flags+=("--debug")
 fi
 
-if (( rvm_auto_flag == 1 ))
-then flags+=("--auto")
+if (( rvm_auto_dotfiles_flag == 1 ))
+then flags+=("--auto-dotfiles")
 fi
 
 if [[ -n "${rvm_with_gems:-}" ]]
@@ -434,6 +457,10 @@ fi
 
 if [[ -n "${rvm_without_gems:-}" ]]
 then flags+=("--without-gems=${rvm_without_gems}")
+fi
+
+if [[ -n "${rvm_add_users_to_rvm_group:-}" ]]
+then flags+=(--add-to-rvm-group "${rvm_add_users_to_rvm_group}")
 fi
 
 chmod +x ./scripts/install
@@ -446,16 +473,9 @@ then
     source ${rvm_scripts_path:-${rvm_path}/scripts}/version
     __rvm_version
 
-    {
-      echo "Ruby (and needed base gems) for your selection will be installed shortly."
-      echo "Before it happens, please read and execute the instructions below."
-      echo "Please use a separate terminal to execute any additional commands."
-      echo "Press 'q' to continue."
-    } | less
-
     for _ruby in ${install_rubies[@]}
     do
-      command rvm install ${_ruby} -j 2
+      rvm install ${_ruby} -j 2
     done
     for _ruby in ${install_rubies[@]}
     do

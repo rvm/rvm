@@ -23,12 +23,41 @@ __rvm_selected_compiler()
     echo "${CC}"
     return 0
   fi
+  if # autoselect on osx as there is no standard
+    __rvm_find_osx_gcc42 &&
+    [[ -n "${CC:-}" ]]
+  then
+    echo "$CC"
+    return 0
+  fi
   return 1
 }
 
 __rvm_found_compiler()
 {
   __rvm_selected_compiler || \which gcc 2>/dev/null
+}
+
+__rvm_fix_gcc_path()
+{
+  typeset __config_file __cc_value __cc_new
+  __rvm_which $(
+    "$rvm_ruby_home/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]||"true"' 2>/dev/null
+  ) >/dev/null 2>/dev/null ||
+  {
+    __cc_value="$( "$rvm_ruby_home/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]' 2>/dev/null )"
+    if
+      __config_file="$( find $rvm_ruby_home/ -name rbconfig.rb )" &&
+      GREP_OPTIONS="" \grep "CONFIG\[\"CC\"\]" "${__config_file}" >/dev/null
+    then
+      __cc_new="$( __rvm_found_compiler )"
+      rvm_debug "Fixing ruby compiler from '${__cc_value}' to '${__cc_new}'."
+      __rvm_sed_i "${__config_file}" \
+        -e "s#CONFIG\[\"CC\"\].*\$#CONFIG[\"CC\"] = ENV[\"CC\"] || \"${__cc_new}\"#"
+    else
+      rvm_warn "Installed ruby contains path to non existing compiler '${__config_file}', compiling native gems might be impossible."
+    fi
+  }
 }
 
 __rvm_run_compiler()
@@ -62,10 +91,11 @@ __rvm_compiler_is_gcc47()
 
 __rvm_setup_compile_environment()
 {
-  __rvm_setup_compile_environment_osx_gcc           "$1"
-  __rvm_setup_compile_environment_osx_architectures "$1"
-  __rvm_setup_compile_environment_gcc47             "$1"
-  __rvm_setup_compile_environment_smartos           "$1"
+  typeset __type
+  for __type in osx_gcc osx_architectures gcc47 smartos openbsd shared_static
+  do
+    __rvm_setup_compile_environment_${__type} "$1"
+  done
   rvm_debug "found compiler: $( __rvm_found_compiler )"
 }
 
@@ -85,7 +115,6 @@ __rvm_update_configure_env()
 
 __rvm_update_configure_opt_dir()
 {
-  #TODO add support for --with-opt-dir=...:... for > ruby-1.9.3-p286
   case "$1" in
     (ruby-head*|ruby-2*)
       __rvm_update_configure_opt_dir_option "$2"
@@ -97,10 +126,13 @@ __rvm_update_configure_opt_dir()
         (( __patchlevel < 297 ))
       then
         rvm_patch_names+=( cflags )
-        __rvm_update_configure_opt_dir_flags "$2"
+        __rvm_update_configure_opt_dir_option_or_flags "$2"
       else
         __rvm_update_configure_opt_dir_option "$2"
       fi
+      ;;
+    (ruby-1.9*)
+      __rvm_update_configure_opt_dir_option_or_flags "$2"
       ;;
     (*)
       __rvm_update_configure_opt_dir_flags "$2"
@@ -112,6 +144,19 @@ __rvm_update_configure_opt_dir_option()
 {
   rvm_debug "rvm_configure_flags+=( --with-opt-dir=$1 )"
   __rvm_array_add_or_update rvm_configure_flags --with-opt-dir= : "$1"
+}
+
+__rvm_update_configure_opt_dir_option_or_flags()
+{
+  # Use option if first time - use flags if option available already
+  case " ${rvm_configure_flags[*]} " in
+    (*[[:space:]]--with-opt-dir=*)
+      __rvm_update_configure_opt_dir_flags "$@"
+      ;;
+    (*)
+      __rvm_update_configure_opt_dir_option "$@"
+      ;;
+  esac
 }
 
 __rvm_update_configure_opt_dir_flags()
@@ -134,9 +179,10 @@ __rvm_update_configure_opt_dir_flags()
   fi
 }
 
-__rvm_setup_compile_environment_osx_gcc()
+__rvm_find_osx_gcc42()
 {
-  if [[ "Darwin" == "$(uname)" ]] && ! __rvm_selected_compiler > /dev/null
+  if
+    [[ "Darwin" == "$(uname)" ]]
   then
     export CC
     # override CC if gcc-4.2 available (OSX)
@@ -160,8 +206,15 @@ __rvm_setup_compile_environment_osx_gcc()
       [[ -x /usr/bin/gcc-4.2 ]] # OSX-GCC-Installer / Xcode - might be LLVM
     then
       CC=/usr/bin/gcc-4.2
+    else
+      return 1
     fi
   fi
+}
+
+__rvm_setup_compile_environment_osx_gcc()
+{
+  __rvm_selected_compiler > /dev/null || __rvm_find_osx_gcc42
 
   if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
   then rvm_force_autoconf_flag=1
@@ -172,15 +225,29 @@ __rvm_setup_compile_environment_osx_architectures()
 {
   [[ -n "${rvm_architectures:-}" ]] || return 0
 
-  # Ruby 1.9.x supports the easy way
-  if
-    __rvm_string_match "$1" "ruby-1.9.*"
-  then
-    rvm_configure_flags+=( --with-arch="${rvm_architectures}" )
-  else
-    typeset architectures architecture
-    typeset -a _local_osx_env
+  typeset architectures architecture
+  typeset -a _local_osx_env
 
+  # Ruby 1.9.x supports the easy way
+  case "$1" in
+  ruby-1.9*|ruby-2*|ruby-head*)
+    rvm_configure_flags+=( --with-arch="${rvm_architectures}" )
+    ;;
+  libyaml*)
+    for architecture in ${rvm_architectures//,/ }
+    do architectures="${architectures} -arch ${architecture}"
+    done
+
+    _local_osx_env=(
+      CFLAGS="${architectures} -O3"
+      CCFLAGS="${architectures} -O3"
+      CXXFLAGS="${architectures} -O3"
+      LDFLAGS="${architectures}"
+    )
+    __rvm_update_configure_env "${_local_osx_env[@]}"
+    rvm_configure_flags+=( --disable-dependency-tracking )
+    ;;
+  *)
     for architecture in ${rvm_architectures//,/ }
     do architectures="${architectures} -arch ${architecture}"
     done
@@ -195,13 +262,14 @@ __rvm_setup_compile_environment_osx_architectures()
     )
     __rvm_update_configure_env "${_local_osx_env[@]}"
     __rvm_array_contains "*osx-arch-fix*" "${rvm_patch_names[@]}" || rvm_patch_names+=( osx-arch-fix )
-  fi
+    ;;
+  esac
 }
 
 __rvm_setup_compile_environment_gcc47()
 {
   __rvm_compiler_is_gcc47 || return 0
-  __rvm_string_match "$1" "ruby-1.8.*" || return 0
+  __rvm_string_match "$1" "ruby-1.8.*" "ree*" || return 0
 
   # -g -O2 from 1.8.7-p370 is not enough, need all the flags to fix it
   __rvm_update_configure_env CFLAGS="-O2 -fno-tree-dce -fno-optimize-sibling-calls"
@@ -213,6 +281,45 @@ __rvm_setup_compile_environment_smartos()
   __rvm_update_configure_opt_dir "$1" "/opt/local" # TODO do we needed the next line?
   __rvm_update_configure_env CCFLAGS="-I/opt/local/include"
   __rvm_add_to_path prepend "/opt/local/gnu/bin"
+}
+
+__rvm_setup_compile_environment_openbsd()
+{
+  [[ "$(uname)" == "OpenBSD"     ]] || return 0
+  if
+    [[  -z "${AUTOCONF_VERSION:-}" ]]
+  then
+    export AUTOCONF_VERSION
+    AUTOCONF_VERSION="$( ls -1 /usr/local/bin/autoreconf-* | sort | tail -n 1 )"
+    AUTOCONF_VERSION="${AUTOCONF_VERSION##*-}"
+  fi
+  if
+    [[  -z "${AUTOMAKE_VERSION:-}" ]]
+  then
+    export AUTOMAKE_VERSION
+    AUTOMAKE_VERSION="$( ls -1 /usr/local/bin/automake-* | sort | tail -n 1 )"
+    AUTOMAKE_VERSION="${AUTOMAKE_VERSION##*-}"
+  fi
+}
+
+__rvm_setup_compile_environment_shared_static()
+{
+  # skip it if something already set
+  case "${rvm_configure_flags[*]}" in
+    (*--enable-shared*|*--disable-shared*|*--enable-static*|*--disable-static*) return 0 ;;
+  esac
+  case "$(uname)" in
+    (Darwin)
+      # OSX does not have a default package manager, shared is not wanted feature.
+      rvm_configure_flags+=( --disable-shared )
+      ;;
+    (*)
+      rvm_configure_flags+=( --enable-shared )
+      case "$1" in
+        (readline*) rvm_configure_flags+=( --disable-static ) ;;
+      esac
+      ;;
+  esac
 }
 
 __rvm_check_for_compiler()
@@ -309,4 +416,18 @@ Please install it manually (or a compatible alternative) to proceed.
   fi
 
   return 0
+}
+
+__rvm_is_enough_ram()
+{
+  typeset __required_ram __existing_ram
+
+  __required_ram=$(( $1 * 1024 * 1024 ))
+
+  __existing_ram="$(free -b 2>/dev/null | awk '{if (NR==3) print $4}')"
+  : ${__existing_ram:="$(sysctl hw.physmem 2>/dev/null | cut -f 2 -d :)"}
+  : __existing_ram: ${__existing_ram:=0}
+  rvm_debug "Existing ram $(( __existing_ram /1024 /1024 ))MB."
+
+  (( __existing_ram >= __required_ram )) || return $?
 }

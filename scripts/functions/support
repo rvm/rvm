@@ -76,7 +76,7 @@ __rvm_array_add_or_update()
   _array_name="$1"
   _variable="$2"
   _separator="$3"
-  _value="$4"
+  _value="${4##${_separator}}"
   _array_value_new=()
   eval "_array_value_old=( \"\${${_array_name}[@]}\" )"
 
@@ -102,6 +102,37 @@ __rvm_array_add_or_update()
   eval "${_array_name}=( \"\${_array_value_new[@]}\" )"
 }
 
+__rvm_array_prepend_or_ignore()
+{
+  typeset _array_name _variable _separator _value _local_value
+  typeset -a _array_value_old _array_value_new
+
+  _array_name="$1"
+  _variable="$2"
+  _separator="$3"
+  _value="$4"
+  _array_value_new=()
+  eval "_array_value_old=( \"\${${_array_name}[@]}\" )"
+
+  case " ${_array_value_old[*]} " in
+    (*[[:space:]]${_variable}*)
+      for _local_value in "${_array_value_old[@]}"
+      do
+        case "${_local_value}" in
+          (${_variable}*)
+            rvm_debug "__rvm_array_prepend_or_ignore ${_array_name} ${_variable}\"${_value}${_separator}${_local_value#${_variable}}\""
+            _array_value_new+=( "${_variable}${_value}${_separator}${_local_value#${_variable}}" )
+            ;;
+          (*)
+            _array_value_new+=( "${_local_value}" )
+            ;;
+        esac
+      done
+      eval "${_array_name}=( \"\${_array_value_new[@]}\" )"
+      ;;
+  esac
+}
+
 # Drop in replacement for sed -i compatible with OpenBSD
 # Assumes that filename is the first argument, all others are passed onto sed
 __rvm_sed_i()
@@ -120,12 +151,25 @@ __rvm_sed_i()
 
   {
     \sed "$@" < "${_filename}" > "${_filename}.new" &&
-    \mv "${_filename}.new" "${_filename}"
+    \mv -f "${_filename}.new" "${_filename}"
   } 2>&1 | rvm_debug_stream
 
   if [[ -n "${_executable:-}" ]]
   then chmod +x "${_filename}"
   fi
+}
+
+# duplication marker dfkjdjngdfjngjcszncv
+# Drop in cd which _desotn't_ respect cdpath
+__rvm_cd()
+{
+    typeset old_cdpath ret
+    ret=0
+    old_cdpath="${CDPATH}"
+    CDPATH="."
+    chpwd_functions="" builtin cd "$@" || ret=$?
+    CDPATH="${old_cdpath}"
+    return $ret
 }
 
 # Drop in replacement for which compatible with OSX / ZSH
