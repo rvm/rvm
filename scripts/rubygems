@@ -71,10 +71,10 @@ make_sure_jruby_can_work_with_rubygems()
   esac
 }
 
-does_not_work_with_rubygems()
+rubygems_fatal_error()
 {
-  rvm_error "RVM can not install rubygems for maglev and older jruby, select other ruby and try again."
-  exit 1
+  rvm_error "$1"
+  exit ${2:-1}
 }
 
 rubygems_version_list()
@@ -158,43 +158,28 @@ rubygems_setup()
 
   rubygems_select_version_url "$version" || return $?
 
-  make_sure_jruby_can_work_with_rubygems || does_not_work_with_rubygems
+  make_sure_jruby_can_work_with_rubygems ||
+  rubygems_fatal_error "RVM can not install rubygems for older jruby, select other ruby and try again." $?
 
-  # Sanity check... If setup.rb is missing from the rubygems source path,
-  # something went wrong. Cleanup, aisle 3!
-  [[ -f "${rvm_src_path}/$rvm_gem_package_name/setup.rb" ]] ||
+  # always cleanup!
+  [[ -d "${rvm_src_path}/$rvm_gem_package_name" ]] ||
     __rvm_rm_rf "${rvm_src_path}/$rvm_gem_package_name"
 
-  if
-    [[ ! -d "${rvm_src_path}/${rvm_gem_package_name}" ]]
-  then
-    rvm_log "Retrieving $rvm_gem_package_name"
-    if
-      "$rvm_scripts_path/fetch" "$rvm_gem_url" "${rvm_gem_package_name}.tgz"
-    then
-      true
-    else
-      result=$?
-      rvm_error "There has been an error while trying to fetch the source. \nHalting the installation."
-      return $result
-    fi
+  rvm_log "Retrieving $rvm_gem_package_name"
+  "$rvm_scripts_path/fetch" "$rvm_gem_url" "${rvm_gem_package_name}.tgz" ||
+  rubygems_fatal_error "There has been an error while trying to fetch rubygems. \nHalting the installation." $?
 
-    [[ -d "${rvm_src_path}/$rvm_gem_package_name" ]] ||
-      \mkdir -p "${rvm_src_path}/$rvm_gem_package_name"
-
-    __rvm_log_command "rubygems.extract" "Extracting $rvm_gem_package_name ..." \
-      __rvm_package_extract "${rvm_archives_path}/$rvm_gem_package_name.tgz" "${rvm_src_path}"
-  fi
+  __rvm_log_command "rubygems.extract" "Extracting $rvm_gem_package_name ..." \
+  __rvm_package_extract "${rvm_archives_path}/$rvm_gem_package_name.tgz" "${rvm_src_path}" ||
+  rubygems_fatal_error "There has been an error while trying to extract rubygems. \nHalting the installation." $?
 
   rubygems_remove # Remove old gems.
 
   __rvm_cd "${rvm_src_path}/$rvm_gem_package_name"
 
-  __rvm_run "rubygems.install" \
-    "GEM_PATH=\"$GEM_PATH:${GEM_PATH%%@*}@global\" GEM_HOME=\"$GEM_HOME\" \"${rvm_ruby_binary}\" \"${rvm_src_path}/$rvm_gem_package_name/setup.rb\"" \
-    "Installing $rvm_gem_package_name for ${rvm_ruby_string} ..."
-  result=$?
-  if (( result == 0 ))
+  if
+    __rvm_log_command "rubygems.install" "Installing $rvm_gem_package_name for ${rvm_ruby_string} ..." \
+      GEM_PATH="$GEM_PATH:${GEM_PATH%%@*}@global" GEM_HOME="$GEM_HOME" "${rvm_ruby_binary}" "${rvm_src_path}/$rvm_gem_package_name/setup.rb"
   then
     typeset program_suffix
     program_suffix="$( __rvm_ruby_config_get configure_args "${rvm_ruby_binary}" )"
@@ -235,7 +220,8 @@ version="$1"
   exit 1
 }
 
-can_switch_rubygems || does_not_work_with_rubygems
+can_switch_rubygems ||
+rubygems_fatal_error "RVM can not install rubygems for maglev and older jruby, select other ruby and try again." $?
 
 case "$version" in
   remove|link)
