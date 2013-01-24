@@ -732,43 +732,63 @@ __rvm_fix_group_permissions()
   fi
 }
 
-# params: action archive_file [path [path2]]
-__rvm_package()
+# params: archive_file
+__rvm_package_list()
 {
-  rvm_debug __rvm_package:$#: "$@"
-  case "$1-$2" in
-    list-*.zip)
-      unzip -Z -1 "$2"
+  rvm_debug __rvm_package_list:$#: "$@"
+  case "$1" in
+    *.zip)
+      unzip -Z -1 "$1"
       ;;
-    extract-*.zip)
-      [[ -d "$3" ]] || mkdir -p "$3"
-      unzip -q -o "$2" -d "$3"
+    *.tar.bz2)
+      ${rvm_tar_command:-tar} tjf "$1"
       ;;
-    list-*.tar.bz2)
-      ${rvm_tar_command:-tar} tjf "$2"
+    *.tar.gz|list-*.tgz)
+      ${rvm_tar_command:-tar} tzf "$1"
       ;;
-    create-*.tar.bz2)
-      if [[ -z "${4:-}" ]]
-      then ${rvm_tar_command:-tar} cjf "$2" "$3"
-      else ${rvm_tar_command:-tar} cjf "$2" -C "$3" "$4"
+    *)
+      return 199
+      ;;
+  esac
+}
+
+# params: archive_file [path]
+__rvm_package_extract()
+{
+  rvm_debug __rvm_package_extract:$#: "$@"
+  [[ -d "$2" ]] || mkdir -p "$2"
+  case "$1" in
+    *.zip)
+      unzip -q -o "$1" -d "$2"
+      ;;
+    *.tar.bz2)
+      ${rvm_tar_command:-tar} xjf "$1" -C "$2" ${rvm_tar_options:-}
+      ;;
+    *.tar.gz|extract-*.tgz)
+      ${rvm_tar_command:-tar} xzf "$1" -C "$2" ${rvm_tar_options:-}
+      ;;
+    *)
+      return 199
+      ;;
+  esac
+}
+
+# params: archive_file [path [path2]]
+__rvm_package_create()
+{
+  rvm_debug __rvm_package_create:$#: "$@"
+  case "$1" in
+    *.tar.bz2)
+      if [[ -z "${3:-}" ]]
+      then ${rvm_tar_command:-tar} cjf "$1" "$2"
+      else ${rvm_tar_command:-tar} cjf "$1" -C "$2" "$3"
       fi
       ;;
-    extract-*.tar.bz2)
-      [[ -d "$3" ]] || mkdir -p "$3"
-      ${rvm_tar_command:-tar} xjf "$2" -C "$3" ${rvm_tar_options:-}
-      ;;
-    list-*.tar.gz|list-*.tgz)
-      ${rvm_tar_command:-tar} tzf "$2"
-      ;;
-    create-*.tar.gz|create-*.tgz)
-      if [[ -z "${4:-}" ]]
-      then ${rvm_tar_command:-tar} czf "$2" "$3"
-      else ${rvm_tar_command:-tar} czf "$2" -C "$3" "$4"
+    *.tar.gz|create-*.tgz)
+      if [[ -z "${3:-}" ]]
+      then ${rvm_tar_command:-tar} czf "$1" "$2"
+      else ${rvm_tar_command:-tar} czf "$1" -C "$2" "$3"
       fi
-      ;;
-    extract-*.tar.gz|extract-*.tgz)
-      [[ -d "$3" ]] || mkdir -p "$3"
-      ${rvm_tar_command:-tar} xzf "$2" -C "$3" ${rvm_tar_options:-}
       ;;
     *)
       return 199
