@@ -13,3 +13,6 @@ git cherry-pick b06c66b -m 1
 
 ## https://github.com/wayneeseguin/rvm/pull/1474
 git cherry-pick 6a0d71a -m 1
+
+## https://github.com/wayneeseguin/rvm/issues/1469
+git cherry-pick 9ec3f5d
