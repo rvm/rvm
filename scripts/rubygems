@@ -213,27 +213,22 @@ builtin command -v ruby > /dev/null || {
 
 rubygems_validate()
 {
-  if ! which openssl > /dev/null; then
-    rvm_error "'openssl' was not found, please install it."
-    exit 1
-  fi
+  which openssl > /dev/null ||
+    rubygems_fatal_error "'openssl' was not found, please install it."
 
-  if ! which curl > /dev/null; then
-    rvm_error "'curl' was not found, please install it."
-    exit 1
-  fi
+  typeset gemfile gem loc rem
 
   rvm_log  "Validating RubyGems... This will take a while..."
-  for gem in $rvm_gems_path/*/cache/*.gem; do
+
+  for gem in $rvm_gems_path/*/cache/*.gem
+  do
     gemfile=$(basename $gem)
     rvm_log "Testing gem: $gem"
 
     loc=$(openssl md5 $gem |cut -d" " -f2)
     rem=$(curl -s -D - -X HEAD -H 'Connection:close' http://production.cf.rubygems.org/gems/$gemfile | grep 'ETag' | cut -d'"' -f2)
 
-    if [[ ! $loc = $rem ]]; then
-      rvm_error "$gemfile mismatch. local: $loc, remote: $rem"
-    fi
+    [[ $loc == $rem ]] || rvm_error "$gemfile mismatch. local: $loc, remote: $rem"
   done
 
   rvm_log "Done verifying gems."
