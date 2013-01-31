@@ -92,7 +92,7 @@ __rvm_compiler_is_gcc47()
 __rvm_setup_compile_environment()
 {
   typeset __type
-  for __type in osx_gcc osx_architectures gcc47 smartos openbsd shared_static
+  for __type in osx_gcc architectures gcc47 smartos openbsd shared_static
   do
     __rvm_setup_compile_environment_${__type} "$1"
   done
@@ -221,48 +221,71 @@ __rvm_setup_compile_environment_osx_gcc()
   fi
 }
 
-__rvm_setup_compile_environment_osx_architectures()
+__rvm_setup_compile_environment_architectures_default()
+{
+  typeset _architecture _architectures_string
+  typeset -a _architectures _flags
+
+  _architectures=()
+  for _architecture in ${rvm_architectures//,/ }
+  do _architectures+=( -arch "${_architecture}" )
+  done
+  _architectures_string="${_architectures[*]}"
+
+  _flags=(
+    CFLAGS="${_architectures_string}"
+    CCFLAGS="${_architectures_string}"
+    CXXFLAGS="${_architectures_string}"
+    LDFLAGS="${_architectures_string}"
+  )
+  __rvm_update_configure_env "${_flags[@]}"
+  rvm_configure_flags+=( --disable-dependency-tracking )
+}
+
+__rvm_setup_compile_environment_architectures_ruby_osx()
+{
+  typeset _architecture _architectures_string
+  typeset -a _architectures _flags
+
+  _architectures=()
+  for _architecture in ${rvm_architectures//,/ }
+  do _architectures+=( -arch "${_architecture}" )
+  done
+  _architectures_string="${_architectures[*]}"
+
+  _flags=(
+    MACOSX_DEPLOYMENT_TARGET="$( sw_vers -productVersion | awk -F'.' '{print $1"."$2}' )"
+    CFLAGS="${_architectures_string} -g -Os -pipe -no-cpp-precomp"
+    CCFLAGS="${_architectures_string} -g -Os -pipe"
+    CXXFLAGS="${_architectures_string} -g -Os -pipe"
+    LDFLAGS="${_architectures_string} -bind_at_load"
+    LDSHARED="cc ${_architectures_string} -dynamiclib -undefined suppress -flat_namespace"
+  )
+  __rvm_update_configure_env "${_flags[@]}"
+  __rvm_array_contains "*osx-arch-fix*" "${rvm_patch_names[@]}" || rvm_patch_names+=( osx-arch-fix )
+}
+
+__rvm_setup_compile_environment_architectures()
 {
   [[ -n "${rvm_architectures:-}" ]] || return 0
-
-  typeset architectures architecture
-  typeset -a _local_osx_env
-
-  # Ruby 1.9.x supports the easy way
   case "$1" in
-  ruby-1.9*|ruby-2*|ruby-head*)
-    rvm_configure_flags+=( --with-arch="${rvm_architectures}" )
-    ;;
-  libyaml*)
-    for architecture in ${rvm_architectures//,/ }
-    do architectures="${architectures} -arch ${architecture}"
-    done
-
-    _local_osx_env=(
-      CFLAGS="${architectures} -O3"
-      CCFLAGS="${architectures} -O3"
-      CXXFLAGS="${architectures} -O3"
-      LDFLAGS="${architectures}"
-    )
-    __rvm_update_configure_env "${_local_osx_env[@]}"
-    rvm_configure_flags+=( --disable-dependency-tracking )
-    ;;
-  *)
-    for architecture in ${rvm_architectures//,/ }
-    do architectures="${architectures} -arch ${architecture}"
-    done
-
-    _local_osx_env=(
-      MACOSX_DEPLOYMENT_TARGET="$( sw_vers -productVersion | awk -F'.' '{print $1"."$2}' )"
-      CFLAGS="${architectures} -g -Os -pipe -no-cpp-precomp"
-      CCFLAGS="${architectures} -g -Os -pipe"
-      CXXFLAGS="${architectures} -g -Os -pipe"
-      LDFLAGS="${architectures} -bind_at_load"
-      LDSHARED="cc ${architectures} -dynamiclib -undefined suppress -flat_namespace"
-    )
-    __rvm_update_configure_env "${_local_osx_env[@]}"
-    __rvm_array_contains "*osx-arch-fix*" "${rvm_patch_names[@]}" || rvm_patch_names+=( osx-arch-fix )
-    ;;
+    ruby-1.9*|ruby-2*|ruby-head*)
+      # Ruby 1.9+ supports the easy way
+      rvm_configure_flags+=( --with-arch="${rvm_architectures}" )
+      ;;
+    ruby*|ree*)
+      case "$(uname)" in
+        (Darwin)
+          __rvm_setup_compile_environment_architectures_ruby_osx
+          ;;
+        (*)
+          __rvm_setup_compile_environment_architectures_default
+          ;;
+      esac
+      ;;
+    *)
+      __rvm_setup_compile_environment_architectures_default
+      ;;
   esac
 }
 
@@ -326,7 +349,7 @@ __rvm_setup_compile_environment_shared_static()
           rvm_configure_flags+=( shared )
           ;;
         (readline*)
-          rvm_configure_flags+=( --disable-static --enable-shared ) 
+          rvm_configure_flags+=( --disable-static --enable-shared )
           ;;
         (*)
           rvm_configure_flags+=( --enable-shared )
