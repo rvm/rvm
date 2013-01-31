@@ -216,19 +216,33 @@ rubygems_validate()
   which openssl > /dev/null ||
     rubygems_fatal_error "'openssl' was not found, please install it."
 
-  typeset gemfile gem loc rem
+  typeset gemdir gemfile gem loc rem
+  typeset -a gemdirs
 
   rvm_log  "Validating RubyGems... This will take a while..."
 
-  for gem in $rvm_gems_path/*/cache/*.gem
+  __rvm_read_lines gemdirs <(
+    for gemdir do "$rvm_gems_path"/*/cache
+    do
+      while [[ -L "${gemdir}" ]]
+      do gemdir="$( readlink "${gemdir}" )"
+      done
+      echo "${gemdir}"
+    done | sort -u
+  )
+
+  for gemdir in "${gemdirs[@]}"
   do
-    gemfile=$(basename $gem)
-    rvm_log "Testing gem: $gem"
+    for gem in "$gemdir"/*/cache/*.gem
+    do
+      gemfile=$(basename $gem)
+      rvm_log "Testing gem: $gem"
 
-    loc=$(openssl md5 $gem |cut -d" " -f2)
-    rem=$(curl -s -D - -X HEAD -H 'Connection:close' http://production.cf.rubygems.org/gems/$gemfile | grep 'ETag' | cut -d'"' -f2)
+      loc=$(openssl md5 $gem |cut -d" " -f2)
+      rem=$(curl -s -D - -X HEAD -H 'Connection:close' http://production.cf.rubygems.org/gems/$gemfile | grep 'ETag' | cut -d'"' -f2)
 
-    [[ $loc == $rem ]] || rvm_error "$gemfile mismatch. local: $loc, remote: $rem"
+      [[ $loc == $rem ]] || rvm_error "$gemfile mismatch. local: $loc, remote: $rem"
+    done
   done
 
   rvm_log "Done verifying gems."
