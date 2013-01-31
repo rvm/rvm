@@ -256,6 +256,17 @@ rubygems_validate_gemfile()
   rm -rf "${rvm_tmp_path}/rg$$"
 )
 
+rubygems_validate_list_gemdirs()
+{
+  for gemdir in "$@"
+  do
+    while [[ -L "${gemdir}" ]]
+    do gemdir="$( readlink "${gemdir}" )"
+    done
+    echo "${gemdir}"
+  done | sort -u
+}
+
 # Adapted from: https://gist.github.com/4678189
 rubygems_validate()
 {
@@ -268,13 +279,12 @@ rubygems_validate()
   rvm_log  "Validating RubyGems... This will take a while..."
 
   __rvm_read_lines gemdirs <(
-    for gemdir in "$rvm_gems_path"/*/cache
-    do
-      while [[ -L "${gemdir}" ]]
-      do gemdir="$( readlink "${gemdir}" )"
-      done
-      echo "${gemdir}"
-    done | sort -u
+    rubygems_validate_list_gemdirs "$@"
+  )
+
+  (( ${#gemdirs[@]} )) ||
+  __rvm_read_lines gemdirs <(
+    rubygems_validate_list_gemdirs "$rvm_gems_path"/*/cache
   )
 
   for gemdir in "${gemdirs[@]}"
