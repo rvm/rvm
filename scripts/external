@@ -64,6 +64,45 @@ external_mount_uniq()
   fi
 }
 
+external_mount_link_default_binaries()
+{
+  typeset _binary _binary_addition
+  typeset -a _binaries
+  _binaries=(ruby gem irb erb ri rdoc testrb rake)
+
+  case "${ruby_path##*/}" in
+    (ruby)
+      true
+      ;;
+    (*ruby)
+      _binary_addition="${ruby_path##*/}"
+      _binary_addition="${_binary_addition%ruby}"
+      for _binary in "${_binaries[@]}"
+      do
+        if
+          [[ ! -f "${prefix_path}/${_binary}" ]] &&
+          [[ -f "${prefix_path}/${_binary_addition}${_binary}" ]]
+        then
+          ln -s "${prefix_path}/${_binary_addition}${_binary}" "${prefix_path}/${_binary}"
+        fi
+      done
+      ;;
+    (ruby*)
+      _binary_addition="${ruby_path##*/}"
+      _binary_addition="${_binary_addition#ruby}"
+      for _binary in "${_binaries[@]}"
+      do
+        if
+          [[ ! -f "${prefix_path}/${_binary}" ]] &&
+          [[ -f "${prefix_path}/${_binary}${_binary_addition}" ]]
+        then
+          ln -s "${prefix_path}/${_binary}${_binary_addition}" "${prefix_path}/${_binary}"
+        fi
+      done
+      ;;
+  esac
+}
+
 external_mount()
 {
   typeset _given_path ruby_path prefix_path
@@ -96,10 +135,6 @@ external_mount()
     fi
   fi
 
-  old_gem_home=$(
-    unset GEM_HOME
-    "${prefix_path}/bin/gem" env gemhome
-  )
   rvm_ruby_string="ext-${rvm_ruby_string}"
   echo "Mounting '${rvm_ruby_string}' from '${prefix_path}'"
 
@@ -108,9 +143,15 @@ external_mount()
   mkdir -p "$rvm_rubies_path/$rvm_ruby_string/bin"
   ln -nfs "${ruby_path}" "$rvm_rubies_path/$rvm_ruby_string/bin/ruby"
 
+  external_mount_link_default_binaries
+
   rvm_create_flag=1 __rvm_use
 
   mkdir -p "$rvm_gems_path/$rvm_ruby_string@global"
+  old_gem_home=$(
+    unset GEM_HOME
+    "${prefix_path}/bin/gem" env gemhome
+  )
   ln -nfs "${old_gem_home}" "$rvm_gems_path/$rvm_ruby_string"
 
   __rvm_bin_script
