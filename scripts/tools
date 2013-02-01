@@ -55,46 +55,46 @@ tools_user_usage()
   rvm_error "Usage: rvm user [gemsets] [rubies] [hooks] [pkgs] [wrappers] [all] [--skel]"
 }
 
-tools_user_setup()
+tools_user_setup_path()
 {
-  typeset target name _user_path
-  export eval_target
-  target="$1"
-  eval_target="${2}"
-  name="rvm_${eval_target}_path"
+  tools_user_setup "$1" "rvm_$2_path" "\${HOME}/.rvm/$2"
+}
 
-  # detect name in config
-  if [[ -f "${target}/.rvmrc" ]] && GREP_OPTIONS="" \grep "^export ${name}=" "${target}/.rvmrc" > /dev/null
+tools_user_setup()
+( # subprocess cause we change the HOME
+  typeset _target _var_name _user_value
+  _target="$1"
+  _var_name="$2"
+  _user_value="$3"
+
+  # detect _var_name in config
+  if [[ -f "${_target}/.rvmrc" ]] && GREP_OPTIONS="" \grep "^export ${_var_name}=" "${_target}/.rvmrc" > /dev/null
   then
     # if defined read path
-    _user_path="$( GREP_OPTIONS="" \grep "^export ${name}=" "${target}/.rvmrc" | sed "s/^export ${name}=//" )"
+    _user_value="$( GREP_OPTIONS="" \grep "^export ${_var_name}=" "${_target}/.rvmrc" | sed "s/^export ${_var_name}=//" )"
   else
     # if not defined - define it
-    _user_path="\${HOME}/.rvm/${eval_target}"
-    echo "export ${name}=\"${_user_path}\"" >> "${target}/.rvmrc"
+    echo "export ${_var_name}=\"${_user_value}\"" >> "${_target}/.rvmrc"
   fi
 
-  # subprocess cause we change the HOME
-  (
-    # set home to target, so --skel works fine
-    HOME="${target}"
-    # resolve the stored path
-    eval "_user_path=\"${_user_path}\""
+  # set home to _target, so --skel works fine
+  HOME="${_target}"
+  # resolve the stored path
+  eval "_user_value=\"${_user_value}\""
 
-    # ensure the defined path exists
-    [[ -d "${_user_path}" ]] || mkdir -p "${_user_path}"
+  # ensure the defined path exists
+  [[ -d "${_user_value}" ]] || mkdir -p "${_user_value}"
 
-    # create empty db files for rvm_user_path
-    if [[ "$eval_target" == "user" ]]
-    then
-      for file in db md5 rvmrcs sha512
-      do
-        [[ -f "${_user_path}/${file}" ]] || touch "${_user_path}/${file}"
-      done
-    fi
-  )
-  unset eval_target
-}
+  # create empty db files for rvm_user_value
+  if [[ "$_var_name" == "rvm_user_path" ]]
+  then
+    typeset _file
+    for _file in db md5 rvmrcs sha512
+    do
+      [[ -f "${_user_value}/${_file}" ]] || touch "${_user_value}/${_file}"
+    done
+  fi
+)
 
 tools_user()
 {
@@ -151,26 +151,28 @@ tools_user()
       rubies)
         for dir in archives bin environments gems gems_cache log repos rubies rubygems src tmp wrappers user
         do
-          tools_user_setup "${target}" $dir
+          tools_user_setup_path "${target}" $dir
         done
+        tools_user_setup "${target}" rvm_create_flag 1
         ;;
       gemsets)
         for dir in environments gems gems_cache wrappers
         do
-          tools_user_setup "${target}" $dir
+          tools_user_setup_path "${target}" $dir
         done
+        tools_user_setup "${target}" rvm_create_flag 1
         ;;
       hooks)
-        tools_user_setup "${target}" hooks
+        tools_user_setup_path "${target}" hooks
         ;;
       pkgs)
-        tools_user_setup "${target}" usr
+        tools_user_setup_path "${target}" usr
         ;;
       userdb)
-        tools_user_setup "${target}" user
+        tools_user_setup_path "${target}" user
         ;;
       log)
-        tools_user_setup "${target}" log
+        tools_user_setup_path "${target}" log
         ;;
     esac
   done
