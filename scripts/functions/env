@@ -187,6 +187,47 @@ __rvm_switch()
   __rvm_add_to_path prepend "${rvm_bin_path}"
 }
 
+__rvm_unload_action()
+{
+  typeset _element IFS
+  typeset -a _list
+
+  IFS=$'\n'
+  _list=( $( cat ${2:--} | sort -u ) )
+  for _element in "${_list[@]}"
+  do $1 "${_element}"
+  done
+}
+
+__rvm_unload()
+{
+  typeset _element
+  typeset -a _list
+
+  #PATH
+  __rvm_remove_rvm_from_path
+
+  # aliases
+  __rvm_unload_action unalias  <(
+    alias | awk -F"[= ]" '/rvm/ {print $2}'
+  )
+
+  # variables
+  __rvm_unload_action unset <(
+    set |
+      awk -F"=" 'BEGIN{v=0;} /^[a-zA-Z_][a-zA-Z0-9_]*=/{v=1;} v==1&&$2~/^['\''\$]/{v=2;}
+        v==1&&$2~/^\(/{v=3;} v==2&&/'\''$/&&!/'\'\''$/{v=1;} v==3&&/\)$/{v=1;} v{print;} v==1{v=0;}' |
+      awk -F"=" '/^[^ ]*(RUBY|GEM|IRB|gem|rubies|rvm)[^ ]*=/ {print $1} /^[^ ]*=.*rvm/ {print $1}' |
+      grep -vE "^PS|^BASH_SOURCE"
+  )
+
+  # functions
+  __rvm_unload_action unset <(
+    typeset -f | awk '$2=="()" {fun=$1} /rvm/{print fun}' | sort -u | grep -v __rvm_unload_action
+  )
+  unset __rvm_unload_action
+}
+
 __rvm_ruby_config_get()
 {
   typeset variable_name ruby_path
