@@ -150,11 +150,14 @@ install_curl()
 
 install_openssl()
 {
+  typeset -a openssl_use_asm
   package="openssl" ; archive_format="tar.gz"
+  openssl_use_asm=( "no-asm" )
   __rvm_db "${package}_version" "version"
   if
     [[ "Darwin" == "$(uname)" ]]
   then
+    configure=( "./Configure" )
     if
       [[ -n "$rvm_architectures" ]]
     then
@@ -171,37 +174,29 @@ install_openssl()
     if
       [[ "Power Macintosh" == "$hw_machine" ]]
     then
-      if
-        [[ $hw_cpu64bit == 1 ]]
-      then
-        openssl_os="darwin64-ppc-cc"
-      else
-        openssl_os="darwin-ppc-cc"
+      if [[ $hw_cpu64bit == 1 ]]
+      then configure+=( "darwin64-ppc-cc" )
+      else configure+=( "darwin-ppc-cc" )
       fi
     else
       if
-        [[ $hw_cpu64bit == 1 ]]
+       [[ $hw_cpu64bit == 1 ]]
       then
-        openssl_os="darwin64-x86_64-cc"
-        openssl_use_asm=1
+        configure+=( "darwin64-x86_64-cc" )
+        openssl_use_asm=()
       else
-        openssl_os="darwin-i386-cc"
+        configure+=( "darwin-i386-cc" )
       fi
     fi
-    configure_command="./Configure"
     # Don't use -j option for make OpenSSL
     __rvm_remove_from_array rvm_make_flags "-j*" "${rvm_make_flags[@]}"
   else
-    configure_command="./config"
+    configure=( "./config" )
+    if __rvm_compiler_is_gcc46_or_higher
+    then openssl_use_asm=()
+    fi
   fi
-  if
-    [[ "$openssl_use_asm" != "1" ]]
-  then
-    openssl_no_asm="no-asm"
-  fi
-  configure=(
-    $configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib zlib $openssl_no_asm no-krb5
-  )
+  configure+=( -I$rvm_usr_path/include -L$rvm_usr_path/lib zlib "${openssl_use_asm[@]}" no-krb5 )
   install_package
   __rvm_log_command openssl.certs "Updating openssl certificates" update_openssl_certs
 }
