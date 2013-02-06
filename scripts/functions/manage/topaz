@@ -2,12 +2,40 @@
 
 topaz_install()
 {
-    __rvm_cd "${rvm_src_path}"
-    __rvm_fetch_ruby || return $?
+  __rvm_cd "${rvm_src_path}"
+  __rvm_fetch_ruby || return $?
 
-    chmod +x "${rvm_ruby_home}/bin/topaz"
+  __rvm_rm_rf pypy
+  __rvm_rm_rf rply
 
-    rvm_create_flag=1 __rvm_use
+  curl -OL https://bitbucket.org/pypy/pypy/get/default.tar.bz2
+  tar xf default.tar.bz2
+  __rvm_rm_rf default.tar.bz2
+  mv pypy* pypy
 
-    __rvm_bin_script
+  curl -OL https://github.com/alex/rply/archive/master.zip
+  unzip master.zip
+  __rvm_rm_rf master.zip
+  mv rply* rply
+
+  __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
+
+  export PYTHONPATH="${rvm_src_path}/pypy:${rvm_src_path}/rply:${rvm_src_path}/$rvm_ruby_string"
+  __rvm_run "python" \
+      "/usr/bin/env python ${rvm_src_path}/pypy/rpython/translator/goal/translate.py -Ojit ${rvm_src_path}/${rvm_ruby_string}/targettopaz.py" \
+      "Building topaz with JIT, this will take a (long) while."
+  unset PYTHONPATH
+
+  __rvm_rm_rf $rvm_ruby_home
+  __rvm_run "install" \
+      "/bin/\cp -Rf ${rvm_src_path}/$rvm_ruby_string $rvm_ruby_home" \
+      "Installing topaz to $rvm_ruby_home"
+
+  __rvm_cd "$rvm_ruby_home/bin/"
+
+  ln -fs "topaz" "ruby"
+
+  __rvm_bin_script
+
+  rvm_create_flag=1 __rvm_use
 }
