@@ -10,23 +10,8 @@ transform_configure_flags()
   do
     case "${flag}" in
       --with-opt-dir=*)
-        new_flags+=( "${flag}" )
-        ;;
-      --with-*-dir=*)
-        _opt_path="${flag#*=}"
-        flag="${flag%-dir=*}"
-        new_flags+=( "${flag}" )
-
-        #TODO: multiple --with-opt-dir= are not supported by MRI ...
-        if
-          [[ " ${new_flags[*]}" =~ " --with-opt-dir=" ]]
-        then
-          # skip if the same two times, warn if two different available.
-          [[ " ${new_flags[*]} " =~ " --with-opt-dir=${_opt_path} " ]] ||
-            rvm_warn "You are using conflicting '--with-opt-dir=' configure flags."
-        else
-          new_flags+=( "--with-opt-dir=${_opt_path}" )
-        fi
+        # merge multiple opt flags
+        __rvm_array_add_or_update new_flags --with-opt-dir= : "${flag#*=}"
         ;;
       *)
         new_flags+=( "${flag}" )
@@ -60,8 +45,8 @@ __clang_ok()
 ruby_install()
 {
   typeset result temp_flags _iterator
-  typeset -a delayed_opt_dir
-  delayed_opt_dir=()
+  typeset -a delayed_flags
+  delayed_flags=()
 
   __rvm_check_for_bison # && Run like hell...
   if __rvm_check_for_bison
@@ -83,7 +68,7 @@ ruby_install()
           __rvm_setup_compile_environment libyaml
           prefix_path="${rvm_rubies_path}/${rvm_ruby_string}" install_libyaml
         )
-        delayed_opt_dir+=( "${rvm_rubies_path}/${rvm_ruby_string}" )
+        delayed_flags+=( --with-yaml-dir="${rvm_rubies_path}/${rvm_ruby_string}" )
       else
         if
           libyaml_installed
@@ -95,7 +80,7 @@ ruby_install()
             install_libyaml
           )
         fi
-        delayed_opt_dir+=( "${rvm_path}/usr" )
+        delayed_flags+=( --with-yaml-dir="${rvm_path}/usr" )
       fi
       ;;
   esac
@@ -111,7 +96,7 @@ ruby_install()
           __rvm_setup_compile_environment openssl
           prefix_path="${rvm_rubies_path}/${rvm_ruby_string}" install_openssl
         )
-        delayed_opt_dir+=( "${rvm_rubies_path}/${rvm_ruby_string}" )
+        delayed_flags+=( --with-openssl-dir="${rvm_rubies_path}/${rvm_ruby_string}" )
       else
         if
           openssl_installed
@@ -123,22 +108,12 @@ ruby_install()
             install_openssl
           )
         fi
-        delayed_opt_dir+=( "${rvm_path}/usr" )
+        delayed_flags+=( --with-openssl-dir="${rvm_path}/usr" )
       fi
       ;;
   esac
-  for _iterator in "${delayed_opt_dir[@]}"
-  do
-    __rvm_update_configure_opt_dir "${rvm_ruby_string}" "${_iterator}"
-  done
-  case ${rvm_ruby_string} in
-    ruby-1.9*|ruby-2*)
-      # Ruby 1.9 does not allow --with-<lib>-dir,
-      # so we transfo\rm it to --with-<lib> --with-opt-dir=...
-      # see https://github.com/wayneeseguin/rvm/issues/674
-      transform_configure_flags
-      ;;
-  esac
+  rvm_configure_flags+=( "${delayed_flags[@]}" )
+  transform_configure_flags
 
   case ${rvm_ruby_string:-""} in
     ruby-1.8.*-head)
