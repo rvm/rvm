@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/build"
+
 # show the user selected compiler or return 1
 __rvm_selected_compiler()
 {
@@ -95,16 +97,6 @@ __rvm_compiler_is_gcc46_or_higher()
   typeset __version
   __version="$(__rvm_run_compiler -dumpversion)"
   __rvm_version_compare "${__version:-0}" -ge "4.6" || return $?
-}
-
-__rvm_setup_compile_environment()
-{
-  typeset __type
-  for __type in osx_gcc architectures gcc47 smartos openbsd shared_static
-  do
-    __rvm_setup_compile_environment_${__type} "$1"
-  done
-  rvm_debug "found compiler: $( __rvm_found_compiler )"
 }
 
 __rvm_update_configure_env()
@@ -218,153 +210,6 @@ __rvm_find_osx_gcc42()
       return 1
     fi
   fi
-}
-
-__rvm_setup_compile_environment_osx_gcc()
-{
-  __rvm_selected_compiler > /dev/null || __rvm_find_osx_gcc42
-
-  if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
-  then rvm_force_autoconf_flag=1
-  fi
-}
-
-__rvm_setup_compile_environment_architectures_default()
-{
-  typeset _architecture _architectures_string
-  typeset -a _architectures _flags
-
-  _architectures=()
-  for _architecture in ${rvm_architectures//,/ }
-  do _architectures+=( -arch "${_architecture}" )
-  done
-  _architectures_string="${_architectures[*]}"
-
-  _flags=(
-    CFLAGS="${_architectures_string}"
-    CCFLAGS="${_architectures_string}"
-    CXXFLAGS="${_architectures_string}"
-    LDFLAGS="${_architectures_string}"
-  )
-  __rvm_update_configure_env "${_flags[@]}"
-  rvm_configure_flags+=( --disable-dependency-tracking )
-}
-
-__rvm_setup_compile_environment_architectures_ruby_osx()
-{
-  typeset _architecture _architectures_string
-  typeset -a _architectures _flags
-
-  _architectures=()
-  for _architecture in ${rvm_architectures//,/ }
-  do _architectures+=( -arch "${_architecture}" )
-  done
-  _architectures_string="${_architectures[*]}"
-
-  _flags=(
-    MACOSX_DEPLOYMENT_TARGET="$( sw_vers -productVersion | awk -F'.' '{print $1"."$2}' )"
-    CFLAGS="${_architectures_string} -g -Os -pipe -no-cpp-precomp"
-    CCFLAGS="${_architectures_string} -g -Os -pipe"
-    CXXFLAGS="${_architectures_string} -g -Os -pipe"
-    LDFLAGS="${_architectures_string} -bind_at_load"
-    LDSHARED="cc ${_architectures_string} -dynamiclib -undefined suppress -flat_namespace"
-  )
-  __rvm_update_configure_env "${_flags[@]}"
-  __rvm_array_contains "*osx-arch-fix*" "${rvm_patch_names[@]}" || rvm_patch_names+=( osx-arch-fix )
-}
-
-__rvm_setup_compile_environment_architectures()
-{
-  [[ -n "${rvm_architectures:-}" ]] || return 0
-  case "$1" in
-    ruby-1.9*|ruby-2*|ruby-head*)
-      # Ruby 1.9+ supports the easy way
-      rvm_configure_flags+=( --with-arch="${rvm_architectures}" )
-      ;;
-    ruby*|ree*)
-      case "$(uname)" in
-        (Darwin)
-          __rvm_setup_compile_environment_architectures_ruby_osx
-          ;;
-        (*)
-          __rvm_setup_compile_environment_architectures_default
-          ;;
-      esac
-      ;;
-    *)
-      __rvm_setup_compile_environment_architectures_default
-      ;;
-  esac
-}
-
-__rvm_setup_compile_environment_gcc47()
-{
-  __rvm_compiler_is_gcc47 || return 0
-  __rvm_string_match "$1" "ruby-1.8.*" "ree*" || return 0
-
-  # -g -O2 from 1.8.7-p370 is not enough, need all the flags to fix it
-  __rvm_update_configure_env CFLAGS="-O2 -fno-tree-dce -fno-optimize-sibling-calls"
-}
-
-__rvm_setup_compile_environment_smartos()
-{
-  [[ "$(uname -v)" =~ ^joyent ]] || return 0
-  __rvm_update_configure_opt_dir "$1" "/opt/local" # TODO do we needed the next line?
-  __rvm_update_configure_env CCFLAGS="-I/opt/local/include"
-  __rvm_add_to_path prepend "/opt/local/gnu/bin"
-}
-
-__rvm_setup_compile_environment_openbsd()
-{
-  [[ "$(uname)" == "OpenBSD"     ]] || return 0
-  if
-    [[  -z "${AUTOCONF_VERSION:-}" ]]
-  then
-    export AUTOCONF_VERSION
-    AUTOCONF_VERSION="$( ls -1 /usr/local/bin/autoreconf-* | sort | tail -n 1 )"
-    AUTOCONF_VERSION="${AUTOCONF_VERSION##*-}"
-  fi
-  if
-    [[  -z "${AUTOMAKE_VERSION:-}" ]]
-  then
-    export AUTOMAKE_VERSION
-    AUTOMAKE_VERSION="$( ls -1 /usr/local/bin/automake-* | sort | tail -n 1 )"
-    AUTOMAKE_VERSION="${AUTOMAKE_VERSION##*-}"
-  fi
-}
-
-__rvm_setup_compile_environment_shared_static()
-{
-  # skip it if something already set
-  case "${rvm_configure_flags[*]}" in
-    (*--enable-shared*|*--disable-shared*|*--enable-static*|*--disable-static*) return 0 ;;
-  esac
-  case "$(uname)" in
-    (Darwin)
-      # OSX does not have a default package manager, shared is not wanted feature.
-      case "$1" in
-        (openssl*)
-          rvm_configure_flags+=( no-shared )
-          ;;
-        (*)
-          rvm_configure_flags+=( --disable-shared )
-          ;;
-      esac
-      ;;
-    (*)
-      case "$1" in
-        (openssl*)
-          rvm_configure_flags+=( shared )
-          ;;
-        (readline*)
-          rvm_configure_flags+=( --disable-static --enable-shared )
-          ;;
-        (*)
-          rvm_configure_flags+=( --enable-shared )
-          ;;
-      esac
-      ;;
-  esac
 }
 
 __rvm_check_for_compiler()
