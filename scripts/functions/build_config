@@ -182,16 +182,16 @@ __rvm_setup_compile_environment_osx_brew_lib_install()
   case "$rvm_autolibs_flag" in
     (0|1)
       rvm_debug "Could not find ${brew_lib} in Homebrew"
-      return 1 # just ignore
+      return 0 # just ignore
       ;;
     (2)
       rvm_warn "Could not find ${brew_lib} in Homebrew"
-      return 2
+      return 0
       ;;
     (*) # 3+
       __rvm_log_command brew_install_${brew_lib} "Installing ${brew_lib} with HomeBrew" \
         brew install ${brew_lib} ||
-        return 3
+        return $?
       ;;
   esac
 }
@@ -201,7 +201,7 @@ __rvm_setup_compile_environment_osx_brew_lib()
   typeset brew_lib brew_lib_prefix
   brew_lib="$2"
 
-  __rvm_setup_compile_environment_osx_brew_lib_install "${brew_lib}" || return 0
+  __rvm_setup_compile_environment_osx_brew_lib_install "${brew_lib}" || return $?
 
   if
     brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
@@ -234,11 +234,11 @@ __rvm_setup_compile_environment_osx_brew_libs_ensure_brew()
     case "${rvm_autolibs_flag}" in
       (0|1)
         rvm_debug "homebrew is not available - skipping."
-        return 1 # just ignore
+        return 0 # just ignore
         ;;
       (2|3)
-        rvm_warn "Requested installation with homebrew libs, but homebrew is not available - skipping."
-        return 2
+        rvm_error "Requested installation with homebrew libs, but homebrew is not available."
+        return 1
         ;;
       (*) # 4+
         __rvm_log_command brew_install "Installing homebrew" \
@@ -263,13 +263,17 @@ __rvm_setup_compile_environment_osx_brew_libs()
   (( ${rvm_autolibs_flag:=4} > 0 )) || return 0
   __rvm_setup_compile_environment_osx_brew_libs_ensure_brew || return $?
 
+  brew update || return $?
+  __rvm_setup_compile_environment_osx_brew_lib_install git || return $?
+  brew tap | grep homebrew-dupes >/dev/null || brew tap homebrew/dupes || return $?
+
   typeset -a brew_libs
   typeset ruby_lib brew_lib
   brew_libs=(
     autoconf automake apple-gcc42 libtool pkg-config
   )
   for brew_lib in  "${brew_libs[@]}"
-  do __rvm_setup_compile_environment_osx_brew_lib_install "${brew_lib}" || true
+  do __rvm_setup_compile_environment_osx_brew_lib_install "${brew_lib}" || return $?
   done
 
   case "$1" in
@@ -278,7 +282,7 @@ __rvm_setup_compile_environment_osx_brew_libs()
         libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
       )
       for brew_lib in "${brew_libs[@]}"
-      do __rvm_setup_compile_environment_osx_brew_lib "$1" "${brew_lib}" "${ruby_lib}"
+      do __rvm_setup_compile_environment_osx_brew_lib "$1" "${brew_lib}" "${ruby_lib}" || return $?
       done
       ;;
   esac
