@@ -8,7 +8,7 @@ usage()
   printf "%b" "
 ## Usage:
 
-    rvm cleanup {all,archives,repos,sources,logs,gemsets}
+    rvm cleanup {all,archives,repos,sources,logs,gemsets,links}
 
 ## Description:
 
@@ -73,13 +73,32 @@ cleanup_gemsets()
   done
 }
 
+cleanup_links()
+{
+  typeset current_link
+  typeset -a all_links
+
+  __rvm_read_lines all_links <(
+    find "${rvm_path}"/{environments,wrappers,gems,bin} -type l
+  )
+  for current_link in "${all_links[@]}"
+  do
+    if
+      [[ -L "${current_link}" && ! -s "${current_link}" ]]
+    then
+      rvm_debug "Removing broken link: ${current_link}"
+      __rvm_rm_rf "${current_link}"
+    fi
+  done
+}
+
 cleanup()
 {
   while (( $# ))
   do
     rvm_log "Cleaning up rvm $1"
     case "$1" in
-      (gemsets)
+      (gemsets|links)
         cleanup_$1
         ;;
       (logs)
@@ -95,11 +114,11 @@ cleanup()
 
 failed_counter=0
 case "$1" in
-  archives|repos|sources|tmp|gemsets|logs)
+  archives|repos|sources|tmp|gemsets|logs|links)
     cleanup "$1"
     ;;
   all)
-    cleanup archives repos src log tmp gemsets
+    cleanup archives repos src log tmp gemsets links
     ;;
   help)
     usage
