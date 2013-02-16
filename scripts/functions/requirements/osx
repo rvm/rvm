@@ -1,128 +1,136 @@
 #!/usr/bin/env bash
 
-set -e
-
-function requirements_brew()
+requiremnts_brew_lib_install()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
+  typeset brew_lib
+  brew_lib="$1"
+  brew ls -1 | grep "^${brew_lib}$" >/dev/null ||
+  case "$rvm_autolibs_flag" in
+    (0|1)
+      rvm_debug "Could not find ${brew_lib} in Homebrew"
+      return 0 # just ignore
+      ;;
+    (2)
+      rvm_warn "Could not find ${brew_lib} in Homebrew"
+      return 0
+      ;;
+    (*) # 3+
+      __rvm_log_command brew_install_${brew_lib} "Installing ${brew_lib} with HomeBrew" \
+        brew install ${brew_lib} ||
+        return $?
+      ;;
+  esac
+}
 
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
+requiremnts_brew_lib()
+{
+  typeset brew_lib brew_lib_prefix
+  brew_lib="$2"
+
+  requiremnts_brew_lib_install "${brew_lib}" || return $?
+
+  if
+    brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
+    [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
+  then
+    __rvm_update_configure_opt_dir "$1" "${brew_lib_prefix}"
+  fi
+}
+
+requiremnts_brew_install_brew()
+{
+  typeset homebrew_home
+  if (( UID == 0 ))
+  then homebrew_home="/usr/local"
+  else homebrew_home="$HOME/.homebrew"
+  fi
+  mkdir -p "${homebrew_home}" || return $?
+  set -o pipefail
+  curl -fkL https://github.com/mxcl/homebrew/tarball/master |
+  tar xz --strip 1 -C "${homebrew_home}" ||
+    return $?
+  chmod +x "${homebrew_home}/bin/brew" # just in case
+  ln -nfs "${homebrew_home}/bin/brew" "${rvm_bin_path:-$rvm_path/bin}/brew"
+}
+
+requiremnts_brew_ensure_brew()
+{
+  which brew >/dev/null ||
+  {
+    case "${rvm_autolibs_flag}" in
+      (0|1)
+        rvm_debug "homebrew is not available - skipping."
+        return 0 # just ignore
         ;;
-      (force|run)
-        shift
+      (2|3)
+        rvm_error "Requested installation with homebrew libs, but homebrew is not available."
+        return 1
         ;;
-      (*)
-        break
+      (*) # 4+
+        __rvm_log_command brew_install "Installing homebrew" \
+          requiremnts_brew_install_brew ||
+          return $?
         ;;
     esac
+  }
+}
+
+requiremnts_brew_default()
+{
+  typeset -a brew_libs
+  typeset brew_lib
+
+  brew tap | grep homebrew-dupes >/dev/null || brew tap homebrew/dupes || return $?
+
+  brew_libs=(
+    autoconf automake apple-gcc42 libtool pkg-config
+  )
+  for brew_lib in  "${brew_libs[@]}"
+  do requiremnts_brew_lib_install "${brew_lib}" || return $?
   done
 
-  (( UID == 0 )) || {
-    typeset brew_path
-    brew_path="$( \which brew 2>/dev/null )"
-    {
-      # has to be executable for the running user
-      [[ -x "${brew_path}" ]] &&
-      # must be owned by user or sticky bit set -- #TODO: might need improvement
-      [[ -O "${brew_path}" || -G "${brew_path}" || -u "${brew_path}" || -g "${brew_path}" ]]
-    } ||
-    command_to_run+=( sudo )
-  }
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        "${command_to_run[@]}" brew update
-        "${command_to_run[@]}" brew tap homebrew/dupes
-        ;;
-      (rvm)
-        "${command_to_run[@]}" brew install bash curl git
-        ;;
-      (jruby*)
-        which java >/dev/null 2>&1 || return $?
-        ;;
-      (ir*)
-        which mono >/dev/null 2>&1 || return $?
-        ;;
-      (opal)
-        "${command_to_run[@]}" brew install node
-        ;;
-      (*)
-        "${command_to_run[@]}" brew install autoconf automake apple-gcc42 libtool pkg-config openssl readline libyaml sqlite libxml2 libxslt libksba
-        ;;
-    esac
-    shift
+  brew_libs=(
+    libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
+  )
+  for brew_lib in "${brew_libs[@]}"
+  do requiremnts_brew_lib "$1" "${brew_lib}" "${ruby_lib}" || return $?
   done
 }
 
-# TODO it's the same as unknown
-function requirements_osx_show()
+requiremnts_brew()
 {
-  typeset -a command_to_run
-  command_to_run=( echo )
+  requiremnts_brew_ensure_brew || return $?
 
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        shift
-        ;;
-      (force)
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        "${command_to_run[@]}" "Always update your system first!"
-        ;;
-      (rvm)
-        "${command_to_run[@]}" "Install: bash curl git patch"
-        ;;
-      (jruby*)
-        "${command_to_run[@]}" "Install: openjdk ant"
-        ;;
-      (ir*)
-        "${command_to_run[@]}" "Install: mono"
-        ;;
-      (opal)
-        "${command_to_run[@]}" "Install: nodejs npm"
-        ;;
-      (*)
-        "${command_to_run[@]}" "Install: osx-gcc-installer libksba openssl libreadline git zlib1g libyaml libsqlite3 sqlite3 libxml2 libxslt autoconf libc6 libgdbm ncurses automake libtool bison pkg-config"
-        ;;
-    esac
-    shift
-  done
+  case "$1" in
+    (update-system)
+      brew update || return $?
+      ;;
+    (rvm)
+      requiremnts_brew_lib_install git || return $?
+      ;;
+    (jruby*)
+      which java >/dev/null 2>&1 || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      "${command_to_run[@]}" brew install node
+      ;;
+    (*)
+      requiremnts_brew_default "$1"
+      ;;
+  esac
 }
 
 requirements_osx()
 {
-  if
-    \which brew >/dev/null 2>&1
-  then
-    requirements_brew "$@"
-  else
-    requirements_osx_show "$@"
-  fi
+  # TODO: extra logic for detecting other package managers
+  #if
+  #  \which brew >/dev/null 2>&1
+  #then
+    requirements_brew "$@" || return $?
+  #else
+  #  requirements_osx_show "$@"
+  #fi
 }
-
-requirements_osx "$@"

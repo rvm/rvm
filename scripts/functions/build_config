@@ -5,7 +5,7 @@ __rvm_setup_compile_environment()
   typeset __type
   typeset -a __types
   __types=(
-    osx_gcc osx_brew_libs architectures gcc47 smartos sunos openbsd shared_static
+    osx_gcc requiremnts architectures gcc47 smartos sunos openbsd shared_static
   )
   for __type in "${__types[@]}"
   do
@@ -174,79 +174,20 @@ __rvm_setup_compile_environment_shared_static()
   esac
 }
 
-__rvm_setup_compile_environment_osx_brew_lib_install()
+__rvm_setup_compile_environment_requiremnts_iterate()
 {
-  typeset brew_lib
-  brew_lib="$1"
-  brew ls -1 | grep "^${brew_lib}$" >/dev/null ||
-  case "$rvm_autolibs_flag" in
-    (0|1)
-      rvm_debug "Could not find ${brew_lib} in Homebrew"
-      return 0 # just ignore
-      ;;
-    (2)
-      rvm_warn "Could not find ${brew_lib} in Homebrew"
-      return 0
-      ;;
-    (*) # 3+
-      __rvm_log_command brew_install_${brew_lib} "Installing ${brew_lib} with HomeBrew" \
-        brew install ${brew_lib} ||
-        return $?
-      ;;
-  esac
-}
+  typeset -a list
+  typeset element
 
-__rvm_setup_compile_environment_osx_brew_lib()
-{
-  typeset brew_lib brew_lib_prefix
-  brew_lib="$2"
-
-  __rvm_setup_compile_environment_osx_brew_lib_install "${brew_lib}" || return $?
-
-  if
-    brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
-    [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
-  then
-    __rvm_update_configure_opt_dir "$1" "${brew_lib_prefix}"
+  list=( update-system rvm )
+  if (( $# ))
+  then list+=( "$@" )
+  else list+=( ruby )
   fi
-}
 
-__rvm_setup_compile_environment_osx_brew_libs_install_brew()
-{
-  typeset homebrew_home
-  if (( UID == 0 ))
-  then homebrew_home="/usr/local"
-  else homebrew_home="$HOME/.homebrew"
-  fi
-  mkdir -p "${homebrew_home}" || return $?
-  set -o pipefail
-  curl -fkL https://github.com/mxcl/homebrew/tarball/master |
-  tar xz --strip 1 -C "${homebrew_home}" ||
-    return $?
-  chmod +x "${homebrew_home}/bin/brew" # just in case
-  ln -nfs "${homebrew_home}/bin/brew" "${rvm_bin_path:-$rvm_path/bin}/brew"
-}
-
-__rvm_setup_compile_environment_osx_brew_libs_ensure_brew()
-{
-  which brew >/dev/null ||
-  {
-    case "${rvm_autolibs_flag}" in
-      (0|1)
-        rvm_debug "homebrew is not available - skipping."
-        return 0 # just ignore
-        ;;
-      (2|3)
-        rvm_error "Requested installation with homebrew libs, but homebrew is not available."
-        return 1
-        ;;
-      (*) # 4+
-        __rvm_log_command brew_install "Installing homebrew" \
-          __rvm_setup_compile_environment_osx_brew_libs_install_brew ||
-          return $?
-        ;;
-    esac
-  }
+  for element in "${list[@]}"
+  do requirements_$_system_name "${element}" || return $?
+  done
 }
 
 #
@@ -257,33 +198,20 @@ __rvm_setup_compile_environment_osx_brew_libs_ensure_brew()
 # - 3 - 2 + install libs if not available
 # - 4 - 3 + install package manager if not available (default)
 #
-__rvm_setup_compile_environment_osx_brew_libs()
+__rvm_setup_compile_environment_requiremnts()
 {
-  [[ "$(uname)" == "Darwin" ]] || return 0
   (( ${rvm_autolibs_flag:=4} > 0 )) || return 0
-  __rvm_setup_compile_environment_osx_brew_libs_ensure_brew || return $?
 
-  brew update || return $?
-  __rvm_setup_compile_environment_osx_brew_lib_install git || return $?
-  brew tap | grep homebrew-dupes >/dev/null || brew tap homebrew/dupes || return $?
+  __rvm_detect_system
+  [[ -s "$rvm_scripts_path/functions/requirements/$_system_name" ]] ||
+  {
+    rvm_error "Requirements support for $_system_name/$_system_version/$_system_arch is not implemented yet,
+      report a bug here => https://github.com/wayneeseguin/rvm/issues"
+    return 1
+  }
 
-  typeset -a brew_libs
-  typeset ruby_lib brew_lib
-  brew_libs=(
-    autoconf automake apple-gcc42 libtool pkg-config
-  )
-  for brew_lib in  "${brew_libs[@]}"
-  do __rvm_setup_compile_environment_osx_brew_lib_install "${brew_lib}" || return $?
-  done
+  rvm_log "Installing requirements for $_system_name/$_system_version/$_system_arch"
+  source "$rvm_scripts_path/functions/requirements/$_system_name"
 
-  case "$1" in
-    ruby*|ree*)
-      brew_libs=(
-        libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
-      )
-      for brew_lib in "${brew_libs[@]}"
-      do __rvm_setup_compile_environment_osx_brew_lib "$1" "${brew_lib}" "${ruby_lib}" || return $?
-      done
-      ;;
-  esac
+  __rvm_setup_compile_environment_requiremnts_iterate "$@"
 }
