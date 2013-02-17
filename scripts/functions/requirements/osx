@@ -1,125 +1,55 @@
 #!/usr/bin/env bash
 
-requirements_brew_lib_installed()
+requirements_osx_find_brew()
 {
-  brew list "${1}" >/dev/null || return $?
-}
-
-requirements_brew_libs_install()
-{
-  brew install "$@" || return $?
-}
-
-requirements_brew_libs_ensure()
-{
-  typeset -a packages_installed packages_missing packages_to_install
-  __rvm_filter_installed_packages brew "$@" || return $?
-}
-
-requirements_brew_libs_configure()
-{
-  typeset package brew_lib brew_lib_prefix
-  package="$1"
-  shift
-
-  for brew_lib
-  do
-    if
-      brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
-      [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
-    then
-      __rvm_update_configure_opt_dir "${package}" "${brew_lib_prefix}"
-    fi
-  done
-}
-
-requirements_brew_libs_default()
-{
-  brew tap | grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
-
-  typeset -a brew_libs brew_libs_conf
-  brew_libs=(
-    autoconf automake apple-gcc42 libtool pkg-config
-  )
-  brew_libs_conf=(
-    libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
-  )
-  requirements_brew_libs_ensure "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
-  requirements_brew_libs_configure "$1"           "${brew_libs_conf[@]}" || return $?
-}
-
-requirements_brew_install_brew()
-{
-  typeset homebrew_home
-  if (( UID == 0 ))
-  then homebrew_home="/usr/local"
-  else homebrew_home="$HOME/.homebrew"
+  if
+    \which brew >/dev/null 2>&1
+  then
+    return 0
+  else
+    typeset __binary
+    for __binary in ~/homebrew/bin/brew ~/.homebrew/bin/brew /usr/local/bin/brew  /usr/local/bin/brew
+    do
+      if
+        [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
+      then
+        # link to rvm_bin for easy adding to PATH
+        ln -nfs "${__binary}" "${rvm_bin_path:-$rvm_path/bin}/brew"
+        return 0
+      fi
+    done
+    return 1
   fi
-  mkdir -p "${homebrew_home}" || return $?
-  set -o pipefail
-  curl -fkL https://github.com/mxcl/homebrew/tarball/master |
-  tar xz --strip 1 -C "${homebrew_home}" ||
-    return $?
-  chmod +x "${homebrew_home}/bin/brew" # just in case
-  ln -nfs "${homebrew_home}/bin/brew" "${rvm_bin_path:-$rvm_path/bin}/brew"
 }
 
-requirements_brew_ensure_brew()
+requirements_osx_run()
 {
-  which brew >/dev/null ||
+  typeset __type
+  __type=$1
+  shift
+  [[ -s "$rvm_scripts_path/functions/requirements/osx_${__type}" ]] ||
   {
-    case "${rvm_autolibs_flag}" in
-      (0)
-        rvm_debug "homebrew is not available - skipping."
-        return 0 # just ignore
-        ;;
-      (1|2)
-        rvm_error "Requested installation with homebrew libs, but homebrew is not available."
-        return 1
-        ;;
-      (*) # 3+
-        __rvm_log_command brew_install "Installing homebrew" \
-          requirements_brew_install_brew ||
-          return $?
-        ;;
-    esac
+    rvm_error "Requirements support for osx_${__type} is not implemented yet,
+      report a bug here => https://github.com/wayneeseguin/rvm/issues"
+    return 1
   }
-}
 
-requirements_brew()
-{
-  requirements_brew_ensure_brew || return $?
-
-  case "$1" in
-    (update-system)
-      brew update || return $?
-      ;;
-    (rvm)
-      requirements_brew_libs_ensure git || return $?
-      ;;
-    (jruby*)
-      which java >/dev/null 2>&1 || return $?
-      ;;
-    (ir*)
-      which mono >/dev/null 2>&1 || return $?
-      ;;
-    (opal)
-      requirements_brew_libs_ensure node
-      ;;
-    (*)
-      requirements_brew_libs_default "$1"
-      ;;
-  esac
+  source "$rvm_scripts_path/functions/requirements/osx_${__type}"
+  requirements_${__type} "$@" || return $?
 }
 
 requirements_osx()
 {
-  # TODO: extra logic for detecting other package managers
-  #if
-  #  \which brew >/dev/null 2>&1
-  #then
-    requirements_brew "$@" || return $?
-  #else
-  #  requirements_osx_show "$@"
-  #fi
+  typeset __type
+  for __type in brew # port fink ...
+    if
+      requirements_osx_find_${__type}
+    then
+      requirements_osx_run ${__type} "$@" || return $?
+      return 0
+    fi
+  done
+
+  # fallback
+  requirements_osx_run brew "$@" || return $?
 }
