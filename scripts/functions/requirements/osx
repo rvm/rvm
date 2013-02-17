@@ -1,40 +1,66 @@
 #!/usr/bin/env bash
 
-requirements_brew_lib_install()
+requirements_brew_libs_install()
 {
-  typeset brew_lib
-  brew_lib="$1"
-  brew ls -1 | grep "^${brew_lib}$" >/dev/null ||
-  case "$rvm_autolibs_flag" in
-    (0|1)
-      rvm_debug "Could not find ${brew_lib} in Homebrew"
-      return 0 # just ignore
-      ;;
-    (2)
-      rvm_warn "Could not find ${brew_lib} in Homebrew"
-      return 0
-      ;;
-    (*) # 3+
-      __rvm_log_command brew_install_${brew_lib} "Installing ${brew_lib} with HomeBrew" \
-        brew install ${brew_lib} ||
-        return $?
-      ;;
-  esac
+  typeset list
+  list="$*"
+  __rvm_log_command brew_install_${list// /_} "Installing ${list// /, } with HomeBrew" \
+    brew install "$@" ||
+    return $?
 }
 
-requirements_brew_lib()
+requirements_brew_lib_installed()
 {
-  typeset brew_lib brew_lib_prefix
-  brew_lib="$2"
+  brew ls -1 | grep "^${1}$" >/dev/null || return $?
+}
 
-  requirements_brew_lib_install "${brew_lib}" || return $?
+requirements_brew_libs_ensure()
+{
+  typeset brew_lib
+  typeset -a brew_libs
+  brew_libs=()
 
-  if
-    brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
-    [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
-  then
-    __rvm_update_configure_opt_dir "$1" "${brew_lib_prefix}"
+  for brew_lib
+  do
+    __rvm_package_installed_wrapper "${brew_lib}" \
+      requirements_brew_lib_installed "${brew_lib}" ||
+    brew_libs+=( "${brew_lib}" )
+  done
+  if (( $# ))
+  then requirements_brew_libs_install "${brew_libs[@]}"
   fi
+}
+
+requirements_brew_libs_configure()
+{
+  typeset package brew_lib brew_lib_prefix
+  package="$1"
+  shift
+
+  for brew_lib
+  do
+    if
+      brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
+      [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
+    then
+      __rvm_update_configure_opt_dir "${package}" "${brew_lib_prefix}"
+    fi
+  done
+}
+
+requirements_brew_libs_default()
+{
+  brew tap | grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
+
+  typeset -a brew_libs brew_libs_conf
+  brew_libs=(
+    autoconf automake apple-gcc42 libtool pkg-config
+  )
+  brew_libs_conf=(
+    libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
+  )
+  requirements_brew_libs_ensure "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
+  requirements_brew_libs_configure "$1"           "${brew_libs_conf[@]}" || return $?
 }
 
 requirements_brew_install_brew()
@@ -58,43 +84,21 @@ requirements_brew_ensure_brew()
   which brew >/dev/null ||
   {
     case "${rvm_autolibs_flag}" in
-      (0|1)
+      (0)
         rvm_debug "homebrew is not available - skipping."
         return 0 # just ignore
         ;;
-      (2|3)
+      (1|2)
         rvm_error "Requested installation with homebrew libs, but homebrew is not available."
         return 1
         ;;
-      (*) # 4+
+      (*) # 3+
         __rvm_log_command brew_install "Installing homebrew" \
           requirements_brew_install_brew ||
           return $?
         ;;
     esac
   }
-}
-
-requirements_brew_default()
-{
-  typeset -a brew_libs
-  typeset brew_lib
-
-  brew tap | grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
-
-  brew_libs=(
-    autoconf automake apple-gcc42 libtool pkg-config
-  )
-  for brew_lib in  "${brew_libs[@]}"
-  do requirements_brew_lib_install "${brew_lib}" || return $?
-  done
-
-  brew_libs=(
-    libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
-  )
-  for brew_lib in "${brew_libs[@]}"
-  do requirements_brew_lib "$1" "${brew_lib}" "${ruby_lib}" || return $?
-  done
 }
 
 requirements_brew()
@@ -106,7 +110,7 @@ requirements_brew()
       brew update || return $?
       ;;
     (rvm)
-      requirements_brew_lib_install git || return $?
+      requirements_brew_libs_ensure git || return $?
       ;;
     (jruby*)
       which java >/dev/null 2>&1 || return $?
@@ -115,10 +119,10 @@ requirements_brew()
       which mono >/dev/null 2>&1 || return $?
       ;;
     (opal)
-      "${command_to_run[@]}" brew install node
+      requirements_brew_libs_ensure node
       ;;
     (*)
-      requirements_brew_default "$1"
+      requirements_brew_libs_default "$1"
       ;;
   esac
 }
