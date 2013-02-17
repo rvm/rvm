@@ -65,7 +65,31 @@ requirements_brew_install_brew()
   ln -nfs "${homebrew_home}/bin/brew" "${rvm_bin_path:-$rvm_path/bin}/brew"
 }
 
-requirements_brew_ensure_brew()
+requirements_brew_route_install()
+{
+  case "$1" in
+    (update-system)
+      brew update || return $?
+      ;;
+    (rvm)
+      requirements_brew_libs_ensure git || return $?
+      ;;
+    (jruby*)
+      which java >/dev/null 2>&1 || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_brew_libs_ensure node
+      ;;
+    (*)
+      requirements_brew_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_brew_ensure_brew_available()
 {
   which brew >/dev/null ||
   {
@@ -87,28 +111,25 @@ requirements_brew_ensure_brew()
   }
 }
 
+requirements_brew_ensure_brew_can_install()
+{
+  (( rvm_autolibs_flag > 1 )) || return 0
+  typeset __celar_path
+  __celar_path="$(brew --cellar)"
+  if
+    [[ -w "${__celar_path}/../bin" ]] &&
+    [[ -w "${__celar_path}" || ! -e "${__celar_path}" ]]
+  then
+    rvm_debug "brew seams to be writable"
+  else
+    rvm_autolibs_flag=1
+    rvm_warn "WARN: Can not install "
+  fi
+}
+
 requirements_brew()
 {
-  requirements_brew_ensure_brew || return $?
-
-  case "$1" in
-    (update-system)
-      brew update || return $?
-      ;;
-    (rvm)
-      requirements_brew_libs_ensure git || return $?
-      ;;
-    (jruby*)
-      which java >/dev/null 2>&1 || return $?
-      ;;
-    (ir*)
-      which mono >/dev/null 2>&1 || return $?
-      ;;
-    (opal)
-      requirements_brew_libs_ensure node
-      ;;
-    (*)
-      requirements_brew_libs_default "$1"
-      ;;
-  esac
+  requirements_brew_ensure_brew_available   || return $?
+  requirements_brew_ensure_brew_can_install || return $?
+  requirements_brew_route_install "$@"      || return $?
 }
