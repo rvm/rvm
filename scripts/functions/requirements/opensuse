@@ -1,57 +1,39 @@
 #!/usr/bin/env bash
 
-function requirements_opensuse()
+requirements_opensuse_ensure_libs()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
+  typeset lib
+  typeset -a libs
+  libs=()
 
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (run)
-        shift
-        ;;
-      (force)
-        command_flags+=( -y )
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
+  for lib
+  do rpm -q --whatprovides "$lib" >/dev/null || libs+=( "$lib" )
   done
 
-  (( UID == 0 )) || command_to_run+=( sudo )
+  (( ${#libs[@]} )) || return 0
+  __rvm_try_sudo zypper install -y "${libs[@]}"
+}
 
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        true
-        ;;
-      (rvm)
-        "${command_to_run[@]}" zypper install "${command_flags[@]}" bash curl git patch
-        ;;
-      (jruby*)
-        "${command_to_run[@]}" zypper install "${command_flags[@]}" java
-        ;;
-      (ir*)
-        "${command_to_run[@]}" zypper install "${command_flags[@]}" mono
-        ;;
-      (opal)
-        "${command_to_run[@]}" zypper install "${command_flags[@]}" nodejs
-        ;;
-      (*)
-        "${command_to_run[@]}" zypper install "${command_flags[@]}" patterns-openSUSE-devel_basis gcc-c++ bzip2 readline-devel zlib-devel libxml2-devel libxslt-devel libyaml-devel libopenssl-devel libffi-devel libtool bison
-        ;;
-    esac
-    shift
-  done
+requirements_opensuse()
+{
+  case "$1" in
+    (update-system)
+      __rvm_try_sudo zypper refresh | __rvm_dotted "Updating repositories"
+      ;;
+    (rvm)
+      requirements_opensuse_ensure_libs bash curl git patch
+      ;;
+    (jruby*)
+      requirements_opensuse_ensure_libs java
+      ;;
+    (ir*)
+      requirements_opensuse_ensure_libs mono
+      ;;
+    (opal)
+      requirements_opensuse_ensure_libs nodejs
+      ;;
+    (*)
+      requirements_opensuse_ensure_libs patterns-openSUSE-devel_basis gcc-c++ bzip2 readline-devel zlib-devel libxml2-devel libxslt-devel libyaml-devel libopenssl-devel libffi-devel libtool bison
+      ;;
+  esac
 }
