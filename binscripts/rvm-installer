@@ -239,6 +239,7 @@ fi
 
 install_rubies=()
 install_gems=()
+flags=()
 # Parse CLI arguments.
 while (( $# > 0 ))
 do
@@ -249,6 +250,12 @@ do
     --trace)
       set -o xtrace
       rvm_trace_flag=1
+      flags+=( "$token" )
+      ;;
+
+    --debug)
+      rvm_debug_flag=1
+      flags+=( "$token" )
       ;;
 
     --path)
@@ -272,11 +279,17 @@ do
       fi
       ;;
 
-    --user-install|--auto-dotfiles|--ignore-dotfiles)
+    --user-install|--ignore-dotfiles)
       token=${token#--}
       token=${token//-/_}
       export "rvm_${token}_flag"=1
       printf "%b" "Turning on ${token/_/ } mode.\n"
+      ;;
+
+    --auto-dotfiles)
+      flags+=( "$token" )
+      export "rvm_auto_dotfiles_flag"=1
+      printf "%b" "Turning on auto dotfiles mode.\n"
       ;;
 
     --auto)
@@ -284,12 +297,19 @@ do
       printf "%b" "Warning, --auto is deprecated in favor of --auto-dotfiles.\n"
       ;;
 
+    --autolibs=*)
+      flags+=( "$token" )
+      export rvm_autolibs_flag="${token#--autolibs=}"
+      ;;
+
     --with-gems=*)
+      flags+=( "$token" )
       export rvm_with_gems="${token#--with-gems=}"
       printf "%b" "Installing RVM with gems: ${rvm_with_gems}.\n"
       ;;
 
     --without-gems=*)
+      flags+=( "$token" )
       export rvm_without_gems="${token#--without-gems=}"
       printf "%b" "Installing RVM without gems: ${rvm_without_gems}.\n"
       ;;
@@ -332,6 +352,7 @@ do
       ;;
 
     (--add-to-rvm-group)
+      flags+=( "$token" )
       export rvm_add_users_to_rvm_group="$1"
       shift
       ;;
@@ -441,31 +462,7 @@ case "${version}" in
 esac
 
 # required flag - path to install
-flags=( --path "$rvm_path" )
-
-if (( rvm_trace_flag == 1 ))
-then flags+=("--trace")
-fi
-
-if (( rvm_debug_flag == 1 ))
-then flags+=("--debug")
-fi
-
-if (( rvm_auto_dotfiles_flag == 1 ))
-then flags+=("--auto-dotfiles")
-fi
-
-if [[ -n "${rvm_with_gems:-}" ]]
-then flags+=("--with-gems=${rvm_with_gems}")
-fi
-
-if [[ -n "${rvm_without_gems:-}" ]]
-then flags+=("--without-gems=${rvm_without_gems}")
-fi
-
-if [[ -n "${rvm_add_users_to_rvm_group:-}" ]]
-then flags+=(--add-to-rvm-group "${rvm_add_users_to_rvm_group}")
-fi
+flags+=( --path "$rvm_path" )
 
 chmod +x ./scripts/install
 ./scripts/install "${flags[@]}"
