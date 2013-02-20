@@ -3,9 +3,14 @@
 __rvm_setup_compile_environment()
 {
   typeset __type
-  for __type in osx_gcc architectures gcc47 smartos openbsd shared_static
+  typeset -a __types
+  __types=(
+    requirements osx_gcc architectures gcc47 smartos sunos openbsd shared_static
+  )
+  for __type in "${__types[@]}"
   do
-    __rvm_setup_compile_environment_${__type} "$1"
+    rvm_debug "__rvm_setup_compile_environment_${__type} $1"
+    __rvm_setup_compile_environment_${__type} "$1" || return $?
   done
   rvm_debug "found compiler: $( __rvm_found_compiler )"
 }
@@ -104,6 +109,18 @@ __rvm_setup_compile_environment_smartos()
   __rvm_add_to_path prepend "/opt/local/gnu/bin"
 }
 
+__rvm_setup_compile_environment_sunos()
+{
+  [[ "$(uname -s)" == "SunOS" ]] || return 0
+  case "$1" in
+    ruby-1.9*|ruby-2*)
+      # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
+      rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
+      ;;
+  esac
+}
+
+
 __rvm_setup_compile_environment_openbsd()
 {
   [[ "$(uname)" == "OpenBSD"     ]] || return 0
@@ -155,4 +172,120 @@ __rvm_setup_compile_environment_shared_static()
       esac
       ;;
   esac
+}
+
+__rvm_setup_compile_environment_requirements_iterate()
+{
+  typeset -a list
+  typeset element
+
+  list=( update-system rvm )
+  if (( $# ))
+  then list+=( "$@" )
+  else list+=( ruby )
+  fi
+
+  for element in "${list[@]}"
+  do requirements_$_system_name "${element}" || return $?
+  done
+}
+
+#
+# rvm_autolibs_flag
+# - 0 - disabled
+# - 1 - use libs, do not install
+# - 2 - use libs, install if missing, fallback to 1 if brew not writable
+# - 3 - 2 + install package manager if not available
+# - 4 - 3 + error out if brew not writable, no fallback
+#
+# default for rvm_autolibs_flag
+# - 1 - for system installation
+# - 3 - for user   installation
+#
+__rvm_setup_compile_environment_requirements()
+{
+  if (( UID == 0 ))
+  then (( ${rvm_autolibs_flag:=1} > 0 )) || return 0
+  else (( ${rvm_autolibs_flag:=3} > 0 )) || return 0
+  fi
+
+  __rvm_detect_system
+  [[ -s "$rvm_scripts_path/functions/requirements/$_system_name" ]] ||
+  {
+    rvm_error "Requirements support for $_system_name/$_system_version/$_system_arch is not implemented yet,
+      report a bug here => https://github.com/wayneeseguin/rvm/issues"
+    return 1
+  }
+
+  rvm_log "Installing requirements for $_system_name/$_system_version/$_system_arch, might require sudo password"
+  source "$rvm_scripts_path/functions/requirements/$_system_name"
+
+  __rvm_setup_compile_environment_requirements_iterate "$@"
+}
+
+#### Helpers for: requirements_$_system_name
+
+__rvm_filter_installed_packages_reset()
+{
+  packages_installed=()
+  packages_missing=()
+  packages_to_install=()
+}
+
+__rvm_filter_installed_package_check()
+{
+  if
+    "$1" "$2"
+  then
+    packages_installed+=( "$2" )
+  else
+    case "$rvm_autolibs_flag" in
+      (0|1)  packages_missing+=( "$2" ) ;; # just ignore
+      (*) packages_to_install+=( "$2" ) ;; # 2+
+    esac
+  fi
+}
+
+__rvm_filter_installed_packages_summary()
+{
+  (( ${#packages_installed[@]} == 0 )) ||
+  {
+    _list="${packages_installed[*]}"
+    rvm_debug "Found required packages: ${_list// /, }."
+  }
+  (( ${#packages_missing[@]} == 0 )) ||
+  {
+    _list="${packages_missing[*]}"
+    if (( rvm_autolibs_flag ))
+    then rvm_warn "Missing required packages: ${_list// /, }."
+    else rvm_debug "Missing required packages: ${_list// /, }."
+    fi
+  }
+}
+
+__rvm_filter_installed_packages_install()
+{
+  (( ${#packages_to_install[@]} == 0 )) ||
+  {
+    _list="${packages_to_install[*]}"
+    __rvm_log_command package_install_${_list// /_} "Installing required packages: ${_list// /, }." \
+      "$1" "${packages_to_install[@]}" ||
+      return $?
+  }
+}
+
+__rvm_filter_installed_packages()
+{
+  typeset _package_installed_cmd _packages_install_cmd _package_name _list
+
+  _package_installed_cmd="requirements_$1_lib_installed"
+  _package_install_cmd="requirements_$1_libs_install"
+  shift
+
+  __rvm_filter_installed_packages_reset
+  for _package_name
+  do __rvm_filter_installed_package_check "${_package_installed_cmd}" "${_package_name}"
+  done
+  __rvm_filter_installed_packages_summary
+  __rvm_filter_installed_packages_install "${_package_install_cmd}"
 }

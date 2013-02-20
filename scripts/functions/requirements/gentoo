@@ -1,57 +1,41 @@
 #!/usr/bin/env bash
 
-set -e
-
-function requirements_gentoo()
+requirements_gentoo_lib_installed()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (force|run)
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  (( UID == 0 )) || command_to_run+=( sudo )
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        "${command_to_run[@]}" emerge --sync
-        ;;
-      (rvm)
-        "${command_to_run[@]}" emerge bash curl git patch
-        ;;
-      (jruby*)
-        "${command_to_run[@]}" emerge dev-java/sun-jdk dev-java/sun-jre-bin
-        ;;
-      (ir*)
-        "${command_to_run[@]}" emerge dev-lang/mono
-        ;;
-      (opal)
-        "${command_to_run[@]}" emerge nodejs
-        ;;
-      (*)
-        "${command_to_run[@]}" emerge libiconv readline zlib openssl curl git libyaml sqlite libxslt libtool gcc autoconf automake bison m4
-        ;;
-    esac
-    shift
-  done
+  portageq best_visible / installed "$1" >/dev/null || return $?
 }
 
-requirements_gentoo "$@"
+requirements_gentoo_libs_install()
+{
+  __rvm_try_sudo emerge "$@" || return $?
+}
+
+requirements_gentoo_ensure_libs()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages gentoo "$@" || return $?
+}
+
+requirements_gentoo()
+{
+  case "$1" in
+    (update-system)
+      __rvm_try_sudo emerge --sync
+      ;;
+    (rvm)
+      requirements_gentoo_ensure_libs bash curl git patch
+      ;;
+    (jruby*)
+      requirements_gentoo_ensure_libs dev-java/sun-jdk dev-java/sun-jre-bin
+      ;;
+    (ir*)
+      requirements_gentoo_ensure_libs dev-lang/mono
+      ;;
+    (opal)
+      requirements_gentoo_ensure_libs nodejs
+      ;;
+    (*)
+      requirements_gentoo_ensure_libs libiconv readline zlib openssl curl git libyaml sqlite libxslt libtool gcc autoconf automake bison m4
+      ;;
+  esac
+}

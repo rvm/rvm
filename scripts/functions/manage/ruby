@@ -1,27 +1,5 @@
 #!/usr/bin/env bash
 
-transform_configure_flags()
-{
-  typeset flag _opt_path
-  typeset -a new_flags
-
-  new_flags=()
-  for flag in "${rvm_configure_flags[@]}"
-  do
-    case "${flag}" in
-      --with-opt-dir=*)
-        # merge multiple opt flags
-        __rvm_array_add_or_update new_flags --with-opt-dir= : "${flag#*=}"
-        ;;
-      *)
-        new_flags+=( "${flag}" )
-        ;;
-    esac
-  done
-
-  rvm_configure_flags=( "${new_flags[@]}" )
-}
-
 # 1.9.3-p125+
 __clang_ok()
 {
@@ -45,114 +23,33 @@ __clang_ok()
 ruby_install()
 {
   typeset result temp_flags _iterator
-  typeset -a delayed_flags
-  delayed_flags=()
 
-  __rvm_check_for_bison # && Run like hell...
-  if __rvm_check_for_bison
-  then true
-  else
+  __rvm_check_for_bison ||
+  {
     result=$?
-    rvm_log "Bison required but not found. Halting."
+    rvm_error "Bison required but not found. Halting."
     return $result
-  fi
-
-  case ${rvm_ruby_string} in
-    ruby-1.9*|ruby-2.0*|ruby-head)
-      # Ruby 1.9 should now use libyaml which is for Psych.
-      if
-        [[ " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
-      then
-        # when relative is in effect libyaml is installed in ruby itself so it will be moved with ruby
-        (
-          __rvm_setup_compile_environment libyaml
-          prefix_path="${rvm_rubies_path}/${rvm_ruby_string}" install_libyaml
-        )
-        delayed_flags+=( --with-yaml-dir="${rvm_rubies_path}/${rvm_ruby_string}" )
-      else
-        if
-          libyaml_installed
-        then
-          rvm_debug "Libyaml already installed"
-        else
-          (
-            __rvm_setup_compile_environment libyaml
-            install_libyaml
-          )
-        fi
-        delayed_flags+=( --with-yaml-dir="${rvm_path}/usr" )
-      fi
-      ;;
-  esac
-  [[ "Darwin" != "$(uname)" ||
-    "${rvm_skip_openssl_flag:-0}" == "1" ||
-    " ${rvm_configure_flags[*]}" =~ " --with-openssl-dir"
-  ]] ||
-  case ${rvm_ruby_string} in
-    ruby-2*|ruby-head)
-      # Ruby 2.0 should use custom openssl on OSX which is for https connections.
-      if
-        [[ " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
-      then
-        # when relative is in effect openssl is installed in ruby itself so it will be moved with ruby
-        (
-          __rvm_setup_compile_environment openssl
-          prefix_path="${rvm_rubies_path}/${rvm_ruby_string}" install_openssl
-        )
-        delayed_flags+=( --with-openssl-dir="${rvm_rubies_path}/${rvm_ruby_string}" )
-      else
-        if
-          openssl_installed
-        then
-          rvm_debug "Openssl already installed"
-        else
-          (
-            __rvm_setup_compile_environment openssl
-            install_openssl
-          )
-        fi
-        delayed_flags+=( --with-openssl-dir="${rvm_path}/usr" )
-      fi
-      ;;
-  esac
-  rvm_configure_flags+=( "${delayed_flags[@]}" )
-  transform_configure_flags
+  }
 
   case ${rvm_ruby_string:-""} in
     ruby-1.8.*-head)
-      if __rvm_ensure_has_mri_ruby "1.8.|ree"
-      then true
-      else return $?
-      fi
+      __rvm_ensure_has_mri_ruby "1.8.|ree" || return $?
       ;;
     ruby-head|ruby-1.9.*-head)
+      __rvm_ensure_has_mri_ruby || return $?
+      typeset compatible_baseruby
       if
-        __rvm_ensure_has_mri_ruby
+        compatible_baseruby="$rvm_wrappers_path/$(__rvm_mri_ruby)/ruby" &&
+        [[ -x "$compatible_baseruby" ]]
       then
-        typeset compatible_baseruby
-        compatible_baseruby="$rvm_wrappers_path/$(__rvm_mri_ruby)/ruby"
-        if [[ -x "$compatible_baseruby" ]]
-        then
-          rvm_configure_flags+=( --with-baseruby="$compatible_baseruby" )
-        fi
+        rvm_configure_flags+=( --with-baseruby="$compatible_baseruby" )
       else
         return $?
       fi
       ;;
   esac
 
-  # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
-  case "$(uname -s)" in
-    SunOS)
-      case ${rvm_ruby_string} in
-        ruby-1.9*)
-          rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
-          ;;
-      esac
-    ;;
-  esac
-
-  # TODO: needed on some 1.9.3, confi\rm with http://bugs.ruby-lang.org/issues/6903
+  # TODO: needed on some 1.9.3, confirm with http://bugs.ruby-lang.org/issues/6903
   if
     [[ " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
   then
@@ -163,7 +60,7 @@ ruby_install()
     esac
   fi
 
-  __rvm_setup_compile_environment "${rvm_ruby_string}"
+  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
 
   # Force using clang when only LLVM available and user did not selected compiler,
   # hides the need for `rvm_force_autoconf=1`

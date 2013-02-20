@@ -1,70 +1,55 @@
 #!/usr/bin/env bash
 
-set -e
-
-function requirements_apt()
+requirements_debian_lib_installed()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (run)
-        shift
-        ;;
-      (force)
-        command_flags+=( --quiet --yes )
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  (( UID == 0 )) || command_to_run+=( sudo )
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        "${command_to_run[@]}" apt-get "${command_flags[@]}" update
-        ;;
-      (rvm)
-        "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install bash curl git patch bzip2
-        ;;
-      (jruby*head)
-        if (( ${_system_version//./} >= 1110 ))
-        then "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install ant openjdk-7-jdk
-        else "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install ant openjdk-6-jdk
-        fi
-        ;;
-      (jruby*)
-        if (( ${_system_version//./} >= 1110 ))
-        then "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install g++ openjdk-7-jre-headless
-        else "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install g++ openjdk-6-jre-headless
-        fi
-        ;;
-      (ir*)
-        "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install curl mono-2.0-devel
-        ;;
-      (opal)
-        "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install nodejs npm
-        ;;
-      (*)
-        "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install build-essential openssl libreadline6 libreadline6-dev curl git-core zlib1g zlib1g-dev libssl-dev libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt-dev autoconf libc6-dev libgdbm-dev ncurses-dev automake libtool bison subversion pkg-config libffi-dev
-        ;;
-    esac
-    shift
-  done
+  dpkg -s "$1" >/dev/null 2>/dev/null || return $?
 }
 
-requirements_apt "$@"
+requirements_debian_libs_install()
+{
+  __rvm_try_sudo apt-get --no-install-recommends --quiet --yes install "$@" || return $?
+}
+
+requirements_debian_ensure_libs()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages debian "$@" || return $?
+}
+
+requirements_debian()
+{
+  case "$1" in
+    (update-system)
+      __rvm_try_sudo apt-get --quiet --yes update | __rvm_dotted "Updating repositories"
+      ;;
+    (rvm)
+      requirements_debian_ensure_libs bash curl git-core patch bzip2
+      ;;
+    (jruby*head)
+      if (( ${_system_version//./} >= 1110 ))
+      then requirements_debian_ensure_libs ant openjdk-7-jdk
+      else requirements_debian_ensure_libs ant openjdk-6-jdk
+      fi
+      ;;
+    (jruby*)
+      if (( ${_system_version//./} >= 1110 ))
+      then requirements_debian_ensure_libs g++ openjdk-7-jre-headless
+      else requirements_debian_ensure_libs g++ openjdk-6-jre-headless
+      fi
+      ;;
+    (ir*)
+      requirements_debian_ensure_libs curl mono-2.0-devel
+      ;;
+    (opal)
+      requirements_debian_ensure_libs nodejs npm
+      ;;
+    (*)
+      requirements_debian_ensure_libs build-essential openssl libreadline6 libreadline6-dev curl git-core zlib1g zlib1g-dev libssl-dev libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt-dev autoconf libc6-dev libgdbm-dev ncurses-dev automake libtool bison subversion pkg-config libffi-dev
+      ;;
+  esac
+}
+
+requirements_ubuntu()
+{
+  requirements_debian "$@"
+}
