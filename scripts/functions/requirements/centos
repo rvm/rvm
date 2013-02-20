@@ -1,62 +1,46 @@
 #!/usr/bin/env bash
 
+requirements_centos_lib_installed()
+{
+  rpm -q --whatprovides "$1" >/dev/null || return $?
+}
+
+requirements_centos_libs_install()
+{
+  __rvm_try_sudo yum install -y "$@" || return $?
+}
+
+requirements_centos_ensure_libs()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages centos "$@" || return $?
+}
+
 function requirements_centos()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (run)
-        shift
-        ;;
-      (force)
-        command_flags+=( -y )
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  (( UID == 0 )) || command_to_run+=( sudo )
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        true
-        ;;
-      (rvm)
-        "${command_to_run[@]}" yum install "${command_flags[@]}" bash curl git patch
-        ;;
-      (jruby*)
-        if (( ${_system_version%%.*} >= 16 ))
-        then "${command_to_run[@]}" yum install "${command_flags[@]}" java-1.7.0-openjdk
-        else "${command_to_run[@]}" yum install "${command_flags[@]}" java
-        fi
-        ;;
-      (ir*)
-        true # not that easy
-        ;;
-      (opal)
-        true # not that easy
-        ;;
-      (*)
-        "${command_to_run[@]}" yum install "${command_flags[@]}" gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison iconv-devel libxml2-devel libxslt-devel
-        ;;
-    esac
-    shift
-  done
+  case "$1" in
+    (update-system)
+      true
+      ;;
+    (rvm)
+      requirements_centos_ensure_libs bash curl git patch
+      ;;
+    (jruby*)
+      if (( ${_system_version%%.*} >= 16 ))
+      then requirements_centos_ensure_libs java-1.7.0-openjdk
+      else requirements_centos_ensure_libs java
+      fi
+      ;;
+    (ir*)
+      true # not that easy
+      ;;
+    (opal)
+      true # not that easy
+      ;;
+    (*)
+      requirements_centos_ensure_libs gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison iconv-devel libxml2-devel libxslt-devel
+      ;;
+  esac
 }
 
 requirements_fedora()
