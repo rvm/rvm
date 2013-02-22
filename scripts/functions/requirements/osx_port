@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+
+requirements_port_lib_installed()
+{
+  # FIXME: hw to find installed package - remove last false when done
+  port list | grep "^${1}$" >/dev/null || return $?
+  false
+}
+
+requirements_port_libs_install()
+{
+  # FIXME: how to install package - remove last false when done
+  port install "$@" || return $?
+  false
+}
+
+requirements_port_libs_ensure()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages port "$@" ||
+  {
+    typeset ret=$?
+    # FIXME: how to install macports / gcc-4.2
+    rvm_warn "There were package installation errors, make sure to read the log."
+    return $ret
+  }
+}
+
+requirements_port_libs_configure()
+{
+  typeset package port_lib port_lib_prefix
+  package="$1"
+  shift
+
+  for port_lib
+  do
+    if
+      # FIXME: how to find out package paths
+      port_lib_prefix="$( port --prefix "${port_lib}" 2>/dev/null )" &&
+      [[ -n "${port_lib_prefix}" && -d "${port_lib_prefix}" ]]
+    then
+      __rvm_update_configure_opt_dir "${package}" "${port_lib_prefix}"
+    fi
+  done
+}
+
+requirements_port_libs_default()
+{
+  typeset -a port_libs port_libs_conf
+  # FIXME: what packages are needed for installation
+  port_libs=(
+    autoconf automake libtool pkg-config
+  )
+  # install gcc-4.2 only if not yet available
+  if
+    __rvm_compiler_is_llvm
+  then
+    # FIXME: what is the name of gcc-4.2 package
+    port_libs+=( apple-gcc42 )
+  fi
+  # FIXME: what packages are needed also to configure ruby
+  port_libs_conf=(
+    libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
+  )
+  requirements_port_libs_ensure "${port_libs[@]}" "${port_libs_conf[@]}" || return $?
+  requirements_port_libs_configure "$1"           "${port_libs_conf[@]}" || return $?
+}
+
+requirements_port_install_port()
+{
+  typeset macports_home
+  if (( UID == 0 ))
+  then macports_home="/usr/local"
+  else macports_home="$HOME/.macports"
+  fi
+  mkdir -p "${macports_home}" || return $?
+  set -o pipefail
+  # FIXME: install macports
+  false | false
+  chmod +x "${macports_home}/bin/port" # just in case
+  # link to rvm_bin for easy adding to PATH
+  ln -nfs "${macports_home}/bin/port" "${rvm_bin_path:-$rvm_path/bin}/port"
+}
+
+requirements_port_route_install()
+{
+  case "$1" in
+    (update-system)
+      # FIXME: fow to refresh ports list
+      port update || return $?
+      ;;
+    (rvm)
+      # FIXME: requirements for rvm
+      ;;
+    (jruby*)
+      which java >/dev/null 2>&1 || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_port_libs_ensure node
+      ;;
+    (*)
+      requirements_port_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_port_ensure_port_available()
+{
+  which port >/dev/null ||
+  {
+    case "${rvm_autolibs_flag}" in
+      (0)
+        rvm_debug "macports is not available - skipping."
+        return 0 # just ignore
+        ;;
+      (1|2)
+        rvm_error "Requested installation with macports libs, but macports is not available."
+        return 1
+        ;;
+      (*) # 3+
+        __rvm_log_command port_install "Installing macports" \
+          requirements_port_install_port ||
+          return $?
+        ;;
+    esac
+  }
+}
+
+requirements_port_ensure_port_can_install()
+{
+  # FIXME: find ports root and check if user can write in there, do we need sudo??
+  (( rvm_autolibs_flag > 1 )) || return 0
+  typeset __packages_path
+  __packages_path="$(port --packages)"
+  if
+    [[ -w "${__packages_path%/*}/bin" ]] &&
+    [[ -w "${__packages_path}" || ! -e "${__packages_path}" ]]
+  then
+    rvm_debug "port seams to be writable"
+  elif
+    (( rvm_autolibs_flag > 3 ))
+  then
+    rvm_error "ERROR: '${__packages_path}' not writable, fix it first!"
+    return 1
+  else
+    rvm_autolibs_flag=1
+    rvm_warn "WARN: '${__packages_path}' not writable, no packages will be installed."
+  fi
+}
+
+requirements_port()
+{
+  requirements_port_ensure_port_available   || return $?
+  requirements_port_ensure_port_can_install || return $?
+  requirements_port_route_install "$@"      || return $?
+}
