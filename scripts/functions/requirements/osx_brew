@@ -10,6 +10,31 @@ requirements_brew_libs_install()
   brew install "$@" || return $?
 }
 
+requirements_brew_libs_outdated_filter()
+{
+  typeset IFS
+  IFS="|"
+  brew outdated --quiet | grep -E "$*"
+}
+
+requirements_brew_libs_try_upgrade()
+{
+  case "${rvm_autolibs_flag}" in
+    (0|1|2)
+      true # ignore
+      ;;
+    (*) # 3+
+      typeset -a outdated_libs
+      __rvm_read_lines outdated_libs <(
+        requirements_brew_libs_outdated_filter "$@"
+      )
+      if (( ${#outdated_libs[@]} ))
+      then brew upgrade "${outdated_libs[@]}"
+      fi
+      ;;
+  esac
+}
+
 requirements_brew_libs_ensure()
 {
   typeset -a packages_installed packages_missing packages_to_install
@@ -26,6 +51,7 @@ Check Homebrew requirements https://github.com/mxcl/homebrew/wiki/Installation"
     esac
     return $ret
   }
+  requirements_brew_libs_try_upgrade "$@"
 }
 
 requirements_brew_libs_configure()
