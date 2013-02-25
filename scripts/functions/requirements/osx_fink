@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+
+requirements_fink_lib_installed()
+{
+  # FIXME: hw to find installed package - remove last false when done
+  fink list | grep "^${1}$" >/dev/null || return $?
+  false
+}
+
+requirements_fink_libs_install()
+{
+  # FIXME: how to install package - remove last false when done
+  fink install "$@" || return $?
+  false
+}
+
+requirements_fink_libs_ensure()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages fink "$@" ||
+  {
+    typeset ret=$?
+    # FIXME: how to install fink / gcc-4.2
+    rvm_warn "There were package installation errors, make sure to read the log."
+    return $ret
+  }
+}
+
+requirements_fink_libs_configure()
+{
+  typeset package fink_lib fink_lib_prefix
+  package="$1"
+  shift
+
+  for fink_lib
+  do
+    if
+      # FIXME: how to find out package paths
+      fink_lib_prefix="$( fink --prefix "${fink_lib}" 2>/dev/null )" &&
+      [[ -n "${fink_lib_prefix}" && -d "${fink_lib_prefix}" ]]
+    then
+      __rvm_update_configure_opt_dir "${package}" "${fink_lib_prefix}"
+    fi
+  done
+}
+
+requirements_fink_libs_default()
+{
+  typeset -a fink_libs fink_libs_conf
+  # FIXME: what packages are needed for installation
+  fink_libs=(
+    autoconf automake libtool pkg-config
+  )
+  # install gcc-4.2 only if not yet available
+  if
+    __rvm_compiler_is_llvm
+  then
+    # FIXME: what is the name of gcc-4.2 package
+    fink_libs+=( apple-gcc42 )
+  fi
+  # FIXME: what packages are needed also to configure ruby
+  fink_libs_conf=(
+    libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
+  )
+  requirements_fink_libs_ensure "${fink_libs[@]}" "${fink_libs_conf[@]}" || return $?
+  requirements_fink_libs_configure "$1"           "${fink_libs_conf[@]}" || return $?
+}
+
+requirements_fink_install_fink()
+{
+  typeset fink_home
+  if (( UID == 0 ))
+  then fink_home="/usr/local"
+  else fink_home="$HOME/.fink"
+  fi
+  mkdir -p "${fink_home}" || return $?
+  set -o pipefail
+  # FIXME: install fink
+  false | false
+  chmod +x "${fink_home}/bin/fink" # just in case
+  # link to rvm_bin for easy adding to PATH
+  ln -nfs "${fink_home}/bin/fink" "${rvm_bin_path:-$rvm_path/bin}/fink"
+}
+
+requirements_fink_route_install()
+{
+  case "$1" in
+    (update-system)
+      # FIXME: fow to refresh finks list
+      fink update || return $?
+      ;;
+    (rvm)
+      # FIXME: requirements for rvm
+      ;;
+    (jruby*)
+      which java >/dev/null 2>&1 || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_fink_libs_ensure node
+      ;;
+    (*)
+      requirements_fink_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_fink_ensure_fink_available()
+{
+  which fink >/dev/null ||
+  {
+    case "${rvm_autolibs_flag}" in
+      (0)
+        rvm_debug "fink is not available - skipping."
+        return 0 # just ignore
+        ;;
+      (1|2)
+        rvm_error "Requested installation with fink libs, but fink is not available."
+        return 1
+        ;;
+      (*) # 3+
+        __rvm_log_command fink_install "Installing fink" \
+          requirements_fink_install_fink ||
+          return $?
+        ;;
+    esac
+  }
+}
+
+requirements_fink_ensure_fink_can_install()
+{
+  # FIXME: find finks root and check if user can write in there, do we need sudo??
+  (( rvm_autolibs_flag > 1 )) || return 0
+  typeset __packages_path
+  __packages_path="$(fink --packages)"
+  if
+    [[ -w "${__packages_path%/*}/bin" ]] &&
+    [[ -w "${__packages_path}" || ! -e "${__packages_path}" ]]
+  then
+    rvm_debug "fink seems to be writable"
+  elif
+    (( rvm_autolibs_flag > 3 ))
+  then
+    rvm_error "ERROR: '${__packages_path}' not writable, fix it first!"
+    return 1
+  else
+    rvm_autolibs_flag=1
+    rvm_warn "WARN: '${__packages_path}' not writable, no packages will be installed."
+  fi
+}
+
+requirements_fink()
+{
+  requirements_fink_ensure_fink_available   || return $?
+  requirements_fink_ensure_fink_can_install || return $?
+  requirements_fink_route_install "$@"      || return $?
+}
