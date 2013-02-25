@@ -54,6 +54,17 @@ Check Homebrew requirements https://github.com/mxcl/homebrew/wiki/Installation"
   requirements_brew_libs_try_upgrade "$@"
 }
 
+requirements_brew_generate_openssl_cert()
+{
+  typeset ssl_prefix ssl_dir cert_file
+  ssl_prefix="$(brew --prefix openssl)"
+  ssl_dir="$( "${ssl_prefix}/bin/openssl" version -d | awk -F'"' '{print $2}' )"
+  cert_file="${ssl_dir}/cert.pem"
+  security find-certificate -a -p /Library/Keychains/System.keychain > "$cert_file"
+  security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> "$cert_file"
+  "${ssl_prefix}/bin/c_rehash" "$ssl_dir"
+}
+
 requirements_brew_libs_configure()
 {
   typeset package brew_lib brew_lib_prefix
@@ -90,9 +101,10 @@ requirements_brew_libs_default()
     ;;
   esac
   brew_libs_conf=(
-    libyaml readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite
+    libyaml readline libxml2 libxslt libksba openssl sqlite
   )
   requirements_brew_libs_ensure "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
+  requirements_brew_generate_openssl_cert                                || return $?
   requirements_brew_libs_configure "$1"           "${brew_libs_conf[@]}" || return $?
 }
 
