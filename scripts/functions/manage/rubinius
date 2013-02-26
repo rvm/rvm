@@ -1,19 +1,5 @@
 #!/usr/bin/env bash
 
-rbx_configure_with_path()
-{
-  typeset name _opt_path
-  name="${1:-}"
-  _opt_path="${2:-}"
-  [[ -d "${_opt_path}" ]] || return 1
-  [[ -d "${_opt_path}/include" ]] || return 2
-
-  rvm_configure_args="${rvm_configure_args:-} --with-${name}-dir=${_opt_path}"
-  rvm_configure_flags+=( --with-opt-dir="${_opt_path}" )
-
-  return 0
-}
-
 make_sure_its_enough_ram_for_rbx()
 {
   typeset rvm_rbx_required_ram
@@ -43,36 +29,21 @@ rubinius_install()
   unset CFLAGS LDFLAGS ARCHFLAGS # Important.
   unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC RBXOPT
   export PATH
-  export ruby="$(__rvm_mri_ruby)"
 
   make_sure_its_enough_ram_for_rbx || return $?
 
   rvm_log "$rvm_ruby_string installing #dependencies "
-  __rvm_ensure_has_mri_ruby "1.9|2.0" ||
+  __rvm_ensure_has_mri_ruby "ruby-1.9.|ruby-2.0" ||
   {
     rvm_log "No MRI 1.9/2.0 ruby found, cannot build rbx."
     return 1
   }
+  export ruby="$(__rvm_mri_ruby "ruby-1.9.|ruby-2.0")"
+  rvm_debug "Using $ruby for RBX installation"
 
+  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
   __rvm_remove_rvm_from_path
   __rvm_conditionally_add_bin_path
-
-  # #RBX 2.0 should now use libyaml which is for Psych.
-  case ${rvm_ruby_string} in
-    rbx-head*|rbx-2.*)
-      libyaml_installed || (
-        __rvm_setup_compile_environment libyaml
-        install_libyaml
-      )
-
-      rbx_configure_with_path libyaml "$rvm_path/usr" ||
-      {
-        rvm_error "Could not find 'lib' dir for libyaml, please make sure libyaml is compiled properly."
-        return 1
-      }
-      ;;
-  esac
-
   __rvm_compatibility_flag_configuration --default-version=
 
   if
@@ -184,9 +155,11 @@ rubinius_install()
     rvm_ruby_make="CONFIGURE_ARGS=${rvm_configure_args## } "
   fi
 
+  export rvm_show_every_nth_dot=20  # show dot for every nth line
   rvm_ruby_make="${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/rake install --trace"
   __rvm_run "rake" "$rvm_ruby_make" "$rvm_ruby_string - #compiling"
   result=$?
+  unset rvm_show_every_nth_dot
 
   if (( result > 0 )) || ! [[ -d "$rvm_ruby_home" ]] || ! [[ -f "$rvm_ruby_home/bin/rbx" ]]
   then
