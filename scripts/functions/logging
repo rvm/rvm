@@ -107,3 +107,32 @@ rvm_log()
   else printf "%b" "$*\n"
   fi
 }
+__rvm_dotted()
+{
+  typeset flush
+  if awk '{fflush;}' <<<EO 2>/dev/null
+  then flush=fflush
+  else flush=flush
+  fi
+  if (( $# ))
+  then awk '{if (NR==1){printf "'"${rvm_notify_clr:-}$*${rvm_reset_clr:-}"'"}; printf "."; '$flush';} END{if (NR>0) print ""}'
+  else awk '{printf "."; '$flush';} END{if (NR>0) print ""}'
+  fi
+}
+__rvm_log_dotted()
+{
+  typeset __log_file __message __iterator
+  __log_file="$1"
+  __message="$2"
+  shift 2
+  "$@" 2>&1 | tee -a "${__log_file}" | __rvm_dotted "${__message}" || return $?
+  for __iterator in ${PIPESTATUS[@]} ${pipestatus[@]}
+  do
+    case "${__iterator}" in
+      ("") true ;;
+      (0)  true ;;
+      (*)  return ${__iterator} ;;
+    esac
+  done
+  return 0
+}
