@@ -2,16 +2,12 @@
 
 requirements_fink_lib_installed()
 {
-  # FIXME: hw to find installed package - remove last false when done
-  fink list | grep "^${1}$" >/dev/null || return $?
-  false
+  fink list -i "^${1}$" || return $?
 }
 
 requirements_fink_libs_install()
 {
-  # FIXME: how to install package - remove last false when done
   fink install "$@" || return $?
-  false
 }
 
 requirements_fink_libs_ensure()
@@ -21,6 +17,7 @@ requirements_fink_libs_ensure()
   {
     typeset ret=$?
     # FIXME: how to install fink / gcc-4.2
+    # fink install gcc4.2
     rvm_warn "There were package installation errors, make sure to read the log."
     return $ret
   }
@@ -55,8 +52,7 @@ requirements_fink_libs_default()
   if
     __rvm_compiler_is_llvm
   then
-    # FIXME: what is the name of gcc-4.2 package
-    fink_libs+=( apple-gcc42 )
+    fink_libs+=( gcc4.2 )
   fi
   # FIXME: what packages are needed also to configure ruby
   fink_libs_conf=(
@@ -86,8 +82,7 @@ requirements_fink_route_install()
 {
   case "$1" in
     (update-system)
-      # FIXME: fow to refresh finks list
-      fink update || return $?
+      sudo apt-get update || return $?
       ;;
     (rvm)
       # FIXME: requirements for rvm
@@ -132,9 +127,10 @@ requirements_fink_ensure_fink_available()
 requirements_fink_ensure_fink_can_install()
 {
   # FIXME: find finks root and check if user can write in there, do we need sudo??
+  # We do need sudo to install fink packages. -- baburdick 2013-02-26
   (( rvm_autolibs_flag > 1 )) || return 0
   typeset __packages_path
-  __packages_path="$(fink --packages)"
+  __packages_path="$(grep -E '^Basepath:' /sw/etc/fink.conf | sed -r 's/Basepath:\s+?(.+)$/\1/')"
   if
     [[ -w "${__packages_path%/*}/bin" ]] &&
     [[ -w "${__packages_path}" || ! -e "${__packages_path}" ]]
