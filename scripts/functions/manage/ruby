@@ -40,10 +40,11 @@ ruby_install()
     esac
   fi
 
-  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
 
-  ( __rvm_install_source $* )
-  result=$?
+  (
+    __rvm_setup_compile_environment "${rvm_ruby_string}" &&
+    __rvm_install_source $*
+  ) || return $?
 
   if
     [[ "$MACHTYPE" == *darwin* && " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
@@ -57,28 +58,27 @@ ruby_install()
     __rvm_log_command fix.osx.dependencies "fix osx dependencies" install_name_tool -change "${libyaml_lib_path_old}" "${libyaml_lib_path_new}" "${psych_lib_path}"
   fi
 
-  if
-    __rvm_compiler_is_llvm && ! __ruby_clang_ok ${rvm_ruby_string}
-  then
-    rvm_warn "Ruby '${rvm_ruby_string}' was built using clang - but it's not (fully) supported, expect errors."
-  fi
-
   typeset patches_count
   patches_count=$(
     rvm_ruby_string="${rvm_ruby_string}" "$rvm_scripts_path/patchsets" show default | wc -l
   )
-  # 1.9.3 provides a patch to compile better with LLVM
-  if [[ ! "${rvm_ruby_string}" =~ "ruby-1.9.3" ]] && (( patches_count > 0 ))
+
+  typeset _default _version _patch
+  _default=$(__rvm_db "default_ruby")
+  _version=$(__rvm_db "${_default}_version")
+  _patch=$(__rvm_db "${_default}_${_version}_patch_level")
+  _version="${_default}-${_version}${_patch:+-}${_patch:-}"
+  if
+    [[ ! "${rvm_ruby_string}" =~ "${_default}-${_version}" ]] && (( patches_count > 0 ))
   then
-    typeset _default _version _patch
-    _default=$(__rvm_db "default_ruby")
-    _version=$(__rvm_db "${_default}_version")
-    _patch=$(__rvm_db "${_default}_${_version}_patch_level")
-    _version="${_default}-${_version}${_patch:+-}${_patch:-}"
     rvm_warn "Please be aware that you just installed a ruby that requires ${patches_count} patches just to be compiled on up to date linux system.
 This may have known and unaccounted for security vulnerabilities.
 Please consider upgrading to ${_version} which will have all of the latest security patches."
   fi
 
-  return ${result:-0}
+  if
+    __rvm_compiler_is_llvm && ! __ruby_clang_ok ${rvm_ruby_string}
+  then
+    rvm_warn "Ruby '${rvm_ruby_string}' was built using clang - but it's not (fully) supported, expect errors."
+  fi
 }
