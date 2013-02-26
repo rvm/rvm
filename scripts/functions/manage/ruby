@@ -1,25 +1,5 @@
 #!/usr/bin/env bash
 
-# 1.9.3-p125+
-__clang_ok()
-{
-  if [[ -n "$rvm_force_clang_ok" ]]; then
-      return 0
-  fi
-  typeset _patch_level
-  case ${rvm_ruby_string} in
-    ruby-1.9.3-head*|ruby-2*)
-      return 0
-      ;;
-    ruby-1.9.3*)
-      _patch_level="${rvm_ruby_patch_level:-p0}"
-      _patch_level="${_patch_level#p}"
-      (( _patch_level >= 125 )) && return 0 || true
-      ;;
-  esac
-  return 1
-}
-
 ruby_install()
 {
   typeset result temp_flags _iterator
@@ -62,27 +42,6 @@ ruby_install()
 
   __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
 
-  # Force using clang when only LLVM available and user did not selected compiler,
-  # hides the need for `rvm_force_autoconf=1`
-  # which should be default, but is not by default available on Xcode 4.3.
-  if [[ "$MACHTYPE" == *darwin* ]] &&
-    __clang_ok && __rvm_compiler_is_llvm &&
-    ! __rvm_selected_compiler > /dev/null
-  then
-    rvm_configure_flags+=( --with-gcc=clang )
-  fi
-
-  if __rvm_compiler_is_llvm
-  then
-    if __clang_ok || __rvm_selected_compiler > /dev/null
-    then
-      rvm_warn "Building '${rvm_ruby_string}' using clang - but it's not (fully) supported, expect errors."
-    else
-      rvm_error "The provided compiler '$(__rvm_found_compiler)' is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
-      return 1
-    fi
-  fi
-
   ( __rvm_install_source $* )
   result=$?
 
@@ -98,7 +57,8 @@ ruby_install()
     __rvm_log_command fix.osx.dependencies "fix osx dependencies" install_name_tool -change "${libyaml_lib_path_old}" "${libyaml_lib_path_new}" "${psych_lib_path}"
   fi
 
-  if __rvm_compiler_is_llvm
+  if
+    __rvm_compiler_is_llvm && ! __ruby_clang_ok ${rvm_ruby_string}
   then
     rvm_warn "Ruby '${rvm_ruby_string}' was built using clang - but it's not (fully) supported, expect errors."
   fi
