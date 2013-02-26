@@ -8,7 +8,7 @@ do
   ssh rvm@rvm.io ./rvm-list-binary.sh $type | while IFS="=" read name value
   do
     echo "Processing: $type - $name"
-    if grep "^$name=" config/$type >/dev/null
+    if \grep "^$name=" config/$type >/dev/null
     then sed -i'' 's#^'"$name"'=.*$#'"$name=$value"'#' config/$type
     else echo "$name=$value" >> config/$type
     fi
