@@ -6,7 +6,7 @@ __rvm_setup_compile_environment()
   typeset -a __types
   __types=(
     requirements osx_gcc architectures gcc47 smartos sunos openbsd
-    flags_docs flags_tcltk flags_shared_static
+    flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
   do
@@ -251,6 +251,32 @@ __rvm_setup_compile_environment_flags_shared_static()
     esac
   fi
   true # OSX --trace FIX
+}
+
+__rvm_detect_max_threads()
+{
+  case "$(uname)" in
+    (Darwin|FreeBSD)
+      sysctl -n hw.ncpu
+      ;;
+    (*)
+      cat /proc/cpuinfo 2>/dev/null | (grep vendor_id || echo 'one';) | wc -l
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_flags_threads()
+{
+  case "$1" in
+    (openssl*)
+      # Don't use -j option for make OpenSSL
+      __rvm_remove_from_array rvm_make_flags "-j*" "${rvm_make_flags[@]}"
+      rvm_make_flags+=( -j1 )
+      ;;
+    (*)
+      [[ " ${rvm_make_flags[*]}" =~ " -j" ]] || rvm_make_flags+=( -j$(__rvm_detect_max_threads) )
+      ;;
+  esac
 }
 
 __rvm_setup_compile_environment_requirements_iterate()
