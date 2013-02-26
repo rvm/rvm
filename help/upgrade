@@ -1,6 +1,6 @@
 Usage:
 
-  rvm upgrade [source ruby] [destination ruby]
+  rvm upgrade {source ruby} [destination ruby] [--force]
 
 Description:
 
@@ -17,6 +17,8 @@ Examples:
     $ rvm upgrade 1.9.2-p136 1.9.2-p180
 
     $ rvm upgrade ree-2011.01 ree-2011-02
+
+append `--force` to answer yes to all questions.
 
 Experimental detection:
 

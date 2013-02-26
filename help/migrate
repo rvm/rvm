@@ -13,3 +13,4 @@ you would run:
 
   ∴ rvm migrate 1.9.2-rc2 1.9.2-p0
 
+append `--force` to answer yes to all questions.
