@@ -20,24 +20,14 @@ __rvm_setup_compile_environment()
 __ruby_clang_ok()
 {
   case "$1" in
-    ruby-2*|ruby-head*|rbx*|rubinius*) return 0 ;;
+    ruby-2*|ruby-head*) return 0 ;;
   esac
   return 1
 }
 
-__rvm_setup_compile_environment_osx_gcc()
+__rvm_setup_compile_environment_osx_gcc_42()
 {
-  [[ "Darwin" == "$(uname)" ]] || return 0
-
   if
-    __rvm_selected_compiler > /dev/null
-  then
-    true
-  elif
-    __ruby_clang_ok "$1"
-  then
-    export CC=clang
-  elif
     [[ -x /usr/local/bin/gcc-4.2 ]] # HomeBrew
   then
     export CC=/usr/local/bin/gcc-4.2
@@ -57,18 +47,30 @@ __rvm_setup_compile_environment_osx_gcc()
     [[ -x /usr/bin/gcc-4.2 ]] # OSX-GCC-Installer / Xcode - might be LLVM
   then
     export CC=/usr/bin/gcc-4.2
-  fi
-
-  if
-    __rvm_compiler_is_llvm &&
-    ! __rvm_selected_compiler >/dev/null
+  elif
+    __rvm_compiler_is_llvm
   then
     export CC=clang
   fi
+}
+
+__rvm_setup_compile_environment_osx_gcc()
+{
+  [[ "Darwin" == "$(uname)" ]] || return 0
 
   if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
   then rvm_force_autoconf_flag=1
   fi
+
+  __rvm_selected_compiler > /dev/null ||
+  case "$1" in
+    (ruby-2*|ruby-head*)
+      export CC=clang
+      ;;
+    (ruby*|ree*)
+      __rvm_setup_compile_environment_osx_gcc_42
+      ;;
+  esac
 }
 
 __rvm_setup_compile_environment_architectures_default()
