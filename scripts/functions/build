@@ -1,5 +1,64 @@
 #!/usr/bin/env bash
 
+__rvm_selected_compiler_no_autoselect()
+{
+  #TODO: add handling for rvm_configure_env
+  if
+    [[ " ${rvm_configure_flags[*]}" =~ " --with-gcc=" ]]
+  then
+    typeset __compiler
+    for __compiler in "${rvm_configure_flags[@]}"
+    do
+      case "$__compiler" in
+        (--with-gcc=*)
+          echo "${__compiler#--with-gcc=}"
+          return 0
+          ;;
+      esac
+    done
+  elif
+    [[ -n "${CC:-}" ]]
+  then
+    echo "${CC}"
+    return 0
+  fi
+  if # autoselect on osx as there is no standard
+    __rvm_find_osx_gcc42 &&
+    [[ -n "${CC:-}" ]]
+  then
+    echo "$CC"
+    return 0
+  fi
+  return 1
+}
+
+__rvm_found_compiler_no_autoselect()
+{
+  __rvm_selected_compiler_no_autoselect || \which gcc 2>/dev/null
+}
+
+__rvm_run_compiler_no_autoselect()
+{
+  typeset compiler
+  if
+    compiler="$( __rvm_found_compiler_no_autoselect )"
+  then
+    if [[ -n "${ZSH_VERSION:-}" ]]
+    then ${=compiler} "$@" || return $?
+    else ${compiler}  "$@" || return $?
+    fi
+  else
+    return 1
+  fi
+}
+
+__rvm_compiler_is_llvm_no_autoselect()
+{
+  __rvm_found_compiler_no_autoselect >/dev/null &&
+  [[ "$(__rvm_run_compiler_no_autoselect --version)" =~ "llvm" ]] ||
+  return $?
+}
+
 # show the user selected compiler or return 1
 __rvm_selected_compiler()
 {
@@ -326,7 +385,7 @@ __rvm_setup_compile_environment_shared_static()
           rvm_configure_flags+=( shared )
           ;;
         (readline*)
-          rvm_configure_flags+=( --disable-static --enable-shared ) 
+          rvm_configure_flags+=( --disable-static --enable-shared )
           ;;
         (*)
           rvm_configure_flags+=( --enable-shared )
