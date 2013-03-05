@@ -144,44 +144,17 @@ __rvm_generate_wrappers()
 }
 
 # Runs a command in a given env.
-__rvm_run_with_env()
+__rvm_with()
+(
+  __rvm_use "$1"
+  shift
+  "$@" || return $?
+)
+
+__rvm_gemset_pristine()
 {
-  typeset name environment _command message log __logs_path
-
-  name="${1:-""}"
-  environment="${2:-""}"
-  _command="${3:-""}"
-  message="${4:-""}"
-  [[ -n "$environment" ]] || environment="$(__rvm_env_string)"
-
-  if [[ -n "$message" ]]
-  then rvm_log "$message"
-  fi
-  if (( ${rvm_debug_flag:=0} == 1 ))
-  then rvm_debug "Executing: $_command in environment $environment"
-  fi
-
-  __logs_path="${rvm_log_path}/$rvm_ruby_string"
-  [[ -d "$__logs_path" ]] || command mkdir -p "$__logs_path"
-
-  log="$__logs_path/$name.log"
-  [[ -f "$log" ]] || command touch "$log" # for zsh :(
-
-  printf "%b"  "[$(date +'%Y-%m-%d %H:%M:%S')] $_command # under $environment\n" >> "${log}"
-
-  if (( ${rvm_niceness:=0} > 0 ))
-  then _command="nice -n $rvm_niceness $_command"
-  fi
-
-  (
-    __rvm_use "$environment"
-    eval "$_command" >> "${log}" 2>&1
-  ) ||
-  {
-    result=$?
-    rvm_error "Error running '$command' under $env_name,\nplease read $log"
-    return $result
-  }
+  __rvm_log_command "gemset.pristine" "Making gemset $1 pristine." \
+    __rvm_with "$1" "$rvm_scripts_path/gemset" pristine
 }
 
 __variables_definition()
