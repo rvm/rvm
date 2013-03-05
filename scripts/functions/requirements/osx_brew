@@ -82,9 +82,8 @@ requirements_brew_libs_configure()
   done
 }
 
-requirements_brew_libs_default()
+requirements_brew_libs_default_calculate()
 {
-  typeset -a brew_libs brew_libs_conf
   brew_libs=(
     autoconf automake libtool pkg-config
   )
@@ -103,9 +102,35 @@ requirements_brew_libs_default()
   brew_libs_conf=(
     libyaml readline libxml2 libxslt libksba openssl sqlite
   )
-  requirements_brew_libs_ensure "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
-  requirements_brew_generate_openssl_cert                                || return $?
-  requirements_brew_libs_configure "$1"           "${brew_libs_conf[@]}" || return $?
+}
+
+requirements_brew_libs_default_check_gcc42()
+{
+  if
+    [[ " ${brew_libs[*]}" =~ "apple-gcc42" ]] && ! which gcc-4.2 >/dev/null
+  then
+    rvm_error "
+apple-gcc42 is not available in PATH, try:
+
+    brew unlink apple-gcc42 && brew link apple-gcc42
+
+and make sure that apple-gcc42 is available in your PATH:
+
+    which gcc-4.2
+"
+    return 1
+  fi
+}
+
+requirements_brew_libs_default()
+{
+  typeset -a brew_libs brew_libs_conf
+  requirements_brew_libs_default_calculate "$1" &&
+  requirements_brew_libs_ensure "${brew_libs[@]}" "${brew_libs_conf[@]}" &&
+  requirements_brew_generate_openssl_cert       &&
+  requirements_brew_libs_default_check_gcc42    &&
+  requirements_brew_libs_configure "$1" "${brew_libs_conf[@]}" ||
+  return $?
 }
 
 requirements_brew_install_brew()
