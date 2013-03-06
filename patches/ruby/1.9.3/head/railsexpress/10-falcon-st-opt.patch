@@ -22,16 +22,47 @@ index ccc9647..1d8e442 100644
    {$(VPATH)}timev.h
  string.$(OBJEXT): {$(VPATH)}string.c $(RUBY_H_INCLUDES) {$(VPATH)}re.h \
 diff --git a/configure.in b/configure.in
-index 6099a92..ee6012e 100644
+index 6099a92..7b85cc9 100644
 --- a/configure.in
 +++ b/configure.in
-@@ -1367,7 +1367,8 @@ AC_CHECK_FUNCS(fmod killpg wait4 waitpid fork spawnv syscall __syscall chroot ge
+@@ -1268,6 +1268,30 @@ if test $rb_cv_stack_end_address != no; then
+   AC_DEFINE_UNQUOTED(STACK_END_ADDRESS, $rb_cv_stack_end_address)
+ fi
+ 
++AS_CASE(["$target_os"],
++[openbsd*], [
++  AC_CACHE_CHECK(for heap align log on openbsd, rb_cv_page_size_log,
++    [rb_cv_page_size_log=no
++     for page_log in 12 13; do
++       AC_TRY_RUN([
++#include <math.h>
++#include <unistd.h>
++
++int
++main() {
++  if ((int)log2((double)sysconf(_SC_PAGESIZE)) != $page_log) return 1;
++  return 0;
++}
++       ],
++       rb_cv_page_size_log="$page_log"; break)
++     done])
++  if test $rb_cv_page_size_log != no; then
++    AC_DEFINE_UNQUOTED(HEAP_ALIGN_LOG, $rb_cv_page_size_log)
++  else
++    AC_DEFINE_UNQUOTED(HEAP_ALIGN_LOG, 12)
++  fi
++])
++
+ dnl Checks for library functions.
+ AC_TYPE_GETGROUPS
+ AC_TYPE_SIGNAL
+@@ -1367,7 +1391,8 @@ AC_CHECK_FUNCS(fmod killpg wait4 waitpid fork spawnv syscall __syscall chroot ge
  	      setsid telldir seekdir fchmod cosh sinh tanh log2 round\
  	      setuid setgid daemon select_large_fdset setenv unsetenv\
                mktime timegm gmtime_r clock_gettime gettimeofday poll ppoll\
 -              pread sendfile shutdown sigaltstack dl_iterate_phdr)
 +              pread sendfile shutdown sigaltstack dl_iterate_phdr\
-+              dup3 pipe2 posix_memalign memalign)
++              posix_memalign memalign)
  
  AC_CACHE_CHECK(for unsetenv returns a value, rb_cv_unsetenv_return_value,
    [AC_TRY_COMPILE([
@@ -49,7 +80,7 @@ index e186cd4..53d9e1b 100644
  
  void
 diff --git a/gc.c b/gc.c
-index e8e73c0..dfb5473 100644
+index b5fc83c..3110059 100644
 --- a/gc.c
 +++ b/gc.c
 @@ -20,6 +20,7 @@
@@ -173,7 +204,7 @@ index e8e73c0..dfb5473 100644
  
  /*
   *  call-seq:
-@@ -1657,6 +1720,55 @@ allocate_sorted_heaps(rb_objspace_t *objspace, size_t next_heaps_length)
+@@ -1663,6 +1726,55 @@ allocate_sorted_heaps(rb_objspace_t *objspace, size_t next_heaps_length)
      heaps_length = next_heaps_length;
  }
  

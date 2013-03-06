@@ -1,5 +1,5 @@
 diff --git a/class.c b/class.c
-index 4fbdf18..c6adcc9 100644
+index df19812..f5abf6f 100644
 --- a/class.c
 +++ b/class.c
 @@ -31,7 +31,7 @@
@@ -49,7 +49,7 @@ index 4fbdf18..c6adcc9 100644
  
      OBJ_INFECT(klass, super);
      return (VALUE)klass;
-@@ -120,43 +129,30 @@ rb_class_new(VALUE super)
+@@ -120,85 +129,59 @@ rb_class_new(VALUE super)
      return rb_class_boot(super);
  }
  
@@ -101,16 +101,14 @@ index 4fbdf18..c6adcc9 100644
 +    sa_insert(tbl, (sa_index_t)key, (st_data_t)nce);
  }
  
- static void
-@@ -177,6 +173,7 @@ class_init_copy_check(VALUE clone, VALUE orig)
+ /* :nodoc: */
  VALUE
  rb_mod_init_copy(VALUE clone, VALUE orig)
  {
 +    ID id;
-     if (RB_TYPE_P(clone, T_CLASS)) {
- 	class_init_copy_check(clone, orig);
-     }
-@@ -186,36 +183,22 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
+     rb_obj_init_copy(clone, orig);
+     if (!FL_TEST(CLASS_OF(clone), FL_SINGLETON)) {
+ 	RBASIC(clone)->klass = rb_singleton_class_clone(orig);
  	rb_singleton_class_attached(RBASIC(clone)->klass, (VALUE)clone);
      }
      RCLASS_SUPER(clone) = RCLASS_SUPER(orig);
@@ -161,7 +159,7 @@ index 4fbdf18..c6adcc9 100644
  
      return clone;
  }
-@@ -228,7 +211,6 @@ rb_singleton_class_clone(VALUE obj)
+@@ -227,7 +210,6 @@ rb_singleton_class_clone(VALUE obj)
      if (!FL_TEST(klass, FL_SINGLETON))
  	return klass;
      else {
@@ -169,7 +167,7 @@ index 4fbdf18..c6adcc9 100644
  	/* copy singleton(unnamed) class */
  	VALUE clone = class_alloc((RBASIC(klass)->flags & ~(FL_MARK)), 0);
  
-@@ -240,18 +222,16 @@ rb_singleton_class_clone(VALUE obj)
+@@ -239,18 +221,16 @@ rb_singleton_class_clone(VALUE obj)
  	}
  
  	RCLASS_SUPER(clone) = RCLASS_SUPER(klass);
@@ -198,7 +196,7 @@ index 4fbdf18..c6adcc9 100644
  	rb_singleton_class_attached(RBASIC(clone)->klass, (VALUE)clone);
  	FL_SET(clone, FL_SINGLETON);
  	return (VALUE)clone;
-@@ -266,10 +246,7 @@ void
+@@ -265,10 +245,7 @@ void
  rb_singleton_class_attached(VALUE klass, VALUE obj)
  {
      if (FL_TEST(klass, FL_SINGLETON)) {
@@ -210,7 +208,7 @@ index 4fbdf18..c6adcc9 100644
      }
  }
  
-@@ -356,12 +333,12 @@ make_singleton_class(VALUE obj)
+@@ -355,12 +332,12 @@ make_singleton_class(VALUE obj)
  static VALUE
  boot_defclass(const char *name, VALUE super)
  {
@@ -225,7 +223,7 @@ index 4fbdf18..c6adcc9 100644
      rb_const_set((rb_cObject ? rb_cObject : obj), id, obj);
      return obj;
  }
-@@ -485,7 +462,7 @@ rb_define_class(const char *name, VALUE super)
+@@ -484,7 +461,7 @@ rb_define_class(const char *name, VALUE super)
  	rb_warn("no super class for `%s', Object assumed", name);
      }
      klass = rb_define_class_id(id, super);
@@ -234,7 +232,7 @@ index 4fbdf18..c6adcc9 100644
      rb_name_class(klass, id);
      rb_const_set(rb_cObject, id, klass);
      rb_class_inherited(super, klass);
-@@ -566,8 +543,6 @@ rb_module_new(void)
+@@ -565,8 +542,6 @@ rb_module_new(void)
  {
      VALUE mdl = class_alloc(T_MODULE, rb_cModule);
  
@@ -243,7 +241,7 @@ index 4fbdf18..c6adcc9 100644
      return (VALUE)mdl;
  }
  
-@@ -596,7 +571,7 @@ rb_define_module(const char *name)
+@@ -595,7 +570,7 @@ rb_define_module(const char *name)
  	rb_raise(rb_eTypeError, "%s is not a module", rb_obj_classname(module));
      }
      module = rb_define_module_id(id);
@@ -252,7 +250,7 @@ index 4fbdf18..c6adcc9 100644
      rb_const_set(rb_cObject, id, module);
  
      return module;
-@@ -631,27 +606,15 @@ rb_define_module_id_under(VALUE outer, ID id)
+@@ -630,27 +605,15 @@ rb_define_module_id_under(VALUE outer, ID id)
  static VALUE
  include_class_new(VALUE module, VALUE super)
  {
@@ -284,7 +282,7 @@ index 4fbdf18..c6adcc9 100644
      OBJ_INFECT(klass, module);
      OBJ_INFECT(klass, super);
  
-@@ -678,13 +641,13 @@ rb_include_module(VALUE klass, VALUE module)
+@@ -677,13 +640,13 @@ rb_include_module(VALUE klass, VALUE module)
      while (module) {
  	int superclass_seen = FALSE;
  
@@ -300,7 +298,7 @@ index 4fbdf18..c6adcc9 100644
  		    if (!superclass_seen) {
  			c = p;  /* move insertion point */
  		    }
-@@ -697,7 +660,7 @@ rb_include_module(VALUE klass, VALUE module)
+@@ -696,7 +659,7 @@ rb_include_module(VALUE klass, VALUE module)
  	    }
  	}
  	c = RCLASS_SUPER(c) = include_class_new(module, RCLASS_SUPER(c));
@@ -309,7 +307,7 @@ index 4fbdf18..c6adcc9 100644
  	    changed = 1;
        skip:
  	module = RCLASS_SUPER(module);
-@@ -828,58 +791,58 @@ ins_methods_push(ID name, long type, VALUE ary, long visi)
+@@ -827,58 +790,58 @@ ins_methods_push(ID name, long type, VALUE ary, long visi)
  }
  
  static int
@@ -378,7 +376,7 @@ index 4fbdf18..c6adcc9 100644
  
      if (argc == 0) {
  	recur = TRUE;
-@@ -890,16 +853,14 @@ class_instance_method_list(int argc, VALUE *argv, VALUE mod, int obj, int (*func
+@@ -889,16 +852,14 @@ class_instance_method_list(int argc, VALUE *argv, VALUE mod, int obj, int (*func
  	recur = RTEST(r);
      }
  
@@ -397,7 +395,7 @@ index 4fbdf18..c6adcc9 100644
  
      return ary;
  }
-@@ -1113,7 +1074,7 @@ VALUE
+@@ -1112,7 +1073,7 @@ VALUE
  rb_obj_singleton_methods(int argc, VALUE *argv, VALUE obj)
  {
      VALUE recur, ary, klass;
@@ -406,7 +404,7 @@ index 4fbdf18..c6adcc9 100644
  
      if (argc == 0) {
  	recur = Qtrue;
-@@ -1122,20 +1083,18 @@ rb_obj_singleton_methods(int argc, VALUE *argv, VALUE obj)
+@@ -1121,20 +1082,18 @@ rb_obj_singleton_methods(int argc, VALUE *argv, VALUE obj)
  	rb_scan_args(argc, argv, "01", &recur);
      }
      klass = CLASS_OF(obj);
@@ -431,7 +429,7 @@ index 4fbdf18..c6adcc9 100644
      return ary;
  }
 diff --git a/common.mk b/common.mk
-index 1d8e442..0d767ab 100644
+index 56e52b6..3ccfa47 100644
 --- a/common.mk
 +++ b/common.mk
 @@ -79,6 +79,7 @@ COMMONOBJS    = array.$(OBJEXT) \
@@ -493,10 +491,10 @@ index 66e33a3..4b31f92 100644
        case T_STRING:
  	size += rb_str_memsize(obj);
 diff --git a/gc.c b/gc.c
-index a222b17..3571723 100644
+index 13dd821..81c867d 100644
 --- a/gc.c
 +++ b/gc.c
-@@ -688,7 +688,7 @@ rb_objspace_free(rb_objspace_t *objspace)
+@@ -666,7 +666,7 @@ rb_objspace_free(rb_objspace_t *objspace)
  
  #define HEAP_OBJ_LIMIT (unsigned int)(HEAP_SIZE / sizeof(struct RVALUE))
  
@@ -505,53 +503,52 @@ index a222b17..3571723 100644
  
  int ruby_disable_gc_stress = 0;
  
-@@ -2356,6 +2356,15 @@ mark_tbl(rb_objspace_t *objspace, st_table *tbl)
+@@ -2235,6 +2235,15 @@ mark_tbl(rb_objspace_t *objspace, st_table *tbl, int lev)
      st_foreach(tbl, mark_entry, (st_data_t)&arg);
  }
  
 +static void
-+mark_sa_tbl(rb_objspace_t *objspace, sa_table *tbl)
++mark_sa_tbl(rb_objspace_t *objspace, sa_table *tbl, int lev)
 +{
 +    if (!tbl) return;
 +    SA_FOREACH_START(tbl);
-+    gc_mark(objspace, (VALUE)value);
++    gc_mark(objspace, (VALUE)value, lev);
 +    SA_FOREACH_END();
 +}
 +
  static int
  mark_key(VALUE key, VALUE value, st_data_t data)
  {
-@@ -2432,74 +2441,52 @@ rb_mark_method_entry(const rb_method_entry_t *me)
-     mark_method_entry(&rb_objspace, me);
+@@ -2313,74 +2322,52 @@ rb_mark_method_entry(const rb_method_entry_t *me)
+     mark_method_entry(&rb_objspace, me, 0);
  }
  
 -static int
 -mark_method_entry_i(ID key, const rb_method_entry_t *me, st_data_t data)
 -{
 -    struct mark_tbl_arg *arg = (void*)data;
--    mark_method_entry(arg->objspace, me);
+-    mark_method_entry(arg->objspace, me, arg->lev);
 -    return ST_CONTINUE;
 -}
 -
  static void
--mark_m_tbl(rb_objspace_t *objspace, st_table *tbl)
--{
+-mark_m_tbl(rb_objspace_t *objspace, st_table *tbl, int lev)
++mark_m_tbl(rb_objspace_t *objspace, sa_table *tbl, int lev)
+ {
 -    struct mark_tbl_arg arg;
 -    if (!tbl) return;
 -    arg.objspace = objspace;
+-    arg.lev = lev;
 -    st_foreach(tbl, mark_method_entry_i, (st_data_t)&arg);
 -}
 -
 -static int
 -free_method_entry_i(ID key, rb_method_entry_t *me, st_data_t data)
-+mark_m_tbl(rb_objspace_t *objspace, sa_table *tbl)
- {
--    if (!me->mark) {
--	rb_free_method_entry(me);
--    }
+-{
+-    rb_free_method_entry(me);
 -    return ST_CONTINUE;
 +    SA_FOREACH_START(tbl);
-+    mark_method_entry(objspace, (const rb_method_entry_t*)value);
++    mark_method_entry(objspace, (const rb_method_entry_t*)value, lev);
 +    SA_FOREACH_END();
  }
  
@@ -567,7 +564,7 @@ index a222b17..3571723 100644
 -mark_const_entry_i(ID key, const rb_const_entry_t *ce, st_data_t data)
 -{
 -    struct mark_tbl_arg *arg = (void*)data;
--    gc_mark(arg->objspace, ce->value);
+-    gc_mark(arg->objspace, ce->value, arg->lev);
 -    return ST_CONTINUE;
 +    SA_FOREACH_START(tbl);
 +    if (!((rb_method_entry_t*)value)->mark) {
@@ -578,15 +575,16 @@ index a222b17..3571723 100644
  }
  
  static void
--mark_const_tbl(rb_objspace_t *objspace, st_table *tbl)
-+mark_const_tbl(rb_objspace_t *objspace, sa_table *tbl)
+-mark_const_tbl(rb_objspace_t *objspace, st_table *tbl, int lev)
++mark_const_tbl(rb_objspace_t *objspace, sa_table *tbl, int lev)
  {
 -    struct mark_tbl_arg arg;
 -    if (!tbl) return;
 -    arg.objspace = objspace;
+-    arg.lev = lev;
 -    st_foreach(tbl, mark_const_entry_i, (st_data_t)&arg);
 +    SA_FOREACH_START(tbl);
-+    gc_mark(objspace, ((const rb_const_entry_t*)value)->value);
++    gc_mark(objspace, ((const rb_const_entry_t*)value)->value, lev);
 +    SA_FOREACH_END();
  }
  
@@ -609,28 +607,28 @@ index a222b17..3571723 100644
  {
 -    st_foreach(tbl, free_const_entry_i, 0);
 -    st_free_table(tbl);
-+    mark_tbl(&rb_objspace, tbl);
++    mark_tbl(&rb_objspace, tbl, 0);
  }
  
  void
 -rb_mark_tbl(st_table *tbl)
 +rb_mark_sa_tbl(sa_table *tbl)
  {
--    mark_tbl(&rb_objspace, tbl);
-+    mark_sa_tbl(&rb_objspace, tbl);
+-    mark_tbl(&rb_objspace, tbl, 0);
++    mark_sa_tbl(&rb_objspace, tbl, 0);
  }
  
  void
-@@ -2707,7 +2694,7 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr)
+@@ -2600,7 +2587,7 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr, int lev)
        case T_CLASS:
        case T_MODULE:
- 	mark_m_tbl(objspace, RCLASS_M_TBL(obj));
--	mark_tbl(objspace, RCLASS_IV_TBL(obj));
-+	mark_sa_tbl(objspace, RCLASS_IV_TBL(obj));
- 	mark_const_tbl(objspace, RCLASS_CONST_TBL(obj));
+ 	mark_m_tbl(objspace, RCLASS_M_TBL(obj), lev);
+-	mark_tbl(objspace, RCLASS_IV_TBL(obj), lev);
++	mark_sa_tbl(objspace, RCLASS_IV_TBL(obj), lev);
+ 	mark_const_tbl(objspace, RCLASS_CONST_TBL(obj), lev);
  	ptr = RCLASS_SUPER(obj);
  	goto again;
-@@ -3282,15 +3269,11 @@ obj_free(rb_objspace_t *objspace, VALUE obj)
+@@ -3175,15 +3162,11 @@ obj_free(rb_objspace_t *objspace, VALUE obj)
        case T_CLASS:
  	rb_clear_cache_by_class((VALUE)obj);
  	rb_free_m_table(RCLASS_M_TBL(obj));
@@ -651,7 +649,7 @@ index a222b17..3571723 100644
          xfree(RANY(obj)->as.klass.ptr);
  	break;
        case T_STRING:
-@@ -3342,8 +3325,9 @@ obj_free(rb_objspace_t *objspace, VALUE obj)
+@@ -3235,8 +3218,9 @@ obj_free(rb_objspace_t *objspace, VALUE obj)
        case T_COMPLEX:
  	break;
        case T_ICLASS:
@@ -662,20 +660,20 @@ index a222b17..3571723 100644
  	break;
  
        case T_FLOAT:
-@@ -3458,7 +3442,7 @@ gc_marks(rb_objspace_t *objspace)
+@@ -3353,7 +3337,7 @@ gc_marks(rb_objspace_t *objspace)
      rb_mark_end_proc();
      rb_gc_mark_global_tbl();
  
--    mark_tbl(objspace, rb_class_tbl);
-+    mark_sa_tbl(objspace, &rb_class_tbl);
+-    mark_tbl(objspace, rb_class_tbl, 0);
++    mark_sa_tbl(objspace, &rb_class_tbl, 0);
  
      /* mark generic instance variables for special constants */
      rb_mark_generic_ivar_tbl();
 diff --git a/include/ruby/intern.h b/include/ruby/intern.h
-index ab1cc94..53ca8b0 100644
+index b82252a..27ed7d8 100644
 --- a/include/ruby/intern.h
 +++ b/include/ruby/intern.h
-@@ -415,6 +415,7 @@ size_t ruby_stack_length(VALUE**);
+@@ -414,6 +414,7 @@ size_t ruby_stack_length(VALUE**);
  int rb_during_gc(void);
  void rb_gc_mark_locations(VALUE*, VALUE*);
  void rb_mark_tbl(struct st_table*);
@@ -683,7 +681,7 @@ index ab1cc94..53ca8b0 100644
  void rb_mark_set(struct st_table*);
  void rb_mark_hash(struct st_table*);
  void rb_gc_mark_maybe(VALUE);
-@@ -848,7 +849,7 @@ VALUE rb_f_trace_var(int, VALUE*);
+@@ -847,7 +848,7 @@ VALUE rb_f_trace_var(int, VALUE*);
  VALUE rb_f_untrace_var(int, VALUE*);
  VALUE rb_f_global_variables(void);
  void rb_alias_variable(ID, ID);
@@ -815,7 +813,7 @@ index f5af903..4af90b6 100644
  struct vtm; /* defined by timev.h */
  
 diff --git a/marshal.c b/marshal.c
-index 6ae3a55..48d9d9b 100644
+index 9a43cdb..a4a3551 100644
 --- a/marshal.c
 +++ b/marshal.c
 @@ -506,7 +506,7 @@ w_uclass(VALUE obj, VALUE super, struct dump_arg *arg)
@@ -874,10 +872,10 @@ index 9229896..2fecd57 100644
  
  #endif /* METHOD_H */
 diff --git a/object.c b/object.c
-index 59611fd..4522d08 100644
+index f45e013..1352d01 100644
 --- a/object.c
 +++ b/object.c
-@@ -236,17 +236,8 @@ init_copy(VALUE dest, VALUE obj)
+@@ -229,17 +229,8 @@ init_copy(VALUE dest, VALUE obj)
          break;
        case T_CLASS:
        case T_MODULE:
@@ -897,7 +895,7 @@ index 59611fd..4522d08 100644
          break;
      }
  }
-@@ -537,7 +528,7 @@ rb_obj_is_kind_of(VALUE obj, VALUE c)
+@@ -530,7 +521,7 @@ rb_obj_is_kind_of(VALUE obj, VALUE c)
      }
  
      while (cl) {
@@ -906,7 +904,7 @@ index 59611fd..4522d08 100644
  	    return Qtrue;
  	cl = RCLASS_SUPER(cl);
      }
-@@ -1362,13 +1353,13 @@ rb_class_inherited_p(VALUE mod, VALUE arg)
+@@ -1355,13 +1346,13 @@ rb_class_inherited_p(VALUE mod, VALUE arg)
  	rb_raise(rb_eTypeError, "compared with non class/module");
      }
      while (mod) {
@@ -1303,7 +1301,7 @@ index 0000000..2ed69bf
 +    }
 +}
 diff --git a/test/ruby/test_marshal.rb b/test/ruby/test_marshal.rb
-index 0f3f794..2316c15 100644
+index 7ec6959..f5774cd 100644
 --- a/test/ruby/test_marshal.rb
 +++ b/test/ruby/test_marshal.rb
 @@ -312,7 +312,7 @@ class TestMarshal < Test::Unit::TestCase
@@ -1316,7 +1314,7 @@ index 0f3f794..2316c15 100644
        b = Marshal.load(Marshal.dump(a))
        assert_equal(ClassISO8859_1, b.class, bug1932)
 diff --git a/test/ruby/test_method.rb b/test/ruby/test_method.rb
-index ea6c5f2..6ccd37c 100644
+index 2cc0de5..b1bf33e 100644
 --- a/test/ruby/test_method.rb
 +++ b/test/ruby/test_method.rb
 @@ -406,7 +406,7 @@ class TestMethod < Test::Unit::TestCase
@@ -2371,10 +2369,10 @@ index 3da500e..4a61453 100644
      }
      if (rb_cvar_defined(mod, id)) {
 diff --git a/vm.c b/vm.c
-index 04ef956..6edabf6 100644
+index 3436898..ca1d858 100644
 --- a/vm.c
 +++ b/vm.c
-@@ -1055,7 +1055,7 @@ static void
+@@ -1042,7 +1042,7 @@ static void
  add_opt_method(VALUE klass, ID mid, VALUE bop)
  {
      rb_method_entry_t *me;
@@ -2384,10 +2382,10 @@ index 04ef956..6edabf6 100644
  	st_insert(vm_opt_method_table, (st_data_t)me, (st_data_t)bop);
      }
 diff --git a/vm_insnhelper.c b/vm_insnhelper.c
-index 4f709e6..1bfd131 100644
+index 55152df..deeed9b 100644
 --- a/vm_insnhelper.c
 +++ b/vm_insnhelper.c
-@@ -1183,7 +1183,7 @@ vm_get_ev_const(rb_thread_t *th, const rb_iseq_t *iseq,
+@@ -1187,7 +1187,7 @@ vm_get_ev_const(rb_thread_t *th, const rb_iseq_t *iseq,
  		st_data_t data;
  	      search_continue:
  		if (RCLASS_CONST_TBL(klass) &&
@@ -2396,7 +2394,7 @@ index 4f709e6..1bfd131 100644
  		    val = ((rb_const_entry_t*)data)->value;
  		    if (val == Qundef) {
  			if (am == klass) break;
-@@ -1293,10 +1293,10 @@ vm_getivar(VALUE obj, ID id, IC ic)
+@@ -1297,10 +1297,10 @@ vm_getivar(VALUE obj, ID id, IC ic)
  	    st_data_t index;
  	    long len = ROBJECT_NUMIV(obj);
  	    VALUE *ptr = ROBJECT_IVPTR(obj);
@@ -2409,7 +2407,7 @@ index 4f709e6..1bfd131 100644
  		    if ((long)index < len) {
  			val = ptr[index];
  		    }
-@@ -1346,9 +1346,9 @@ vm_setivar(VALUE obj, ID id, VALUE val, IC ic)
+@@ -1350,9 +1350,9 @@ vm_setivar(VALUE obj, ID id, VALUE val, IC ic)
  	    }
  	}
  	else {

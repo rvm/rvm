@@ -1,5 +1,5 @@
 diff --git a/common.mk b/common.mk
-index c9ef641..56e52b6 100644
+index ccc9647..1d8e442 100644
 --- a/common.mk
 +++ b/common.mk
 @@ -638,7 +638,8 @@ file.$(OBJEXT): {$(VPATH)}file.c $(RUBY_H_INCLUDES) {$(VPATH)}io.h \
@@ -22,12 +22,12 @@ index c9ef641..56e52b6 100644
    {$(VPATH)}timev.h
  string.$(OBJEXT): {$(VPATH)}string.c $(RUBY_H_INCLUDES) {$(VPATH)}re.h \
 diff --git a/configure.in b/configure.in
-index af5acc4..354b9f2 100644
+index 6099a92..7b85cc9 100644
 --- a/configure.in
 +++ b/configure.in
-@@ -1324,6 +1324,29 @@ main() {
- CFLAGS="$save_CFLAGS"])
- AC_DEFINE_UNQUOTED(GC_MARK_STACKFRAME_WORD, $rb_cv_gc_mark_stackframe_word)
+@@ -1268,6 +1268,30 @@ if test $rb_cv_stack_end_address != no; then
+   AC_DEFINE_UNQUOTED(STACK_END_ADDRESS, $rb_cv_stack_end_address)
+ fi
  
 +AS_CASE(["$target_os"],
 +[openbsd*], [
@@ -52,16 +52,17 @@ index af5acc4..354b9f2 100644
 +    AC_DEFINE_UNQUOTED(HEAP_ALIGN_LOG, 12)
 +  fi
 +])
- 
++
  dnl Checks for library functions.
  AC_TYPE_GETGROUPS
-@@ -1424,7 +1447,8 @@ AC_CHECK_FUNCS(fmod killpg wait4 waitpid fork spawnv syscall __syscall chroot ge
+ AC_TYPE_SIGNAL
+@@ -1367,7 +1391,8 @@ AC_CHECK_FUNCS(fmod killpg wait4 waitpid fork spawnv syscall __syscall chroot ge
  	      setsid telldir seekdir fchmod cosh sinh tanh log2 round\
  	      setuid setgid daemon select_large_fdset setenv unsetenv\
                mktime timegm gmtime_r clock_gettime gettimeofday poll ppoll\
 -              pread sendfile shutdown sigaltstack dl_iterate_phdr)
 +              pread sendfile shutdown sigaltstack dl_iterate_phdr\
-+              dup3 pipe2 posix_memalign memalign)
++              posix_memalign memalign)
  
  AC_CACHE_CHECK(for unsetenv returns a value, rb_cv_unsetenv_return_value,
    [AC_TRY_COMPILE([
@@ -79,23 +80,18 @@ index e186cd4..53d9e1b 100644
  
  void
 diff --git a/gc.c b/gc.c
-index 91994aa..13dd821 100644
+index 463a2d9..9037212 100644
 --- a/gc.c
 +++ b/gc.c
-@@ -20,10 +20,12 @@
+@@ -20,6 +20,7 @@
  #include "vm_core.h"
  #include "internal.h"
  #include "gc.h"
 +#include "pool_alloc.h"
  #include "constant.h"
+ #include "ruby_atomic.h"
  #include <stdio.h>
- #include <setjmp.h>
- #include <sys/types.h>
-+#include <assert.h>
- 
- #ifdef HAVE_SYS_TIME_H
- #include <sys/time.h>
-@@ -35,7 +37,12 @@
+@@ -37,7 +38,12 @@
  
  #if defined _WIN32 || defined __CYGWIN__
  #include <windows.h>
@@ -108,7 +104,7 @@ index 91994aa..13dd821 100644
  
  #ifdef HAVE_VALGRIND_MEMCHECK_H
  # include <valgrind/memcheck.h>
-@@ -329,6 +336,24 @@ struct gc_list {
+@@ -356,6 +362,24 @@ typedef struct mark_stack {
  
  #define CALC_EXACT_MALLOC_SIZE 0
  
@@ -133,7 +129,7 @@ index 91994aa..13dd821 100644
  typedef struct rb_objspace {
      struct {
  	size_t limit;
-@@ -338,6 +363,9 @@ typedef struct rb_objspace {
+@@ -365,6 +389,9 @@ typedef struct rb_objspace {
  	size_t allocations;
  #endif
      } malloc_params;
@@ -143,7 +139,7 @@ index 91994aa..13dd821 100644
      struct {
  	size_t increment;
  	struct heaps_slot *ptr;
-@@ -407,7 +435,11 @@ typedef struct rb_objspace {
+@@ -430,7 +457,11 @@ typedef struct rb_objspace {
  #define ruby_initial_gc_stress	initial_params.gc_stress
  int *ruby_initial_gc_stress_ptr = &ruby_initial_gc_stress;
  #else
@@ -155,7 +151,7 @@ index 91994aa..13dd821 100644
  int *ruby_initial_gc_stress_ptr = &rb_objspace.gc_stress;
  #endif
  #define malloc_limit		objspace->malloc_params.limit
-@@ -461,6 +493,10 @@ rb_objspace_alloc(void)
+@@ -481,6 +512,10 @@ rb_objspace_alloc(void)
      memset(objspace, 0, sizeof(*objspace));
      malloc_limit = initial_malloc_limit;
      ruby_gc_stress = ruby_initial_gc_stress;
@@ -166,10 +162,10 @@ index 91994aa..13dd821 100644
  
      return objspace;
  }
-@@ -601,6 +637,13 @@ rb_objspace_free(rb_objspace_t *objspace)
- 	heaps_used = 0;
+@@ -624,6 +659,13 @@ rb_objspace_free(rb_objspace_t *objspace)
  	heaps = 0;
      }
+     free_stack_chunks(&objspace->mark_stack);
 +#ifdef POOL_ALLOC_API
 +    if (objspace->pool_headers) {
 +        pool_finalize_header(&objspace->pool_headers->p6);
@@ -180,7 +176,7 @@ index 91994aa..13dd821 100644
      free(objspace);
  }
  #endif
-@@ -1125,6 +1168,27 @@ rb_gc_stats_enabled()
+@@ -1148,6 +1190,27 @@ rb_gc_stats_enabled()
      return gc_statistics ? Qtrue : Qfalse;
  }
  
@@ -208,7 +204,7 @@ index 91994aa..13dd821 100644
  
  /*
   *  call-seq:
-@@ -1639,6 +1703,55 @@ allocate_sorted_heaps(rb_objspace_t *objspace, size_t next_heaps_length)
+@@ -1663,6 +1726,55 @@ allocate_sorted_heaps(rb_objspace_t *objspace, size_t next_heaps_length)
      heaps_length = next_heaps_length;
  }
  
@@ -1123,7 +1119,7 @@ index 0000000..a7879ab
 +}
 +#endif
 diff --git a/st.c b/st.c
-index fda5784..20ec427 100644
+index fda5784..0194022 100644
 --- a/st.c
 +++ b/st.c
 @@ -7,6 +7,7 @@
@@ -1144,7 +1140,7 @@ index fda5784..20ec427 100644
 +#define ST_DEFAULT_MAX_DENSITY 2
  #define ST_DEFAULT_INIT_TABLE_SIZE 11
 +#define ST_DEFAULT_SECOND_TABLE_SIZE 19
-+#define ST_DEFAULT_PACKED_TABLE_SIZE 18
++#define ST_DEFAULT_PACKED_TABLE_SIZE 19
 +#define PACKED_UNIT (int)(sizeof(st_packed_entry) / sizeof(st_table_entry*))
 +#define MAX_PACKED_HASH (int)(ST_DEFAULT_PACKED_TABLE_SIZE * sizeof(st_table_entry*) / sizeof(st_packed_entry))
 +
