@@ -1,0 +1,257 @@
+diff --git a/gc.c b/gc.c
+index 56f0217..6e3714d 100644
+--- a/gc.c
++++ b/gc.c
+@@ -108,11 +108,6 @@ ruby_gc_params_t initial_params = {
+ #define LONG_LONG long
+ #endif
+ 
+-static int heap_min_slots = 10000;
+-static int heap_slots_increment = 10000;
+-static int initial_heap_slots_increment = 10000;
+-static double heap_slots_growth_factor = 1.8;
+-
+ #define nomem_error GET_VM()->special_exceptions[ruby_error_nomemory]
+ 
+ #if SIZEOF_LONG == SIZEOF_VOIDP
+@@ -321,6 +316,28 @@ typedef struct RVALUE {
+ #endif
+ } RVALUE;
+ 
++
++/* tiny heap size */
++/* 32KB */
++/*#define HEAP_SIZE 0x8000 */
++/* 128KB */
++/*#define HEAP_SIZE 0x20000 */
++/* 64KB */
++/*#define HEAP_SIZE 0x10000 */
++/* 16KB */
++#define HEAP_SIZE 0x4000
++/* 8KB */
++/*#define HEAP_SIZE 0x2000 */
++/* 4KB */
++/*#define HEAP_SIZE 0x1000 */
++/* 2KB */
++/*#define HEAP_SIZE 0x800 */
++
++#define HEAP_OBJ_LIMIT (unsigned int)(HEAP_SIZE / sizeof(struct RVALUE))
++
++static int heap_slots_increment = 10000 / HEAP_OBJ_LIMIT;
++static double heap_slots_growth_factor = 1.8;
++
+ #if defined(_MSC_VER) || defined(__BORLANDC__) || defined(__CYGWIN__)
+ #pragma pack(pop)
+ #endif
+@@ -535,17 +552,6 @@ rb_gc_set_params(void)
+ 
+     if (rb_safe_level() > 0) return;
+ 
+-    envp = getenv("RUBY_GC_STATS");
+-    if (envp != NULL) {
+-        int i = atoi(envp);
+-        if (i > 0) {
+-            verbose_gc_stats = 1;
+-            fprintf(stderr, "RUBY_GC_STATS=%d\n", verbose_gc_stats);
+-        }
+-        /* child processes should not inherit RUBY_GC_STATS */
+-        ruby_unsetenv("RUBY_GC_STATS");
+-    }
+-
+     envp = getenv("RUBY_GC_DATA_FILE");
+     if (envp != NULL) {
+         FILE* data_file = fopen(envp, "w");
+@@ -559,6 +565,18 @@ rb_gc_set_params(void)
+         ruby_unsetenv("RUBY_GC_DATA_FILE");
+     }
+ 
++    envp = getenv("RUBY_GC_STATS");
++    if (envp != NULL) {
++        int i = atoi(envp);
++        if (i > 0) {
++            /* gc_statistics = 1; */
++            verbose_gc_stats = 1;
++            fprintf(gc_data_file, "RUBY_GC_STATS=%d\n", verbose_gc_stats);
++        }
++        /* child processes should not inherit RUBY_GC_STATS */
++        ruby_unsetenv("RUBY_GC_STATS");
++    }
++
+     envp = getenv("RUBY_GC_MALLOC_LIMIT");
+     if (envp != NULL) {
+ 	int malloc_limit_i = atoi(envp);
+@@ -570,7 +588,7 @@ rb_gc_set_params(void)
+ 		    malloc_limit_i, initial_malloc_limit);
+ 	if (malloc_limit_i > 0) {
+ 	    initial_malloc_limit = malloc_limit_i;
+-            // malloc_limit = initial_malloc_limit;
++            malloc_limit = initial_malloc_limit;
+ 	}
+     }
+ 
+@@ -609,8 +627,7 @@ rb_gc_set_params(void)
+         if (verbose_gc_stats) {
+             fprintf(gc_data_file, "RUBY_HEAP_SLOTS_INCREMENT=%s\n", envp);
+         }
+-        heap_slots_increment = i;
+-        initial_heap_slots_increment = heap_slots_increment;
++        heap_slots_increment = i / HEAP_OBJ_LIMIT;
+     }
+ 
+     envp = getenv("RUBY_HEAP_SLOTS_GROWTH_FACTOR");
+@@ -670,24 +687,6 @@ rb_objspace_free(rb_objspace_t *objspace)
+ }
+ #endif
+ 
+-/* tiny heap size */
+-/* 32KB */
+-/*#define HEAP_SIZE 0x8000 */
+-/* 128KB */
+-/*#define HEAP_SIZE 0x20000 */
+-/* 64KB */
+-/*#define HEAP_SIZE 0x10000 */
+-/* 16KB */
+-#define HEAP_SIZE 0x4000
+-/* 8KB */
+-/*#define HEAP_SIZE 0x2000 */
+-/* 4KB */
+-/*#define HEAP_SIZE 0x1000 */
+-/* 2KB */
+-/*#define HEAP_SIZE 0x800 */
+-
+-#define HEAP_OBJ_LIMIT (unsigned int)(HEAP_SIZE / sizeof(struct RVALUE))
+-
+ extern sa_table rb_class_tbl;
+ 
+ int ruby_disable_gc_stress = 0;
+@@ -1520,7 +1519,6 @@ rb_gc_dump_file_and_line_info(int argc, VALUE *argv)
+     rb_objspace_t *objspace = &rb_objspace;
+     VALUE filename, str, include_classnames = Qnil;
+     char *fname = NULL;
+-    char *klass = NULL;
+     FILE* f = NULL;
+     size_t i = 0;
+ 
+@@ -1778,17 +1776,15 @@ aligned_free(void *ptr)
+ static void
+ assign_heap_slot(rb_objspace_t *objspace)
+ {
+-    /*
+-    if (gc_statistics & verbose_gc_stats) {
+-	fprintf(gc_data_file, "assigning heap slot\n");
+-    }
+-    */
+-
+     RVALUE *p, *pend, *membase;
+     struct heaps_slot *slot;
+     size_t hi, lo, mid;
+     size_t objs;
+-
++    /*
++    if (gc_statistics & verbose_gc_stats) {
++	fprintf(gc_data_file, "assigning heap slot: %d\n", heaps_inc);
++    }
++    */
+     objs = HEAP_OBJ_LIMIT;
+     p = (RVALUE*)malloc(HEAP_SIZE);
+     if (p == 0) {
+@@ -1903,13 +1899,17 @@ static void
+ set_heaps_increment(rb_objspace_t *objspace)
+ {
+     size_t next_heaps_length = (size_t)(heaps_used * heap_slots_growth_factor);
++    size_t next_heaps_length_alt = heaps_used + heap_slots_increment;
+ 
+-    if (next_heaps_length == heaps_used) {
+-        next_heaps_length++;
++    if (next_heaps_length < next_heaps_length_alt) {
++        next_heaps_length = next_heaps_length_alt;
+     }
+ 
+     heaps_inc = next_heaps_length - heaps_used;
+-
++    /*
++    if (gc_statistics & verbose_gc_stats)
++	fprintf(gc_data_file, "heaps_inc:%lu, slots_inc: %lu\n", heaps_inc, heaps_inc * HEAP_OBJ_LIMIT);
++    */
+     if (next_heaps_length > heaps_length) {
+ 	allocate_sorted_heaps(objspace, next_heaps_length);
+     }
+@@ -2527,7 +2527,7 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr)
+ 
+ #ifdef GC_DEBUG
+     if (obj->file && obj->file != Qnil && is_pointer_to_heap(objspace, (void*)obj->file)) {
+-	gc_mark(objspace, obj->file, lev);
++	gc_mark(objspace, obj->file);
+     }
+ #endif
+ 
+@@ -2543,7 +2543,7 @@ gc_mark_children(rb_objspace_t *objspace, VALUE ptr)
+ 
+ #ifdef GC_DEBUG
+     if (obj->file && obj->file != Qnil && is_pointer_to_heap(objspace, (void*)obj->file)) {
+-	gc_mark(objspace, obj->file, lev);
++	gc_mark(objspace, obj->file);
+     }
+ #endif
+ 
+@@ -3028,14 +3028,14 @@ before_gc_sweep(rb_objspace_t *objspace)
+         MEMZERO((void*)live_counts, unsigned long, T_MASK+1);
+     }
+ 
+-    objspace->heap.max_blocks_to_free = heaps_used - (heap_min_slots / HEAP_OBJ_LIMIT);
++    objspace->heap.max_blocks_to_free = heaps_used - (initial_heap_min_slots / HEAP_OBJ_LIMIT);
+     objspace->heap.freed_blocks = 0;
+ 
+     freelist = 0;
+     objspace->heap.do_heap_free = (size_t)((heaps_used * HEAP_OBJ_LIMIT) * 0.65);
+     objspace->heap.free_min = (size_t)((heaps_used * HEAP_OBJ_LIMIT)  * 0.2);
+     if (objspace->heap.free_min < initial_free_min) {
+-	objspace->heap.do_heap_free = heaps_used * HEAP_OBJ_LIMIT;
++        /* objspace->heap.do_heap_free = heaps_used * HEAP_OBJ_LIMIT; */
+         objspace->heap.free_min = initial_free_min;
+     }
+     objspace->heap.sweep_slots = heaps;
+@@ -3067,7 +3067,11 @@ after_gc_sweep(rb_objspace_t *objspace)
+ 	if (malloc_limit < initial_malloc_limit) malloc_limit = initial_malloc_limit;
+     }
+     malloc_increase = 0;
+-
++    /*
++    if (verbose_gc_stats)
++        fprintf(gc_data_file, "heap size before freeing unused heaps: %7lu\n",
++                (unsigned long)heaps_used*HEAP_OBJ_LIMIT);
++    */
+     free_unused_heaps(objspace);
+ 
+     if (gc_statistics) {
+@@ -3076,6 +3080,7 @@ after_gc_sweep(rb_objspace_t *objspace)
+         if (verbose_gc_stats) {
+             /* log gc stats if requested */
+             fprintf(gc_data_file, "GC time: %lu musec\n", (unsigned long)(gc_time_accumulator-gc_time_accumulator_before_gc));
++            fprintf(gc_data_file, "heap size        : %7lu\n", (unsigned long)heaps_used*HEAP_OBJ_LIMIT);
+             fprintf(gc_data_file, "objects processed: %7lu\n", (unsigned long)processed);
+             fprintf(gc_data_file, "live objects     : %7lu\n", (unsigned long)live_after_last_mark_phase);
+             fprintf(gc_data_file, "freelist objects : %7lu\n", (unsigned long)freelist_size);
+@@ -3125,7 +3130,7 @@ rest_sweep(rb_objspace_t *objspace)
+ 
+ static void gc_marks(rb_objspace_t *objspace);
+ 
+-/* only called from rb_new_obj */
++/* only called from rb_newobj */
+ static int
+ gc_lazy_sweep(rb_objspace_t *objspace)
+ {
+@@ -3412,13 +3417,11 @@ gc_marks(rb_objspace_t *objspace)
+     struct gc_list *list;
+     rb_thread_t *th = GET_THREAD();
+     GC_PROF_MARK_TIMER_START;
+-
+     /*
+     if (gc_statistics & verbose_gc_stats) {
+         fprintf(gc_data_file, "Marking objects\n");
+     }
+     */
+-
+     objspace->heap.live_num = 0;
+     objspace->count++;
+     live_objects = 0;
