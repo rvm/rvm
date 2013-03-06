@@ -155,11 +155,17 @@ rubinius_install()
     rvm_ruby_make="CONFIGURE_ARGS=${rvm_configure_args## } "
   fi
 
-  export rvm_show_every_nth_dot=20  # show dot for every nth line
-  __rvm_log_command rake "$rvm_ruby_string - #compiling" \
-    "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/rake" install --trace
-  result=$?
-  unset rvm_show_every_nth_dot
+  __rvm_every_nth_dot 20 \
+    __rvm_log_command rake "$rvm_ruby_string - #compiling" \
+      "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/rake" install --trace || return $?
+  [[ -d "$rvm_ruby_home" && -f "$rvm_ruby_home/bin/rbx" ]] ||
+  {
+    result=$?
+    rvm_error "Rubinius reported it was installed successfully, but RVM could not find proper installation,
+please check why '$rvm_ruby_home/bin/rbx' was not created,
+maybe here '$rvm_log_path/$rvm_ruby_string/rake.log'."
+    return $result
+  }
   unset ruby
 
   # Symlink rubinius wrapper if not available
