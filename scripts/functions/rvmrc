@@ -7,16 +7,24 @@ _second=$[__array_start + 1]
 
 source "$rvm_scripts_path/functions/rvmrc_set"
 source "$rvm_scripts_path/functions/rvmrc_trust"
+source "$rvm_scripts_path/functions/rvmrc_warning"
 
 __rvm_rvmrc_tools()
 {
   export escape_flag
-  typeset rvmrc_action rvmrc_path saveIFS trust rvmrc_ruby
+  typeset rvmrc_action rvmrc_warning_action rvmrc_path saveIFS trust rvmrc_ruby
 
   escape_flag=1
 
   rvmrc_action="$1"
   (( $# )) && shift || true
+
+  if
+    [[ "${rvmrc_action}" == "warning" ]]
+  then
+    rvmrc_warning_action="${1:-}"
+    (( $# )) && shift || true
+  fi
 
   if
     [[ "${rvmrc_action}" == "create" ]]
@@ -40,11 +48,17 @@ __rvm_rvmrc_tools()
     (( $# ))
   then
     rvmrc_path="${rvmrc_path}/$1"
-  else
+  elif
+    [[ "${rvmrc_path:-}" != "all" ]]
+  then
     __rvm_project_dir_check "${rvmrc_path}" rvmrc_path "${rvmrc_path}/.rvmrc"
   fi
 
   case "$rvmrc_action" in
+    warning)
+      __rvmrc_warning "${rvmrc_warning_action:-}" "$rvmrc_path" || return $?
+      ;;
+
     create)
       (
         rvm_create_flag=1 __rvm_use "${rvmrc_ruby}"
@@ -205,6 +219,8 @@ __rvm_load_project_config()
   : rvm_autoinstall_bundler_flag:${rvm_autoinstall_bundler_flag:=0}
   case "$1" in
     (*/.rvmrc)
+      __rvmrc_warning_display_for_rvmrc "$1"
+
       if __rvm_check_rvmrc_trustworthiness "$1"
       then
         __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
