@@ -144,26 +144,25 @@ __rvm_rvmrc_stored_trust_check()
 
 __rvm_check_rvmrc_trustworthiness()
 {
-  typeset saveIFS trust result
   # Trust when they have the flag... of doom!
-  if [[ -n "$1" && ${rvm_trust_rvmrcs_flag:-0} == 0 ]]
+  (( ${rvm_trust_rvmrcs_flag:-0} == 0 )) || return 0
+
+  # Fail if no file given
+  [[ -n "$1" ]] || return 1
+
+  typeset saveIFS="$IFS"
+  IFS=$';'
+  typeset -a trust
+  trust=( $( __rvm_rvmrc_stored_trust "$1" ) )
+  IFS="$saveIFS"
+  if
+    [[ "${trust[${_second}]:-'#'}" == "$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" ]]
   then
-    saveIFS="$IFS"
-    IFS=$';'
-    trust=( $( __rvm_rvmrc_stored_trust "$1" ) )
-    IFS="$saveIFS"
-
-    if [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" ]]
-    then
-      __rvm_ask_to_trust "$1"
-    else
-      [[ "${trust[${_first}]}" == '1' ]]
-    fi
-
+    [[ "${trust[${_first}]}" == '1' ]] || return $?
+  else
+    __rvm_ask_to_trust "$1" || return $?
   fi
-  result=$?
-  unset escape_flag
-  return $result
+  true
 }
 
 __rvm_display_rvmrc()
