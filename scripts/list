@@ -55,9 +55,50 @@ list_remote()
   fi
 }
 
+list_detect_arch()
+{
+  if
+    [[ -f "$rvm_rubies_path/${__version%%@*}/config" ]]
+  then
+    __arch="$(
+      awk -F= "\$1==\"target_cpu\" {gsub(/[\"']/,\"\"); print \$2}" < \
+        $rvm_rubies_path/${__version%%@*}/config
+    )" #'
+  elif
+    [[ -d "$rvm_gems_path/${__version}" && ! -d "$rvm_rubies_path/${__version%%@*}" ]]
+  then
+    __arch="no ruby"
+  else
+    __arch="broken"
+  fi
+  if
+    [[ -z "${__arch}" ]]
+  then
+    case "${__version}" in
+      (maglev-*|macruby-*) __arch="x86_64"  ;;
+      (*)                  __arch="unknown" ;;
+    esac
+  fi
+}
+
+list_show_version_with_arch()
+{
+  typeset __arch __prefix __version __suffix
+  __prefix="$1"
+  __version="$2"
+  __suffix="${3:-}"
+
+  list_detect_arch
+
+  if rvm_pretty_print stdout
+  then __version="${rvm_notify_clr:-}${__version}${rvm_reset_clr:-}"
+  fi
+  printf "%b" "${__prefix}${__version} [ ${__arch} ]${__suffix}"
+}
+
 list_gemsets()
 {
-  typeset all_rubies version versions ruby_version_name current_ruby selected system_ruby system_version string binary
+  typeset all_rubies version versions ruby_version_name current_ruby selected system_ruby system_version string binary prefix
 
   if [[ "${1:-""}" == "strings" ]]
   then
@@ -73,7 +114,7 @@ list_gemsets()
 
   versions=($(
     __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}/"
-    find . -maxdepth 1 -mindepth 1 -type d -print 2> /dev/null | \
+    find . -maxdepth 1 -mindepth 1 -type d -print 2> /dev/null |
       awk '/[a-z]*-.*/ {print $NF}' | sort
   ))
 
@@ -82,102 +123,59 @@ list_gemsets()
     ruby_version_name="$(echo "$version" | awk -F"${rvm_gemset_separator:-"@"}" '{print $1}')"
 
     if [[ "$all_rubies" != *"$ruby_version_name"* ]]
-    then
-      continue
+    then continue
     fi
-
-    if printf "%b" "$version" | GREP_OPTIONS="" \grep '^jruby-' >/dev/null 2>&1
-    then
-      string="[ $("$rvm_rubies_path/$ruby_version_name/bin/ruby" -v | awk '{print $NF}' | sed -e 's/\[//' -e 's/\]//') ]"
-
-    elif [[ -n "$(echo "$version" | awk '/^maglev-|^macruby-/')" ]]
-    then
-      string="[ x86_64 ]"
-    else
-      string="[ $(file "$rvm_rubies_path/$ruby_version_name/bin/ruby" | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | \tr "\n" ' ')]"
-    fi
-
-    printf "%b" "\n"
-
     if [[ "$version" == "$current_ruby" ]]
-    then
-      printf "%b" "=> "
-    else
-      printf "%b" "   "
+    then prefix="=> "
+    else prefix="   "
     fi
-
-    if rvm_pretty_print stdout
-    then
-      printf "%b" "${rvm_notify_clr:-}$version${rvm_reset_clr:-} $string"
-    else
-      printf "%b" "$version $string"
-    fi
-
+    list_show_version_with_arch "\n${prefix}" "$version"
   done
 
   if [[ -f "$rvm_path/config/default" && -s "$rvm_path/config/default" ]]
   then
     version=$(
-    GREP_OPTIONS="" \grep 'MY_RUBY_HOME' "$rvm_path/config/default" | head -1 | awk -F"'" '{print $2}' | xargs basename --
+      GREP_OPTIONS="" \grep 'MY_RUBY_HOME' "$rvm_path/config/default" |
+        head -1 | awk -F"'" '{print $2}' | xargs basename --
     )
-
-    if [[ -n "$version" ]]
+    if
+      [[ -n "$version" ]]
     then
       printf "%b" "\nDefault Ruby (for new shells)\n"
-
-      string="[ $(file "$rvm_rubies_path/$version/bin/ruby" | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | \tr "\n" ' ')]"
-
-      if rvm_pretty_print stdout
-      then
-        printf "%b" "\n  ${rvm_notify_clr:-}$version${rvm_reset_clr:-} $string\n"
-      else
-        printf "%b" "\n  $version $string\n"
-      fi
+      list_show_version_with_arch "\n  " "$version" "\n"
     fi
   fi
-
   printf "%b" "\n\n"
-
   return 0
 }
 
 list_default()
 {
   typeset version string
-
-  if [[ "${args[0]:-""}" == "string" ]]
+  if
+    [[ "${args[0]:-""}" == "string" ]]
   then
-    "$rvm_scripts_path/alias" show default 2>/dev/null | \
-      awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' | \
+    "$rvm_scripts_path/alias" show default 2>/dev/null |
+      awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' |
       xargs basename --
-
   else
-    if [[ -L "$rvm_rubies_path/default" ]]
+    if
+      [[ -L "$rvm_rubies_path/default" ]]
     then
       version=$(
-      "$rvm_scripts_path/alias" show default 2>/dev/null | \
-        awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' | \
+      "$rvm_scripts_path/alias" show default 2>/dev/null |
+        awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' |
         xargs basename --
       )
-
-      if [[ -n "$version" ]]
+      if
+        [[ -n "$version" ]]
       then
         printf "%b" "\nDefault Ruby (for new shells)\n"
-
-        string="[ $(file "$rvm_rubies_path/$version/bin/ruby" | awk '/x86.64/ {print "x86_64"} /386/ {print "i386"} /ppc/ {print "ppc"}' | \tr "\n" ' ')]"
-
-        if rvm_pretty_print stdout
-        then
-          printf "%b" "\n   ${rvm_notify_clr:-}$version${rvm_reset_clr:-} $string\n"
-        else
-          printf "%b" "\n   $version $string\n"
-        fi
+        list_show_version_with_arch "\n   " "$version" "\n"
       fi
     fi
   fi
-
   printf "%b" "\n"
-
   return 0
 }
 
@@ -282,7 +280,7 @@ list_rubies_strings()
 list_rubies()
 {
   typeset current_ruby rubies version selected system_ruby system_version \
-    default_ruby string binary
+    default_ruby string binary prefix
 
   if [[ "${1:-""}" == "strings" ]]
   then
@@ -305,38 +303,23 @@ list_rubies()
 
   for version in "${rubies[@]//.\/}"
   do
-    if [[ ! -x "$rvm_rubies_path/$version/bin/ruby" ]]
+    [[ -x "$rvm_rubies_path/$version/bin/ruby" ]] || continue
+    if
+      [[ "$version" == "$current_ruby" && "$version" == "$default_ruby" ]]
     then
-      continue
-    fi
-
-    if [[ "$version" = "$current_ruby" && "$version" = "$default_ruby" ]]
+      prefix="=* "
+    elif
+      [[ "$version" == "$current_ruby" ]]
     then
-      printf "%b" "=* "
-    elif [[ "$version" = "$current_ruby" ]]
+      prefix="=> "
+    elif
+      [[ "$version" == "$default_ruby" ]]
     then
-      printf "%b" "=> "
-    elif [[ "$version" = "$default_ruby" ]]
-    then
-      printf "%b" " * "
+      prefix=" * "
     else
-      printf "%b" "   "
+      prefix="   "
     fi
-
-    if [[ ! -z "$(echo "$version" | awk '/^maglev-|^macruby-/')" ]] ; then
-      string="[ x86_64 ]"
-    else
-      string="[ $(. $rvm_rubies_path/$version/config ; echo $target_cpu) ]"
-    fi
-
-    if rvm_pretty_print stdout
-    then
-      printf "%b" "${rvm_notify_clr:-}$version${rvm_reset_clr:-} $string"
-    else
-      printf "%b" "$version $string"
-    fi
-
-    printf "%b" "\n"
+    list_show_version_with_arch "${prefix}" "$version" "\n"
   done
 
   if (( ${#rubies[@]} == 0 ))
