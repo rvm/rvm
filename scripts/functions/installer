@@ -612,19 +612,49 @@ correct_binary_permissions()
   done
 }
 
-get_file_group()
+check_file_group()
 {
+  typeset _group
   case "$(uname)" in
     (Darwin|OpenBSD|FreeBSD)
-      stat -f "%Sg" "$1"
+      _group="$( stat -f "%Sg" "$1" )"
       ;;
     *)
-      stat -c "%G"  "$1"
+      _group="$( stat -c "%G"  "$1" )"
       ;;
   esac
+  [[ "${_group}" == "$2" ]] || return $?
+  true # for OSX
 }
 
-is_file_group() [[ "$(get_file_group "$1")" == "$2" ]]
+check_file_rights()
+{
+  typeset _all
+  case "$(uname)" in
+    (Darwin|OpenBSD|FreeBSD)
+      _all="$( stat -f "%Sp" "$1" )"
+      ;;
+    *)
+      _all="$( stat -c "%A" "$1" )"
+      ;;
+  esac
+  shift
+  while
+    (( $# ))
+  do
+    case "$1" in
+      (g+w) [[ "${_all:5:1}" == "w" ]] || return $? ;;
+    esac
+  done
+  true # for OSX
+}
+
+install_fix_rights()
+{
+  (( ${rvm_user_install_flag:-0} == 0 ))   || return 0
+  check_file_group  "$1" "$rvm_group_name" || chown :$rvm_group_name "$1"
+  check_file_rights "$1" g+w               || chmod g+rwX "$1"
+}
 
 install_man_pages()
 {
@@ -638,9 +668,7 @@ install_man_pages()
     [[ -d $rvm_man_path/${file%\/*} ]] ||
     {
       mkdir -p $rvm_man_path/${file%\/*}
-      (( ${rvm_user_install_flag:-0} == 1 )) ||
-        is_file_group $rvm_man_path/${file%\/*} $rvm_group_name ||
-        chown :$rvm_group_name $rvm_man_path/${file%\/*}
+      install_fix_rights $rvm_man_path/${file%\/*}
     }
     \cp -Rf "$install_source_path/man/$file" "$rvm_man_path/$file" || \
       printf "%b" "
@@ -648,9 +676,7 @@ install_man_pages()
     Please run the installer using rvmsudo to fix file permissions
 
 "
-    (( ${rvm_user_install_flag:-0} == 1 )) ||
-      is_file_group "$rvm_man_path/$file" $rvm_group_name ||
-      chown :$rvm_group_name "$rvm_man_path/$file"
+    install_fix_rights "$rvm_man_path/$file"
   done
 }
 
