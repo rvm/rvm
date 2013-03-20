@@ -1,64 +1,29 @@
-# How to hack on RVM
+Here at RVM we get a high amount of bug reports, and sometimes bugs turn out not to be bugs, but user generated errors and other times it turns out to be our fault.  Don't get us wrong, we love it when you file bugs but we would also love it if you were able to give us more information than most people do right off the bat, so we can maximize our time helping you and minimize our time requesting more information.
 
-## Fetch and try test suite on your rvm installation
+## Check Documentation
 
-Note that the [`vboxtest`](docs/vm_tests.md) approach is now outdated.
-It's better to use the
-[`rvm-test`](https://github.com/wayneeseguin/rvm-test/) test suite
-which lives in a separate git submodule.  (It's separate in order to
-allow reuse when hacking on rvm2).
+We know, you hear this over and over and be rest assured we are working hard to improve the usability of https://rvm.io but we must always ask that you first please check the documentation if you are requesting a feature or if you are not sure if you did it right.  If the documentation is not clear, an error message is not clear or you know or have found out that your problem is not resolved by the documentation then please do file a bug.
 
-    $ git submodule init    # Register the rvm-test submodule in .git/config
-    $ git submodule update  # Check out the rvm-test submodule
+## Filing
 
-Now read [`rvm-test`'s
-README.md](https://github.com/wayneeseguin/rvm-test/blob/master/README.md)
-and follow those instructions to make sure you can successfully run
-the tests (you will need rvm already installed).
+Documentation: https://github.com/rvm/rvm-site/issues/new<br />
+RVM: https://github.com/wayneeseguin/rvm/issues/new
 
-## Set up test installation of rvm
+If you wish to file a bug, the only thing we ask is that you provide a [gist](https://gist.github.com) of the command you used and if you are on stable, make sure that the case is the same on head too, this way you and us know whether the issue has been addressed, and always note that if there is a lot of `debug` or `trace` output you can redirect it to a file with the `>` character like so `rvm [command] > output.txt`.  Further information on how to file can be seen below.
 
-You need a test rvm install to run the test suite against:
+## Filing for Ruby installation errors
 
-    $ git clone https://github.com/wayneeseguin/rvm  # or your own github fork
-    $ cd rvm
-    $ rvm switch ~/path/to/rvm/test/install          # choose a path here
-    $ ./install
+```
+rvm get head
+rvm reload
+rvm --debug install [ruby-version]
+```
+Make sure to include all mentioned log files.
 
-This will create a test installation of rvm in
-`~/path/to/rvm/test/install`, and as long as `$rvm_path` points to it,
-this will be used when running the tests.  This means you can safely
-break the test installation without risking breaking your main rvm
-installation.
+## Filing for other RVM commands
 
-If you want to do manual testing on the CLI against this test installation,
-you also need to do:
-
-    $ rvm reload
-
-To get back to using orginal rvm installation run:
-
-    $ rvm switch ~/.rvm
-
-## Hacking RVM via TDD (Test-Driven Development)
-
-First write a test for the behaviour you expect.  For details on how
-to write new tests, see [`rvm-test`'s
-README.md](https://github.com/wayneeseguin/rvm-test/blob/master/README.md).
-Then run the test:
-
-    $ tf --text rvm-test/fast/foo_comment_test.sh
-
-It should fail.  Now repeat the following steps until the test passes:
-
-    1. hack the changes in your rvm src tree
-    2. run `./install`
-    3. re-run the test (you can also manually test via rvm commands on the CLI)
-
-Now `git commit`, `git push` to your github fork, then issue a pull
-request, and if it is accepted then your place in hacker heaven is
-secured.
-
-## Getting help
-
-If you get stuck, you should ask on `#rvm-test` or `#rvm` on Freenode.
+```
+rvm get head
+rvm reload
+rvm --trace [command]
+```
