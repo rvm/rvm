@@ -5,8 +5,8 @@ __rvm_setup_compile_environment()
   typeset __type
   typeset -a __types
   __types=(
-    requirements osx_gcc architectures gcc47 bison smartos sunos openbsd freebsd
-    flags_docs flags_tcltk flags_shared_static flags_threads
+    requirements osx_gcc architectures gcc47 bison smartos sunos openbsd
+    auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
   do
@@ -198,24 +198,9 @@ __rvm_setup_compile_environment_sunos()
   esac
 }
 
-
 __rvm_setup_compile_environment_openbsd()
 {
   [[ "$(uname)" == "OpenBSD"     ]] || return 0
-  if
-    [[  -z "${AUTOCONF_VERSION:-}" ]]
-  then
-    export AUTOCONF_VERSION
-    AUTOCONF_VERSION="$( ls -1 /usr/local/bin/autoreconf-* | sort | tail -n 1 )"
-    AUTOCONF_VERSION="${AUTOCONF_VERSION##*-}"
-  fi
-  if
-    [[  -z "${AUTOMAKE_VERSION:-}" ]]
-  then
-    export AUTOMAKE_VERSION
-    AUTOMAKE_VERSION="$( ls -1 /usr/local/bin/automake-* | sort | tail -n 1 )"
-    AUTOMAKE_VERSION="${AUTOMAKE_VERSION##*-}"
-  fi
   # https://github.com/wayneeseguin/rvm/issues/1581
   rvm_configure_env+=( sh )
   case "$1" in
@@ -226,23 +211,30 @@ __rvm_setup_compile_environment_openbsd()
   esac
 }
 
-__rvm_setup_compile_environment_freebsd()
+__rvm_setup_compile_environment_auto_conf_make()
 {
-  [[ "$(uname)" == "FreeBSD" ]] || return 0
+  case "$(uname)" in
+    (FreeBSD|OpenBSD) true     ;; # continue
+    (*)               return 0 ;; # break
+  esac
   if
     [[  -z "${AUTOCONF_VERSION:-}" ]]
   then
     export AUTOCONF_VERSION
-    AUTOCONF_VERSION="$( ls -1 /usr/local/bin/autoreconf-* | sort | tail -n 1 )"
-    AUTOCONF_VERSION="${AUTOCONF_VERSION##*-}"
+    AUTOCONF_VERSION="$(
+      ls -1 /usr/local/bin/autoreconf-* | awk -F- '{print $NF}' |
+        __rvm_version_sort | tail -n 1
+    )"
   fi
   if
     [[  -z "${AUTOMAKE_VERSION:-}" ]]
   then
     export AUTOMAKE_VERSION
-	# FreeBSD might have automake-wrapper
-    AUTOMAKE_VERSION="$( ls -1 /usr/local/bin/automake-1* | sort | tail -n 1 )"
-    AUTOMAKE_VERSION="${AUTOMAKE_VERSION##*-}"
+    # FreeBSD might have automake-wrapper
+    AUTOMAKE_VERSION="$(
+      ls -1 /usr/local/bin/automake-1* | awk -F- '{print $NF}' |
+        __rvm_version_sort | tail -n 1
+    )"
   fi
 }
 
