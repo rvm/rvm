@@ -7,7 +7,7 @@ requirements_port_lib_installed()
 
 requirements_port_libs_install()
 {
-  sudo port install "$@" || return $?
+  __rvm_try_sudo port install "$@" || return $?
 }
 
 requirements_port_libs_ensure()
@@ -16,38 +16,15 @@ requirements_port_libs_ensure()
   __rvm_filter_installed_packages port "$@" ||
   {
     typeset ret=$?
-    # FIXME: how to install macports / gcc-4.2
-    # sudo port install gcc42 # or:
-    # sudo port install apple-gcc42 # or:
-    # sudo port install llvm-gcc42
-    # Not sure which is needed here. I have apple-gcc42. -- baburdick 2013-02-24
+    # TODO: offer more help!
     rvm_warn "There were package installation errors, make sure to read the log."
     return $ret
   }
 }
 
-requirements_port_libs_configure()
-{
-  typeset package port_lib port_lib_prefix
-  package="$1"
-  shift
-
-  for port_lib
-  do
-    if
-      # FIXME: how to find out package paths
-      port_lib_prefix="$( port --prefix "${port_lib}" 2>/dev/null )" &&
-      [[ -n "${port_lib_prefix}" && -d "${port_lib_prefix}" ]]
-    then
-      __rvm_update_configure_opt_dir "${package}" "${port_lib_prefix}"
-    fi
-  done
-}
-
 requirements_port_libs_default()
 {
-  typeset -a port_libs port_libs_conf
-  # FIXME: what packages are needed for installation
+  typeset -a port_libs
   port_libs=(
     autoconf automake libtool pkg-config
   )
@@ -55,14 +32,13 @@ requirements_port_libs_default()
   if
     __rvm_compiler_is_llvm
   then
-    # FIXME: what is the name of gcc-4.2 package
     port_libs+=( apple-gcc42 )
   fi
-  port_libs_conf=(
+  port_libs+=(
     libiconv libyaml libffi readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite3 zlib ncurses gdbm
   )
-  requirements_port_libs_ensure "${port_libs[@]}" "${port_libs_conf[@]}" || return $?
-  requirements_port_libs_configure "$1"           "${port_libs_conf[@]}" || return $?
+  requirements_port_libs_ensure  "${port_libs[@]}" || return $?
+  __rvm_update_configure_opt_dir "$1" "/opt/local" || return $?
 }
 
 requirements_port_install_port()
@@ -82,7 +58,7 @@ requirements_port_install_port()
   tar -xj --strip 1 &&
   ./configure &&
   make &&
-  sudo make install ||
+  __rvm_try_sudo make install ||
   return $?
 }
 
@@ -90,10 +66,11 @@ requirements_port_route_install()
 {
   case "$1" in
     (update-system)
-      sudo port -dv selfupdate || return $?
+      __rvm_try_sudo port -dv selfupdate || return $?
       ;;
     (rvm)
       # FIXME: requirements for rvm
+      true
       ;;
     (jruby*)
       which java >/dev/null 2>&1 || return $?
@@ -132,33 +109,8 @@ requirements_port_ensure_port_available()
   }
 }
 
-requirements_port_ensure_port_can_install()
-{
-  # FIXME: find ports root and check if user can write in there, do we need sudo??
-  # We do need sudo to install ports. -- baburdick 2013-02-24
-  (( rvm_autolibs_flag > 1 )) || return 0
-  typeset __packages_path
-  # TODO: discover if the port command can introspect to get this value:
-  __packages_path="$(awk '/^prefix/{ print $2}' /opt/local/etc/macports/macports.conf )"
-  if
-    [[ -w "${__packages_path%/*}/bin" ]] &&
-    [[ -w "${__packages_path}" || ! -e "${__packages_path}" ]]
-  then
-    rvm_debug "port seems to be writable"
-  elif
-    (( rvm_autolibs_flag > 3 ))
-  then
-    rvm_error "ERROR: '${__packages_path}' not writable, fix it first!"
-    return 1
-  else
-    rvm_autolibs_flag=1
-    rvm_warn "WARN: '${__packages_path}' not writable, no packages will be installed."
-  fi
-}
-
 requirements_port()
 {
   requirements_port_ensure_port_available   || return $?
-  requirements_port_ensure_port_can_install || return $?
   requirements_port_route_install "$@"      || return $?
 }
