@@ -328,20 +328,70 @@ __rvm_setup_compile_environment_flags_threads()
   esac
 }
 
-__rvm_setup_compile_environment_requirements_iterate()
+requirements_load()
+{
+  if
+    is_a_function requirements_${1} ||
+    is_a_function requirements_${1}_run
+  then
+    rvm_debug "requirements code for $1 already loaded"
+  else
+    [[ -s "$rvm_scripts_path/functions/requirements/$1" ]] ||
+    {
+      rvm_error "Requirements support for $1 is not implemented yet,
+  report a bug here => https://github.com/wayneeseguin/rvm/issues"
+      return 1
+    }
+    source "$rvm_scripts_path/functions/requirements/$1"
+    if
+      is_a_function requirements_${1} ||
+      is_a_function requirements_${1}_run
+    then
+      rvm_debug "requirements code for $1 loaded"
+    else
+      rvm_error "Failed loading requirements for $1!"
+      return 1
+    fi
+  fi
+}
+
+requirements_iterate()
 {
   typeset -a list
-  typeset element
+  typeset element __handler
+  __handler=$1
+  shift
 
   list=( update-system rvm )
+  while (( $# )) && [[ -z "$1" ]]
+  do shift
+  done
   if (( $# ))
   then list+=( "$@" )
   else list+=( ruby )
   fi
 
   for element in "${list[@]}"
-  do requirements_$_system_name "${element}" || return $?
+  do ${__handler} "${element}" || return $?
   done
+  true
+}
+
+requirements_run()
+{
+  typeset __type
+  __type=$1
+  shift
+  requirements_load ${__type} || return $?
+  if
+    is_a_function requirements_${__type}
+  then
+    requirements_${__type} "$@" || return $?
+  elif
+    is_a_function requirements_${__type}_run
+  then
+    requirements_iterate requirements_${__type}_run "$@" || return $?
+  fi
 }
 
 #
@@ -357,17 +407,12 @@ __rvm_setup_compile_environment_requirements()
   (( ${rvm_autolibs_flag:=1} > 0 )) || return 0
 
   __rvm_detect_system
-  [[ -s "$rvm_scripts_path/functions/requirements/$_system_name" ]] ||
-  {
-    rvm_error "Requirements support for $_system_name/$_system_version/$_system_arch is not implemented yet,
-      report a bug here => https://github.com/wayneeseguin/rvm/issues"
-    return 1
-  }
 
-  rvm_log "Installing requirements for $_system_name/$_system_version/$_system_arch, might require sudo password"
-  source "$rvm_scripts_path/functions/requirements/$_system_name"
+  requirements_load $_system_name || return $?
 
-  __rvm_setup_compile_environment_requirements_iterate "$@"
+  rvm_log "Installing requirements for $_system_name/$_system_version/$_system_arch, might require sudo password."
+
+  requirements_run $_system_name  "$@" || return $?
 }
 
 #### Helpers for: requirements_$_system_name
