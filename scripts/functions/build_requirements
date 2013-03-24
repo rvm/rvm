@@ -23,7 +23,7 @@ requirements_osx_update_openssl_cert()
   ssl_binary="${1:-$(which openssl)}"
   ssl_dir="$( "${ssl_binary}" version -d | awk -F'"' '{print $2}' )" #' fix formating
   cert_file="${ssl_dir}/cert.pem"
-  case "${rvm_autolibs_flag}" in
+  case "${rvm_autolibs_flag_number}" in
     (0)
       rvm_debug "Skipping update of certificates in '$cert_file'."
       ;;
@@ -41,7 +41,7 @@ requirements_osx_update_openssl_cert()
   esac
 }
 
-requirements_load()
+__rvm_requirements_load()
 {
   if
     is_a_function requirements_${1} ||
@@ -68,7 +68,7 @@ requirements_load()
   fi
 }
 
-requirements_iterate()
+__rvm_requirements_iterate()
 {
   typeset -a list
   typeset element __handler
@@ -90,12 +90,12 @@ requirements_iterate()
   true
 }
 
-requirements_run()
+__rvm_requirements_run()
 {
   typeset __type
   __type=$1
   shift
-  requirements_load ${__type} || return $?
+  __rvm_requirements_load ${__type} || return $?
   if
     is_a_function requirements_${__type}
   then
@@ -103,7 +103,7 @@ requirements_run()
   elif
     is_a_function requirements_${__type}_run
   then
-    requirements_iterate requirements_${__type}_run "$@" || return $?
+    __rvm_requirements_iterate requirements_${__type}_run "$@" || return $?
   fi
 }
 
@@ -121,7 +121,7 @@ __rvm_filter_installed_package_check()
   then
     packages_installed+=( "$2" )
   else
-    case "$rvm_autolibs_flag" in
+    case "$rvm_autolibs_flag_number" in
       (0|1)  packages_missing+=( "$2" ) ;; # just ignore
       (*) packages_to_install+=( "$2" ) ;; # 2+
     esac
@@ -138,7 +138,7 @@ __rvm_filter_installed_packages_summary()
   (( ${#packages_missing[@]} == 0 )) ||
   {
     _list="${packages_missing[*]}"
-    if (( rvm_autolibs_flag == 0 ))
+    if (( rvm_autolibs_flag_number == 0 ))
     then rvm_debug "Missing required packages: ${_list// /, }."
     else rvm_warn "Missing required packages: ${_list// /, }."
     fi
@@ -176,7 +176,7 @@ __rvm_try_sudo()
 {
   typeset -a command_to_run
   command_to_run=()
-  case "$rvm_autolibs_flag" in
+  case "$rvm_autolibs_flag_number" in
     (0|1)
       (( UID == 0 )) || return 0 # do not run nothing if it would require sudo
       ;;

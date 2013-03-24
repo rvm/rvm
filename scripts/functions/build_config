@@ -5,7 +5,7 @@ __rvm_setup_compile_environment()
   typeset __type
   typeset -a __types
   __types=(
-    requirements osx_gcc architectures gcc47 bison smartos sunos openbsd
+    setup requirements osx_gcc architectures gcc47 bison smartos sunos openbsd
     auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
@@ -14,6 +14,26 @@ __rvm_setup_compile_environment()
     __rvm_setup_compile_environment_${__type} "$1" || return $?
   done
   rvm_debug "found compiler: $( __rvm_found_compiler )"
+}
+
+__rvm_setup_compile_environment_setup()
+{
+  __rvm_autolibs_translate
+}
+
+#
+# rvm_autolibs_flag
+# - 0 - disabled
+# - 1 - use libs, do not install
+# - 2 - use libs, fail if missing - default
+# - 3 - use libs, install if missing, fallback to 2 if brew not writable
+# - 4 - 3 + install package manager if not available
+#
+__rvm_setup_compile_environment_requirements()
+{
+  (( ${rvm_autolibs_flag_number} > 0 ))  || return 0
+  rvm_log "Installing requirements for ${rvm_autolibs_flag_runner}, might require sudo password."
+  __rvm_requirements_run ${rvm_autolibs_flag_runner} "$@" || return $?
 }
 
 # 2.0.0+
@@ -66,7 +86,7 @@ __rvm_setup_compile_environment_osx_gcc()
   if
     selected_compiler="$( __rvm_selected_compiler )"
   then
-    case "${rvm_autolibs_flag:=1}" in
+    case "${rvm_autolibs_flag_number}" in
       (0) rvm_debug "User selected compiler: $selected_compiler"
         ;;
       (1) rvm_warn  "Warning: found user selected compiler '$selected_compiler', this will suppress RVM auto detection mechanisms."
@@ -88,8 +108,7 @@ __rvm_setup_compile_environment_osx_gcc()
 
 __rvm_setup_compile_environment_bison()
 {
-  # TODO: what should we do for autolibs=1 ? should it fail or just warn when bison is missing
-  (( ${rvm_autolibs_flag:=1} > 0 )) || return 0
+  (( ${rvm_autolibs_flag_number} > 1 )) || return 0
   case "$1" in
     (ruby*|ree*|rbx*)
       __rvm_check_for_bison ||
@@ -326,25 +345,4 @@ __rvm_setup_compile_environment_flags_threads()
       [[ " ${rvm_make_flags[*]}" =~ " -j" ]] || rvm_make_flags+=( -j$(__rvm_detect_max_threads) )
       ;;
   esac
-}
-
-#
-# rvm_autolibs_flag
-# - 0 - disabled
-# - 1 - use libs, do not install - default
-# - 2 - use libs, install if missing, fallback to 1 if brew not writable
-# - 3 - 2 + install package manager if not available
-# - 4 - 3 + error out if brew not writable, no fallback
-#
-__rvm_setup_compile_environment_requirements()
-{
-  (( ${rvm_autolibs_flag:=1} > 0 )) || return 0
-
-  __rvm_detect_system
-
-  requirements_load $_system_name || return $?
-
-  rvm_log "Installing requirements for $_system_name/$_system_version/$_system_arch, might require sudo password."
-
-  requirements_run $_system_name  "$@" || return $?
 }
