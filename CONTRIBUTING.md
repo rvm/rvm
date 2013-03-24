@@ -9,7 +9,9 @@ We know, you hear this over and over and be rest assured we are working hard to 
 Documentation: https://github.com/rvm/rvm-site/issues/new<br />
 RVM: https://github.com/wayneeseguin/rvm/issues/new
 
-If you wish to file a bug, the only thing we ask is that you provide a [gist](https://gist.github.com) of the command you used and if you are on stable, make sure that the case is the same on head too, this way you and us know whether the issue has been addressed, and always note that if there is a lot of `debug` or `trace` output you can redirect it to a file with the `>` character like so `rvm [command] > output.txt`.  Further information on how to file can be seen below.
+*When in doubt as to whether your issue might relate to another simply file a new bug and we will mark it as duplicate if it needs to be.  It's always better to file a new ticket and let us sort it out than to accidently add noise to another ticket.*
+
+If you wish to file a bug, the only thing we ask is that you provide a [gist](https://gist.github.com) of the command you used and if you are on stable, make sure that the case is the same on head too, this way you and us know whether the issue has been addressed, and always note that if there is a lot of `debug` or `trace` output you can redirect it to a file with the `>` character like so `rvm [command] > output.txt`.  Further information on how to file can be seen below.  Also, please always make sure to split up each command into it's own fenced codeblock, this means that each command and it's output should be in it's own code block.
 
 ## Filing for Ruby installation errors
 
