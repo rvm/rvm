@@ -54,28 +54,6 @@ Check Homebrew requirements https://github.com/mxcl/homebrew/wiki/Installation"
   requirements_brew_libs_try_upgrade "$@"
 }
 
-requirements_brew_generate_openssl_cert()
-{
-  typeset ssl_prefix ssl_dir cert_file
-  ssl_prefix="$(brew --prefix openssl)"
-  ssl_dir="$( "${ssl_prefix}/bin/openssl" version -d | awk -F'"' '{print $2}' )" #' fix formating
-  cert_file="${ssl_dir}/cert.pem"
-  case "${rvm_autolibs_flag}" in
-    (0)
-      rvm_debug "Skipping update of certificates in '$cert_file'."
-      ;;
-    (1)
-      rvm_warn  "Skipping update of certificates in '$cert_file'."
-      ;;
-    (*)
-      rvm_log "Updating certificates in '$cert_file'."
-      security find-certificate -a -p /Library/Keychains/System.keychain > "$cert_file"
-      security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> "$cert_file"
-      "${ssl_prefix}/bin/c_rehash" "$ssl_dir"
-      ;;
-  esac
-}
-
 requirements_brew_libs_configure()
 {
   typeset package brew_lib brew_lib_prefix
@@ -103,6 +81,7 @@ requirements_brew_libs_default_calculate()
     (*)
       # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
       if
+        ! __rvm_which gcc-4.2 >/dev/null &&
         __rvm_compiler_is_llvm
       then
         brew tap | \grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
@@ -138,8 +117,8 @@ requirements_brew_libs_default()
   typeset -a brew_libs brew_libs_conf
   requirements_brew_libs_default_calculate "$1" &&
   requirements_brew_libs_ensure "${brew_libs[@]}" "${brew_libs_conf[@]}" &&
-  requirements_brew_generate_openssl_cert       &&
-  requirements_brew_libs_default_check_gcc42    &&
+  requirements_osx_update_openssl_cert "$(brew --prefix openssl)/bin/openssl" &&
+  requirements_brew_libs_default_check_gcc42 &&
   requirements_brew_libs_configure "$1" "${brew_libs_conf[@]}" ||
   return $?
 }
