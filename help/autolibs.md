@@ -5,11 +5,11 @@ Support for automatic dependency handling
 
 ## Usage
 
-    rvm autolibs [disable|read-only|read-fail|packages|enable] # change the status
+    rvm autolibs [disable|read-only|read-fail|packages|enable] # change current mode
     rvm autolibs [osx_brew|osx_port|osx_fink|smf] # enable and set default package manager
-    rvm autolibs reset  # reset to default (read-fail)
-    rvm autolibs show   # show current value
-    rvm autolibs status # show more details about current value
+    rvm autolibs reset  # reset to default mode (read-fail)
+    rvm autolibs show   # show current mode
+    rvm autolibs status # show more details about current mode
     rvm autolibs [help] # show this help
 
 
