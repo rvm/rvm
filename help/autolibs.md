@@ -1,12 +1,26 @@
-# rvm_autolibs_flag
+# Autolibs
 
-- 0 - disabled
-- 1 - use libs, do not install (default)
-- 2 - use libs, install if missing, fallback to 1 if brew not writable
-- 3 - 2 + install package manager if not available, also might call libraries upgrade
-- 4 - 3 + error out if brew not writable, no fallback
+Support for automatic dependency handling
 
-# invocation
 
-- `rvm get head --autolibs=X` - preserve the option for any `rvm` invocation
-- `rvm install 1.9.3 --autolibs=X` - one time use for this `rvm` invocation
+## Usage
+
+    rvm autolibs [disable|read-only|read-fail|packages|enable] # change the status
+    rvm autolibs [osx_brew|osx_port|osx_fink|smf] # enable and set default package manager
+    rvm autolibs reset  # reset to default (read-fail)
+    rvm autolibs show   # show current value
+    rvm autolibs status # show more details about current value
+    rvm autolibs [help] # show this help
+
+
+## Allowed modes
+
+- `0`, `disable`, `disabled`          - Limit RVM automation as much as possible.
+- `1`, `read`, `read-only`            - Allow RVM to use package manager if found but do not install or fail if dependencies are missing.
+- `2`, `fail`, `read-fail`            - Allow RVM to use package manager if found, fail if dependencies are missing. This is default.
+- `3`, `packages`, `install-packages` - Allow RVM to use package manager if found, install missing dependencies.
+- `4`, `enable`, `enabled`            - Allow RVM to use package manager if found, install missing dependencies, install package manager (only OSX).
+- `brew`, `homebew`, `osx_brew`       - Like `4` but forces use of Homebrew.
+- `port`, `macports`, `osx_port`      - Like `4` but forces use of MacPorts.
+- `fink`, `osx_fink`                  - Like `4` but forces use of Fink.
+- `smf`                               - Like `4` but forces use of SM Framework.
