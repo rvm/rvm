@@ -1,38 +1,48 @@
+# rvm get
 
-Usage:
+Update RVM
 
-  rvm get {stable|latest|latest-x.y|x.y.z|head|master|branch|help} [--auto]
+## Usage
 
-Options:
+  rvm get {stable|latest|latest-x.y|x.y.z|head|master|branch|help} [--auto-dotfiles] [--autolibs=X]
 
-  stable      - install the latest RVM stable release
+## Options
 
-  latest      - install the latest RVM release
+  stable     - install the latest RVM stable release
 
-  latest-x.y  - install the latest RVM release matching the x.y* pattern
+  latest     - install the latest RVM release
 
-  x.y.z       - install a specific RVM release
+  latest-minor
+             - install the latest minor RVM release for currently installed version
 
-  head        - install the latest RVM development version
-  master
+  latest-x.y - install the latest RVM release matching the x.y* pattern
 
-  --auto      - automatically update shell profile files.
+  x.y.z      - install a specific RVM release
 
-  help        - Output this message.
+  head
+  master     - install the latest RVM development version
 
-Branches:
+  --auto-dotfiles
+             - automatically update shell profile files.
 
-  branch <branch>
-  branch /<branch>
-  branch <repo>/
-  branch <repo>/<branch>
+  --autolibs=X
+             - update autolibs mode to `X`, read more: `rvm autolibs`
 
-  Defaults:
+  help       - Output this message.
+
+## Branches
+
+    branch <branch>
+    branch /<branch>
+    branch <repo>/
+    branch <repo>/<branch>
+
+## Defaults
 
     branch: master
     repo:   wayneeseguin
 
-  Examples:
+## Examples
 
     rvm get branch shoes   # will fetch branch shoes  from wayneeseguin/rvm repo
     rvm get branch mpapis/ # will fetch branch master from mpapis/rvm       repo
