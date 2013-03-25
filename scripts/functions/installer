@@ -333,10 +333,33 @@ configure_autolibs()
       [[ -s "$rvmrc" ]] &&
       GREP_OPTIONS="" \grep 'rvm_autolibs_flag=' "$rvmrc" >/dev/null 2>&1
     then
-      sed '/rvm_autolibs_flag=/ d' < "$rvmrc" > "$rvmrc.new" &&
-      \mv -f "$rvmrc.new" "$rvmrc"
+      if
+        [[ -w "$rvmrc" ]]
+      then
+        sed '/rvm_autolibs_flag=/ d' < "$rvmrc" > "$rvmrc.new" &&
+        \mv -f "$rvmrc.new" "$rvmrc"
+      else
+        rvm_error "    Can not automatically remove lines with 'rvm_autolibs_flag=' from '$rvmrc', please clean it manually."
+      fi
     fi
   done
+
+  # migrate SMF settings
+  rvmrc=/etc/rvmrc
+  if
+    [[ -s "$rvmrc" ]] &&
+    GREP_OPTIONS="" \grep 'rvm_configure_env=.*/opt/sm' "$rvmrc" >/dev/null 2>&1
+  then
+    export rvm_autolibs_flag=smf
+    if
+      [[ -w "$rvmrc" ]]
+    then
+      sed '/rvm_configure_env/ d' < "$rvmrc" > "$rvmrc.new" &&
+      \mv -f "$rvmrc.new" "$rvmrc"
+    else
+      rvm_error "    Can not automatically remove lines with 'rvm_configure_env' from '$rvmrc', please clean it manually."
+    fi
+  fi
 
   [[ -n "${rvm_autolibs_flag:-}" ]] || return 0
 
@@ -347,7 +370,7 @@ configure_autolibs()
   then
     "$rvm_scripts_path/db" "$rvm_user_path/db" "autolibs" "$rvm_autolibs_flag"
   else
-    rvm_error "Unknown mode '$rvm_autolibs_flag' for autolibs"
+    rvm_error "    Unknown mode '$rvm_autolibs_flag' for autolibs, please read 'rvm autolibs'."
     return 1
   fi
 )
