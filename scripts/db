@@ -3,74 +3,61 @@
 usage()
 {
   printf "%b" "
+ERROR:
 
-  Usage:
+    $1
+
+Usage:
 
     db database_file {{key}} {{value}} # set
     db database_file {{key}}           # get
     db database_file {{key}} unset     # unset
 
 " >&2
+  exit 1
 }
 
-if [[ -f "$1" ]]
-then
-  database_file="$1"
-  shift
-  if [[ ! -f "$database_file" ]]
-  then
-    directory=$(dirname "$database_file")
-
-    [[ -d "$directory" ]] || mkdir -p "$directory"
-
-    touch "$database_file"
-  fi
-else
-  printf "%b" "\n\nDatabase file $1 does not exist.\n\n" >&2
-  exit 1
+database_file="${1:-}"
+if [[ -n "$database_file" ]]
+then shift
+else usage "Database file not given."
 fi
 
-key="$1"
-shift
-
-if [[ -z "$key" ]]
-then
-  usage
-  exit 1
-else
-  if (( ${escape_flag:-0} ))
-  then
-    escaped_key="$(\printf "%b" "$key" | \sed -e 's#\\#\\#g' -e 's#/#\\/#g' -e 's#\.#\.#g')"
-  else
-    escaped_key="$key"
-  fi
-
-  value="$*"
-
-  if [[ "unset" == "$value" || "delete" == "$value" ]]
-  then
-    \sed -e "s#^$escaped_key=.*\$##"  -e '/^$/d' "$database_file" \
-      > "$database_file.new"
-
-    \mv -f "$database_file.new" "$database_file"
-  else
-    if [[ -z "$value" ]]
-    then # get
-      [[ -s "${database_file}" ]] || exit 0 # File is empty, nothing to get.
-
-      \awk -F= '/^'"$escaped_key"'=/' "$database_file" \
-        | \sed -e "s#^$escaped_key=##" -e '/^$/d'
-    else # set
-      \sed -e "s#^$escaped_key=.*\$##" -e '/^$/d' "$database_file" > "$database_file.new"
-
-      \mv -f "$database_file.new" "$database_file"
-
-      if [[ -z "$(awk -F= "/^'"$escaped_key"'=/{print $2}" "$database_file")" ]]
-      then # append
-        echo "$escaped_key=$value" >> "$database_file"
-      else # overwrite
-        __rvm_sed_i "$dtabase_file" -e "s#^$escaped_key=.*\$#$escaped_key=$value#"
-      fi
-    fi
-  fi
+key="${1:-}"
+if [[ -n "$key" ]]
+then shift
+else usage "Key not given"
 fi
+
+value="$*"
+
+if (( ${escape_flag:-0} ))
+then escaped_key="$(\printf "%b" "$key" | \sed -e 's#\\#\\#g' -e 's#/#\\/#g' -e 's#\.#\.#g')"
+else escaped_key="$key"
+fi
+
+[[ -f "$database_file" ]] ||
+{
+  directory=$(dirname "$database_file")
+  [[ -d "$directory" ]] || mkdir -p "$directory"
+  touch "$database_file"
+}
+
+db_remove()
+{
+  \sed -e "s#^$escaped_key=.*\$##"  -e '/^$/d' "$database_file" > "$database_file.new"
+  \mv -f "$database_file.new" "$database_file"
+}
+
+case "$value" in
+  (unset|delete)
+    db_remove
+    ;;
+  ("") # get
+    \awk -F= '/^'"$escaped_key"'=/' "$database_file" | \sed -e "s#^$escaped_key=##" -e '/^$/d'
+    ;;
+  (*) # set
+    db_remove
+    printf "%b=%b\n" "$escaped_key" "$value" >> "$database_file"
+    ;;
+esac

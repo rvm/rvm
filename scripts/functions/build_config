@@ -1,0 +1,393 @@
+#!/usr/bin/env bash
+
+__rvm_setup_compile_environment()
+{
+  typeset __type
+  typeset -a __types
+  __types=(
+    setup requirements osx_gcc osx_clang architectures gcc47 bison smartos sunos openbsd
+    auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
+  )
+  for __type in "${__types[@]}"
+  do
+    rvm_debug "__rvm_setup_compile_environment_${__type} $1"
+    __rvm_setup_compile_environment_${__type} "$1" || return $?
+  done
+  rvm_debug "found compiler: $( __rvm_found_compiler )"
+}
+
+__rvm_setup_compile_environment_setup()
+{
+  if [[ -z "${rvm_autolibs_flag:-}" ]]
+  then rvm_autolibs_flag="$( "$rvm_scripts_path/db" "$rvm_user_path/db" "autolibs" )"
+  fi
+  rvm_debug "rvm_autolibs_flag=${rvm_autolibs_flag:=2}"
+  __rvm_autolibs_translate || return $?
+  [[ -n "${rvm_autolibs_flag_number:-}" ]] || return $?
+  export initially_selected_compiler="$( __rvm_selected_compiler )"
+  true
+}
+
+#
+# rvm_autolibs_flag
+# - 0 - disabled
+# - 1 - use libs, do not install
+# - 2 - use libs, fail if missing - default
+# - 3 - use libs, install if missing, fallback to 2 if brew not writable
+# - 4 - 3 + install package manager if not available
+#
+__rvm_setup_compile_environment_requirements()
+{
+  (( ${rvm_autolibs_flag_number} > 0 ))  || return 0
+  rvm_log "Installing requirements for ${rvm_autolibs_flag_runner}, might require sudo password."
+  __rvm_requirements_run ${rvm_autolibs_flag_runner} "$@" || return $?
+}
+
+# MRI-2.0.0+ && osx-10.7+ - clang in newer Xcode/command line tools works properly
+__ruby_clang_ok()
+{
+  case "$1" in
+    (ruby-2*|ruby-head*)
+      __rvm_version_compare "${_system_version}" -ge 10.7 || return 1
+      ;;
+    (ruby*|ree*)
+      return 1
+      ;;
+  esac
+  true
+}
+
+__rvm_setup_compile_environment_osx_gcc_42()
+{
+  if
+    [[ -x /usr/local/bin/gcc-4.2 ]] # HomeBrew
+  then
+    export CC=/usr/local/bin/gcc-4.2
+  elif
+    [[ -x /opt/local/bin/gcc-apple-4.2 ]] # MacPorts
+  then
+    export CC=/opt/local/bin/gcc-apple-4.2
+  elif
+    __rvm_which gcc-apple-4.2 > /dev/null # MacPorts via PATH
+  then
+    export CC=gcc-apple-4.2
+  elif
+    __rvm_which gcc-4.2 > /dev/null # Any gcc-4.2
+  then
+    export CC=gcc-4.2
+  elif
+    [[ -x /usr/bin/gcc-4.2 ]] # OSX-GCC-Installer / Xcode - might be LLVM
+  then
+    export CC=/usr/bin/gcc-4.2
+  elif
+    __rvm_compiler_is_llvm
+  then
+    export CC=clang
+  fi
+}
+
+__rvm_setup_compile_environment_osx_gcc()
+{
+  [[ "Darwin" == "$(uname)" ]] || return 0
+
+  if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
+  then rvm_force_autoconf_flag=1
+  fi
+
+  if
+    [[ -n "${initially_selected_compiler:-}" ]]
+  then
+    case "${rvm_autolibs_flag_number}" in
+      (0) rvm_debug "User selected compiler: $initially_selected_compiler"
+        ;;
+      (1) rvm_warn  "Warning: found user selected compiler '$initially_selected_compiler', this will suppress RVM auto detection mechanisms."
+        ;;
+      (*) rvm_error "Warning: found user selected compiler '$initially_selected_compiler', this will suppress RVM auto detection mechanisms."
+        ;;
+    esac
+  else
+    __rvm_setup_compile_environment_osx_gcc_42
+  fi
+}
+
+__rvm_setup_compile_environment_osx_clang_installed() [[ -x /usr/bin/clang ]]
+
+__rvm_setup_compile_environment_osx_clang_latest()
+{
+  typeset __clang_version
+  __clang_version="$( /usr/bin/clang --version | grep -oE "clang-\d+\.\d+\.\d+" )" || return $?
+  __clang_version="${__clang_version#clang-}"
+  __rvm_version_compare "${__clang_version:-0}" -ge "425.0.24" || return $?
+  true # for osx
+}
+
+__rvm_setup_compile_environment_osx_clang()
+{
+  [[ "Darwin" == "$(uname)" ]] || return 0
+
+  if
+    [[ "$( __rvm_found_compiler )" =~ "clang" ]]
+  then
+    if
+      __rvm_version_compare "${_system_version}" -ge 10.7
+    then
+      __rvm_setup_compile_environment_osx_clang_installed ||
+      rvm_requiremnts_fail_or_run_action \
+        "Can not find 'Command Line Tools for Xcode',
+You should install the latest version from: http://connect.apple.com" \
+        true || return $?
+
+      __rvm_setup_compile_environment_osx_clang_latest ||
+      rvm_requiremnts_fail_or_run_action \
+        "Found older 'Command Line Tools for Xcode',
+You should install the latest version from: http://connect.apple.com" \
+        true || return $?
+    else
+      rvm_requiremnts_fail_or_run_action \
+        "You are using 'clang' which is known to be buggy on older OSX (like: ${_system_version}).
+Make sure 'gcc-4.2' is available and try again." \
+        true || return $?
+    fi
+  fi
+}
+
+__rvm_setup_compile_environment_bison()
+{
+  (( ${rvm_autolibs_flag_number} > 1 )) || return 0
+  case "$1" in
+    (ruby*|ree*|rbx*)
+      __rvm_check_for_bison ||
+      {
+        result=$?
+        rvm_error "Bison required but not found. Halting."
+        return $result
+      }
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_architectures_default()
+{
+  typeset _architecture _architectures_string
+  typeset -a _architectures _flags
+
+  _architectures=()
+  for _architecture in ${rvm_architectures//,/ }
+  do _architectures+=( -arch "${_architecture}" )
+  done
+  _architectures_string="${_architectures[*]}"
+
+  _flags=(
+    CFLAGS="${_architectures_string}"
+    CCFLAGS="${_architectures_string}"
+    CXXFLAGS="${_architectures_string}"
+    LDFLAGS="${_architectures_string}"
+  )
+  __rvm_update_configure_env "${_flags[@]}"
+  rvm_configure_flags+=( --disable-dependency-tracking )
+}
+
+__rvm_setup_compile_environment_architectures_ruby_osx()
+{
+  typeset _architecture _architectures_string
+  typeset -a _architectures _flags
+
+  _architectures=()
+  for _architecture in ${rvm_architectures//,/ }
+  do _architectures+=( -arch "${_architecture}" )
+  done
+  _architectures_string="${_architectures[*]}"
+
+  _flags=(
+    MACOSX_DEPLOYMENT_TARGET="$( sw_vers -productVersion | awk -F'.' '{print $1"."$2}' )"
+    CFLAGS="${_architectures_string} -g -Os -pipe -no-cpp-precomp"
+    CCFLAGS="${_architectures_string} -g -Os -pipe"
+    CXXFLAGS="${_architectures_string} -g -Os -pipe"
+    LDFLAGS="${_architectures_string} -bind_at_load"
+    LDSHARED="cc ${_architectures_string} -dynamiclib -undefined suppress -flat_namespace"
+  )
+  __rvm_update_configure_env "${_flags[@]}"
+  __rvm_array_contains "*osx-arch-fix*" "${rvm_patch_names[@]}" || rvm_patch_names+=( osx-arch-fix )
+}
+
+__rvm_setup_compile_environment_architectures()
+{
+  [[ -n "${rvm_architectures:-}" ]] || return 0
+  case "$1" in
+    ruby-1.9*|ruby-2*|ruby-head*)
+      # Ruby 1.9+ supports the easy way
+      rvm_configure_flags+=( --with-arch="${rvm_architectures}" )
+      ;;
+    ruby*|ree*)
+      case "$(uname)" in
+        (Darwin)
+          __rvm_setup_compile_environment_architectures_ruby_osx
+          ;;
+        (*)
+          __rvm_setup_compile_environment_architectures_default
+          ;;
+      esac
+      ;;
+    *)
+      __rvm_setup_compile_environment_architectures_default
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_gcc47()
+{
+  __rvm_compiler_is_gcc47 || return 0
+  __rvm_string_match "$1" "ruby-1.8.*" "ree*" || return 0
+
+  # -g -O2 from 1.8.7-p370 is not enough, need all the flags to fix it
+  __rvm_update_configure_env CFLAGS="-O2 -fno-tree-dce -fno-optimize-sibling-calls"
+}
+
+__rvm_setup_compile_environment_smartos()
+{
+  [[ "$(uname -v)" =~ ^joyent ]] || return 0
+  __rvm_update_configure_opt_dir "$1" "/opt/local" # TODO do we needed the next line?
+  __rvm_update_configure_env CCFLAGS="-I/opt/local/include"
+  __rvm_add_to_path prepend "/opt/local/gnu/bin"
+}
+
+__rvm_setup_compile_environment_sunos()
+{
+  [[ "$(uname -s)" == "SunOS" ]] || return 0
+  case "$1" in
+    ruby-1.9*|ruby-2*)
+      # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
+      rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_openbsd()
+{
+  [[ "$(uname)" == "OpenBSD"     ]] || return 0
+  # https://github.com/wayneeseguin/rvm/issues/1581
+  rvm_configure_env+=( sh )
+  case "$1" in
+    ruby-1.9*|ruby-2*)
+      # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
+      rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_auto_conf_make()
+{
+  case "$(uname)" in
+    (FreeBSD|OpenBSD) true     ;; # continue
+    (*)               return 0 ;; # break
+  esac
+  if
+    [[  -z "${AUTOCONF_VERSION:-}" ]]
+  then
+    export AUTOCONF_VERSION
+    AUTOCONF_VERSION="$(
+      ls -1 /usr/local/bin/autoreconf-* | awk -F- '{print $NF}' |
+        __rvm_version_sort | tail -n 1
+    )"
+  fi
+  if
+    [[  -z "${AUTOMAKE_VERSION:-}" ]]
+  then
+    export AUTOMAKE_VERSION
+    # FreeBSD might have automake-wrapper
+    AUTOMAKE_VERSION="$(
+      ls -1 /usr/local/bin/automake-1* | awk -F- '{print $NF}' |
+        __rvm_version_sort | tail -n 1
+    )"
+  fi
+}
+
+__rvm_setup_compile_environment_flags_docs()
+{
+  if
+    (( ${rvm_docs_flag:-0} == 1 ))
+  then
+    true # enabled by default
+  else
+    case "$1" in
+      (ruby*|ree*)
+        rvm_configure_flags+=( --disable-install-doc )
+        ;;
+    esac
+  fi
+  true # OSX --trace FIX
+}
+
+__rvm_setup_compile_environment_flags_tcltk()
+{
+  [[ "Darwin" == "$(uname)" ]] || return 0
+
+  case "$1" in
+    (ruby*|ree*)
+      [[ " ${rvm_configure_flags[*]} " =~ " --with-tcl "    ]] ||
+      [[ " ${rvm_configure_flags[*]} " =~ " --with-tk "     ]] ||
+      [[ " ${rvm_configure_flags[*]} " =~ " --without-tcl " ]] ||
+      [[ " ${rvm_configure_flags[*]} " =~ " --without-tk "  ]] ||
+      rvm_configure_flags+=( --without-tcl --without-tk )
+      ;;
+  esac
+  true # OSX --trace FIX
+}
+
+__rvm_setup_compile_environment_flags_shared_static()
+{
+  if
+    (( ${rvm_static_flag:-0} == 1 ))
+  then
+    case "$1" in
+      (openssl*)  rvm_configure_flags+=( no-shared )
+        ;;
+      (ncurses*)  rvm_configure_flags+=( --without-shared )
+        ;;
+      (rbx*|rubinius*) true # no flag yet for rbx!
+        ;;
+      (*)         rvm_configure_flags+=( --disable-shared )
+        ;;
+    esac
+  else
+    case "$1" in
+      (openssl*)  rvm_configure_flags+=( shared )
+        ;;
+      (readline*) rvm_configure_flags+=( --disable-static --enable-shared )
+        ;;
+      (ncurses*)  rvm_configure_flags+=( --with-shared )
+        ;;
+      (rbx*|rubinius*) true # no flag yet for rbx!
+        ;;
+      (*)         rvm_configure_flags+=( --enable-shared )
+        ;;
+    esac
+  fi
+  true # OSX --trace FIX
+}
+
+__rvm_detect_max_threads()
+{
+  case "$(uname)" in
+    (Darwin|FreeBSD)
+      sysctl -n hw.ncpu
+      ;;
+    (*)
+      cat /proc/cpuinfo 2>/dev/null | (grep vendor_id || echo 'one';) | wc -l
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_flags_threads()
+{
+  case "$1" in
+    (openssl*)
+      # Don't use -j option for make OpenSSL
+      __rvm_remove_from_array rvm_make_flags "-j*" "${rvm_make_flags[@]}"
+      rvm_make_flags+=( -j1 )
+      ;;
+    (*)
+      [[ " ${rvm_make_flags[*]}" =~ " -j" ]] || rvm_make_flags+=( -j$(__rvm_detect_max_threads) )
+      ;;
+  esac
+}

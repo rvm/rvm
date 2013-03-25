@@ -1,6 +1,6 @@
 ## Usage
 
-    rvm install {ruby-string} [--verify-download {0,1,2}] [--binary|--disable-binary|--movable]
+    rvm install {ruby-string} [--verify-downloads {0,1,2}] [--binary|--disable-binary|--movable]
 
 
 For a partial list of valid ruby strings please run
@@ -23,6 +23,13 @@ To do clean installation use:
 
     rvm reinstall 1.9.2
 
+## Compilation threads
+
+RVM by default will try to detect amount of CPU cores and use `-j <max>`,
+specify your own `-j n` flag to RVM to override the default:
+
+    rvm install 2.0.0 -j 50 # OR:
+    rvm install 1.8.6 -j 1
 
 ## Binary rubies
 
@@ -49,7 +56,7 @@ More details about managing binary builds can be found in `rvm help mount`.
 
 ## Verification
 
-`--verify-download {0,1,2}` specifies verification level:
+`--verify-downloads {0,1,2}` specifies verification level:
 
 - `0` - only verified allowed,
 - `1` - allow missing checksum,

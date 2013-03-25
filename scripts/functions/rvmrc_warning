@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+
+__rvmrc_warning()
+{
+  typeset __rvmrc_warning_path __rvmrc_warning_file
+  __rvmrc_warning_path="$rvm_user_path/rvmrc_ignored"
+
+  case "${1:-help}" in
+    (list)
+      __rvmrc_warning_$1 "${2:-}" || return $?
+      ;;
+    (check|check_quiet|ignore|reset)
+      __rvmrc_full_path_to_file "${2:-}" &&
+      __rvmrc_warning_$1 "${__rvmrc_warning_file:-${2:-}}" ||
+      return $?
+      ;;
+    (help)
+      rvm_help rvmrc warning
+      ;;
+    (*)
+      rvm_error_help "Unknown subcommand '$1'" rvmrc warning
+      return 1
+      ;;
+  esac
+}
+
+__rvmrc_warning_help()
+{
+  rvm_log "Manage warning for .rvmrc files, usage:
+
+    rvm rvmrc warning [check|check_quiet|help|ignore|list|reset] [<path>|all.rvmrcs|allGemfiles]
+"
+}
+
+__rvmrc_full_path_to_file()
+{
+  if
+    [[ "$1" == "all.rvmrcs" || "$1" == "allGemfiles" ]]
+  then
+    # extra case when managing all
+    __rvmrc_warning_file="$1"
+  elif
+    [[ -d "$1" && -s "$1/.rvmrc" ]]
+  then
+    # read full path and append .rvmrc
+    __rvmrc_warning_file="$( __rvm_cd "$1" >/dev/null 2>&1; pwd )/.rvmrc"
+  elif
+    [[ -d "$1" && -s "$1/Gemfile" ]]
+  then
+    # read full path and append Gemfile
+    __rvmrc_warning_file="$( __rvm_cd "$1" >/dev/null 2>&1; pwd )/Gemfile"
+  elif
+    [[ -f "$1" || "$1" =~ "*.rvmrc" || "$1" =~ "*Gemfile" ]]
+  then
+    # read dir from file name
+    __rvmrc_warning_file="$( dirname "$1" )"
+    # default to current dir if not given in file name
+    : __rvmrc_warning_file:${__rvmrc_warning_file:=$PWD}
+    # build full path to file
+    __rvmrc_warning_file="${__rvmrc_warning_file}/${1##*/}"
+  else
+    rvm_warn "Do not know how to handle '$1', please report: http://bit.ly/rvm-issues ~ __rvmrc_full_path_to_file" >&2
+    return 1
+  fi
+}
+
+__rvmrc_warning_list()
+{
+  rvm_log "# List of project files that ignore warnings:"
+  if [[ -s "$__rvmrc_warning_path" ]]
+  then cat "$__rvmrc_warning_path"
+  fi
+}
+
+__rvmrc_warning_check()
+{
+  if __rvmrc_warning_check_quiet "$1"
+  then rvm_log "path '$1' is ignored."
+  else
+    typeset ret=$?
+    rvm_log "path '$1' is not ignored."
+    return $ret
+  fi
+}
+
+__rvmrc_warning_check_quiet()
+{
+  typeset __rvmrc_type
+  case "$1" in
+    (all.rvmrcs|allGemfiles)
+      # convert to single file match
+      __rvmrc_type="${1#all}"
+      __rvmrc_type="/${__rvmrc_type%s}"
+      ;;
+    (*)
+      # convert to all<file>s
+      __rvmrc_type="^all${1##*/}s"
+      ;;
+  esac
+  [[ -f "$__rvmrc_warning_path" ]] &&
+  {
+    grep "^$1$"             "$__rvmrc_warning_path" >/dev/null ||
+    grep "${__rvmrc_type}$" "$__rvmrc_warning_path" >/dev/null
+  } ||
+  return $?
+}
+
+__rvmrc_warning_ignore()
+{
+  __rvmrc_warning_check_quiet "$1" ||
+  case "$1" in
+    (all.rvmrcs|allGemfiles)
+      echo "$1" >>  "$__rvmrc_warning_path"
+      ;;
+    (*)
+      echo "$1" >> "$__rvmrc_warning_path"
+      ;;
+  esac
+}
+
+__rvmrc_warning_reset()
+{
+  typeset __rvmrc_type
+  case "${1:-}" in
+    (all.rvmrcs|allGemfiles)
+      if
+        __rvmrc_warning_check_quiet "$1"
+      then
+        __rvm_sed_i "$__rvmrc_warning_path" -e "/^${1//\//\/}\$/ d" -e '/^$/ d'
+        __rvmrc_type="${1#all}"
+        __rvmrc_type="${__rvmrc_type%s}"
+        __rvm_sed_i "$__rvmrc_warning_path" -e "/\/${__rvmrc_type//\//\/}\$/ d" -e '/^$/ d'
+      else
+        rvm_debug "Already removed warning ignore from '$1'."
+      fi
+      ;;
+    (*)
+      if __rvmrc_warning_check_quiet "$1"
+      then __rvm_sed_i "$__rvmrc_warning_path" -e "/^${1//\//\/}\$/ d" -e '/^$/ d'
+      else rvm_debug "Already removed warning ignore from '$1'."
+      fi
+      ;;
+  esac
+}
+
+__rvmrc_warning_display_for_rvmrc()
+{
+  typeset __rvmrc_warning_path __rvmrc_warning_file
+  __rvmrc_warning_path="$rvm_user_path/rvmrc_ignored"
+  if
+    [[ -t 2 ]] &&
+    __rvmrc_full_path_to_file "${1:-}" &&
+    ! __rvmrc_warning_check_quiet "${__rvmrc_warning_file:-${2:-}}"
+  then
+    rvm_warn "You are using '.rvmrc', it requires trusting, it is slower and it is not compatible with other ruby managers,
+you can switch to '.ruby-version' using 'rvm rvmrc to [.]ruby-version'
+or ignore this warnings with 'rvm rvmrc warning ignore $1',
+'.rvmrc' will continue to be the default project file in RVM 1 and RVM 2,
+to ignore the warning for all files run 'rvm rvmrc warning ignore all.rvmrcs'.
+" >&2
+  fi
+}
+
+__rvmrc_warning_display_for_Gemfile()
+{
+  typeset __rvmrc_warning_path __rvmrc_warning_file
+  __rvmrc_warning_path="$rvm_user_path/rvmrc_ignored"
+  if
+    [[ -t 2 ]] &&
+    __rvmrc_full_path_to_file "${1:-}" &&
+    ! __rvmrc_warning_check_quiet "${__rvmrc_warning_file:-${2:-}}"
+  then
+    rvm_log "RVM used your Gemfile for selecting Ruby, it is all fine - Heroku does that too,
+you can ignore these warnings with 'rvm rvmrc warning ignore $1'.
+To ignore the warning for all files run 'rvm rvmrc warning ignore allGemfiles'.
+" >&2
+  fi
+}

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+requirements_freebsd_lib_installed()
+{
+  pkg_info | \grep "^$1" >/dev/null 2>&1 || return $?
+}
+
+requirements_freebsd_libs_install()
+{
+  __rvm_try_sudo pkg_add -r "$@" || return $?
+}
+
+requirements_freebsd_ensure_libs()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages freebsd "$@" || return $?
+}
+
+requirements_freebsd_run()
+{
+  case "$1" in
+    (update-system)
+      [[ -d /usr/ports ]] ||
+        __rvm_try_sudo portsnap fetch update
+        # or the below to do it like the openbsd support does
+        # curl ftp://ftp.freebsd.org/pub/FreeBSD/releases/$(uname -m)/$(uname -r)/ports.txz | __rvm_try_sudo tar --xz -C /usr -xz
+      ;;
+    (rvm)
+      requirements_freebsd_ensure_libs bash curl git patch
+      ;;
+    (jruby-head*)
+      requirements_freebsd_ensure_libs jdk apache-ant
+      ;;
+    (jruby*)
+      requirements_freebsd_ensure_libs jdk
+      ;;
+    (ir*)
+      requirements_freebsd_ensure_libs mono
+      ;;
+    (opal)
+      __rvm_try_sudo make -C /usr/ports/www/node install clean
+      ;;
+    (*)
+      # OpenSSL is installed by default http://www.freebsd.org/crypto.html
+    requirements_freebsd_ensure_libs gcc-4 autotools-2 libtool bison readline-6 libxslt-1 libyaml-0 sqlite3 gdbm
+      __rvm_update_configure_opt_dir "$1" "/usr/local"
+      ;;
+  esac
+}

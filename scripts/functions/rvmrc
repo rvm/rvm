@@ -5,152 +5,18 @@ escape_flag=1
 _first=${__array_start}
 _second=$[__array_start + 1]
 
-__rvm_md5_for()
-{
-  if builtin command -v md5 > /dev/null; then
-    echo "$1" | md5
-  elif builtin command -v md5sum > /dev/null ; then
-    echo "$1" | md5sum | awk '{print $1}'
-  else
-    rvm_error "Neither md5 nor md5sum were found in the PATH"
-    return 1
-  fi
+source "$rvm_scripts_path/functions/rvmrc_project"
+source "$rvm_scripts_path/functions/rvmrc_set"
+source "$rvm_scripts_path/functions/rvmrc_to"
+source "$rvm_scripts_path/functions/rvmrc_trust"
+source "$rvm_scripts_path/functions/rvmrc_warning"
 
-  return 0
-}
-
-__rvm_sha256_for()
-{
-  if builtin command -v sha256sum > /dev/null ; then
-    echo "$1" | sha256sum | awk '{print $1}'
-  elif builtin command -v sha256 > /dev/null ; then
-    echo "$1" | sha256 | awk '{print $1}'
-  elif builtin command -v shasum > /dev/null ; then
-    echo "$1" | shasum -a256 | awk '{print $1}'
-  else
-    rvm_error "Neither sha256sum nor shasum found in the PATH"
-    return 1
-  fi
-
-  return 0
-}
-
-__rvm_md5_for_contents()
-{
-  if builtin command -v md5 > /dev/null
-  then
-    echo "$1" | cat - "$1" | md5
-  elif builtin command -v md5sum > /dev/null
-  then
-    echo "$1" | cat - "$1" | md5sum | awk '{print $1}'
-  else
-    rvm_error "Neither md5 nor md5sum were found in the PATH"
-    return 1
-  fi
-
-  return 0
-}
-
-__rvm_sha256_for_contents()
-{
-  if builtin command -v sha256sum > /dev/null ; then
-    echo "$1" | cat - "$1" | sha256sum | awk '{print $1}'
-  elif builtin command -v sha256 > /dev/null ; then
-    echo "$1" | cat - "$1" | sha256 | awk '{print $1}'
-  elif builtin command -v shasum > /dev/null ; then
-    echo "$1" | cat - "$1" | shasum -a256 | awk '{print $1}'
-  else
-    rvm_error "Neither sha256sum nor shasum found in the PATH"
-    return 1
-  fi
-
-  return 0
-}
-
-__rvm_rvmrc_key()
-{
-  printf "%b" "$1" | \tr '[#/.=()]' _
-  return $?
-}
-
-__rvm_reset_rvmrc_trust()
-{
-  if [[ "$1" == all ]]
-  then
-    echo "" > "$rvm_user_path/rvmrcs"
-  else
-    "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
-      "$(__rvm_rvmrc_key "$1")" "delete" >/dev/null 2>&1
-  fi
-}
-
-__rvm_trust_rvmrc()
-{
-  [[ -f "$1" ]] || return 1
-  __rvm_reset_rvmrc_trust "$1"
-  "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "1;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1 ||
-  return $?
-}
-
-__rvm_untrust_rvmrc()
-{
-  [[ -f "$1" ]] || return 1
-  __rvm_reset_rvmrc_trust "$1"
-  "${rvm_scripts_path:-"$rvm_path/scripts"}/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "0;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1 ||
-  return $?
-}
-
-__rvm_rvmrc_stored_trust()
-{
-  [[ -f "$1" ]] || return 1
-  "${rvm_scripts_path:-"$rvm_path/scripts"}/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" ||
-  return $?
-}
-
-__rvm_rvmrc_stored_trust_check()
-{
-  typeset rvmrc_path
-  rvmrc_path="$1"
-
-  if [[ -f "$rvmrc_path" ]]
-  then
-    saveIFS=$IFS
-    IFS=$';'
-    trust=($(__rvm_rvmrc_stored_trust "$rvmrc_path"))
-    IFS=$saveIFS
-
-    if
-      [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$rvmrc_path")$(__rvm_sha256_for_contents "$rvmrc_path")" ]]
-    then
-      echo "The rvmrc at '$rvmrc_path' contains unreviewed changes."
-      return 1
-    elif
-      [[ "${trust[${_first}]}" == '1' ]]
-    then
-      echo "The rvmrc at '$rvmrc_path' is currently trusted."
-      return 0
-    elif
-      [[ "${trust[${_first}]}" == '0' ]]
-    then
-      echo "The rvmrc at '$rvmrc_path' is currently untrusted."
-      return 1
-    else
-      echo "The trustiworthiness of '$rvmrc_path' is currently unknown."
-      return 1
-    fi
-  else
-    echo "There is no $rvmrc_path"
-    return 1
-  fi
-}
+__rvm_rvmrc_match_all() [[ "${1:-}" == "all" || "${1:-}" == "all.rvmrcs" || "${1:-}" == "allGemfiles" ]]
 
 __rvm_rvmrc_tools()
 {
   export escape_flag
-  typeset rvmrc_action rvmrc_path saveIFS trust rvmrc_ruby
+  typeset rvmrc_action rvmrc_warning_action rvmrc_path saveIFS trust rvmrc_ruby
 
   escape_flag=1
 
@@ -158,14 +24,25 @@ __rvm_rvmrc_tools()
   (( $# )) && shift || true
 
   if
+    [[ "${rvmrc_action}" == "warning" ]]
+  then
+    rvmrc_warning_action="${1:-}"
+    (( $# )) && shift || true
+  fi
+
+  if
     [[ "${rvmrc_action}" == "create" ]]
   then
     rvmrc_ruby="${1:-${GEM_HOME##*/}}"
     rvmrc_path="$(__rvm_cd "$PWD" >/dev/null 2>&1; pwd)"
   elif
-    [[ "${1:-}" == "all" ]]
+    [[ "${rvmrc_action}" == "to" ]]
   then
-    rvmrc_path="all"
+    rvmrc_path="$1"
+  elif
+    __rvm_rvmrc_match_all "${1:-}"
+  then
+    rvmrc_path="$1"
   else
     if [[ -n "${1:-}" ]]
     then rvmrc_path="${1%/.rvmrc}"
@@ -179,15 +56,27 @@ __rvm_rvmrc_tools()
     (( $# ))
   then
     rvmrc_path="${rvmrc_path}/$1"
+  elif
+    [[ "${rvmrc_action}" == "to" ]] ||
+    __rvm_rvmrc_match_all "${rvmrc_path:-}"
+  then
+    true # ignore all*
   else
     __rvm_project_dir_check "${rvmrc_path}" rvmrc_path "${rvmrc_path}/.rvmrc"
   fi
 
   case "$rvmrc_action" in
+    warning)
+      __rvmrc_warning "${rvmrc_warning_action:-}" "$rvmrc_path" || return $?
+      ;;
+
+    to)
+      __rvm_rvmrc_to "$rvmrc_path" || return $?
+      ;;
+
     create)
       (
-        rvm_ruby_string="${rvmrc_ruby}"
-        rvm_create_flag=1 __rvm_use
+        rvm_create_flag=1 __rvm_use "${rvmrc_ruby}"
         case "${rvmrc_path}" in
           (*/.rvmrc|*/--rvmrc)                 __rvm_set_rvmrc         ;;
           (*/.ruby-version|*/--ruby-version)   __rvm_set_ruby_version  ;;
@@ -274,491 +163,4 @@ __rvm_rvmrc_tools()
 
   unset escape_flag
   return $?
-}
-
-__rvm_check_rvmrc_trustworthiness()
-{
-  typeset saveIFS trust result
-  # Trust when they have the flag... of doom!
-  if [[ -n "$1" && ${rvm_trust_rvmrcs_flag:-0} == 0 ]]
-  then
-    saveIFS="$IFS"
-    IFS=$';'
-    trust=( $( __rvm_rvmrc_stored_trust "$1" ) )
-    IFS="$saveIFS"
-
-    if [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" ]]
-    then
-      __rvm_ask_to_trust "$1"
-    else
-      [[ "${trust[${_first}]}" == '1' ]]
-    fi
-
-  fi
-  result=$?
-  unset escape_flag
-  return $result
-}
-
-__rvm_display_rvmrc()
-{
-  typeset _rvmrc_base _read_char_flag
-  _rvmrc_base="$(basename "${_rvmrc}")"
-  [[ -n "${ZSH_VERSION:-}" ]] && _read_char_flag=k || _read_char_flag=n
-
-  printf "
-==============================================================================
-= %-74s =
-= After reading the file, you will be prompted again for 'yes or no' to set  =
-= the trust level for this particular version of the file.                   =
-=                                                                            =
-= %-74s =
-= changes, and may change the trust setting manually at any time.            =
-==============================================================================
-(( press a key to review the ${_rvmrc_base} file ))
-" \
-"The contents of the ${_rvmrc_base} file will now be displayed." \
-"Note: You will be re-prompted each time the ${_rvmrc_base} file's contents change"
-builtin read -${_read_char_flag} 1 -s -r anykey
-
-printf "%b" "${rvm_warn_clr}"
-command cat -v "${_rvmrc}"
-printf "%b" "${rvm_reset_clr}"
-
-  printf "
-==============================================================================
-= %-74s =
-==============================================================================
-= %-74s =
-= %-74s =
-= Note that if the contents of the file change, you will be re-prompted to   =
-= review the file and adjust its trust settings. You may also change the     =
-= trust settings manually at any time with the 'rvm rvmrc' command.          =
-==============================================================================
-
-" \
-"Viewing of ${_rvmrc} complete." \
-"Trusting an ${_rvmrc_base} file means that whenever you cd into this directory," \
-"RVM will run this ${_rvmrc_base} shell script."
-}
-
-__rvm_ask_to_trust()
-{
-  typeset trusted value anykey _rvmrc
-  _rvmrc="${1}"
-
-  if [[ ! -t 0 ]] || (( ${rvm_promptless:=0} == 1 )) || [[ -n "$MC_SID" ]]
-  then
-    return 2
-  fi
-
-  printf "==============================================================================
-= NOTICE                                                                     =
-==============================================================================
-= %-74s =
-= This is a shell script and therefore may contain any shell commands.       =
-=                                                                            =
-= Examine the contents of this file carefully to be sure the contents are    =
-= safe before trusting it! ( Choose v[iew] below to view the contents )      =
-==============================================================================
-" \
-"RVM has encountered a new or modified $(basename "${_rvmrc}") file in the current directory"
-  trusted=0
-  while (( ! trusted ))
-  do
-    printf "Do you wish to trust this $(basename "${_rvmrc}") file? (%b)\n" "${_rvmrc}"
-    printf "%b" 'y[es], n[o], v[iew], c[ancel]> '
-
-    builtin read response
-    value="$(echo -n "${response}" | \tr '[[:upper:]]' '[[:lower:]]' | __rvm_strip)"
-
-    case "${value:-n}" in
-      v|view)
-        __rvm_display_rvmrc
-        ;;
-      y|yes)
-        trusted=1
-        ;;
-      n|no)
-        break
-        ;;
-      c|cancel)
-        return 1
-        ;;
-    esac
-  done
-
-  if (( trusted ))
-  then
-    __rvm_trust_rvmrc "$1"
-    return 0
-  else
-    __rvm_untrust_rvmrc "$1"
-    return 1
-  fi
-}
-
-# Checks the rvmrc for the given directory. Note that if
-# argument is passed, it will be used instead of pwd.
-__rvm_project_rvmrc()
-{
-  export __rvm_project_rvmrc_lock
-  : __rvm_project_rvmrc_lock:${__rvm_project_rvmrc_lock:=0}
-  : __rvm_project_rvmrc_lock:$((__rvm_project_rvmrc_lock+=1))
-  if (( __rvm_project_rvmrc_lock > 1 ))
-  then return 0 # no nesting
-  fi
-
-  typeset working_dir found_file rvm_trustworthiness_result
-
-  # Get the first argument or the pwd.
-  working_dir="${1:-"$PWD"}"
-
-  while :
-  do
-    if
-      [[ -z "$working_dir" || "$HOME" == "$working_dir" || "${rvm_prefix:-}" == "$working_dir"  || "/" == "$working_dir" ]]
-    then
-      if
-        [[ -n "${rvm_current_rvmrc:-""}" ]]
-      then
-        __rvm_remove_rvm_from_path
-        __rvm_conditionally_add_bin_path
-        if
-          (( ${rvm_project_rvmrc_default:-0} == 1 ))
-        then
-          __rvm_load_environment "default"
-        elif
-          [[ -n "${rvm_previous_environment:-""}" ]]
-        then
-          __rvm_load_environment "$rvm_previous_environment"
-        fi
-        unset rvm_current_rvmrc rvm_previous_environment
-      fi
-      break
-    else
-      if
-        __rvm_project_dir_check "$working_dir" found_file
-      then
-        if
-          [[ "${rvm_current_rvmrc:-""}" != "${found_file}" ]]
-        then
-          __rvm_conditionally_do_with_env __rvm_load_project_config "${found_file}" ||
-          {
-            rvm_trustworthiness_result=$?
-            unset __rvm_project_rvmrc_lock
-            return "$rvm_trustworthiness_result"
-          }
-        fi
-        break
-      else
-        working_dir="$(dirname "$working_dir")"
-      fi
-    fi
-  done
-
-  unset __rvm_project_rvmrc_lock
-  return $?
-}
-
-__rvm_load_project_config()
-{
-  typeset __gemfile
-  : rvm_autoinstall_bundler_flag:${rvm_autoinstall_bundler_flag:=0}
-  case "$1" in
-    (*/.rvmrc)
-      if __rvm_check_rvmrc_trustworthiness "$1"
-      then
-        __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
-        rvm_previous_environment="$(__rvm_env_string)"
-        rvm_current_rvmrc="$1"
-        __rvm_ensure_is_a_function
-
-        rvm_action=use source "$1"
-
-      else return $?
-      fi
-      ;;
-
-    (*/.versions.conf)
-      typeset _gem _gem_names _bundle_install
-      __rvm_ensure_is_a_function
-      rvm_previous_environment="$(__rvm_env_string)"
-      rvm_current_rvmrc="$1"
-
-      rvm_ruby_string="$(sed -n '/^ruby=/ {s/ruby=//;p;}' < "$1")"
-      [[ -n "${rvm_ruby_string}" ]] || return 2
-      rvm_gemset_name="$(sed -n '/^ruby-gemset=/ {s/ruby-gemset=//;p;}' < "$1")"
-      rvm_create_flag=1 __rvm_use   || return 3
-      # TODO: read env.* # how to sanitize ?
-
-      _gem_names="$(sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' < "$1")"
-      for _gem in ${_gem_names//,/ }
-      do
-        # TODO: add support for versions
-        if ! gem list | GREP_OPTIONS="" \grep "^${_gem} " > /dev/null
-        then gem install "${_gem}"
-        fi
-      done
-
-      _bundle_install="$(sed -n '/^ruby-bundle-install=/ {s/ruby-bundle-install=//;p;}' < "$1")"
-      if [[ -n "${_bundle_install}" ]] || [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
-      then
-        if [[ "${_bundle_install}" == true ]] # prevent file named true for Gemfile
-        then __gemfile="$(dirname $1)/Gemfile"
-
-        elif [[ -f "${_bundle_install}" ]]
-        then __gemfile="${_bundle_install}"
-
-        elif [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
-        then __gemfile="$(dirname $1)/Gemfile"
-
-        fi
-      fi
-      ;;
-
-    (*/Gemfile)
-      __rvm_ensure_is_a_function
-      rvm_previous_environment="$(__rvm_env_string)"
-      rvm_current_rvmrc="$1"
-
-      rvm_ruby_string="$(sed -n '/^#ruby=/ {s/#ruby=//;p;}' < "$1")"
-      [[ -n "${rvm_ruby_string}" ]] || {
-        rvm_ruby_string="$(sed -n "s/ rescue nil$//; /^\s*ruby/ {s/^\s*ruby//; s/[ ()'\"]//g; p;}" < "$1")"
-        [[ -n "${rvm_ruby_string}" ]] || return 2
-      }
-      rvm_gemset_name="$(sed -n '/^#ruby-gemset=/ {s/#ruby-gemset=//;p;}' < "$1")"
-      rvm_create_flag=1 __rvm_use   || return 3
-
-      # TODO: read #env.* # how to sanitize ?
-
-      if [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
-      then
-        __gemfile="$1"
-        gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null ||
-          gem install bundler
-      fi
-      ;;
-
-    (*/.ruby-version|*/.rbfu-version|*/.rbenv-version)
-      __rvm_ensure_is_a_function
-      rvm_previous_environment="$(__rvm_env_string)"
-      rvm_current_rvmrc="$1"
-
-      rvm_ruby_string="$(cat "$1")"
-      [[ -n "${rvm_ruby_string}" ]] || return 2
-      if [[ -f "$(dirname $1)/.ruby-gemset" ]]
-      then
-        rvm_gemset_name="$(cat "$(dirname $1)/.ruby-gemset")"
-      fi
-      rvm_create_flag=1 __rvm_use   || return 3
-      # "$(dirname $1)/.rbenv-vars" ... can we support those without licensing ?
-
-      if [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "$(dirname $1)/Gemfile" ]]
-      then
-        if ! gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null
-        then
-          gem install "bundler"
-        fi
-        __gemfile="$(dirname $1)/Gemfile"
-      fi
-      ;;
-
-    (*)
-      rvm_error "Unsupported file format for '$1'"
-      return 1
-      ;;
-  esac
-
-  if [[ -n "${__gemfile:-}" && -f "${__gemfile:-}" ]]
-  then bundle install --gemfile="${__gemfile}" | GREP_OPTIONS="" \grep -vE '^Using|Your bundle is complete'
-  fi
-}
-
-__rvm_set_versions_conf()
-{
-  typeset gemset identifier
-
-  if [[ -s .versions.conf ]]
-  then
-    mv .versions.conf .versions.conf.$(date +%m.%d.%Y-%H:%M:%S)
-    rvm_warn ".version.conf is not empty, moving aside to preserve."
-  fi
-
-  identifier=$(__rvm_env_string)
-  gemset=${identifier#*@}
-  identifier=${identifier%@*}
-
-  printf "%b" "ruby=$identifier
-" >> .versions.conf
-  if [[ -n "$gemset" && "$gemset" != "$identifier" ]]
-  then
-    printf "%b" "ruby-gemset=$gemset
-" >> .versions.conf
-  else
-    printf "%b" "#ruby-gemset=my-projectit
-" >> .versions.conf
-  fi
-  printf "%b" "#ruby-gem-install=bundler rake
-#ruby-bundle-install=true
-" >> .versions.conf
-}
-
-__rvm_set_ruby_version()
-{
-  if [[ -s .ruby-version ]]
-  then
-    mv .ruby-version .ruby-version.$(date +%m.%d.%Y-%H:%M:%S)
-    rvm_warn ".ruby-version is not empty, moving aside to preserve."
-  fi
-
-  echo "$(__rvm_env_string)" >> .ruby-version
-}
-
-__rvm_set_rvmrc()
-{
-  typeset flags identifier short_identifier gem_file
-  true ${rvm_verbose_flag:=0}
-
-  if [[ "$HOME" != "$PWD" && "${rvm_prefix:-}" != "$PWD" ]]
-  then
-    if (( rvm_verbose_flag ))
-    then
-      flags="use "
-    fi
-
-    if [[ -s .rvmrc ]]
-    then
-      mv .rvmrc .rvmrc.$(date +%m.%d.%Y-%H:%M:%S)
-      rvm_warn ".rvmrc is not empty, moving aside to preserve."
-    fi
-
-    identifier=$(__rvm_env_string)
-    short_identifier="${identifier#ruby-}"
-    short_identifier="${short_identifier%%-*}"
-
-    printf "%b" "#!/usr/bin/env bash
-
-# This is an RVM Project .rvmrc file, used to automatically load the ruby
-# development environment upon cd'ing into the directory
-
-# First we specify our desired <ruby>[@<gemset>], the @gemset name is optional,
-# Only full ruby name is supported here, for short names use:
-#     echo \"rvm use ${short_identifier}\" > .rvmrc
-environment_id=\"$identifier\"
-
-# Uncomment the following lines if you want to verify rvm version per project
-# rvmrc_rvm_version=\"${rvm_version}\" # 1.10.1 seams as a safe start
-# eval \"\$(echo \${rvm_version}.\${rvmrc_rvm_version} | awk -F. '{print \"[[ \"\$1*65536+\$2*256+\$3\" -ge \"\$4*65536+\$5*256+\$6\" ]]\"}' )\" || {
-#   echo \"This .rvmrc file requires at least RVM \${rvmrc_rvm_version}, aborting loading.\"
-#   return 1
-# }
-" >> .rvmrc
-    if __rvm_string_match "$identifier" "jruby*"
-    then
-      printf "%b" "
-# Uncomment following line if you want options to be set only for given project.
-# PROJECT_JRUBY_OPTS=( --1.9 )
-# The variable PROJECT_JRUBY_OPTS requires the following to be run in shell:
-#    chmod +x \${rvm_path}/hooks/after_use_jruby_opts
-" >> .rvmrc
-    fi
-    printf "%b" "
-# First we attempt to load the desired environment directly from the environment
-# file. This is very fast and efficient compared to running through the entire
-# CLI and selector. If you want feedback on which environment was used then
-# insert the word 'use' after --create as this triggers verbose mode.
-if [[ -d \"\${rvm_path:-\$HOME/.rvm}/environments\"
-  && -s \"\${rvm_path:-\$HOME/.rvm}/environments/\$environment_id\" ]]
-then
-  \\. \"\${rvm_path:-\$HOME/.rvm}/environments/\$environment_id\"
-  [[ -s \"\${rvm_path:-\$HOME/.rvm}/hooks/after_use\" ]] &&
-    \\. \"\${rvm_path:-\$HOME/.rvm}/hooks/after_use\" || true
-" >> .rvmrc
-    if [[ " $flags " =~ " use " ]]
-    then
-      printf "%b" "  if [[ \$- == *i* ]] # check for interactive shells
-  then echo \"Using: \$(tput setaf 2)\$GEM_HOME\$(tput sgr0)\" # show the user the ruby and gemset they are using in green
-  else echo \"Using: \$GEM_HOME\" # don't use colors in non-interactive shells
-  fi
-" >> .rvmrc
-    fi
-    printf "%b" "else
-  # If the environment file has not yet been created, use the RVM CLI to select.
-  rvm --create $flags \"\$environment_id\" || {
-    echo \"Failed to create RVM environment '\${environment_id}'.\"
-    return 1
-  }
-fi
-" >> .rvmrc
-    for gem_file in *.gems
-    do
-      case "$gem_file" in
-        (\*.gems) continue ;;
-      esac
-      printf "%b" "
-# If you use an RVM gemset file to install a list of gems (*.gems), you can have
-# it be automatically loaded. Uncomment the following and adjust the filename if
-# necessary.
-#
-# filename=\".gems\"
-# if [[ -s \"\$filename\" ]]
-# then
-#   rvm gemset import \"\$filename\" | GREP_OPTIONS="" \grep -v already | grep -v listed | grep -v complete | sed '/^$/d'
-# fi
-" >> .rvmrc
-    done
-    if [[ -s Gemfile ]]
-    then
-      printf "%b" "
-# If you use bundler, this might be useful to you:
-# if [[ -s Gemfile ]] && {
-#   ! builtin command -v bundle >/dev/null ||
-#   builtin command -v bundle | GREP_OPTIONS="" \grep \$rvm_path/bin/bundle >/dev/null
-# }
-# then
-#   printf \"%b\" \"The rubygem 'bundler' is not installed. Installing it now.\\\\n\"
-#   gem install bundler
-# fi
-# if [[ -s Gemfile ]] && builtin command -v bundle >/dev/null
-# then
-#   bundle install | GREP_OPTIONS="" \grep -vE '^Using|Your bundle is complete'
-# fi
-" >> .rvmrc
-    fi
-  else
-    rvm_error ".rvmrc cannot be set in your home directory.\
-      \nThe home .rvmrc is for global rvm settings only."
-  fi
-}
-
-__rvm_project_dir_check()
-{
-  typeset _found_file path_to_check variable variable_default
-  typeset -a _valid_files
-  path_to_check="$1"
-  variable="${2:-}"
-  variable_default="${3:-}"
-  _valid_files=(
-    "$path_to_check"
-    "$path_to_check/.rvmrc" "$path_to_check/.versions.conf" "$path_to_check/.ruby-version"
-    "$path_to_check/.rbfu-version" "$path_to_check/.rbenv-version" "$path_to_check/Gemfile"
-  )
-
-  __rvm_find_first_file _found_file "${_valid_files[@]}" || true
-
-  if [[ "${_found_file##*/}" == "Gemfile" ]]
-  then
-    [[ -s "$_found_file" ]] && {
-      GREP_OPTIONS="" \grep "^#ruby="  "$_found_file" >/dev/null ||
-      GREP_OPTIONS="" \grep "^\s*ruby" "$_found_file" >/dev/null
-    } ||
-      _found_file=""
-  fi
-
-  if [[ -n "$variable" ]]
-  then eval "$variable=\"\${_found_file:-$variable_default}\""
-  fi
-
-  [[ -n "${_found_file:-$variable_default}" ]] || return $?
 }

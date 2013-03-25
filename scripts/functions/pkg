@@ -79,7 +79,7 @@ install_package()
       __rvm_log_command "$package/make.uninstall" "Uninstalling $package from ${prefix_path:-$rvm_usr_path}"  make uninstall &&
       __rvm_cd "$rvm_src_path" &&
       __rvm_log_command "$package/rm_src.uninstall" "Removing ${package}-${version} from $rvm_src_path" \
-        rm -rf "$rvm_src_path/$package-$version" &&
+        \rm -rf "$rvm_src_path/$package-$version" &&
       "$rvm_scripts_path/db" "$rvm_path/config/packages" "${package}" delete
     else
       __rvm_log_command "$package/make"         "Compiling $package in $rvm_src_path/$package-$version." \
@@ -116,7 +116,7 @@ package_installed()
   [[ -n "${__lib_file}" ]] || return $?
 
   case "$(uname)" in
-    (Darwin) lipo -info "${__lib_file}" | grep "$(uname -m)" >/dev/null || return $? ;;
+    (Darwin) lipo -info "${__lib_file}" | \grep "$(uname -m)" >/dev/null || return $? ;;
   esac
 }
 
@@ -150,11 +150,14 @@ install_curl()
 
 install_openssl()
 {
+  typeset -a openssl_use_asm
   package="openssl" ; archive_format="tar.gz"
+  openssl_use_asm=( "no-asm" )
   __rvm_db "${package}_version" "version"
   if
     [[ "Darwin" == "$(uname)" ]]
   then
+    configure=( "./Configure" )
     if
       [[ -n "$rvm_architectures" ]]
     then
@@ -171,31 +174,27 @@ install_openssl()
     if
       [[ "Power Macintosh" == "$hw_machine" ]]
     then
-      if
-        [[ $hw_cpu64bit == 1 ]]
-      then
-        openssl_os="darwin64-ppc-cc"
-      else
-        openssl_os="darwin-ppc-cc"
+      if [[ $hw_cpu64bit == 1 ]]
+      then configure+=( "darwin64-ppc-cc" )
+      else configure+=( "darwin-ppc-cc" )
       fi
     else
       if
-        [[ $hw_cpu64bit == 1 ]]
+       [[ $hw_cpu64bit == 1 ]]
       then
-        openssl_os="darwin64-x86_64-cc"
+        configure+=( "darwin64-x86_64-cc" )
+        openssl_use_asm=()
       else
-        openssl_os="darwin-i386-cc"
+        configure+=( "darwin-i386-cc" )
       fi
     fi
-    configure_command="./Configure"
-    # Don't use -j option for make OpenSSL
-    __rvm_remove_from_array rvm_make_flags "-j*" "${rvm_make_flags[@]}"
   else
-    configure_command="./config"
+    configure=( "./config" )
+    if __rvm_compiler_is_gcc46_or_higher
+    then openssl_use_asm=()
+    fi
   fi
-  configure=(
-    $configure_command $openssl_os -I$rvm_usr_path/include -L$rvm_usr_path/lib zlib no-asm no-krb5
-  )
+  configure+=( -I$rvm_usr_path/include -L$rvm_usr_path/lib zlib "${openssl_use_asm[@]}" no-krb5 )
   install_package
   __rvm_log_command openssl.certs "Updating openssl certificates" update_openssl_certs
 }
@@ -204,7 +203,7 @@ update_openssl_certs()
 (
   __rvm_cd "$rvm_usr_path/ssl" &&
   command curl -O http://curl.haxx.se/ca/cacert.pem &&
-  mv cacert.pem cert.pem
+  \mv cacert.pem cert.pem
 )
 openssl_installed()
 {
@@ -228,7 +227,7 @@ install_ncurses()
 {
   package="ncurses" ; version="5.7" ; archive_format="tar.gz"
   configure_flags=(
-    --with-shared --disable-rpath --without-debug --without-ada --enable-safe-sprintf --enable-sigwinch --without-progs
+    --disable-rpath --without-debug --without-ada --enable-safe-sprintf --enable-sigwinch --without-progs
   )
   install_package
 }

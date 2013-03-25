@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+__smf_try_sudo()
+{
+  if [[ -w "$( which sm )" ]]
+  then "$@"
+  else __rvm_try_sudo "$@"
+  fi
+}
+
+requirements_smf_lib_installed()
+{
+  sm pkg list | GREP_OPTIONS="" \grep "^${1}:" >/dev/null || return $?
+}
+
+requirements_smf_libs_install()
+{
+  while
+    (( $# ))
+  do
+    __smf_try_sudo sm $1 install || return $?
+    shift
+  done
+}
+
+requirements_smf_libs_ensure()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages port "$@" ||
+  {
+    typeset ret=$?
+    rvm_warn "There were package installation errors, make sure to read the log.
+You can get help using IRC: http://webchat.freenode.net/?channels=rvm"
+    return $ret
+  }
+}
+
+requirements_smf_libs_default_calculate()
+{
+  smf_libs=(
+    autoconf automake libtool pkg-config
+  )
+  case "$1" in
+    (ruby-2*|ruby-head) true ;; # ruby-2.0.0+ is supposed to work with clang
+    (*)
+      # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
+      if
+        ! __rvm_which gcc-4.2 >/dev/null &&
+        __rvm_compiler_is_llvm
+      then
+        rvm_error "SM Framework does not know how to install gcc-4.2, please install osx-gcc-installer first for older rubies."
+      fi
+    ;;
+  esac
+  smf_libs+=(
+    libyaml readline libxml2 libxslt libksba openssl sqlite
+  )
+}
+
+requirements_smf_libs_default()
+{
+  typeset -a smf_libs
+  requirements_smf_libs_default_calculate "$1" &&
+  requirements_smf_libs_ensure "${smf_libs[@]}" &&
+  requirements_osx_update_openssl_cert "${__sm_path%/bin/sm}/pkg/active/bin/openssl" &&
+  __rvm_update_configure_opt_dir "$1" "${__sm_path%/bin/sm}/pkg/active" ||
+  return $?
+}
+
+requirements_smf_install_sm()
+{
+  rvm_error "SMF Framework support is only intended for RailsInstaller, please use Homebrew integration instead."
+  return 100
+}
+
+requirements_smf_route_install()
+{
+  case "$1" in
+    (update-system)
+      true
+      ;;
+    (rvm)
+      true
+      ;;
+    (jruby*)
+      which java >/dev/null 2>&1 || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_smf_libs_ensure node
+      ;;
+    (*)
+      requirements_smf_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_smf_ensure_smf_available()
+{
+  which sm >/dev/null ||
+  {
+    rvm_requiremnts_fail_or_run_action \
+      "Requested installation with SM Framework, but SM Framework is not available." \
+      __rvm_log_command smf_install "Installing SM Framework" requirements_smf_install_sm ||
+      return $?
+  }
+}
+
+requirements_smf_find_sm()
+{
+  export __sm_path
+  : __sm_path:${__sm_path:=$( which sm )}
+  while [[ -n "${__sm_path}" && -L "${__sm_path}" ]]
+  do __sm_path="$( readlink "${__sm_path}" )"
+  done
+  [[ -n "${__sm_path}" ]] || return $?
+}
+
+requirements_smf()
+{
+  requirements_smf_ensure_smf_available || return $?
+  requirements_smf_find_sm              || return $?
+  __rvm_requirements_iterate requirements_smf_route_install "$@" || return $?
+}

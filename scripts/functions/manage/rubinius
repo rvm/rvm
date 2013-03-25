@@ -1,19 +1,5 @@
 #!/usr/bin/env bash
 
-rbx_configure_with_path()
-{
-  typeset name _opt_path
-  name="${1:-}"
-  _opt_path="${2:-}"
-  [[ -d "${_opt_path}" ]] || return 1
-  [[ -d "${_opt_path}/include" ]] || return 2
-
-  rvm_configure_args="${rvm_configure_args:-} --with-${name}-dir=${_opt_path}"
-  rvm_configure_flags+=( --with-opt-dir="${_opt_path}" )
-
-  return 0
-}
-
 make_sure_its_enough_ram_for_rbx()
 {
   typeset rvm_rbx_required_ram
@@ -55,29 +41,21 @@ rubinius_install()
   export ruby="$(__rvm_mri_ruby "ruby-1.9|ruby-2")"
   rvm_debug "Using $ruby for RBX installation"
 
+  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
   __rvm_remove_rvm_from_path
   __rvm_conditionally_add_bin_path
-
-  # #RBX 2.0 should now use libyaml which is for Psych.
-  case ${rvm_ruby_string} in
-    rbx-head*|rbx-2.*)
-      libyaml_installed || (
-        __rvm_setup_compile_environment libyaml
-        install_libyaml
-      )
-
-      rbx_configure_with_path libyaml "$rvm_path/usr" ||
-      {
-        rvm_error "Could not find 'lib' dir for libyaml, please make sure libyaml is compiled properly."
-        return 1
-      }
-      ;;
-  esac
-
   __rvm_compatibility_flag_configuration --default-version=
 
-  if [[ -s "${rvm_archives_path}/${rvm_ruby_package_file}" ]] ||
-    [[ -n "${rvm_ruby_url:-}" ]] && file_exists_at_url "${rvm_ruby_url}"
+  if
+    {
+      [[ -n "${rvm_ruby_package_file:-}" &&
+         -f "${rvm_archives_path}/${rvm_ruby_package_file}" &&
+         -s "${rvm_archives_path}/${rvm_ruby_package_file}" ]]
+    } ||
+    {
+      [[ -n "${rvm_ruby_url:-}" ]] &&
+      file_exists_at_url "${rvm_ruby_url}"
+    }
   then
     rvm_head_flag=0
   else
@@ -122,9 +100,9 @@ rubinius_install()
 
     if [[ -n "${rvm_ruby_patch_level:-}" ]]
     then
-      mv "${rvm_tmp_path:-/tmp}/rvm_src_$$/rubinius-release-${rvm_ruby_version}-${rvm_ruby_patch_level}" "${rvm_src_path}/$rvm_ruby_string"
+      \mv "${rvm_tmp_path:-/tmp}/rvm_src_$$/rubinius-release-${rvm_ruby_version}-${rvm_ruby_patch_level}" "${rvm_src_path}/$rvm_ruby_string"
     else
-      mv "${rvm_src_path}/rubinius-${rvm_ruby_version}" "${rvm_src_path}/$rvm_ruby_string"
+      \mv "${rvm_src_path}/rubinius-${rvm_ruby_version}" "${rvm_src_path}/$rvm_ruby_string"
     fi
   else
     # Install from repository
@@ -177,15 +155,19 @@ rubinius_install()
     rvm_ruby_make="CONFIGURE_ARGS=${rvm_configure_args## } "
   fi
 
-  rvm_ruby_make="${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/rake install --trace"
-  __rvm_run "rake" "$rvm_ruby_make" "$rvm_ruby_string - #compiling"
-  result=$?
-
-  if (( result > 0 )) || ! [[ -d "$rvm_ruby_home" ]] || ! [[ -f "$rvm_ruby_home/bin/rbx" ]]
-  then
-    rvm_error "There has been an error while running '$rvm_ruby_make'.\nHalting the installation."
+  __rvm_every_nth_dot 20 \
+    __rvm_log_command rake "$rvm_ruby_string - #compiling" \
+      "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/rake" install --trace || return $?
+  [[ -d "$rvm_ruby_home" && -f "$rvm_ruby_home/bin/rbx" ]] ||
+  {
+    result=$?
+    rvm_error "Rubinius reported it was installed successfully, but RVM could not find proper installation,
+please check why '$rvm_ruby_home/bin/rbx' was not created,
+maybe here '$rvm_log_path/$rvm_ruby_string/rake.log',
+also make sure to report an error here 'https://github.com/rubinius/rubinius/issues'
+about not returning non zero status in case of errors."
     return $result
-  fi
+  }
   unset ruby
 
   # Symlink rubinius wrapper if not available
@@ -199,14 +181,14 @@ rubinius_install()
     *) # older rbx had issues
       # Install IRB Wrapper on Rubinius.
       file_name="$rvm_ruby_home/bin/irb"
-      rm -f "$file_name"
+      \rm -f "$file_name"
       printf "%b" '#!/usr/bin/env bash\n' > "$file_name"
       printf "%b" "exec '$rvm_ruby_home/bin/rbx' 'irb' \"\$@\"\n" >> "$file_name"
       [[ -x "$file_name" ]] || chmod +x "$file_name"
 
       # Install Gem Wrapper on Rubinius.
       file_name="$rvm_ruby_home/bin/gem"
-      cp -f "$rvm_ruby_home/lib/bin/gem.rb" "$file_name"
+      \cp -f "$rvm_ruby_home/lib/bin/gem.rb" "$file_name"
       __rvm_inject_ruby_shebang "$file_name"
       [[ -x "$file_name" ]] || chmod +x "$file_name"
       unset file_name
@@ -219,5 +201,5 @@ rubinius_install()
     __rvm_rubygems_create_link "$rvm_ruby_home/bin/ruby"
   )
   __rvm_post_install
-  __rvm_bin_script
+  __rvm_generate_wrappers
 }

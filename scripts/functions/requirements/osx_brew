@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+
+requirements_brew_lib_installed()
+{
+  brew list -1 | \grep "^${1}$" >/dev/null || return $?
+}
+
+requirements_brew_libs_install()
+{
+  brew install "$@" || return $?
+}
+
+requirements_brew_libs_outdated_filter()
+{
+  typeset IFS
+  IFS="|"
+  brew outdated --quiet | \grep -E "$*"
+}
+
+requirements_brew_libs_try_upgrade()
+{
+  (( rvm_autolibs_flag_number > 0 )) || return 0
+
+  typeset -a outdated_libs
+  __rvm_read_lines outdated_libs <(
+    requirements_brew_libs_outdated_filter "$@"
+  )
+  if
+    (( ${#outdated_libs[@]} ))
+  then
+    rvm_requiremnts_fail_or_run_action \
+      "Homebrew libs require update - skipping." \
+      brew upgrade "${outdated_libs[@]}" ||
+      return $?
+  fi
+}
+
+requirements_brew_libs_ensure()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages brew "$@" ||
+  {
+    typeset ret=$?
+    rvm_warn "There were package installation errors, make sure to read the log.
+Check Homebrew requirements https://github.com/mxcl/homebrew/wiki/Installation"
+    case "$_system_version" in
+      (10.6)
+        rvm_warn "On OSX 10.6 instead of command line tools install:
+    https://github.com/downloads/kennethreitz/osx-gcc-installer/GCC-10.6.pkg"
+        ;;
+    esac
+    return $ret
+  }
+  requirements_brew_libs_try_upgrade "$@"
+}
+
+requirements_brew_libs_configure()
+{
+  typeset package brew_lib brew_lib_prefix
+  package="$1"
+  shift
+
+  for brew_lib
+  do
+    if
+      brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
+      [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
+    then
+      __rvm_update_configure_opt_dir "${package}" "${brew_lib_prefix}"
+    fi
+  done
+}
+
+requirements_brew_libs_default_calculate()
+{
+  brew_libs=(
+    autoconf automake libtool pkg-config
+  )
+  typeset selected_compiler
+  selected_compiler="$( __rvm_selected_compiler )"
+  if
+    ! __ruby_clang_ok "$1" &&
+    [[ -z "${selected_compiler}" || "${selected_compiler}" =~ "gcc-4.2" ]]
+  then
+    # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
+    __rvm_which gcc-4.2 >/dev/null ||
+    {
+      brew tap | \grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
+      brew_libs+=( apple-gcc42 )
+    }
+  fi
+  brew_libs_conf=(
+    libyaml readline libxml2 libxslt libksba openssl sqlite
+  )
+}
+
+requirements_brew_libs_default_check_gcc42()
+{
+  if
+    [[ " ${brew_libs[*]}" =~ "apple-gcc42" ]] && ! which gcc-4.2 >/dev/null
+  then
+    rvm_error "
+apple-gcc42 is not available in PATH, try:
+
+    brew unlink apple-gcc42 && brew link apple-gcc42
+
+and make sure that apple-gcc42 is available in your PATH:
+
+    which gcc-4.2
+"
+    return 1
+  fi
+}
+
+requirements_brew_libs_default()
+{
+  typeset -a brew_libs brew_libs_conf
+  requirements_brew_libs_default_calculate "$1" &&
+  requirements_brew_libs_ensure "${brew_libs[@]}" "${brew_libs_conf[@]}" &&
+  requirements_osx_update_openssl_cert "$(brew --prefix openssl)/bin/openssl" &&
+  requirements_brew_libs_default_check_gcc42 &&
+  requirements_brew_libs_configure "$1" "${brew_libs_conf[@]}" ||
+  return $?
+}
+
+requirements_brew_install_brew()
+{
+  typeset homebrew_home homebrew_repo
+  if
+    (( UID == 0 )) && [[ -z "${SUDO_USER:-}" ]]
+  then
+    rvm_error "Requested installation of Homebrew but the process is running as 'root', make sure to run with 'sudo' from normal user and try again."
+    return 1
+  fi
+  if (( UID == 0 ))
+  then homebrew_home="/usr/local"
+  else homebrew_home="$HOME/.homebrew"
+  fi
+  if __rvm_version_compare "${_system_version}" -ge 10.5
+  then homebrew_repo="mxcl/homebrew"
+  else homebrew_repo="mistydemeo/tigerbrew"
+  fi
+  if (( UID == 0 ))
+  then su - ${SUDO_USER} -c "ruby -e \"$(curl -fsSL https://raw.github.com/${homebrew_repo}/go)\"" || return $?
+  else
+    mkdir -p "${homebrew_home}" || return $?
+    set -o pipefail
+    curl -fL https://github.com/${homebrew_repo}/tarball/master | tar xz --strip 1 -C "${homebrew_home}" || return $?
+    chmod +x "${homebrew_home}/bin/brew" # just in case
+  fi
+  # link to rvm_bin for easy adding to PATH, TODO: are there better ways to automate it?
+  ln -nfs "${homebrew_home}/bin/brew" "${rvm_bin_path:-$rvm_path/bin}/brew"
+}
+
+requirements_brew_update_system_run()
+{
+  __rvm_which git >/dev/null || requirements_brew_libs_ensure git || return $?
+  brew update ||
+  {
+    typeset ret=$?
+    rvm_error "Failed to update Homebrew, follow instructions here:
+    https://github.com/mxcl/homebrew/wiki/Common-Issues
+and make sure \`brew update\` works before continuing."
+    return $ret
+  }
+}
+requirements_brew_update_system()
+{
+  rvm_requiremnts_fail_or_run_action \
+    "Skipping \`brew update\` make sure your formulas are up to date." \
+    requirements_brew_update_system_run ||
+    return $?
+}
+
+requirements_brew_route_install()
+{
+  case "$1" in
+    (update-system)
+      requirements_brew_update_system || return $?
+      ;;
+    (rvm)
+      true
+      ;;
+    (jruby*)
+      which java >/dev/null 2>&1 || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_brew_libs_ensure node
+      ;;
+    (*)
+      requirements_brew_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_brew_ensure_brew_available()
+{
+  which brew >/dev/null ||
+  {
+    rvm_requiremnts_fail_or_run_action \
+      "Requested installation with homebrew libs, but homebrew is not available." \
+      __rvm_log_command brew_install "Installing homebrew" requirements_brew_install_brew ||
+      return $?
+  }
+}
+
+requirements_brew_ensure_brew_can_install()
+{
+  # only check for 3+ (packages install, enabled)
+  (( rvm_autolibs_flag_number > 2 )) || return 0
+
+  typeset __celar_path
+  __celar_path="$(brew --cellar)"
+  if
+    [[ -w "${__celar_path%/*}/bin" ]] &&
+    [[ -w "${__celar_path}" || ! -e "${__celar_path}" ]]
+  then
+    rvm_debug "brew seems to be writable"
+  else
+    rvm_error "ERROR: '${__celar_path}' not writable, fix it first!"
+    return 1
+  fi
+}
+
+requirements_osx_brew()
+{
+  requirements_brew_ensure_brew_available   || return $?
+  requirements_brew_ensure_brew_can_install || return $?
+  __rvm_requirements_iterate requirements_brew_route_install "$@" || return $?
+}

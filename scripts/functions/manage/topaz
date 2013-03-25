@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+topaz_install()
+{
+  __rvm_cd "${rvm_src_path}"
+
+  if [[ "${rvm_token}" != "head" ]]
+  then
+    case "$(uname -sm)" in
+      "Linux x86_64")
+  version="linux64"
+  ;;
+      "Linux i386")
+  version="linux32"
+  ;;
+      "Darwin x86_64")
+  version="osx64"
+  ;;
+      *)
+  rvm_error "Topaz only provides binary packages for Linux i386 and x86_64 and Darwin x86_64. You try to build the HEAD version"
+  ;;
+    esac
+    rvm_ruby_package_file="$(curl "${rvm_ruby_url}" | \grep -Eo "topaz-${version}-[^.]+\.tar\.bz2" | head -1)"
+    rvm_ruby_url="${rvm_ruby_url}/${rvm_ruby_package_file}"
+
+    __rvm_cd "${rvm_archives_path}"
+    \curl -OL "$rvm_ruby_url"
+    __rvm_log_command "extract" \
+      "${rvm_ruby_string} - #extracting ${rvm_ruby_package_file} to ${rvm_src_path}" \
+      __rvm_package_extract \
+      "${rvm_archives_path}/${rvm_ruby_package_file}" "${rvm_src_path}" ||
+    case $? in
+      199)
+        rvm_error "\nUnrecognized archive format '$archive_format'"
+  return 199
+  ;;
+      *)
+  rvm_error "There has been an error while trying to extract the source. Halting the installation."
+  return 1
+  ;;
+    esac
+
+    \mv "${rvm_src_path}/topaz" "${rvm_src_path}/$rvm_ruby_string"
+  else
+    rvm_ruby_url="${rvm_ruby_repo_url}"
+    __rvm_fetch_ruby || return $?
+
+    __rvm_rm_rf pypy
+    __rvm_rm_rf rply
+
+    \curl -OL https://bitbucket.org/pypy/pypy/get/default.tar.bz2
+    \tar xf default.tar.bz2
+    __rvm_rm_rf default.tar.bz2
+    \mv pypy* pypy
+
+    \curl -OL https://github.com/alex/rply/archive/master.zip
+    \unzip master.zip
+    __rvm_rm_rf master.zip
+    \mv rply* rply
+
+    __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
+
+    _old_python_path="$PYTHONPATH"
+    export PYTHONPATH="${rvm_src_path}/pypy:${rvm_src_path}/rply:${rvm_src_path}/$rvm_ruby_string"
+    __rvm_run "python" \
+  "/usr/bin/env python ${rvm_src_path}/pypy/rpython/translator/goal/translate.py -Ojit ${rvm_src_path}/${rvm_ruby_string}/targettopaz.py" \
+  "Building topaz with JIT, this will take a (long) while."
+    export PYTHONPATH="$_old_python_path"
+  fi
+
+  __rvm_rm_rf $rvm_ruby_home
+  __rvm_run "install" \
+    "/bin/cp -Rf ${rvm_src_path}/${rvm_ruby_string} ${rvm_ruby_home}" \
+    "Installing topaz to $rvm_ruby_home"
+
+  __rvm_cd "$rvm_ruby_home/bin/"
+
+  \ln -fs "topaz" "ruby"
+
+  __rvm_generate_wrappers
+
+  rvm_create_flag=1 __rvm_use
+}

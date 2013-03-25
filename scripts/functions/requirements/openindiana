@@ -1,60 +1,44 @@
 #!/usr/bin/env bash
 
-set -e
-
-function requirements_gentoo()
+requirements_openindiana_lib_installed()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (force|run)
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  (( UID == 0 )) || command_to_run+=( sudo )
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        true
-        ;;
-      (rvm)
-        "${command_to_run[@]}" pkg install bash curl git patch
-        ;;
-      (jruby-head*)
-        "${command_to_run[@]}" pkg install jdk apache-ant
-        ;;
-      (jruby*)
-        "${command_to_run[@]}" pkg install jdk
-        ;;
-      (ir*)
-        "${command_to_run[@]}" pkg install mono
-        ;;
-      (opal)
-        "${command_to_run[@]}" pkg install node-devel
-        ;;
-      (*)
-        "${command_to_run[@]}" pkg install text/gnu-patch runtime/gcc developer/library/lint system/header system/library/math/header-math file/gnu-coreutils
-        ;;
-    esac
-    shift
-  done
+  pkg info "$1" > /dev/null || return $?
 }
 
-requirements_gentoo "$@"
+requirements_openindiana_libs_install()
+{
+  __rvm_try_sudo pkg install "$@" || return $?
+}
+
+requirements_openindiana_ensure_libs()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages openindiana "$@" || return $?
+}
+
+requirements_openindiana_run()
+{
+  case "$1" in
+    (update-system)
+      true
+      ;;
+    (rvm)
+      requirements_openindiana_ensure_libs bash curl git text/gnu-patch
+      ;;
+    (jruby-head*)
+      requirements_openindiana_ensure_libs jdk apache-ant
+      ;;
+    (jruby*)
+      requirements_openindiana_ensure_libs jdk
+      ;;
+    (ir*)
+      requirements_openindiana_ensure_libs mono
+      ;;
+    (opal)
+      requirements_openindiana_ensure_libs runtime/javascript/nodejs
+      ;;
+    (*)
+      requirements_openindiana_ensure_libs text/gnu-patch runtime/gcc developer/library/lint system/header system/library/math/header-math file/gnu-coreutils
+      ;;
+  esac
+}

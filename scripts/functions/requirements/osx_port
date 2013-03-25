@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+requirements_port_lib_installed()
+{
+  port installed | GREP_OPTIONS="" \grep "^\s*${1} @" >/dev/null || return $?
+}
+
+requirements_port_libs_install()
+{
+  __rvm_try_sudo port install "$@" || return $?
+}
+
+requirements_port_libs_ensure()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages port "$@" ||
+  {
+    typeset ret=$?
+    # TODO: offer more help!
+    rvm_warn "There were package installation errors, make sure to read the log."
+    return $ret
+  }
+}
+
+requirements_port_libs_default()
+{
+  typeset -a port_libs
+  port_libs=(
+    autoconf automake libtool pkgconfig
+  )
+  # install gcc-4.2 only if not yet available
+  if
+    __rvm_compiler_is_llvm
+  then
+    port_libs+=( apple-gcc42 )
+  fi
+  port_libs+=(
+    libiconv libyaml libffi readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite3 zlib ncurses gdbm
+  )
+  requirements_port_libs_ensure  "${port_libs[@]}" || return $?
+  __rvm_update_configure_opt_dir "$1" "/opt/local" || return $?
+}
+
+requirements_port_install_port()
+{
+  typeset macports_version
+  set -o pipefail
+  macports_version="$(
+    curl https://distfiles.macports.org/MacPorts/ |
+    grep -Eo "<a href=\"MacPorts-[[:digit:]\.]+.tar.bz2\">" |
+    awk -F'"' '{print $2}' | sort | tail -n 1
+  )" #'
+  macports_version="${macports_version%.tar.bz2}"
+  : macports_version:${macports_version:=MacPorts-2.1.3}
+  mkdir "${rvm_src_parth}/${macports_version}"
+  cd    "${rvm_src_parth}/${macports_version}"
+  curl -LO "https://distfiles.macports.org/MacPorts/${macports_version}.tar.bz2" |
+  tar -xj --strip 1 &&
+  ./configure &&
+  make &&
+  __rvm_try_sudo make install ||
+  return $?
+}
+
+requirements_port_route_install()
+{
+  case "$1" in
+    (update-system)
+      __rvm_try_sudo port -dv selfupdate || return $?
+      ;;
+    (rvm)
+      # FIXME: requirements for rvm
+      true
+      ;;
+    (jruby*)
+      which java >/dev/null 2>&1 || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_port_libs_ensure node
+      ;;
+    (*)
+      requirements_port_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_port_ensure_port_available()
+{
+  which port >/dev/null ||
+  {
+    rvm_requiremnts_fail_or_run_action \
+      "Requested installation with macports libs, but macports is not available." \
+      __rvm_log_command port_install "Installing macports" requirements_port_install_port ||
+      return $?
+  }
+}
+
+requirements_osx_port()
+{
+  requirements_port_ensure_port_available || return $?
+  __rvm_requirements_iterate requirements_port_route_install "$@" || return $?
+}

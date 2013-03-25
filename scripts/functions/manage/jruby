@@ -50,22 +50,28 @@ jruby_install()
 
   __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
 
-  if
-    (( ${#rvm_configure_flags[@]} || ${#rvm_patch_names[@]} || ${rvm_head_flag:-0} ))
-  then
-    __rvm_apply_patches
-    __rvm_log_command "ant.jar" "$rvm_ruby_string - #ant jar" ant jar
-    if
-      (( ${#rvm_configure_flags[@]} ))
-    then
-      __rvm_log_command "ant.jar.flags" "$rvm_ruby_string - #ant jar ${rvm_configure_flags[*]}" \
-        ant jar "${rvm_configure_flags[@]}"
-    fi
-    __rvm_log_command "ant.cext" "$rvm_ruby_string - #ant cext" ant cext "${rvm_configure_flags[@]}" ||
-      rvm_warn "cext is known to fail please report here: https://jira.codehaus.org/browse/JRUBY"
-  fi
+  __rvm_apply_patches
+  __rvm_log_command "ant.jar" "$rvm_ruby_string - #ant jar" ant jar || return $?
 
-  mkdir -p "$rvm_ruby_home/bin/"
+  [[ -f "${rvm_src_path}/$rvm_ruby_string/bin/jruby" ]] ||
+  {
+    result=$?
+    rvm_error "JRuby reported it was installed successfully, but RVM could not find proper installation,
+please check why '${rvm_src_path}/$rvm_ruby_string/bin/jruby' was not created,
+maybe here '$rvm_log_path/$rvm_ruby_string/ant.jar.log',
+also make sure to report an error here 'https://github.com/jruby/jruby/issues'
+about not returning non zero status in case of errors."
+    return $result
+  }
+
+  if
+    (( ${#rvm_configure_flags[@]} ))
+  then
+    __rvm_log_command "ant.jar.flags" "$rvm_ruby_string - #ant jar ${rvm_configure_flags[*]}" \
+      ant jar "${rvm_configure_flags[@]}" || return $?
+  fi
+  __rvm_log_command "ant.cext" "$rvm_ruby_string - #ant cext" ant cext "${rvm_configure_flags[@]}" ||
+    rvm_warn "cext is known to fail please report here: https://jira.codehaus.org/browse/JRUBY"
 
   {
     __rvm_version_compare "$rvm_ruby_version" -ge "1.7.0" ||
@@ -98,7 +104,7 @@ jruby_install()
 
   # -server is "a lot slower for short-lived scripts like rake tasks, and takes longer to load"
   #sed -e 's#^JAVA_VM=-client#JAVA_VM=-server#' $rvm_ruby_home/bin/jruby > $rvm_ruby_home/bin/jruby.new &&
-    #  mv $rvm_ruby_home/bin/jruby.new $rvm_ruby_home/bin/jruby
+    #  \mv $rvm_ruby_home/bin/jruby.new $rvm_ruby_home/bin/jruby
   chmod +x "$rvm_ruby_home/bin/jruby"
 
   rvm_create_flag=1 __rvm_use
@@ -113,12 +119,12 @@ jruby_install()
   esac
   __rvm_post_install
 
-  __rvm_bin_script
+  __rvm_generate_wrappers
 
   # jruby ships with some built in gems, copy them in to place.
   if [[ -d "$rvm_ruby_home/lib/ruby/gems/1.8" ]]
   then
     __rvm_log_command "copy.gems" "$rvm_ruby_string - #copying across included gems" \
-      cp -R "$rvm_ruby_home/lib/ruby/gems/1.8/" "$rvm_ruby_gem_home/"
+      \cp -R "$rvm_ruby_home/lib/ruby/gems/1.8/" "$rvm_ruby_gem_home/"
   fi
 }

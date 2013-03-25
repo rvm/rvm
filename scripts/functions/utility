@@ -50,7 +50,8 @@ __rvm_strings()
 # Derived from rvm_ruby_string.
 __rvm_ruby_string_paths_under()
 {
-  typeset __search_path part parts
+  typeset __search_path part parts IFS
+  IFS=" "
 
   __search_path="${1%/}" # Strip off any trailing slash
 
@@ -88,7 +89,6 @@ __rvm_log_command()
 
   name="${1:-}"
   message="${2:-}"
-  [[ -z "$message" ]] || rvm_log "$message"
   shift 2
   _command=( "$@" )   # store full command so we can manipulate it
   _command_start="$1" # store first part so we can detect variables
@@ -101,6 +101,7 @@ __rvm_log_command()
   (( ${rvm_niceness:-0} == 0 ))      || _command=( nice -n $rvm_niceness "${_command[@]}" )
 
   _log="${rvm_log_path}${rvm_ruby_string:+/}${rvm_ruby_string:-}/$name.log"
+  rvm_debug "Log file: ${_log}"
 
   [[ -d "${_log%\/*}" ]] || \mkdir -p "${_log%\/*}"
   [[ -f "${_log}"     ]] || \rm -f "${_log}"
@@ -113,10 +114,11 @@ __rvm_log_command()
     printf "%b" "command(${#_command[@]}): ${_command[*]}\n"
   } | tee "${_log}" | rvm_debug_stream
 
-  "${_command[@]}" >>"${_log}" 2>&1 ||
+  __rvm_log_dotted "${_log}" "$message" "${_command[@]}" ||
   {
     typeset result=$?
-    rvm_error "Error running '${_command[*]}', please read ${_log}"
+    rvm_error "Error running '${_command[*]}',
+please read ${_log}"
     return ${result}
   }
 }
@@ -203,15 +205,15 @@ __rvm_remove_from_path()
     fi
   fi
 
-  case ":$PATH:" in
-    (*:${_value}:*)
+  if
+    __rvm_string_match ":$PATH:" "*:${_value}:*"
+  then
       typeset -a _path
       _path=()
       __rvm_custom_separated_array _path : "${PATH}"
       __rvm_remove_from_array _path "${_value}" "${_path[@]}"
       __rvm_join_array PATH : _path
-      ;;
-  esac
+  fi
 }
 
 __rvm_add_to_path()
@@ -294,25 +296,35 @@ __rvm_detect_xcode_version_is()
   [[ "$(__rvm_detect_xcode_version)" == "$1" ]] || return 1
 }
 
+# TODO: better semver support
+__rvm_version_sort()
+{
+  LC_ALL=C sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n
+}
+
 __rvm_version_compare()
 {
   typeset first
-  first="$( printf "%b" "$1\n$3\n" | LC_ALL=C sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n | head -n1 )"
+  first="$( printf "%b" "$1\n$3\n" | __rvm_version_sort | head -n1 )"
+  # first is the lower
   case "$2" in
     (-eq|==|=)
       [[ "$1" == "$3" ]] || return $?
       ;;
+    (-ne|!=)
+      [[ "$1" != "$3" ]] || return $?
+      ;;
     (-gt|\>)
-      [[ "$1" != "$3" && "$first" == "$1" ]] || return $?
+      [[ "$first" == "$3" && "$1" != "$3" ]] || return $?
       ;;
     (-ge|\>=)
-      [[ "$1" == "$3" || "$first" == "$1" ]] || return $?
+      [[ "$first" == "$3" || "$1" == "$3" ]] || return $?
       ;;
     (-lt|\<)
-      [[ "$1" != "$3" && "$first" == "$2" ]] || return $?
+      [[ "$first" == "$1" && "$1" != "$3" ]] || return $?
       ;;
     (-le|\<=)
-      [[ "$1" == "$3" || "$first" == "$3" ]] || return $?
+      [[ "$first" == "$1" || "$1" == "$3" ]] || return $?
       ;;
     (*)
       rvm_error "Unsupported operator '$2'."
@@ -433,18 +445,23 @@ __rvm_detect_system()
         _system_name="debian"
         _system_version="$(cat /etc/debian_version)"
       elif
+        [[ -f /etc/fedora-release ]]
+      then
+        _system_name="fedora"
+        _system_version="$(\grep -Eo '[[:digit:]]+' /etc/fedora-release)"
+      elif
         [[ -f /etc/centos-release ]]
       then
         _system_name="centos"
-        _system_version="$(grep -Eo '[[:digit:]\.]+' /etc/centos-release  | awk -F. '{print $1"."$2}')"
+        _system_version="$(\grep -Eo '[[:digit:]\.]+' /etc/centos-release  | awk -F. '{print $1"."$2}')"
       elif
         [[ -f /etc/redhat-release ]]
       then
-        if grep CentOS /etc/redhat-release >/dev/null
+        if \grep CentOS /etc/redhat-release >/dev/null
         then _system_name="centos"
         else _system_name="redhat"
         fi
-        _system_version="$(grep -Eo '[[:digit:]\.]+' /etc/redhat-release  | awk -F. '{print $1"."$2}')"
+        _system_version="$(\grep -Eo '[[:digit:]\.]+' /etc/redhat-release  | awk -F. '{print $1"."$2}')"
       elif
         [[ -f /etc/gentoo-release ]]
       then
@@ -485,6 +502,11 @@ __rvm_detect_system()
       _system_name="osx"
       _system_version="$(sw_vers -productVersion)"
       _system_version="${_system_version%.*}" # only major.minor - teeny is ignored
+      ;;
+    (FreeBSD)
+      _system_type="bsd"
+      _system_name="freebsd"
+      _system_version="$(uname -r)"
       ;;
     (*)
       return 1
@@ -647,10 +669,11 @@ __list_remote_jruby_for()
 {
   typeset rvm_ruby_url
   rvm_ruby_url="$1"
-  curl -LsS http://jruby.org.s3.amazonaws.com/ |
-    GREP_OPTIONS="" \grep -oE "<Key>[^<]+jruby-bin-[^<]+\.tar\.gz</Key>" |
-    awk -F"[<>]" '/'"${rvm_ruby_url//\//\/}"'/{print "http://jruby.org.s3.amazonaws.com/"$3}' |
-    sed 's/-bin-/-/'
+  curl -LsS "http://jruby.org.s3.amazonaws.com/?prefix=downloads/&delimiter=/" |
+    GREP_OPTIONS="" \grep -oE "<Key>[^<]*</Key>" |
+    GREP_OPTIONS="" \grep -o '[[:digit:]][^_]*' |
+    awk '{print "http://jruby.org.s3.amazonaws.com/downloads/"$1"/jruby-bin-"$1".tar.gz"}' |
+    GREP_OPTIONS="" \grep "${rvm_ruby_url}"
 }
 
 rubygems_detect_ruby_lib_gem_path()
@@ -699,11 +722,11 @@ __rvm_gemsets_initial()
   if
     (( ${rvm_skip_gemsets_flag:-0} == 0 ))
   then
-    __rvm_run_with_env "gemsets.initial" "$rvm_ruby_string" \
-      "'$rvm_scripts_path/gemsets' initial" \
-      "$rvm_ruby_string - #importing default gemsets, this may take time ..."
+    __rvm_log_command "gemsets.initial" \
+      "$rvm_ruby_string - #importing default gemsets, this may take time" \
+      __rvm_with "$rvm_ruby_string" "$rvm_scripts_path/gemsets" initial
   else
-    mkdir -p "$rvm_gems_path/$rvm_ruby_string@global/bin"
+    mkdir -p "$rvm_gems_path/$rvm_ruby_string/bin" "$rvm_gems_path/$rvm_ruby_string@global/bin"
     rvm_log "Skipped importing default gemsets"
   fi
 }
@@ -726,7 +749,7 @@ file_exists_at_url()
 __rvm_fix_group_permissions()
 {
   if
-    umask -S | grep 'g=rw' >/dev/null
+    umask -S | \grep 'g=rw' >/dev/null
   then
     chmod -R g+rwX "$@"
   fi
@@ -762,15 +785,22 @@ __rvm_package_extract()
       unzip -q -o "$1" -d "$2"
       ;;
     *.tar.bz2)
-      ${rvm_tar_command:-tar} xjf "$1" -C "$2" ${rvm_tar_options:-}
+      if [[ -n "$ZSH_VERSION" ]]
+      then ${rvm_tar_command:-tar} xjf "$1" -C "$2" ${=rvm_tar_options:-}
+      else ${rvm_tar_command:-tar} xjf "$1" -C "$2" ${rvm_tar_options:-}
+      fi
       ;;
     *.tar.gz|*.tgz)
-      ${rvm_tar_command:-tar} xzf "$1" -C "$2" ${rvm_tar_options:-}
+      if [[ -n "$ZSH_VERSION" ]]
+      then ${rvm_tar_command:-tar} xzf "$1" -C "$2" ${=rvm_tar_options:-}
+      else ${rvm_tar_command:-tar} xzf "$1" -C "$2" ${rvm_tar_options:-}
+      fi
       ;;
     *)
       return 199
       ;;
-  esac
+  esac &&
+  __rvm_fix_group_permissions "$2"
 }
 
 # params: archive_file [path [path2]]

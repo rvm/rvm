@@ -29,7 +29,7 @@ external_grep_existing()
   rvm_debug "existing:${existing[*]}:"
   if (( ${#existing[@]} > 0 ))
   then
-    GREP_OPTIONS="" \grep -vE "${existing[@]}" -
+    GREP_OPTIONS="" \grep -vE "${existing[*]}" -
   else
     cat -
   fi
@@ -43,12 +43,11 @@ external_mount_uniq()
   ruby_paths=( $(
     for ruby_path in "$@"
     do
-      if [[ -d "${ruby_path}" && -x "${ruby_path}/bin/ruby" ]] && "${ruby_path}/bin/ruby" -rrbconfig -e "" >/dev/null 2>&1
+      if
+        [[ -d "${ruby_path}" && -x "${ruby_path}/bin/ruby" ]] ||
+        [[ -f "${ruby_path}" && -x "${ruby_path}"          ]]
       then
         echo "${ruby_path}"
-      elif [[ ! -d "${ruby_path}" &&  -x "${ruby_path}" ]]
-      then
-        __rvm_ruby_config_get prefix "${ruby_path}"
       fi
     done | sort -u | external_grep_existing
   ) )
@@ -63,6 +62,45 @@ external_mount_uniq()
       ( external_mount "${ruby_path}" ) || exit $?
     done
   fi
+}
+
+external_mount_link_default_binaries()
+{
+  typeset _binary _binary_addition
+  typeset -a _binaries
+  _binaries=(ruby gem irb erb ri rdoc testrb rake)
+
+  case "${ruby_path##*/}" in
+    (ruby)
+      true
+      ;;
+    (*ruby)
+      _binary_addition="${ruby_path##*/}"
+      _binary_addition="${_binary_addition%ruby}"
+      for _binary in "${_binaries[@]}"
+      do
+        if
+          [[ ! -f "${prefix_path}/${_binary}" ]] &&
+          [[ -f "${prefix_path}/${_binary_addition}${_binary}" ]]
+        then
+          ln -s "${prefix_path}/${_binary_addition}${_binary}" "${prefix_path}/${_binary}"
+        fi
+      done
+      ;;
+    (ruby*)
+      _binary_addition="${ruby_path##*/}"
+      _binary_addition="${_binary_addition#ruby}"
+      for _binary in "${_binaries[@]}"
+      do
+        if
+          [[ ! -f "${prefix_path}/${_binary}" ]] &&
+          [[ -f "${prefix_path}/${_binary}${_binary_addition}" ]]
+        then
+          ln -s "${prefix_path}/${_binary}${_binary_addition}" "${prefix_path}/${_binary}"
+        fi
+      done
+      ;;
+  esac
 }
 
 external_mount()
@@ -97,10 +135,6 @@ external_mount()
     fi
   fi
 
-  old_gem_home=$(
-    unset GEM_HOME
-    "${prefix_path}/bin/gem" env gemhome
-  )
   rvm_ruby_string="ext-${rvm_ruby_string}"
   echo "Mounting '${rvm_ruby_string}' from '${prefix_path}'"
 
@@ -109,12 +143,18 @@ external_mount()
   mkdir -p "$rvm_rubies_path/$rvm_ruby_string/bin"
   ln -nfs "${ruby_path}" "$rvm_rubies_path/$rvm_ruby_string/bin/ruby"
 
+  external_mount_link_default_binaries
+
   rvm_create_flag=1 __rvm_use
 
   mkdir -p "$rvm_gems_path/$rvm_ruby_string@global"
+  old_gem_home=$(
+    unset GEM_HOME
+    "${prefix_path}/bin/gem" env gemhome
+  )
   ln -nfs "${old_gem_home}" "$rvm_gems_path/$rvm_ruby_string"
 
-  __rvm_bin_script
+  __rvm_generate_wrappers
 
   (
     export rvm_gemset_name=global
@@ -208,6 +248,15 @@ external_propose_name()
       __tmp2="${__tmp2%% *}"
       printf "maglev-${__tmp1}-default_${__tmp2}"
       ;;
+    (topaz[[:space:]]*)
+      __tmp1="${parts#* }"
+      __tmp1="${__tmp1%% *}"
+      __tmp2="${parts#* }"
+      __tmp2="${__tmp2#* }"
+      __tmp2="${__tmp2#* }"
+      __tmp2="${__tmp2%% *}"
+      printf "topaz-${__tmp1}-default_${__tmp2}"
+      ;;
     (rubinius[[:space:]]*)
       __tmp1="${parts#* }"
       __tmp1="${__tmp1%% *}"
@@ -224,7 +273,7 @@ external_propose_name()
 
 external_import_configure()
 {
-  typeset platform architecture libc
+  typeset platfo\rm architecture libc
 
   if (( ${rvm_install_flag:-0} > 0 ))
   then err_command=rvm_warn
@@ -246,7 +295,13 @@ external_import_configure()
   rvm_ruby_string="${rvm_ruby_string##*/}"
   rvm_ruby_string="${rvm_ruby_string%.t*}"
   __rvm_ruby_package_file "${rvm_ruby_string}"
-  rvm_ruby_package_file="bin-${rvm_ruby_string}.$(__rvm_remote_extension "${rvm_ruby_string}" -)"
+  if
+    [[ "${rvm_ruby_url##*/}" =~ "bin" ]]
+  then
+    rvm_ruby_package_file="${rvm_ruby_url##*/}"
+  else
+    rvm_ruby_package_file="bin-${rvm_ruby_string}.$(__rvm_remote_extension "${rvm_ruby_string}" -)"
+  fi
 }
 
 external_import_download()
@@ -254,7 +309,7 @@ external_import_download()
   if
     [[ -r "${rvm_ruby_url}" ]]
   then
-    cp -f "${rvm_ruby_url}" "$rvm_archives_path/${rvm_ruby_package_file}" || {
+    \cp -f "${rvm_ruby_url}" "$rvm_archives_path/${rvm_ruby_package_file}" || {
       $err_command "Copying ${rvm_ruby_url} failed."
       return 3
     }
@@ -271,7 +326,7 @@ external_import_validate_archive()
   typeset -a downloaded_names path_to_bin_ruby
 
   __rvm_read_lines path_to_bin_ruby < <(
-    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | grep "bin/ruby$"
+    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | \grep "bin/ruby$"
   )
   __rvm_read_lines downloaded_names < <(
     __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
@@ -296,7 +351,7 @@ Only '${downloaded_names[*]}' were found instead."
 
 external_import_extract()
 {
-  rm -rf "${rvm_rubies_path}/${rvm_ruby_string}"
+  \rm -rf "${rvm_rubies_path}/${rvm_ruby_string}"
   mkdir -p "${rvm_rubies_path}/${rvm_ruby_string}"
   __rvm_package_extract "$rvm_archives_path/${rvm_ruby_package_file}" "${rvm_rubies_path}/${rvm_ruby_string}" || {
     $err_command "Unpacking ${rvm_ruby_package_file} failed."
@@ -311,8 +366,8 @@ external_import_extract()
 make sure '${rvm_ruby_url}' is a valid binary ruby archive."
       return 8
     }
-    mv "${rvm_rubies_path}/${rvm_ruby_string}/${__path_to_extract}"/* "${rvm_rubies_path}/${rvm_ruby_string}/"
-    rm -rf "${rvm_rubies_path}/${rvm_ruby_string}/${__path_to_extract%%/*}"
+    \mv "${rvm_rubies_path}/${rvm_ruby_string}/${__path_to_extract}"/* "${rvm_rubies_path}/${rvm_ruby_string}/"
+    \rm -rf "${rvm_rubies_path}/${rvm_ruby_string}/${__path_to_extract%%/*}"
   fi
 }
 
@@ -396,7 +451,7 @@ external_import_setup()
 
   rvm_create_flag=1 __rvm_use
 
-  __rvm_bin_script # environment + wrappers
+  __rvm_generate_wrappers
   __rvm_fix_gcc_path "$rvm_rubies_path"
   __rvm_gemsets_initial
   __rvm_ruby_config_save "$rvm_rubies_path/$rvm_ruby_string/bin/ruby" "$rvm_rubies_path/$rvm_ruby_string/config"
@@ -440,8 +495,8 @@ external_prepare_package()
     if
       (( ${rvm_install_flag:-0} > 0 ))
     then
-      rvm_configure_flags+=( --enable-shared --enable-load-relative --sysconfdir=/etc )
-      __rvm_manage_wrapper install "${rvm_ruby_string}" || return $?
+      rvm_configure_flags+=( --enable-load-relative --sysconfdir=/etc )
+      __rvm_run_wrapper manage install "${rvm_ruby_string}" || return $?
     else
       rvm_error "Ruby ${rvm_ruby_string} does not exist, maybe install first?."
       return 2
@@ -484,7 +539,7 @@ external_prepare_upload()
     path_prefix="${path_prefix##*/}"
     mkdir -p "${path_prefix}/${system_path}"
     local_file="${path_prefix}/${system_path}/${file_name}"
-    mv "${file_name}" "${local_file}"
+    \mv "${file_name}" "${local_file}"
   else
     local_file="${file_name}"
   fi
@@ -521,9 +576,14 @@ case "${action}" in
     external_$action "$@"
     ;;
   (mount|*_name)
+    [[ -n "${1:-}" ]] ||
+    {
+      rvm_error_help "Missing path/url for '$action'." mount $action
+      exit 2
+    }
     if
       (( rvm_remote_flag > 0 )) ||
-      [[ "${next_token:-}" =~ ^http || "${next_token:-}" =~ tar.bz2$ ]]
+      [[ "$1" =~ ^http || "$1" =~ tar.bz2$ ]]
     then
       external_import "$@"
     else
@@ -531,7 +591,7 @@ case "${action}" in
     fi
     ;;
   (*)
-    rvm_error_help "Wrong action for external '$action'." external $action
+    rvm_error_help "Wrong action for external '$action'." mount $action
     exit 2
     ;;
 esac

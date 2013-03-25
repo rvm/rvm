@@ -71,17 +71,17 @@ make_sure_jruby_can_work_with_rubygems()
   esac
 }
 
-does_not_work_with_rubygems()
+rubygems_fatal_error()
 {
-  rvm_error "RVM can not install rubygems for maglev and older jruby, select other ruby and try again."
-  exit 1
+  rvm_error "$1"
+  exit ${2:-1}
 }
 
 rubygems_version_list()
 {
-  curl -s https://api.github.com/repos/rubygems/rubygems/tags |
+  curl -sS https://api.github.com/repos/rubygems/rubygems/tags |
     sed -n '/"name": / {s/^.*".*": "v\(.*\)".*$/\1/; p;}' |
-    LC_ALL=C sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n |
+    __rvm_version_sort |
     GREP_OPTIONS="" \grep '^[[:digit:]\.]*$'
 }
 
@@ -132,13 +132,15 @@ rubygems_select_version_url()
       typeset sha
       sha="$(rubygems_master_sha)"
       rvm_rubygems_version="$version"
-      rvm_gem_package_name="rubygems-rubygems-${sha:0:7}"
+      rvm_gem_package_name="rubygems-${sha}"
       rvm_gem_url="https://github.com/rubygems/rubygems/archive/${sha}.tar.gz"
+      export rvm_verify_downloads_flag=1
       ;;
     v*)
       rvm_rubygems_version="$version"
       rvm_gem_package_name="rubygems-${version#v}"
       rvm_gem_url="https://github.com/rubygems/rubygems/archive/$version.tar.gz"
+      export rvm_verify_downloads_flag=1
       ;;
     missing)
       rvm_error "There was an error while trying to resolve rubygems version for '$1'. \nHalting the installation."
@@ -165,43 +167,29 @@ rubygems_setup()
 
   rubygems_select_version_url "$version" || return $?
 
-  make_sure_jruby_can_work_with_rubygems || does_not_work_with_rubygems
+  make_sure_jruby_can_work_with_rubygems ||
+  rubygems_fatal_error "RVM can not install rubygems for older jruby, select other ruby and try again." $?
 
-  # Sanity check... If setup.rb is missing from the rubygems source path,
-  # something went wrong. Cleanup, aisle 3!
-  [[ -f "${rvm_src_path}/$rvm_gem_package_name/setup.rb" ]] ||
+  # always cleanup!
+  [[ -d "${rvm_src_path}/$rvm_gem_package_name" ]] ||
     __rvm_rm_rf "${rvm_src_path}/$rvm_gem_package_name"
 
-  if
-    [[ ! -d "${rvm_src_path}/${rvm_gem_package_name}" ]]
-  then
-    rvm_log "Retrieving $rvm_gem_package_name"
-    if
-      "$rvm_scripts_path/fetch" "$rvm_gem_url" "${rvm_gem_package_name}.tgz"
-    then
-      true
-    else
-      result=$?
-      rvm_error "There has been an error while trying to fetch the source. \nHalting the installation."
-      return $result
-    fi
+  rvm_log "Retrieving $rvm_gem_package_name"
+  "$rvm_scripts_path/fetch" "$rvm_gem_url" "${rvm_gem_package_name}.tgz" ||
+  rubygems_fatal_error "There has been an error while trying to fetch rubygems. \nHalting the installation." $?
 
-    [[ -d "${rvm_src_path}/$rvm_gem_package_name" ]] ||
-      \mkdir -p "${rvm_src_path}/$rvm_gem_package_name"
-
-    __rvm_log_command "rubygems.extract" "Extracting $rvm_gem_package_name ..." \
-      __rvm_package_extract "${rvm_archives_path}/$rvm_gem_package_name.tgz" "${rvm_src_path}"
-  fi
+  __rvm_log_command "rubygems.extract" "Extracting $rvm_gem_package_name ..." \
+  __rvm_package_extract "${rvm_archives_path}/$rvm_gem_package_name.tgz" "${rvm_src_path}" ||
+  rubygems_fatal_error "There has been an error while trying to extract rubygems. \nHalting the installation." $?
 
   rubygems_remove # Remove old gems.
 
   __rvm_cd "${rvm_src_path}/$rvm_gem_package_name"
 
-  __rvm_run "rubygems.install" \
-    "GEM_PATH=\"$GEM_PATH:${GEM_PATH%%@*}@global\" GEM_HOME=\"$GEM_HOME\" \"${rvm_ruby_binary}\" \"${rvm_src_path}/$rvm_gem_package_name/setup.rb\"" \
-    "Installing $rvm_gem_package_name for ${rvm_ruby_string} ..."
-  result=$?
-  if (( result == 0 ))
+  if
+    __rvm_log_command "rubygems.install" "Installing $rvm_gem_package_name for ${rvm_ruby_string}" \
+      GEM_PATH="$GEM_PATH:${GEM_PATH%%@*}@global" GEM_HOME="$GEM_HOME" \
+      "${rvm_ruby_binary}" -d "${rvm_src_path}/$rvm_gem_package_name/setup.rb" --verbose
   then
     typeset program_suffix
     program_suffix="$( __rvm_ruby_config_get configure_args "${rvm_ruby_binary}" )"
@@ -231,22 +219,127 @@ builtin command -v ruby > /dev/null || {
   exit 1
 }
 
+rubygems_validate_gemfile_extract()
+(
+  \mkdir -p "$2/gem" &&
+  \tar -C "$2" -xf "$1" --touch &&
+  \cd "$2" &&
+  \gzip -d "metadata.gz" &&
+  \tar -C gem -xzf "data.tar.gz" --touch &&
+  \rm "data.tar.gz" ||
+  {
+    typeset ret=$?
+    rvm_error "Error extracting '$1' to '$2'."
+    \rm -rf "${rvm_tmp_path}/rg$$"
+    return $ret
+  }
+)
+
+# Adapted from: https://gist.github.com/4678778
+rubygems_validate_gemfile()
+(
+  gem_file="$1"
+  downloaded_file="${gem_file##*/}"
+  gem__url="${2:-https://d2chzxaqi4y7f8.cloudfront.net/gems/$downloaded_file}"
+  dir_local_copy="${downloaded_file%.gem}--local"
+  dir_remote_copy="${downloaded_file%.gem}-remote"
+
+  mkdir -p "${rvm_tmp_path}/rg$$"
+  cd "${rvm_tmp_path}/rg$$"
+
+  curl -fsS3 "$gem__url" -o "$downloaded_file" &&
+  [[ -f "$downloaded_file" ]] ||
+  {
+    typeset ret=$?
+    rvm_error "Could not download '$gem__url'."
+    \rm -rf "${rvm_tmp_path}/rg$$"
+    return $ret
+  }
+
+  rubygems_validate_gemfile_extract "$gem_file"        "$dir_local_copy"  || return $?
+  rubygems_validate_gemfile_extract "$downloaded_file" "$dir_remote_copy" || return $?
+
+  # compare
+  diff -ru "$dir_local_copy" "$dir_remote_copy"
+
+  # cleanup
+  \rm -rf "${rvm_tmp_path}/rg$$"
+)
+
+rubygems_validate_list_gemdirs()
+{
+  for gemdir in "$@"
+  do
+    while [[ -L "${gemdir}" ]]
+    do gemdir="$( readlink "${gemdir}" )"
+    done
+    echo "${gemdir}"
+  done | sort -u
+}
+
+# Adapted from: https://gist.github.com/4678189
+rubygems_validate()
+{
+  which openssl > /dev/null ||
+    rubygems_fatal_error "'openssl' was not found, please install it."
+
+  typeset gemdir gemfile url gem loc rem log
+  typeset -a gemdirs
+
+  rvm_log  "Validating RubyGems... This will take a while..."
+
+  __rvm_read_lines gemdirs <(
+    rubygems_validate_list_gemdirs "$@"
+  )
+
+  (( ${#gemdirs[@]} )) ||
+  __rvm_read_lines gemdirs <(
+    rubygems_validate_list_gemdirs "$rvm_gems_path"/*/cache
+  )
+
+  for gemdir in "${gemdirs[@]}"
+  do
+    for gem in "$gemdir"/*.gem
+    do
+      gemfile="${gem##*/}"
+      url="https://d2chzxaqi4y7f8.cloudfront.net/gems/$gemfile"
+      printf "%b" "${rvm_notify_clr}${gem}${rvm_reset_clr}"
+
+      loc=$(openssl md5 $gem |cut -d" " -f2)
+      rem=$(curl -3 -s -D - -X HEAD -H 'Connection:close' "$url" | \grep 'ETag' | cut -d'"' -f2)
+
+      [[ $loc == $rem ]] ||
+      {
+        printf "%b" " "
+        log="${rvm_log_path}/$gemfile.diff"
+        rubygems_validate_gemfile "$gem" "$url" > "$log"
+        printf "%b" "${rvm_error_clr}mismatch, local: $loc, remote: $rem${rvm_reset_clr}, differences recorded in '$log'"
+      }
+      printf "%b" ", "
+    done
+  done
+
+  rvm_log "\nDone verifying gems."
+}
+
 #
 # rvm rubygems X
 #
 export version
 version="$1"
+shift
 
 [[ -n "$version" ]] || {
   rvm_error "Usage: rvm rubygems [x.y.z|latest-x.y|latest|remove]"
   exit 1
 }
 
-can_switch_rubygems || does_not_work_with_rubygems
+can_switch_rubygems ||
+rubygems_fatal_error "RVM can not install rubygems for maglev and older jruby, select other ruby and try again." $?
 
 case "$version" in
-  remove|link)
-    rubygems_$version
+  remove|link|validate|validate_gemfile)
+    rubygems_$version "$@"
     ;;
   *)
     rubygems_setup

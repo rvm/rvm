@@ -27,9 +27,6 @@ __rvm_parse_args_find_known_flags()
       (--force|--verbose|--debug|--quiet|--silent|--create)
         export "rvm_${1#--}_flag=1"
         ;;
-      (--clang-ok)
-        export rvm_force_clang_ok=1
-        ;;
       (--only-path)
         _temp_var="${1#--}"
         export "rvm_${_temp_var//-/_}_flag=1"
@@ -48,6 +45,21 @@ __rvm_parse_args_find_known_flags()
         rvm_architectures="${rvm_architectures:-},i386,x86_64"
         rvm_architectures="${rvm_architectures##,}"
         rvm_disable_binary_flag=1
+        ;;
+      (--patches|--patch)
+        export -a rvm_patch_names
+        __rvm_custom_separated_array rvm_patch_names , "${2:-}"
+        rvm_patch_original_pwd="$PWD"
+        rvm_disable_binary_flag=1
+        shift
+        ;;
+      (--autolibs=*)
+        rvm_pretty_print_flag=${rvm_token#--color=}
+        rvm_token="${rvm_token#--}"
+        rvm_token="${rvm_token//-/_}"
+        _string="${rvm_token#*=}"
+        rvm_token="${rvm_token%%=*}"
+        export "rvm_${rvm_token}_flag=${_string}"
         ;;
       (--)
         shift
@@ -199,14 +211,14 @@ __rvm_parse_args()
             ;;
 
           gem|rake|ruby)
-            if
-              [[ "$rvm_token" == "ruby" ]] &&
-              [[ "$rvm_action" == "install" || "$rvm_action" == "use" ]]
-            then
-              rvm_ruby_string=ruby
-              rvm_ruby_strings=ruby
-              continue
-            fi
+            [[ "$rvm_token" == "ruby" ]] &&
+            case $rvm_action in
+              install|reinstall|use|remove)
+                rvm_ruby_string=ruby
+                rvm_ruby_strings=ruby
+                continue
+              ;;
+            esac
             # deprecated 2011.10.11 for RVM 1.9.0, removed 2012.09.13 for RVM 1.16.0
             rvm_action=error
             rvm_error_message="Please note that \`rvm $rvm_token ...\` was removed, try \`$rvm_token $next_token $*\` or \`rvm all do $rvm_token $next_token $*\` instead."
@@ -241,8 +253,9 @@ __rvm_parse_args()
             rvm_remove_flag=1
             ;;
 
-          rtfm|RTFM|rvmrc|usage|help|inspect|list|ls|info|strings|get|current|docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|upgrade|cron|group|switch|which|config-get|requirements)
+          rtfm|RTFM|rvmrc|usage|help|inspect|list|ls|info|strings|get|current|docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|downgrade|upgrade|cron|group|switch|which|config-get|requirements|autolibs)
             case "$rvm_token" in
+              (downgrade) rvm_action="upgrade" ;;
               (ls)    rvm_action="list" ;;
               (usage) rvm_action="help" ;;
               (RTFM)  rvm_action="rtfm" ;;
@@ -351,7 +364,7 @@ __rvm_parse_args()
             rvm_ruby_strings="$rvm_token"
             ;;
 
-          opal*|jruby*|ree*|kiji*|macruby*|rbx*|rubinius*|goruby|mruby|ironruby*|default*|maglev*|tcs*|jamesgolick*|ruby*|system|default|all)
+          opal*|jruby*|ree*|kiji*|macruby*|rbx*|rubinius*|goruby|mruby|ironruby*|default*|maglev*|topaz*|tcs*|jamesgolick*|ruby*|system|default|all)
             rvm_action="${rvm_action:-use}"
             case "$rvm_token" in
               (rubinius) rvm_token="rbx" ;;
@@ -481,7 +494,7 @@ __rvm_parse_args()
                 "${next_token:-}" =~ ":"
               ]]
             do
-              rvm_ruby_args=("$next_token" "${rvm_ruby_args[@]}")
+              rvm_ruby_args=("${rvm_ruby_args[@]}" "$next_token")
               next_token="${1:-}"
               (( $# == 0 )) || shift
             done
@@ -619,6 +632,15 @@ __rvm_parse_args()
             rvm_install_on_use_flag=1
             ;;
 
+          --autolibs=*)
+            rvm_pretty_print_flag=${rvm_token#--color=}
+            rvm_token="${rvm_token#--}"
+            rvm_token="${rvm_token//-/_}"
+            _string="${rvm_token#*=}"
+            rvm_token="${rvm_token%%=*}"
+            export "rvm_${rvm_token}_flag=${_string}"
+            ;;
+
           --color=*)
             rvm_pretty_print_flag=${rvm_token#--color=}
             ;;
@@ -646,10 +668,23 @@ __rvm_parse_args()
             export "rvm_${rvm_token}_flag"=1
             ;;
 
-          --self|--gem|--rubygems|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--cron|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--force-autoconf|--auto|--autoinstall-bundler|--disable-binary|--ignore-gemsets|--skip-gemsets|--debug|--quiet|--silent|--skip-openssl|--fuzzy)
+          --self|--gem|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--cron|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--force-autoconf|--auto-dotfiles|--autoinstall-bundler|--disable-binary|--ignore-gemsets|--skip-gemsets|--debug|--quiet|--silent|--skip-openssl|--fuzzy)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
             export "rvm_${rvm_token}_flag"=1
+            ;;
+
+          --auto)
+            export "rvm_auto_dotfiles_flag"=1
+            rvm_warn "Warning, --auto is deprecated in favor of --auto-dotfiles."
+            ;;
+
+          --rubygems)
+            rvm_token=${rvm_token#--}
+            rvm_token=${rvm_token//-/_}
+            export "rvm_${rvm_token}_version"="$next_token"
+            next_token="${1:-}"
+            (( $# == 0 )) || shift
             ;;
 
           --dump-environment|--verify-downloads)
@@ -661,7 +696,7 @@ __rvm_parse_args()
             ;;
 
           --clang)
-            rvm_configure_flags+=( --with-gcc=clang )
+            export CC=clang
             #TODO: ??? rvm_disable_binary_flag=1
             ;;
 
@@ -714,7 +749,7 @@ __rvm_parse_args()
 
           --movable)
             rvm_make_flags+=( -j3 )
-            rvm_configure_flags+=( --enable-shared --enable-load-relative --sysconfdir=/etc )
+            rvm_configure_flags+=( --enable-load-relative --sysconfdir=/etc )
             rvm_disable_binary_flag=1
             ;;
 
@@ -778,17 +813,26 @@ __rvm_parse_args()
   fi
 }
 
-__rvm_manage_wrapper()
+__rvm_run_wrapper()
 ( # ( = subprocess
-  action="${1:-}"
-  shift
+  file="$1"
+  action="${2:-}"
+  shift 2
   rubies_string="${1:-}"
+  export -a args
   args=( $@ )
-  source "$rvm_scripts_path"/manage
+  source "$rvm_scripts_path"/$file
 )
 
 rvm()
 {
+  if
+    __rvm_has_opt "posix"
+  then
+    echo "RVM can not be run with \`set -o posix\`, please turn it off and try again."
+    return 100
+  fi
+
   typeset result current_result
   export -a rvm_ruby_args >/dev/null 2>/dev/null
   rvm_ruby_args=()
@@ -945,8 +989,12 @@ Please do one of the following:
       "$rvm_scripts_path/${rvm_action}" "${rvm_ruby_args[@]}"
       ;;
 
-    cleanup|tools|snapshot|disk-usage|repair|alias|docs|rubygems|migrate|upgrade|cron|group)
+    cleanup|tools|snapshot|disk-usage|repair|alias|docs|rubygems|migrate|cron|group)
       __rvm_run_script "$rvm_action" "${rvm_ruby_args[@]}"
+      ;;
+
+    autolibs|upgrade)  # file          action
+      __rvm_run_wrapper "$rvm_action" "$rvm_action" "${rvm_ruby_args[@]}"
       ;;
 
     wrapper)
@@ -1010,8 +1058,7 @@ Please do one of the following:
               [[ "${GEM_HOME:-""}" == "${GEM_HOME%%${rvm_gemset_separator:-@}*}${rvm_gemset_separator:-@}${rvm_gemset_name}" ]]
             then
               rvm_delete_flag=0
-              rvm_ruby_string="@default"
-              __rvm_use
+              __rvm_use "@default"
             fi
             unset gem_prefix
           elif
@@ -1022,8 +1069,7 @@ Please do one of the following:
             if
               [[ "${GEM_HOME:-""}" == "${GEM_HOME%%${rvm_gemset_separator:-@}*}${rvm_gemset_separator:-@}${_from}" ]]
             then
-              rvm_ruby_string="@${_to}"
-              __rvm_use
+              __rvm_use "@${_to}"
             fi
           fi
         fi
@@ -1042,17 +1088,16 @@ Please do one of the following:
     remove)
       export rvm_path
       if [[ -n "${rvm_ruby_strings}" ]]
-      then __rvm_manage_wrapper "$rvm_action" "${rvm_ruby_strings//*-- }"
-      else __rvm_manage_wrapper "$rvm_action"
+      then __rvm_run_wrapper manage "$rvm_action" "${rvm_ruby_strings//*-- }"
+      else __rvm_run_wrapper manage "$rvm_action"
       fi
-      rvm_ruby_string=default
-      __rvm_use
+      __rvm_use default
       ;;
     fetch|uninstall|reinstall)
       export rvm_path
       if [[ -n "${rvm_ruby_strings}" ]]
-      then __rvm_manage_wrapper "$rvm_action" "${rvm_ruby_strings//*-- }"
-      else __rvm_manage_wrapper "$rvm_action"
+      then __rvm_run_wrapper manage "$rvm_action" "${rvm_ruby_strings//*-- }"
+      else __rvm_run_wrapper manage "$rvm_action"
       fi
       ;;
     try_install|install)
@@ -1076,13 +1121,7 @@ To reinstall use:
     rvm reinstall ${rvm_ruby_strings}
 "
         else
-          if
-            [[ $(find $rvm_rubies_path -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l) -eq 0 ]] &&
-            rvm_is_a_shell_function no_warning
-          then
-            "$rvm_scripts_path"/requirements run force ${rvm_ruby_strings}
-          fi
-          __rvm_manage_wrapper install "${rvm_ruby_strings}"
+          __rvm_run_wrapper manage install "${rvm_ruby_strings}"
         fi
       else
         rvm_error "Can not use or install 'all' rubies."
@@ -1091,7 +1130,10 @@ To reinstall use:
       ;;
 
     mount|automount|prepare)
-      "${rvm_scripts_path}/external" "$rvm_action" "$rvm_ruby_string" "${rvm_ruby_args[@]}"
+      if [[ -n "$rvm_ruby_string" ]]
+      then rvm_ruby_args=( "$rvm_ruby_string" "${rvm_ruby_args[@]}" )
+      fi
+      "${rvm_scripts_path}/external" "$rvm_action" "${rvm_ruby_args[@]}"
       ;;
 
     export)

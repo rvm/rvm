@@ -18,21 +18,40 @@ PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${
 set -o errtrace
 set -o errexit
 
-log()  { printf "%b\n" "$*" ; return $? ;  }
+log()  { printf "%b\n" "$*"; }
 
 fail() { log "\nERROR: $*\n" ; exit 1 ; }
 
-if [[ -z "${rvm_tar_command:-}" ]] && builtin command -v gtar >/dev/null
+if
+  [[ -z "${rvm_tar_command:-}" ]] && builtin command -v gtar >/dev/null
 then
   rvm_tar_command=gtar
+elif
+  ${rvm_tar_command:-tar} --help 2>&1 | GREP_OPTIONS="" \grep -- --strip-components >/dev/null
+then
+  rvm_tar_command="${rvm_tar_command:-tar}"
 else
-  rvm_tar_command=tar
+  case "$(uname)" in
+    (OpenBSD)
+      log "Trying to install GNU version of tar, might require sudo password"
+      if (( UID ))
+      then sudo pkg_add -z gtar-1
+      else pkg_add -z gtar-1
+      fi
+      rvm_tar_command=gtar
+      ;;
+    (Darwin|FreeBSD) # it's not possible to autodetect on OSX, the help/man does not mention all flags
+      rvm_tar_command=tar
+      ;;
+  esac
+  builtin command -v ${rvm_tar_command:-gtar} >/dev/null ||
+  fail "Could not find GNU compatible version of 'tar' command, make sure it's available first before continuing installation."
 fi
-if [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] && \
+if
+  [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
   $rvm_tar_command --help 2>&1 | GREP_OPTIONS="" \grep -- --no-same-owner >/dev/null
 then
-  rvm_tar_options="${rvm_tar_options:-} --no-same-owner"
-  rvm_tar_options="${rvm_tar_options## }"
+  rvm_tar_options="${rvm_tar_options:-}${rvm_tar_options:+ }--no-same-owner"
 fi
 
 usage()
@@ -45,7 +64,7 @@ Usage
 
 Options
 
-  [[--]version] <latest|latest-x|latest-x.y|x.y.z> - Install RVM version
+  [[--]version] <latest|latest-minor|latest-x|latest-x.y|x.y.z> - Install RVM version
   [--]branch    <name> - Install RVM head, from named branch
   --trace              - used to debug the installer script
 
@@ -115,12 +134,12 @@ install_head()
   esac
   log "Downloading RVM from ${_repo} branch ${_branch}"
   get_and_unpack \
-    https://github.com/wayneeseguin/rvm/archive/${_branch}.tar.gz \
+    https://github.com/${_repo}/rvm/archive/${_branch}.tar.gz \
     ${_repo}-rvm-${_branch//\//_}.tgz
 }
 
 # duplication marker dfkjdjngdfjngjcszncv
-# Drop in cd which _desotn't_ respect cdpath
+# Drop in cd which _doesn't_ respect cdpath
 __rvm_cd()
 {
     typeset old_cdpath ret
@@ -141,12 +160,23 @@ get_and_unpack()
   curl -L ${_url} -o ${rvm_archives_path}/${_file} ||
   {
     _return=$?
-    case $ret in
+    case $_return in
+      # duplication marker lfdgzkngdkjvnfjknkjvcnbjkncvjxbn
       (60)
         log "
 Could not download '${_url}'.
   Make sure your certificates are up to date as described above.
   To continue in insecure mode run 'echo insecure >> ~/.curlrc'.
+"
+        ;;
+      # duplication marker lfdgzkngdkjvnfjknkjvcnbjkncvjxbn
+      (77)
+        log "
+It looks like you have old certificates, run:
+
+    curl -O http://curl.haxx.se/ca/cacert.pem && sudo mv cacert.pem /usr/local/etc/openssl/cacert.pem
+
+Replace /usr/local/etc/openssl/cacert.pem with the displayed CAfile.
 "
         ;;
       (*)
@@ -230,6 +260,7 @@ fi
 
 install_rubies=()
 install_gems=()
+flags=()
 # Parse CLI arguments.
 while (( $# > 0 ))
 do
@@ -240,6 +271,12 @@ do
     --trace)
       set -o xtrace
       rvm_trace_flag=1
+      flags+=( "$token" )
+      ;;
+
+    --debug)
+      rvm_debug_flag=1
+      flags+=( "$token" )
       ;;
 
     --path)
@@ -263,11 +300,17 @@ do
       fi
       ;;
 
-    --user-install|--auto-dotfiles|--ignore-dotfiles)
+    --user-install|--ignore-dotfiles)
       token=${token#--}
       token=${token//-/_}
       export "rvm_${token}_flag"=1
       printf "%b" "Turning on ${token/_/ } mode.\n"
+      ;;
+
+    --auto-dotfiles)
+      flags+=( "$token" )
+      export "rvm_auto_dotfiles_flag"=1
+      printf "%b" "Turning on auto dotfiles mode.\n"
       ;;
 
     --auto)
@@ -275,12 +318,29 @@ do
       printf "%b" "Warning, --auto is deprecated in favor of --auto-dotfiles.\n"
       ;;
 
+    --verify-downloads)
+      if [[ -n "${1:-}" ]]
+      then
+        export rvm_verify_downloads_flag="$1"
+        shift
+      else
+        fail "--verify-downloads must be followed by level(0|1|2)."
+      fi
+      ;;
+
+    --autolibs=*)
+      flags+=( "$token" )
+      export rvm_autolibs_flag="${token#--autolibs=}"
+      ;;
+
     --with-gems=*)
+      flags+=( "$token" )
       export rvm_with_gems="${token#--with-gems=}"
       printf "%b" "Installing RVM with gems: ${rvm_with_gems}.\n"
       ;;
 
     --without-gems=*)
+      flags+=( "$token" )
       export rvm_without_gems="${token#--without-gems=}"
       printf "%b" "Installing RVM without gems: ${rvm_without_gems}.\n"
       ;;
@@ -323,6 +383,7 @@ do
       ;;
 
     (--add-to-rvm-group)
+      flags+=( "$token" )
       export rvm_add_users_to_rvm_group="$1"
       shift
       ;;
@@ -410,6 +471,12 @@ case "${version}" in
     install_release $(fetch_version "") || exit $?
     ;;
 
+  (latest-minor)
+    echo "${version}" > "$rvm_path/RELEASE"
+    version="$(cat "$rvm_path/VERSION")"
+    install_release $(fetch_version "${version%.*}") || exit $?
+    ;;
+
   (latest-*)
     echo "${version}" > "$rvm_path/RELEASE"
     install_release $(fetch_version "${version#latest-}") || exit $?
@@ -426,31 +493,7 @@ case "${version}" in
 esac
 
 # required flag - path to install
-flags=( --path "$rvm_path" )
-
-if (( rvm_trace_flag == 1 ))
-then flags+=("--trace")
-fi
-
-if (( rvm_debug_flag == 1 ))
-then flags+=("--debug")
-fi
-
-if (( rvm_auto_dotfiles_flag == 1 ))
-then flags+=("--auto-dotfiles")
-fi
-
-if [[ -n "${rvm_with_gems:-}" ]]
-then flags+=("--with-gems=${rvm_with_gems}")
-fi
-
-if [[ -n "${rvm_without_gems:-}" ]]
-then flags+=("--without-gems=${rvm_without_gems}")
-fi
-
-if [[ -n "${rvm_add_users_to_rvm_group:-}" ]]
-then flags+=(--add-to-rvm-group "${rvm_add_users_to_rvm_group}")
-fi
+flags+=( --path "$rvm_path" )
 
 chmod +x ./scripts/install
 ./scripts/install "${flags[@]}"
@@ -463,20 +506,17 @@ then
     __rvm_version
 
     for _ruby in ${install_rubies[@]}
-    do
-      rvm requirements run force ${_ruby}
-      command rvm install ${_ruby} -j 2
+    do command rvm install ${_ruby} -j 2
     done
+    # set the first one as default, skip rest
     for _ruby in ${install_rubies[@]}
     do
-      # set the first one as default, skip rest
       rvm alias create default ${_ruby}
       break
     done
 
     for _gem in ${install_gems[@]}
-    do
-      rvm all do gem install ${_gem}
+    do rvm all do gem install ${_gem}
     done
 
     printf "%b" "

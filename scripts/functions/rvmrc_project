@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+
+# Checks the rvmrc for the given directory. Note that if
+# argument is passed, it will be used instead of pwd.
+__rvm_project_rvmrc()
+{
+  export __rvm_project_rvmrc_lock
+  : __rvm_project_rvmrc_lock:${__rvm_project_rvmrc_lock:=0}
+  : __rvm_project_rvmrc_lock:$((__rvm_project_rvmrc_lock+=1))
+  if (( __rvm_project_rvmrc_lock > 1 ))
+  then return 0 # no nesting
+  fi
+
+  typeset working_dir found_file rvm_trustworthiness_result save_PATH
+
+  # Get the first argument or the pwd.
+  working_dir="${1:-"$PWD"}"
+  save_PATH="${PATH}"
+
+  while :
+  do
+    if
+      [[ -z "$working_dir" || "$HOME" == "$working_dir" || "${rvm_prefix:-}" == "$working_dir"  || "/" == "$working_dir" ]]
+    then
+      if
+        [[ -n "${rvm_current_rvmrc:-""}" ]]
+      then
+        __rvm_remove_rvm_from_path
+        __rvm_conditionally_add_bin_path
+        if
+          (( ${rvm_project_rvmrc_default:-0} == 1 ))
+        then
+          __rvm_load_environment "default"
+        elif
+          [[ -n "${rvm_previous_environment:-""}" ]]
+        then
+          __rvm_load_environment "$rvm_previous_environment"
+        fi
+        unset rvm_current_rvmrc rvm_previous_environment
+      fi
+      break
+    else
+      if
+        __rvm_project_dir_check "$working_dir" found_file
+      then
+        if
+          [[ "${rvm_current_rvmrc:-""}" != "${found_file}" ]]
+        then
+          __rvm_conditionally_do_with_env __rvm_load_project_config "${found_file}" ||
+          {
+            rvm_trustworthiness_result=$?
+            PATH="${save_PATH}" # restore PATH if project file load failed
+            unset __rvm_project_rvmrc_lock
+            return "$rvm_trustworthiness_result"
+          }
+        fi
+        break
+      else
+        working_dir="$(dirname "$working_dir")"
+      fi
+    fi
+  done
+
+  unset __rvm_project_rvmrc_lock
+  return 1
+}
+
+__rvm_load_project_config()
+{
+  typeset __gemfile
+  : rvm_autoinstall_bundler_flag:${rvm_autoinstall_bundler_flag:=0}
+  case "$1" in
+    (*/.rvmrc)
+      __rvmrc_warning_display_for_rvmrc "$1"
+
+      if __rvm_check_rvmrc_trustworthiness "$1"
+      then
+        __rvm_remove_rvm_from_path ; __rvm_conditionally_add_bin_path
+        rvm_previous_environment="$(__rvm_env_string)"
+        rvm_current_rvmrc="$1"
+        __rvm_ensure_is_a_function
+
+        rvm_action=use source "$1"
+
+      else return $?
+      fi
+      ;;
+
+    (*/.versions.conf)
+      typeset _gem _gem_names _bundle_install
+      __rvm_ensure_is_a_function
+      rvm_previous_environment="$(__rvm_env_string)"
+      rvm_current_rvmrc="$1"
+
+      rvm_ruby_string="$(sed -n '/^ruby=/ {s/ruby=//;p;}' < "$1")"
+      [[ -n "${rvm_ruby_string}" ]] || return 2
+      rvm_gemset_name="$(sed -n '/^ruby-gemset=/ {s/ruby-gemset=//;p;}' < "$1")"
+      rvm_create_flag=1 __rvm_use   || return 3
+      # TODO: read env.* # how to sanitize ?
+
+      _gem_names="$(sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' < "$1")"
+      for _gem in ${_gem_names//,/ }
+      do
+        # TODO: add support for versions
+        if ! gem list | GREP_OPTIONS="" \grep "^${_gem} " > /dev/null
+        then gem install "${_gem}"
+        fi
+      done
+
+      _bundle_install="$(sed -n '/^ruby-bundle-install=/ {s/ruby-bundle-install=//;p;}' < "$1")"
+      if [[ -n "${_bundle_install}" ]] || [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
+      then
+        if [[ "${_bundle_install}" == true ]] # prevent file named true for Gemfile
+        then __gemfile="$(dirname $1)/Gemfile"
+
+        elif [[ -f "${_bundle_install}" ]]
+        then __gemfile="${_bundle_install}"
+
+        elif [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
+        then __gemfile="$(dirname $1)/Gemfile"
+
+        fi
+      fi
+      ;;
+
+    (*/Gemfile)
+      __rvm_ensure_is_a_function
+      rvm_previous_environment="$(__rvm_env_string)"
+      rvm_current_rvmrc="$1"
+
+      rvm_ruby_string="$(sed -n '/^#ruby=/ {s/#ruby=//;p;}' < "$1")"
+      [[ -n "${rvm_ruby_string}" ]] || {
+        rvm_ruby_string="$(sed -n "s/ rescue nil$//; /^\s*ruby/ {s/^\s*ruby//; s/[ ()'\"]//g; p;}" < "$1")"
+        [[ -n "${rvm_ruby_string}" ]] || return 2
+      } #'
+      rvm_gemset_name="$(sed -n '/^#ruby-gemset=/ {s/#ruby-gemset=//;p;}' < "$1")"
+      __rvmrc_warning_display_for_Gemfile "$1"
+
+      rvm_create_flag=1 __rvm_use   || return 3
+
+      # TODO: read #env.* # how to sanitize ?
+
+      if [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
+      then
+        __gemfile="$1"
+        gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null ||
+          gem install bundler
+      fi
+      ;;
+
+    (*/.ruby-version|*/.rbfu-version|*/.rbenv-version)
+      __rvm_ensure_is_a_function
+      rvm_previous_environment="$(__rvm_env_string)"
+      rvm_current_rvmrc="$1"
+
+      rvm_ruby_string="$(cat "$1")"
+      [[ -n "${rvm_ruby_string}" ]] || return 2
+      if [[ -f "$(dirname $1)/.ruby-gemset" ]]
+      then
+        rvm_gemset_name="$(cat "$(dirname $1)/.ruby-gemset")"
+      fi
+      rvm_create_flag=1 __rvm_use   || return 3
+      # "$(dirname $1)/.rbenv-vars" ... can we support those without licensing ?
+
+      if [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "$(dirname $1)/Gemfile" ]]
+      then
+        if ! gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null
+        then
+          gem install "bundler"
+        fi
+        __gemfile="$(dirname $1)/Gemfile"
+      fi
+      ;;
+
+    (*)
+      rvm_error "Unsupported file format for '$1'"
+      return 1
+      ;;
+  esac
+
+  if [[ -n "${__gemfile:-}" && -f "${__gemfile:-}" ]]
+  then bundle install --gemfile="${__gemfile}" | GREP_OPTIONS="" \grep -vE '^Using|Your bundle is complete'
+  fi
+}
+
+__rvm_project_dir_check()
+{
+  typeset _found_file path_to_check variable variable_default
+  typeset -a _valid_files
+  path_to_check="$1"
+  variable="${2:-}"
+  variable_default="${3:-}"
+  _valid_files=(
+    "$path_to_check"
+    "$path_to_check/.rvmrc" "$path_to_check/.versions.conf" "$path_to_check/.ruby-version"
+    "$path_to_check/.rbfu-version" "$path_to_check/.rbenv-version" "$path_to_check/Gemfile"
+  )
+
+  __rvm_find_first_file _found_file "${_valid_files[@]}" || true
+
+  if [[ "${_found_file##*/}" == "Gemfile" ]]
+  then
+    [[ -s "$_found_file" ]] && {
+      GREP_OPTIONS="" \grep "^#ruby="  "$_found_file" >/dev/null ||
+      GREP_OPTIONS="" \grep "^\s*ruby" "$_found_file" >/dev/null
+    } ||
+      _found_file=""
+  fi
+
+  if [[ -n "$variable" ]]
+  then eval "$variable=\"\${_found_file:-$variable_default}\""
+  fi
+
+  [[ -n "${_found_file:-$variable_default}" ]] || return $?
+}

@@ -1,9 +1,9 @@
 
-∴ rvm cleanup {all,archives,repos,sources,logs}
+∴ rvm cleanup {all,archives,repos,sources,logs,gemsets,links}
 
 Performs general cleanup for the specific set of rvm directories.
 
-Useful for reclaiming used disk space from rvm compiles
+Useful for reclaiming used disk space from rvm compiles.
 
 Examples:
 

@@ -10,11 +10,6 @@ then
   rvm_ruby_gem_home="$(gem env home)"
 fi
 
-usage()
-{
-  cat -v "${rvm_help_path}/gemset"
-}
-
 gemset_list_all()
 {
   for rvm_ruby_string in $( rvm_project_rvmrc=0 rvm list strings )
@@ -90,7 +85,7 @@ gemset_globalcache()
         && "$(readlink "$current_cache_path")" == "$rvm_gems_cache_path" ]]
       then
         rvm_log "Reverting the gem cache for $directory_name to an empty directory."
-        rm -f "$current_cache_path" 2>/dev/null
+        \rm -f "$current_cache_path" 2>/dev/null
         mkdir -p "$current_cache_path" 2>/dev/null
       fi
     done
@@ -109,7 +104,7 @@ gemset_globalcache()
       if [[ -d "$current_cache_path" && ! -L "$current_cache_path" ]]
       then
         rvm_log "Moving the gem cache for $directory_name to the global cache."
-        mv "$current_cache_path/"*.gem "$rvm_gems_cache_path/" 2>/dev/null
+        \mv "$current_cache_path/"*.gem "$rvm_gems_cache_path/" 2>/dev/null
         case "${current_cache_path%\/}" in
           *cache)
             __rvm_rm_rf "$current_cache_path"
@@ -183,17 +178,16 @@ gemset_create()
       if
         [[ -d "$gem_home/cache" && ! -L "$gem_home/cache" ]]
       then
-        mv "$gem_home/cache"/*.gem "$rvm_gems_cache_path/" 2>/dev/null
+        \mv "$gem_home/cache"/*.gem "$rvm_gems_cache_path/" 2>/dev/null
         __rvm_rm_rf "$gem_home/cache"
       fi
       ln -fs "$rvm_gems_cache_path" "$gem_home/cache"
     fi
     if
       (
-        rvm_ruby_string="$(__rvm_env_string)${rvm_gemset_separator:-"@"}${gemset}"
         rvm_create_flag=1
         rvm_verbose_flag=0
-        __rvm_select
+        __rvm_select "$(__rvm_env_string)${rvm_gemset_separator:-"@"}${gemset}"
       )
     then
       rvm_log "gemset created $gemset\t=> $gem_home"
@@ -273,18 +267,22 @@ gemset_delete_task()
   ruby_at_gemset=$2
   gemdir=$3
 
+  case $(uname) in
+    (OpenBSD|FreeBSD)
+      # will not find broken links
+      find "${rvm_bin_path:=$rvm_path/bin}" -name \*${ruby_at_gemset} -delete
+      find -L "${rvm_bin_path:=$rvm_path/bin}" -name \*${ruby_at_gemset} -delete
+      ;;
+    (*)
+      find "${rvm_bin_path:=$rvm_path/bin}" \( -name \*${ruby_at_gemset} -or -lname \*${ruby_at_gemset}/\* \) -delete
+      ;;
+  esac
+  for item in $( $rvm_scripts_path/alias search_by_target ${ruby_at_gemset} )
+  do
+    $rvm_scripts_path/alias delete ${item}
+  done
   __rvm_rm_rf "$gemdir" &&
-  if [[ -L "$gemdir/cache" ]]
-  then rm -f "$gemdir/cache"
-  fi &&
-  (
-    for item in $( $rvm_scripts_path/alias search_by_target ${ruby_at_gemset} )
-    do
-      $rvm_scripts_path/alias delete ${item}
-    done
-    find "${rvm_bin_path:=$rvm_path/bin}" \( -name \*${ruby_at_gemset} -or -lname \*${ruby_at_gemset}/\* \) -delete
-  ) &&
-  rm -rf "${rvm_wrappers_path:="$rvm_path/wrappers"}/${ruby_at_gemset}"
+  __rvm_rm_rf "${rvm_wrappers_path:="$rvm_path/wrappers"}/${ruby_at_gemset}"
 }
 
 gemset_delete()
@@ -428,11 +426,11 @@ gemset_copy()
       if
         [[ -d "$source_path/$dir" ]]
       then
-        cp -Rf "$source_path/$dir" "$destination_path/"
+        \cp -Rf "$source_path/$dir" "$destination_path/"
       elif
         [[ -L "$source_path/$dir" ]]
       then
-        cp "$source_path/$dir" "$destination_path/$dir"
+        \cp "$source_path/$dir" "$destination_path/$dir"
       else
         if
           [[ -f "$source_path/$dir" ]]
@@ -444,8 +442,7 @@ gemset_copy()
         mkdir -p "$destination_path/$dir"
       fi
     done
-    rvm_log "Making gemset for $destination_ruby pristine."
-    __rvm_run_with_env "gemset.pristine" "$destination_ruby" "rvm gemset pristine"
+    __rvm_gemset_pristine "$destination_ruby"
   else
     rvm_error "Gems directory does not exist for $source_path ($source_path)"
     return 1
@@ -480,8 +477,8 @@ gemset_rename()
     if
       [[ ! -d "$destination_path" ]]
     then
-      __rvm_log_command "gemset.rename" "Renaming gemset ${source_path##*/} => ${destination_path##*/}" mv "$source_path" "$destination_path"
-      __rvm_run_with_env "gemset.pristine" "${destination_path##*/}" "rvm gemset pristine" "Making gemset ${destination_path##*/} pristine."
+      __rvm_log_command "gemset.rename" "Renaming gemset ${source_path##*/} => ${destination_path##*/}" \mv "$source_path" "$destination_path"
+      __rvm_gemset_pristine "${destination_path##*/}"
     else
       rvm_error "Gemset $destination_name already exists!"
       return 1
@@ -539,7 +536,7 @@ gemset_export()
   fi
   rvm_log "Exporting current environments gemset to $rvm_file_name"
   if [[ -f "$rvm_file_name" ]]
-  then rm -f "$rvm_file_name"
+  then \rm -f "$rvm_file_name"
   fi
   if
     [[ "${rvm_file_name}" =~ Gemfile ]]
@@ -742,7 +739,7 @@ gem_install()
         if [[ -s "$(__rvm_current_gemcache_dir)/$(basename $gem_file_name)" ]]
         then
           mkdir -p "${rvm_tmp_path}/$$/"
-          mv "$(__rvm_current_gemcache_dir)/$gem_file_name" "${rvm_tmp_path}/$$/$gem_file_name"
+          \mv "$(__rvm_current_gemcache_dir)/$gem_file_name" "${rvm_tmp_path}/$$/$gem_file_name"
           gem="${rvm_tmp_path}/$$/$gem_file_name -f -l"
         else
           gem="$cache_file"
@@ -819,7 +816,7 @@ gemset_prune()
     if
       [[ -f "$cached_file_path" ]]
     then
-      mv "$cached_file_path" "${temporary_cache_path}/${cached_gem_name}"
+      \mv "$cached_file_path" "${temporary_cache_path}/${cached_gem_name}"
     fi
   done < <(
     GEM_PATH="$GEM_HOME" __rvm_list_gems
@@ -827,7 +824,7 @@ gemset_prune()
   rvm_log "Removing live cache and restoring temporary cache..."
   # Switch the cache back.
   __rvm_rm_rf "$live_cache_path"
-  mv "$temporary_cache_path" "$live_cache_path"
+  \mv "$temporary_cache_path" "$live_cache_path"
   return 0
 }
 
@@ -1038,11 +1035,10 @@ case "$action" in
     search "$@"
     ;;
   help)
-    usage
-    exit 0
+    rvm_help gemset
     ;;
   *)
-    usage
+    rvm_error_help "Unknown subcommand '$action'" gemset
     exit 1
     ;;
 esac

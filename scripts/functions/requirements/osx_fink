@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+
+requirements_fink_lib_installed()
+{
+  fink list -i "^${1}$" || return $?
+}
+
+requirements_fink_libs_install()
+{
+  fink install "$@" || return $?
+}
+
+requirements_fink_libs_ensure()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages fink "$@" ||
+  {
+    typeset ret=$?
+    # FIXME: how to install fink / gcc-4.2
+    # fink install gcc4.2
+    rvm_warn "There were package installation errors, make sure to read the log."
+    return $ret
+  }
+}
+
+requirements_fink_libs_configure()
+{
+  typeset package fink_lib fink_lib_prefix
+  package="$1"
+  shift
+
+  for fink_lib
+  do
+    if
+      # FIXME: how to find out package paths
+      fink_lib_prefix="$( fink --prefix "${fink_lib}" 2>/dev/null )" &&
+      [[ -n "${fink_lib_prefix}" && -d "${fink_lib_prefix}" ]]
+    then
+      __rvm_update_configure_opt_dir "${package}" "${fink_lib_prefix}"
+    fi
+  done
+}
+
+requirements_fink_libs_default()
+{
+  typeset -a fink_libs fink_libs_conf
+  # FIXME: what packages are needed for installation
+  fink_libs=(
+    autoconf automake libtool pkg-config
+  )
+  # install gcc-4.2 only if not yet available
+  if
+    __rvm_compiler_is_llvm
+  then
+    fink_libs+=( gcc4.2 )
+  fi
+  fink_libs_conf=(
+    libyaml readline6 readline6-shlibs libxml2 libxslt libksba8 openssl100-dev openssl100-shlibs ca-bundle sqlite3
+  )
+  requirements_fink_libs_ensure "${fink_libs[@]}" "${fink_libs_conf[@]}" || return $?
+  requirements_fink_libs_configure "$1"           "${fink_libs_conf[@]}" || return $?
+}
+
+requirements_fink_install_fink()
+{
+  typeset fink_home
+  if (( UID == 0 ))
+  then fink_home="/usr/local"
+  else fink_home="$HOME/.fink"
+  fi
+  mkdir -p "${fink_home}" || return $?
+  set -o pipefail
+  # FIXME: install fink
+  false | false
+  chmod +x "${fink_home}/bin/fink" # just in case
+  # link to rvm_bin for easy adding to PATH
+  ln -nfs "${fink_home}/bin/fink" "${rvm_bin_path:-$rvm_path/bin}/fink"
+}
+
+requirements_fink_route_install()
+{
+  case "$1" in
+    (update-system)
+      sudo apt-get update || return $?
+      ;;
+    (rvm)
+      # FIXME: requirements for rvm
+      ;;
+    (jruby*)
+      which java >/dev/null 2>&1 || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_fink_libs_ensure node
+      ;;
+    (*)
+      requirements_fink_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_fink_ensure_fink_available()
+{
+  which fink >/dev/null ||
+  {
+    rvm_requiremnts_fail_or_run_action \
+      "Requested installation with fink libs, but fink is not available." \
+      __rvm_log_command fink_install "Installing fink" requirements_fink_install_fink ||
+      return $?
+  }
+}
+
+requirements_fink_ensure_fink_can_install()
+{
+  # only check for 3+ (packages install, enabled)
+  (( rvm_autolibs_flag_number > 2 )) || return 0
+
+  # FIXME: find finks root and check if user can write in there, do we need sudo??
+  # We do need sudo to install fink packages. -- baburdick 2013-02-26
+  typeset __packages_path
+  __packages_path="$(grep -E '^Basepath:' /sw/etc/fink.conf | sed -r 's/Basepath:\s+?(.+)$/\1/')"
+  if
+    [[ -w "${__packages_path%/*}/bin" ]] &&
+    [[ -w "${__packages_path}" || ! -e "${__packages_path}" ]]
+  then
+    rvm_debug "fink seems to be writable"
+  else
+    rvm_error "ERROR: '${__packages_path}' not writable, fix it first!"
+    return 1
+  fi
+}
+
+requirements_osx_fink()
+{
+  requirements_fink_ensure_fink_available   || return $?
+  requirements_fink_ensure_fink_can_install || return $?
+  __rvm_requirements_iterate requirements_fink_route_install "$@" || return $?
+}

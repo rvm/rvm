@@ -41,7 +41,10 @@ __rvm_checksum_read "$url" "$archive"
 
 __rvm_checksum_any || (( ${rvm_verify_downloads_flag:-0} > 0 )) ||
   rvm_fail "There is no checksum for '$url' or '$archive', it's not possible to validate it.
-If you wish to continue with unverified download add '--verify-downloads 1' after the command.
+This could be because your RVM install's list of versions is out of date. You may want to
+update your list of rubies by running 'rvm get stable' and try again.
+If that does not resolve the issue and you wish to continue with unverified download
+add '--verify-downloads 1' after the command.
 "
 
 if
@@ -68,7 +71,7 @@ fi
 if
   (( download > 0 ))
 then
-  rm -f $archive
+  \rm -f $archive
   if
     eval $fetch_command \"$url\"
   then
@@ -82,13 +85,31 @@ then
         ;;
       (18)
         rvm_error "Partial file($result). Only a part of the file was transferred. Removing partial and re-trying."
-        rm -f "$archive"
+        \rm -f "$archive"
         retry=1
         ;;
       (33)
         rvm_debug "Server does not support 'range' command($result), removing '$archive'"
-        rm -f "$archive"
+        \rm -f "$archive"
         retry=1
+        ;;
+      # duplication marker lfdgzkngdkjvnfjknkjvcnbjkncvjxbn
+      (60)
+        log "
+Could not download '${_url}'.
+  Make sure your certificates are up to date as described above.
+  To continue in insecure mode run 'echo insecure >> ~/.curlrc'.
+"
+        ;;
+      # duplication marker lfdgzkngdkjvnfjknkjvcnbjkncvjxbn
+      (77)
+        log "
+It looks like you have old certificates, run:
+
+    curl -O http://curl.haxx.se/ca/cacert.pem && sudo mv cacert.pem /usr/local/etc/openssl/cacert.pem
+
+Replace /usr/local/etc/openssl/cacert.pem with the displayed CAfile.
+"
         ;;
       (*)
         rvm_error "There was an error($result), please check ${rvm_log_path}/$rvm_ruby_string/*.log. Next we'll try to fetch via http."
@@ -136,7 +157,7 @@ else
 If you wish to continue with unverified download add '--verify-downloads 1' after the command.
 "
   else
-    rm -f $archive
+    \rm -f $archive
     rvm_fail "Downloaded archive checksum did not match, archive was removed!
 If you wish to continue with not matching download add '--verify-downloads 2' after the command.
 "
