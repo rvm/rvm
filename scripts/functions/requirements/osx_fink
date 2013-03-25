@@ -105,29 +105,20 @@ requirements_fink_ensure_fink_available()
 {
   which fink >/dev/null ||
   {
-    case "${rvm_autolibs_flag_number}" in
-      (0)
-        rvm_debug "fink is not available - skipping."
-        return 0 # just ignore
-        ;;
-      (1|2)
-        rvm_error "Requested installation with fink libs, but fink is not available."
-        return 1
-        ;;
-      (*) # 3+
-        __rvm_log_command fink_install "Installing fink" \
-          requirements_fink_install_fink ||
-          return $?
-        ;;
-    esac
+    rvm_requiremnts_fail_or_run_action \
+      "Requested installation with fink libs, but fink is not available." \
+      __rvm_log_command fink_install "Installing fink" requirements_fink_install_fink ||
+      return $?
   }
 }
 
 requirements_fink_ensure_fink_can_install()
 {
+  # only check for 3+ (packages install, enabled)
+  (( rvm_autolibs_flag_number > 2 )) || return 0
+
   # FIXME: find finks root and check if user can write in there, do we need sudo??
   # We do need sudo to install fink packages. -- baburdick 2013-02-26
-  (( rvm_autolibs_flag_number > 1 )) || return 0
   typeset __packages_path
   __packages_path="$(grep -E '^Basepath:' /sw/etc/fink.conf | sed -r 's/Basepath:\s+?(.+)$/\1/')"
   if
@@ -135,14 +126,9 @@ requirements_fink_ensure_fink_can_install()
     [[ -w "${__packages_path}" || ! -e "${__packages_path}" ]]
   then
     rvm_debug "fink seems to be writable"
-  elif
-    (( rvm_autolibs_flag_number > 3 ))
-  then
+  else
     rvm_error "ERROR: '${__packages_path}' not writable, fix it first!"
     return 1
-  else
-    rvm_autolibs_flag_number=1
-    rvm_warn "WARN: '${__packages_path}' not writable, no packages will be installed."
   fi
 }
 

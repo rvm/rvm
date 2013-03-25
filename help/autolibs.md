@@ -17,7 +17,7 @@ Support for automatic dependency handling
 
 - `0`, `disable`, `disabled`          - Limit RVM automation as much as possible.
 - `1`, `read`, `read-only`            - Allow RVM to use package manager if found but do not install or fail if dependencies are missing.
-- `2`, `fail`, `read-fail`            - Allow RVM to use package manager if found, fail if dependencies are missing. This is default.
+- `2`, `fail`, `read-fail`            - Allow RVM to use package manager if found, fail if dependencies are missing. This is **default**.
 - `3`, `packages`, `install-packages` - Allow RVM to use package manager if found, install missing dependencies.
 - `4`, `enable`, `enabled`            - Allow RVM to use package manager if found, install missing dependencies, install package manager (only OSX).
 - `brew`, `homebew`, `osx_brew`       - Like `4` but forces use of Homebrew.

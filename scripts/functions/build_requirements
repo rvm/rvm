@@ -1,44 +1,67 @@
 #!/usr/bin/env bash
 
+rvm_requiremnts_fail()
+{
+  rvm_error  "$1
+Cowardly refusing to continue, please read 'rvm autolibs'."
+}
+
+rvm_requiremnts_fail_or_run_action()
+{
+  case "${rvm_autolibs_flag_number}" in
+    (0) rvm_debug "$1" ;;
+    (1) rvm_warn  "$1" ;;
+    (2)
+      rvm_requiremnts_fail "$1"
+      return 1
+      ;;
+    (*)
+      shift
+      "$@" || return $?
+      ;;
+  esac
+  true # for osx
+}
+
+requirements_osx_update_openssl_cert_old() [[
+  "$cert_file" -ot /Library/Keychains/System.keychain ||
+  "$cert_file" -ot /System/Library/Keychains/SystemRootCertificates.keychain
+]]
+
 requirements_osx_update_openssl_cert_run()
 {
-  if # older or missing
-    [[ "$cert_file" -ot /Library/Keychains/System.keychain ]] ||
-    [[ "$cert_file" -ot /System/Library/Keychains/SystemRootCertificates.keychain ]]
-  then
-    rvm_log "Updating certificates in '$cert_file'."
-    security find-certificate -a -p /Library/Keychains/System.keychain > "$cert_file"
-    security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> "$cert_file"
-    "${ssl_binary%/openssl}/c_rehash" "$ssl_dir"
-  else
-    rvm_log "Certificates in '$cert_file' already are up to date."
-  fi
+  rvm_log "Updating certificates in '$cert_file'."
+  security find-certificate -a -p /Library/Keychains/System.keychain > "$cert_file"
+  security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> "$cert_file"
+  "${ssl_binary%/openssl}/c_rehash" "$ssl_dir"
 }
 
 requirements_osx_update_openssl_cert()
 {
   [[ "Darwin" == "$(uname)" ]] || return 0
 
+  case "${rvm_autolibs_flag_number}" in
+    (0)
+      rvm_debug "Skipping update of certificates in '$cert_file'."
+      return 0
+      ;;
+  esac
+
   typeset ssl_binary ssl_dir cert_file
   ssl_binary="${1:-$(which openssl)}"
   ssl_dir="$( "${ssl_binary}" version -d | awk -F'"' '{print $2}' )" #' fix formating
   cert_file="${ssl_dir}/cert.pem"
-  case "${rvm_autolibs_flag_number}" in
-    (0)
-      rvm_debug "Skipping update of certificates in '$cert_file'."
-      ;;
-    (1)
-      rvm_warn  "Skipping update of certificates in '$cert_file'."
-      ;;
-    (2)
-      rvm_error  "Cowardly refusing update certificates in '$cert_file'."
-      # FIXME https://github.com/wayneeseguin/rvm/issues/1655
-      return 1
-      ;;
-    (*)
-      requirements_osx_update_openssl_cert_run
-      ;;
-  esac
+
+  if
+    requirements_osx_update_openssl_cert_old
+  then
+    rvm_requiremnts_fail_or_run_action \
+      "Skipping update of certificates in '$cert_file'." \
+      requirements_osx_update_openssl_cert_run ||
+      return $?
+  else
+    rvm_log "Certificates in '$cert_file' already are up to date."
+  fi
 }
 
 __rvm_requirements_load()
@@ -52,7 +75,7 @@ __rvm_requirements_load()
     [[ -s "$rvm_scripts_path/functions/requirements/$1" ]] ||
     {
       rvm_error "Requirements support for $1 is not implemented yet,
-  report a bug here => https://github.com/wayneeseguin/rvm/issues"
+report a bug here => https://github.com/wayneeseguin/rvm/issues"
       return 1
     }
     source "$rvm_scripts_path/functions/requirements/$1"
@@ -122,8 +145,8 @@ __rvm_filter_installed_package_check()
     packages_installed+=( "$2" )
   else
     case "$rvm_autolibs_flag_number" in
-      (0|1)  packages_missing+=( "$2" ) ;; # just ignore
-      (*) packages_to_install+=( "$2" ) ;; # 2+
+      (0|1|2) packages_missing+=( "$2" ) ;; # just ignore
+      (*)  packages_to_install+=( "$2" ) ;; # 2+
     esac
   fi
 }
@@ -138,10 +161,10 @@ __rvm_filter_installed_packages_summary()
   (( ${#packages_missing[@]} == 0 )) ||
   {
     _list="${packages_missing[*]}"
-    if (( rvm_autolibs_flag_number == 0 ))
-    then rvm_debug "Missing required packages: ${_list// /, }."
-    else rvm_warn "Missing required packages: ${_list// /, }."
-    fi
+    rvm_requiremnts_fail_or_run_action \
+      "Missing required packages: ${_list// /, }." \
+      true ||
+      return $?
   }
 }
 
@@ -168,7 +191,7 @@ __rvm_filter_installed_packages()
   for _package_name
   do __rvm_filter_installed_package_check "${_package_installed_cmd}" "${_package_name}"
   done
-  __rvm_filter_installed_packages_summary
+  __rvm_filter_installed_packages_summary || return $?
   __rvm_filter_installed_packages_install "${_package_install_cmd}"
 }
 
@@ -176,12 +199,17 @@ __rvm_try_sudo()
 {
   typeset -a command_to_run
   command_to_run=()
+  (( UID == 0 )) ||
   case "$rvm_autolibs_flag_number" in
     (0|1)
-      (( UID == 0 )) || return 0 # do not run nothing if it would require sudo
+      return 0 # do not run nothing if it would require sudo
+      ;;
+    (2)
+      rvm_requiremnts_fail "Running '$*' would require sudo."
+      return 1
       ;;
     (*)
-      (( UID == 0 )) || command_to_run+=( sudo )
+      command_to_run+=( sudo )
       ;;
   esac
   "${command_to_run[@]}" "$@"
