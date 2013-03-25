@@ -62,10 +62,11 @@ __rvm_fix_gcc_path()
 
 __rvm_run_compiler()
 {
-  typeset compiler
   if
-    compiler="$( __rvm_found_compiler )"
+    [[ -n "${1:-}" ]]
   then
+    typeset compiler="$1"
+    shift
     if [[ -n "${ZSH_VERSION:-}" ]]
     then ${=compiler} "$@" || return $?
     else ${compiler}  "$@" || return $?
@@ -75,26 +76,31 @@ __rvm_run_compiler()
   fi
 }
 
+__rvm_compiler_is() [[ "$( __rvm_run_compiler "$1" "$2" )" =~ "$3" ]]
+
 __rvm_compiler_is_llvm()
 {
-  __rvm_found_compiler >/dev/null &&
-  [[ "$(__rvm_run_compiler --version)" =~ "llvm" ]] ||
+  typeset compiler
+  compiler="${1:-$( __rvm_found_compiler )}" &&
+  __rvm_compiler_is "$compiler" "-version" llvm ||
   return $?
 }
 
 __rvm_compiler_is_gcc47()
 {
-  __rvm_found_compiler >/dev/null &&
-  [[ "$(__rvm_run_compiler -dumpversion)" =~ "4.7" ]] ||
+  typeset compiler
+  compiler="$( __rvm_found_compiler )" &&
+  __rvm_compiler_is "$compiler" "-dumpversion" "4.7" ||
   return $?
 }
 
 __rvm_compiler_is_gcc46_or_higher()
 {
-  __rvm_found_compiler >/dev/null || return 1
-  typeset __version
-  __version="$(__rvm_run_compiler -dumpversion)"
-  __rvm_version_compare "${__version:-0}" -ge "4.6" || return $?
+  typeset __version compiler
+  compiler="$(  __rvm_found_compiler )" &&
+  __version="$( __rvm_run_compiler "$1" "-dumpversion" )" &&
+  __rvm_version_compare "${__version:-0}" -ge "4.6" ||
+  return $?
 }
 
 __rvm_update_configure_env()
