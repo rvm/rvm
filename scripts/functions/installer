@@ -324,6 +324,34 @@ setup_configuration_files()
   __rvm_cd "${_save_dir}"
 }
 
+configure_autolibs()
+(
+  # remove old version from rvmrc
+  for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
+  do
+    if
+      [[ -s "$rvmrc" ]] &&
+      GREP_OPTIONS="" \grep 'rvm_autolibs_flag=' "$rvmrc" >/dev/null 2>&1
+    then
+      sed '/rvm_autolibs_flag=/ d' < "$rvmrc" > "$rvmrc.new" &&
+      \mv -f "$rvmrc.new" "$rvmrc"
+    fi
+  done
+
+  [[ -n "${rvm_autolibs_flag:-}" ]] || return 0
+
+  # save if proper value
+  source "$rvm_scripts_path/functions/autolibs"
+  if
+    __rvm_autolibs_translate
+  then
+    "$rvm_scripts_path/db" "$rvm_user_path/db" "autolibs" "$rvm_autolibs_flag"
+  else
+    rvm_error "Unknown mode '$rvm_autolibs_flag' for autolibs"
+    return 1
+  fi
+)
+
 ensure_scripts_are_executable()
 {
   files=(
