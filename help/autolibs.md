@@ -20,7 +20,7 @@ Support for automatic dependency handling
 - `2`, `fail`, `read-fail`            - Allow RVM to use package manager if found, fail if dependencies are missing. This is **default**.
 - `3`, `packages`, `install-packages` - Allow RVM to use package manager if found, install missing dependencies.
 - `4`, `enable`, `enabled`            - Allow RVM to use package manager if found, install missing dependencies, install package manager (only OSX).
-- `brew`, `homebew`, `osx_brew`       - Like `4` but forces use of Homebrew.
+- `brew`, `homebrew`, `osx_brew`      - Like `4` but forces use of Homebrew.
 - `port`, `macports`, `osx_port`      - Like `4` but forces use of MacPorts.
 - `fink`, `osx_fink`                  - Like `4` but forces use of Fink.
 - `smf`                               - Like `4` but forces use of SM Framework.
