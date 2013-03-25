@@ -76,19 +76,19 @@ requirements_brew_libs_default_calculate()
   brew_libs=(
     autoconf automake libtool pkg-config
   )
-  case "$1" in
-    (ruby-2*|ruby-head) true ;; # ruby-2.0.0+ is supposed to work with clang
-    (*)
-      # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
-      if
-        ! __rvm_which gcc-4.2 >/dev/null &&
-        __rvm_compiler_is_llvm
-      then
-        brew tap | \grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
-        brew_libs+=( apple-gcc42 )
-      fi
-    ;;
-  esac
+  typeset selected_compiler
+  selected_compiler="$( __rvm_selected_compiler )"
+  if
+    ! __ruby_clang_ok "$1" &&
+    [[ -z "${selected_compiler}" || "${selected_compiler}" =~ "gcc-4.2" ]]
+  then
+    # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
+    __rvm_which gcc-4.2 >/dev/null ||
+    {
+      brew tap | \grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
+      brew_libs+=( apple-gcc42 )
+    }
+  fi
   brew_libs_conf=(
     libyaml readline libxml2 libxslt libksba openssl sqlite
   )
@@ -136,7 +136,7 @@ requirements_brew_install_brew()
   then homebrew_home="/usr/local"
   else homebrew_home="$HOME/.homebrew"
   fi
-  if __rvm_version_compare "$(/usr/bin/sw_vers -productVersion)" -ge 10.5
+  if __rvm_version_compare "${_system_version}" -ge 10.5
   then homebrew_repo="mxcl/homebrew"
   else homebrew_repo="mistydemeo/tigerbrew"
   fi
