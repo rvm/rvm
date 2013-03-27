@@ -12,6 +12,7 @@ git cherry-pick af856f5
 
 ## https://github.com/wayneeseguin/rvm/issues/1724
 git cherry-pick 9ed79bf
+git cherry-pick a02beac
 
 ## https://github.com/wayneeseguin/rvm/pull/1725
 git cherry-pick ...
