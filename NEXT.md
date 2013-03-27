@@ -22,3 +22,6 @@ git cherry-pick 6a342fc -m 1
 
 ## https://github.com/wayneeseguin/rvm/pull/1733
 git cherry-pick b133ee2 -m 1
+
+## https://github.com/wayneeseguin/rvm/issues/1736
+git cherry-pick d9642c3
