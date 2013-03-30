@@ -57,3 +57,4 @@ git cherry-pick 7eb672c -m 1
 
 ## https://github.com/wayneeseguin/rvm/issues/1714
 git cherry-pick 419ff82
+git cherry-pick 0ac26b8
