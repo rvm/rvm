@@ -48,3 +48,6 @@ git cherry-pick de567325
 
 ## fix compiler detections
 git cherry-pick e08e8f8
+
+## https://github.com/wayneeseguin/rvm/issues/1746
+git cherry-pick bdb12a2
