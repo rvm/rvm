@@ -761,7 +761,7 @@ file_exists_at_url()
 __rvm_fix_group_permissions()
 {
   if
-    umask -S | \grep 'g=rw' >/dev/null
+    umask -S | GREP_OPTIONS="" \grep 'g=rw' >/dev/null
   then
     chmod -R g+rwX "$@"
   fi
@@ -787,10 +787,8 @@ __rvm_package_list()
   esac
 }
 
-# params: archive_file [path]
-__rvm_package_extract()
+__rvm_package_extract_run()
 {
-  rvm_debug __rvm_package_extract:$#: "$@"
   [[ -d "$2" ]] || mkdir -p "$2"
   case "$1" in
     *.zip)
@@ -812,7 +810,36 @@ __rvm_package_extract()
       return 199
       ;;
   esac &&
-  __rvm_fix_group_permissions "$2"
+  __rvm_fix_group_permissions "$2"/* ||
+  return $?
+}
+
+# params: archive_file [path]
+__rvm_package_extract()
+{
+  rvm_debug __rvm_package_extract:$#: "$@"
+  typeset __tempdir __path __file __return
+  __return=0
+  __tempdir="$( TMPDIR="${rvm_tmp_path}" mktemp -d -t rvm-tmp.XXXXXXXXX )"
+  __rvm_package_extract_run "$1" "$__tempdir" || __return=$?
+  if
+    (( __return == 0 ))
+  then
+    for __path in "$__tempdir"/*
+    do
+      __file="${__path##*/}"
+      if
+        [[ -n "${__file}" && -e "$2/${__file}" ]]
+      then
+        \rm -rf "$2/${__file}" || __return=$?
+      fi
+      \mv -f "${__path}" "$2/" || __return=$?
+    done
+  fi
+  if [[ -n "$__tempdir" ]]
+  then \rm -rf "$__tempdir"
+  fi
+  return $__return
 }
 
 # params: archive_file [path [path2]]

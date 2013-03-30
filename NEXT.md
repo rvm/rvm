@@ -32,3 +32,22 @@ git cherry-pick 241b3cc
 ## https://github.com/wayneeseguin/rvm/issues/1722
 git cherry-pick 5e0bb5e
 git cherry-pick 9d96bac
+
+## https://github.com/wayneeseguin/rvm/issues/1680
+git cherry-pick 77a88fa
+git cherry-pick 3c53e19
+git cherry-pick 071b8ba
+
+## https://github.com/wayneeseguin/rvm/issues/1743
+git cherry-pick 31cb203
+
+## https://github.com/wayneeseguin/rvm/issues/1720 / 1724
+git cherry-pick 903e4e0d
+git cherry-pick ba05607f
+git cherry-pick de567325
+
+## fix compiler detections
+git cherry-pick e08e8f8
+
+## https://github.com/wayneeseguin/rvm/issues/1746
+git cherry-pick bdb12a2
