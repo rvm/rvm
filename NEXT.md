@@ -40,3 +40,8 @@ git cherry-pick 071b8ba
 
 ## https://github.com/wayneeseguin/rvm/issues/1743
 git cherry-pick 31cb203
+
+## https://github.com/wayneeseguin/rvm/issues/1720 / 1724
+git cherry-pick 903e4e0d
+git cherry-pick ba05607f
+git cherry-pick de567325
