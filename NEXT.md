@@ -45,3 +45,6 @@ git cherry-pick 31cb203
 git cherry-pick 903e4e0d
 git cherry-pick ba05607f
 git cherry-pick de567325
+
+## fix compiler detections
+git cherry-pick e08e8f8
