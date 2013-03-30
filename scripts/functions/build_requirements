@@ -2,7 +2,7 @@
 
 rvm_requiremnts_fail()
 {
-  rvm_error  "$1
+  rvm_$1 "$2
 RVM autolibs is now configured with mode '2' => 'check and stop if missing',
 please run \`rvm autolibs enable\` to let RVM do it's job or run and read \`rvm autolibs [help]\`
 or visit https://rvm.io/rvm/autolibs for more information."
@@ -11,11 +11,17 @@ or visit https://rvm.io/rvm/autolibs for more information."
 rvm_requiremnts_fail_or_run_action()
 {
   case "${rvm_autolibs_flag_number}" in
-    (0) rvm_debug "$1" ;;
-    (1) rvm_warn  "$1" ;;
+    (0) rvm_debug "$2" ;;
+    (1) rvm_warn  "$2" ;;
     (2)
-      rvm_requiremnts_fail "$1"
-      return 1
+      if
+        (( $1 <= 2 ))
+      then
+        rvm_requiremnts_fail error "$2"
+        return 1
+      else
+        rvm_requiremnts_fail warn "$2"
+      fi
       ;;
     (*)
       shift
@@ -23,15 +29,6 @@ rvm_requiremnts_fail_or_run_action()
       ;;
   esac
   true # for osx
-}
-
-__rvm_requirements_fail_only_when()
-{
-  typeset __ret=$?
-  if (( rvm_autolibs_flag_number >= $1 ))
-  then return ${__ret}
-  fi
-  true # for OSX
 }
 
 requirements_osx_update_openssl_cert_old() [[ "$cert_file" -ot /Library/Keychains/System.keychain ||
@@ -66,7 +63,7 @@ requirements_osx_update_openssl_cert()
   if
     requirements_osx_update_openssl_cert_old
   then
-    rvm_requiremnts_fail_or_run_action \
+    rvm_requiremnts_fail_or_run_action 2 \
       "Skipping update of certificates in '$cert_file'." \
       requirements_osx_update_openssl_cert_run ||
       return $?
@@ -172,7 +169,7 @@ __rvm_filter_installed_packages_summary()
   (( ${#packages_missing[@]} == 0 )) ||
   {
     _list="${packages_missing[*]}"
-    rvm_requiremnts_fail_or_run_action \
+    rvm_requiremnts_fail_or_run_action 2 \
       "Missing required packages: ${_list// /, }." \
       true ||
       return $?
@@ -216,7 +213,7 @@ __rvm_try_sudo()
       return 0 # do not run nothing if it would require sudo
       ;;
     (2)
-      rvm_requiremnts_fail "Running '$*' would require sudo."
+      rvm_requiremnts_fail error "Running '$*' would require sudo."
       return 1
       ;;
     (*)
