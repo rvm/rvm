@@ -2,7 +2,7 @@
 
 requirements_port_lib_installed()
 {
-  port installed | GREP_OPTIONS="" \grep "^\s*${1} @" >/dev/null || return $?
+  __rvm_array_contains "$1" "${packages_available[@]}" || return $?
 }
 
 requirements_port_libs_install()
@@ -12,7 +12,12 @@ requirements_port_libs_install()
 
 requirements_port_libs_ensure()
 {
-  typeset -a packages_installed packages_missing packages_to_install
+  typeset -a packages_installed packages_missing packages_to_install packages_available
+
+  __rvm_read_lines packages_available <(
+    port -q installed active | awk '{print $1}'
+  )
+
   __rvm_filter_installed_packages port "$@" ||
   {
     typeset ret=$?
@@ -44,7 +49,6 @@ requirements_port_libs_default()
 requirements_port_install_port()
 {
   typeset macports_version
-  set -o pipefail
   macports_version="$(
     curl https://distfiles.macports.org/MacPorts/ |
     grep -Eo "<a href=\"MacPorts-[[:digit:]\.]+.tar.bz2\">" |
@@ -55,7 +59,8 @@ requirements_port_install_port()
   mkdir "${rvm_src_parth}/${macports_version}"
   cd    "${rvm_src_parth}/${macports_version}"
   curl -LO "https://distfiles.macports.org/MacPorts/${macports_version}.tar.bz2" |
-  tar -xj --strip 1 &&
+    tar -xj --strip 1 || return $?
+  __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
   ./configure &&
   make &&
   __rvm_try_sudo make install ||
@@ -66,7 +71,7 @@ requirements_port_route_install()
 {
   case "$1" in
     (update-system)
-      __rvm_try_sudo port -dv selfupdate || return $?
+      __rvm_try_sudo port -dv selfupdate || __rvm_requirements_fail_only_when 3 || return $?
       ;;
     (rvm)
       # FIXME: requirements for rvm

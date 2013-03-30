@@ -370,7 +370,21 @@ __rvm_detect_max_threads()
 {
   case "$(uname)" in
     (Darwin|FreeBSD)
-      sysctl -n hw.ncpu
+      if
+        __rvm_which sysctl >/dev/null
+      then
+        sysctl -n hw.ncpu
+      elif
+        [[ -x /usr/sbin/sysctl ]]
+      then
+        /usr/sbin/sysctl -n hw.ncpu
+      elif
+        [[ -x /sbin/sysctl ]]
+      then
+        /sbin/sysctl -n hw.ncpu
+      else
+        echo 1
+      fi
       ;;
     (*)
       cat /proc/cpuinfo 2>/dev/null | (grep vendor_id || echo 'one';) | wc -l
@@ -387,6 +401,7 @@ __rvm_setup_compile_environment_flags_threads()
       rvm_make_flags+=( -j1 )
       ;;
     (*)
+      if [[ "$(uname)" == "FreeBSD" ]] ; then rvm_make_flags+=( -B ) ; fi
       [[ " ${rvm_make_flags[*]}" =~ " -j" ]] || rvm_make_flags+=( -j$(__rvm_detect_max_threads) )
       ;;
   esac

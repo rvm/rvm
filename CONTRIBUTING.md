@@ -13,6 +13,10 @@ RVM: https://github.com/wayneeseguin/rvm/issues/new
 
 If you wish to file a bug, the only thing we ask is that you provide a [gist](https://gist.github.com) of the command you used and if you are on stable, make sure that the case is the same on head too, this way you and us know whether the issue has been addressed, and always note that if there is a lot of `debug` or `trace` output you can redirect it to a file with the `>` character like so `rvm [command] > output.txt`.  Further information on how to file can be seen below.  Also, please always make sure to split up each command into it's own fenced codeblock, this means that each command and it's output should be in it's own code block.
 
+## IRC and Mailing List
+
+If you're joining the #rvm channel on [Freenode](http://freenode.net/) to get help with a problem, please let us know what's wrong and stick around. Someone will always respond in time. If you can't stick around, please file a bug on github or email us via the [google group](https://groups.google.com/forum/?fromgroups#!forum/rubyversionmanager).
+
 ## Filing for Ruby installation errors
 
 ```
