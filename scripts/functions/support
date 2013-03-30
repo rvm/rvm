@@ -187,6 +187,52 @@ __rvm_which()
   fi
 }
 
+__rvm_curl_output_control()
+{
+  if
+    (( ${rvm_quiet_curl_flag:-0} == 1 ))
+  then
+    __flags+=( " --silent" "--show-error" )
+  elif
+    [[ " $*" =~ " -s" || " $*" =~ " --silent" ]]
+  then
+    # make sure --show-error is used with --silent
+    [[ " $*" =~ " -S" || " $*" =~ " -sS" || " $*" =~ " --show-error" ]] ||
+    {
+      __flags+=( "--show-error" )
+    }
+  elif
+    (( ${rvm_debug_flag:-0} == 0 )) &&
+    (( ${rvm_trace_flag:-0} == 0 )) &&
+    rvm_is_a_shell_function no_warning
+  then
+    # show progress bar only when no silent, trace, debug and is a function
+    __flags+=( "--progress-bar" )
+  fi
+}
+
+# -S is automatically added to -s
+__rvm_curl()
+(
+  __rvm_which curl >/dev/null ||
+  {
+    rvm_error "RVM requires 'curl'. Install 'curl' first and try again."
+    return 200
+  }
+
+  typeset -a __flags
+  __flags=( --fail --location --max-redirs 10 )
+
+  if [[ -n "${rvm_proxy:-}" ]]
+  then __flags+=( --proxy "${rvm_proxy:-}" )
+  fi
+
+  __rvm_curl_output_control
+
+  unset curl
+  __rvm_debug_command \curl "${__flags[@]}" "$@" || return $?
+)
+
 is_a_function()
 {
   typeset -f $1 >/dev/null 2>&1 || return $?
