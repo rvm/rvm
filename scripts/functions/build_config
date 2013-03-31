@@ -132,18 +132,18 @@ __rvm_setup_compile_environment_osx_clang()
       __rvm_version_compare "${_system_version}" -ge 10.7
     then
       __rvm_setup_compile_environment_osx_clang_installed ||
-      rvm_requiremnts_fail_or_run_action \
+      rvm_requiremnts_fail_or_run_action 2 \
         "Can not find 'Command Line Tools for Xcode',
 You should install the latest version from: http://connect.apple.com" \
         true || return $?
 
       __rvm_setup_compile_environment_osx_clang_latest ||
-      rvm_requiremnts_fail_or_run_action \
+      rvm_requiremnts_fail_or_run_action 2 \
         "Found older 'Command Line Tools for Xcode',
 You should install the latest version from: http://connect.apple.com" \
         true || return $?
     else
-      rvm_requiremnts_fail_or_run_action \
+      rvm_requiremnts_fail_or_run_action 2 \
         "You are using 'clang' which is known to be buggy on older OSX (like: ${_system_version}).
 Make sure 'gcc-4.2' is available and try again." \
         true || return $?
@@ -370,7 +370,21 @@ __rvm_detect_max_threads()
 {
   case "$(uname)" in
     (Darwin|FreeBSD)
-      sysctl -n hw.ncpu
+      if
+        __rvm_which sysctl >/dev/null
+      then
+        sysctl -n hw.ncpu
+      elif
+        [[ -x /usr/sbin/sysctl ]]
+      then
+        /usr/sbin/sysctl -n hw.ncpu
+      elif
+        [[ -x /sbin/sysctl ]]
+      then
+        /sbin/sysctl -n hw.ncpu
+      else
+        echo 1
+      fi
       ;;
     (*)
       cat /proc/cpuinfo 2>/dev/null | (grep vendor_id || echo 'one';) | wc -l
@@ -387,6 +401,7 @@ __rvm_setup_compile_environment_flags_threads()
       rvm_make_flags+=( -j1 )
       ;;
     (*)
+      if [[ "$(uname)" == "FreeBSD" ]] ; then rvm_make_flags+=( -B ) ; fi
       [[ " ${rvm_make_flags[*]}" =~ " -j" ]] || rvm_make_flags+=( -j$(__rvm_detect_max_threads) )
       ;;
   esac

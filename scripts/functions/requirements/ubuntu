@@ -2,7 +2,22 @@
 
 requirements_debian_lib_installed()
 {
-  dpkg -s "$1" >/dev/null 2>/dev/null || return $?
+  case requirements_debian_is_multiarch in
+    (0)
+      dpkg -s "$1:$(dpkg --print-architecture)" >/dev/null 2>/dev/null || return $?
+      ;;
+    (*)
+      dpkg -s "$1" >/dev/null 2>/dev/null || return $?
+      ;;
+  esac
+}
+
+# check if multiarch is understood 
+# SEE: http://wiki.debian.org/Multiarch/HOWTO
+# In Debian dpkg this is present since 1.16.2. In Ubuntu this is present since natty (v1.15.8.10ubuntu1). Check by seeing if dpkg --print-foreign-architectures is understood.
+requirements_debian_is_multiarch()
+{
+  dpkg --print-foreign-architectures >/dev/null 2>&1 || return $?
 }
 
 requirements_debian_libs_install()
@@ -38,7 +53,9 @@ requirements_debian_run()
 {
   case "$1" in
     (update-system)
-      __rvm_try_sudo apt-get --quiet --yes update | __rvm_dotted "Updating repositories"
+      rvm_requiremnts_fail_or_run_action 3 \
+        "Skipping \`apt-get update\` make sure your system is up to date." \
+        __rvm_try_sudo apt-get --quiet --yes update || return $?
       ;;
     (rvm)
       requirements_debian_ensure_libs bash curl git-core patch bzip2 ca-certificates

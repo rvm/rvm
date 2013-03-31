@@ -16,17 +16,28 @@ requirements_freebsd_ensure_libs()
   __rvm_filter_installed_packages freebsd "$@" || return $?
 }
 
+requirements_freebsd_update_system()
+{
+  __rvm_try_sudo portsnap fetch extract &&
+  __rvm_try_sudo portsnap fetch update  ||
+  return $?
+  # or the below to do it like the openbsd support does
+  # curl ftp://ftp.freebsd.org/pub/FreeBSD/releases/$(uname -m)/$(uname -r)/ports.txz | __rvm_try_sudo tar --xz -C /usr -xz
+}
+
+
 requirements_freebsd_run()
 {
   case "$1" in
     (update-system)
-      [[ -d /usr/ports ]] ||
-        __rvm_try_sudo portsnap fetch update
-        # or the below to do it like the openbsd support does
-        # curl ftp://ftp.freebsd.org/pub/FreeBSD/releases/$(uname -m)/$(uname -r)/ports.txz | __rvm_try_sudo tar --xz -C /usr -xz
+      [[ -d /usr/ports ]] || {
+        rvm_requiremnts_fail_or_run_action 3 \
+          "Skipping ports installation, make sure '/usr/ports' is set up." \
+          requirements_freebsd_update_system || return $?
+      }
       ;;
     (rvm)
-      requirements_freebsd_ensure_libs bash curl git patch
+      requirements_freebsd_ensure_libs bash curl git
       ;;
     (jruby-head*)
       requirements_freebsd_ensure_libs jdk apache-ant

@@ -89,13 +89,64 @@ Branches:
 "
 }
 
+## duplication marker 32fosjfjsznkjneuera48jae
+__rvm_curl_output_control()
+{
+  if
+    (( ${rvm_quiet_curl_flag:-0} == 1 ))
+  then
+    __flags+=( "--silent" "--show-error" )
+  elif
+    [[ " $*" =~ " -s" || " $*" =~ " --silent" ]]
+  then
+    # make sure --show-error is used with --silent
+    [[ " $*" =~ " -S" || " $*" =~ " -sS" || " $*" =~ " --show-error" ]] ||
+    {
+      __flags+=( "--show-error" )
+    }
+  elif
+    (( ${rvm_debug_flag:-0} == 0 )) &&
+    (( ${rvm_trace_flag:-0} == 0 )) &&
+    rvm_is_a_shell_function no_warning
+  then
+    # show progress bar only when no silent, trace, debug and is a function
+    __flags+=( "--progress-bar" )
+  fi
+}
+
+## duplication marker 32fosjfjsznkjneuera48jae
+# -S is automatically added to -s
+__rvm_curl()
+(
+  __rvm_which curl >/dev/null ||
+  {
+    rvm_error "RVM requires 'curl'. Install 'curl' first and try again."
+    return 200
+  }
+
+  typeset -a __flags
+  __flags=( --fail --location --max-redirs 10 )
+
+  if [[ -n "${rvm_proxy:-}" ]]
+  then __flags+=( --proxy "${rvm_proxy:-}" )
+  fi
+
+  __rvm_curl_output_control
+
+  unset curl
+  __rvm_debug_command \curl "${__flags[@]}" "$@" || return $?
+)
+
+__rvm_which(){   which "$@" || return $?; true; }
+__rvm_debug_command(){ "$@" || return $?; true; }
+
 #Searches for highest available version for the given pattern
 # fetch_version 1.10. -> 1.10.3
 # fetch_version 1. -> 1.11.0
 # fetch_version "" -> 2.0.1
 fetch_version()
 {
-  curl -s https://api.github.com/repos/wayneeseguin/rvm/tags |
+  __rvm_curl -s https://api.github.com/repos/wayneeseguin/rvm/tags |
     sed -n '/"name": / {s/^.*".*": "\(.*\)".*$/\1/; p;}' |
     sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n |
     GREP_OPTIONS="" \grep "^${1:-}" | tail -n 1
@@ -157,7 +208,7 @@ get_and_unpack()
   _url=$1
   _file=$2
 
-  curl -L ${_url} -o ${rvm_archives_path}/${_file} ||
+  __rvm_curl ${_url} -o ${rvm_archives_path}/${_file} ||
   {
     _return=$?
     case $_return in
@@ -182,7 +233,7 @@ Replace /usr/local/etc/openssl/cacert.pem with the displayed CAfile.
       (*)
         log "
 Could not download '${_url}'.
-  curl returned status '$ret'.
+  curl returned status '$_return'.
 "
         ;;
     esac
@@ -300,7 +351,7 @@ do
       fi
       ;;
 
-    --user-install|--ignore-dotfiles)
+    --user-install|--ignore-dotfiles|--quiet-curl)
       token=${token#--}
       token=${token//-/_}
       export "rvm_${token}_flag"=1

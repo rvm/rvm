@@ -123,6 +123,12 @@ please read ${_log}"
   }
 }
 
+__rvm_debug_command()
+{
+  rvm_debug "Running($#): $*"
+  "$@" || return $?
+}
+
 # Output the current ruby's rvm source path.
 __rvm_source_dir()
 {
@@ -463,6 +469,12 @@ __rvm_detect_system()
         fi
         _system_version="$(\grep -Eo '[[:digit:]\.]+' /etc/redhat-release  | awk -F. '{print $1"."$2}')"
       elif
+        [[ -f /etc/system-release ]] &&
+        GREP_OPTIONS="" \grep "Amazon Linux AMI" /etc/system-release >/dev/null
+      then
+        _system_name="amazon"
+        _system_version="$(\grep -Eo '[[:digit:]\.]+' /etc/system-release | awk -F. '{print $1"."$2}')"
+      elif
         [[ -f /etc/gentoo-release ]]
       then
         _system_name="gentoo"
@@ -660,7 +672,7 @@ __list_remote_rbx_for()
 {
   typeset rvm_ruby_url
   rvm_ruby_url="$1"
-  curl -LsS http://binaries.rubini.us/ |
+  __rvm_curl -s http://binaries.rubini.us/ |
     GREP_OPTIONS="" \grep -oE "<Key>[^<]+\.tar\.bz2</Key>" |
     awk -F"[<>]" '/'"${rvm_ruby_url//\//\/}"'/{print "http://binaries.rubini.us/"$3}'
 }
@@ -669,7 +681,7 @@ __list_remote_jruby_for()
 {
   typeset rvm_ruby_url
   rvm_ruby_url="$1"
-  curl -LsS "http://jruby.org.s3.amazonaws.com/?prefix=downloads/&delimiter=/" |
+  __rvm_curl -s "http://jruby.org.s3.amazonaws.com/?prefix=downloads/&delimiter=/" |
     GREP_OPTIONS="" \grep -oE "<Key>[^<]*</Key>" |
     GREP_OPTIONS="" \grep -o '[[:digit:]][^_]*' |
     awk '{print "http://jruby.org.s3.amazonaws.com/downloads/"$1"/jruby-bin-"$1".tar.gz"}' |
@@ -737,7 +749,7 @@ file_exists_at_url()
     [[ -n "${1:-}" ]]
   then
     unset curl
-    \curl -slkL --max-time 3 --head "$1" 2>&1 |
+    \curl --silent --insecure --location --list-only --max-time 3 --head "$1" 2>&1 |
       GREP_OPTIONS="" \grep -E 'HTTP/[0-9\.]+ 200 OK' >/dev/null 2>&1 ||
       return $?
   else
@@ -749,7 +761,7 @@ file_exists_at_url()
 __rvm_fix_group_permissions()
 {
   if
-    umask -S | \grep 'g=rw' >/dev/null
+    umask -S | GREP_OPTIONS="" \grep 'g=rw' >/dev/null
   then
     chmod -R g+rwX "$@"
   fi
@@ -775,10 +787,8 @@ __rvm_package_list()
   esac
 }
 
-# params: archive_file [path]
-__rvm_package_extract()
+__rvm_package_extract_run()
 {
-  rvm_debug __rvm_package_extract:$#: "$@"
   [[ -d "$2" ]] || mkdir -p "$2"
   case "$1" in
     *.zip)
@@ -800,7 +810,36 @@ __rvm_package_extract()
       return 199
       ;;
   esac &&
-  __rvm_fix_group_permissions "$2"
+  __rvm_fix_group_permissions "$2"/* ||
+  return $?
+}
+
+# params: archive_file [path]
+__rvm_package_extract()
+{
+  rvm_debug __rvm_package_extract:$#: "$@"
+  typeset __tempdir __path __file __return
+  __return=0
+  __tempdir="$( TMPDIR="${rvm_tmp_path}" mktemp -d -t rvm-tmp.XXXXXXXXX )"
+  __rvm_package_extract_run "$1" "$__tempdir" || __return=$?
+  if
+    (( __return == 0 ))
+  then
+    for __path in "$__tempdir"/*
+    do
+      __file="${__path##*/}"
+      if
+        [[ -n "${__file}" && -e "$2/${__file}" ]]
+      then
+        \rm -rf "$2/${__file}" || __return=$?
+      fi
+      \mv -f "${__path}" "$2/" || __return=$?
+    done
+  fi
+  if [[ -n "$__tempdir" ]]
+  then \rm -rf "$__tempdir"
+  fi
+  return $__return
 }
 
 # params: archive_file [path [path2]]

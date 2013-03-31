@@ -79,7 +79,7 @@ rubygems_fatal_error()
 
 rubygems_version_list()
 {
-  curl -sS https://api.github.com/repos/rubygems/rubygems/tags |
+  __rvm_curl -s https://api.github.com/repos/rubygems/rubygems/tags |
     sed -n '/"name": / {s/^.*".*": "v\(.*\)".*$/\1/; p;}' |
     __rvm_version_sort |
     GREP_OPTIONS="" \grep '^[[:digit:]\.]*$'
@@ -87,7 +87,8 @@ rubygems_version_list()
 
 rubygems_master_sha()
 {
-  curl -s "https://api.github.com/repos/rubygems/rubygems/commits?page=last&per_page=1" | sed -n '/^    "sha":/ {s/^.*".*": "\(.*\)".*$/\1/;p;}'
+  __rvm_curl -s "https://api.github.com/repos/rubygems/rubygems/commits?page=last&per_page=1" |
+    sed -n '/^    "sha":/ {s/^.*".*": "\(.*\)".*$/\1/;p;}'
 }
 
 rubygems_select_version_url()
@@ -114,6 +115,9 @@ rubygems_select_version_url()
     latest|current)
       version="$(__rvm_db "${rvm_ruby_string//-/_}_rubygems_version")"
       version="${version:-"$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_rubygems_version")"}"
+      if (( ${rvm_head_flag:-0} == 1 )) && [[ -z "${version:-}" ]]
+      then version="$(__rvm_db "${rvm_ruby_interpreter}_head_rubygems_version")"
+      fi
       version="${version:-"$(__rvm_db "${rvm_ruby_interpreter}_rubygems_version")"}"
       version="${version:-"$(__rvm_db "rubygems_version")"}"
       ;;
@@ -247,7 +251,7 @@ rubygems_validate_gemfile()
   mkdir -p "${rvm_tmp_path}/rg$$"
   cd "${rvm_tmp_path}/rg$$"
 
-  curl -fsS3 "$gem__url" -o "$downloaded_file" &&
+  __rvm_curl "$gem__url" -o "$downloaded_file" &&
   [[ -f "$downloaded_file" ]] ||
   {
     typeset ret=$?
@@ -306,7 +310,7 @@ rubygems_validate()
       printf "%b" "${rvm_notify_clr}${gem}${rvm_reset_clr}"
 
       loc=$(openssl md5 $gem |cut -d" " -f2)
-      rem=$(curl -3 -s -D - -X HEAD -H 'Connection:close' "$url" | \grep 'ETag' | cut -d'"' -f2)
+      rem=$(__rvm_curl -3 -s -D - -X HEAD -H 'Connection:close' "$url" | \grep 'ETag' | cut -d'"' -f2)
 
       [[ $loc == $rem ]] ||
       {
