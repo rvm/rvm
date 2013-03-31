@@ -33,3 +33,6 @@ rvm get head
 rvm reload
 rvm --trace [command]
 ```
+
+## Codding guidelines
+https://github.com/wayneeseguin/rvm/blob/master/FORMATTING.md
