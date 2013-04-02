@@ -20,7 +20,7 @@ assert_status_equal () {
 }
 
 assert_output_equal () {
-  expected=$(cat); actual=$1; lineno=$2
+  expected=$(\cat); actual=$1; lineno=$2
 
   if [ "$actual" != "$expected" ]
   then

@@ -65,7 +65,7 @@ then
   }
 
   echo
-  cat "$messages_file"
+  \cat "$messages_file"
   echo "$(count_char "\." "$results_file") pass, $(count_char "F" "$results_file") fail"
   rm "$messages_file" "$results_file"
 fi
