@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+requirements_osx_update_openssl_cert_old() [[ "$cert_file" -ot /Library/Keychains/System.keychain ||
+  "$cert_file" -ot /System/Library/Keychains/SystemRootCertificates.keychain
+]]
+
+requirements_osx_update_openssl_cert_run()
+{
+  rvm_log "Updating certificates in '$cert_file'."
+  mkdir -p "$ssl_dir"
+  security find-certificate -a -p /Library/Keychains/System.keychain > "$cert_file"
+  security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> "$cert_file"
+  "${ssl_binary%/openssl}/c_rehash" "$ssl_dir"
+}
+
+requirements_osx_update_openssl_cert()
+{
+  [[ "Darwin" == "$(uname)" ]] || return 0
+
+  case "${rvm_autolibs_flag_number}" in
+    (0)
+      rvm_debug "Skipping update of certificates in '$cert_file'."
+      return 0
+      ;;
+  esac
+
+  typeset ssl_binary ssl_dir cert_file
+  ssl_binary="${1:-$(which openssl)}"
+  ssl_dir="$( "${ssl_binary}" version -d | awk -F'"' '{print $2}' )" #' fix formating
+  cert_file="${ssl_dir}/cert.pem"
+
+  if
+    requirements_osx_update_openssl_cert_old
+  then
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Skipping update of certificates in '$cert_file'." \
+      requirements_osx_update_openssl_cert_run ||
+      return $?
+  else
+    rvm_log "Certificates in '$cert_file' already are up to date."
+  fi
+}
+
+__rvm_osx_ssl_certs_path_for_ruby()
+{
+  "${1:-ruby}" -ropenssl -e 'puts OpenSSL::X509::DEFAULT_CERT_DIR'
+}
+
+__rvm_osx_ssl_certs_path_from_openssl()
+{
+  "${1:-openssl}" version -d | awk -F'"' '{print $2}'
+}
