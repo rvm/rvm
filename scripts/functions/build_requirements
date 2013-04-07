@@ -104,6 +104,27 @@ __rvm_filter_installed_packages_reset()
   packages_to_install=()
 }
 
+__rvm_filter_installed_package_from_missing()
+{
+  packages_missing=( $( "$@" ) )
+  shift # remove callback function name
+
+  typeset __package
+  for __package
+  do
+    [[ " ${packages_missing[*]} " =~ " ${__package} " ]] || packages_installed+=( "${__package}" )
+  done
+  case "$rvm_autolibs_flag_number" in
+    (0|1|2) # just ignore
+      true
+      ;;
+    (*) # 2+
+      packages_to_install=( "${packages_missing[@]}" )
+      packages_missing=()
+      ;;
+  esac
+}
+
 __rvm_filter_installed_package_check()
 {
   if
@@ -155,9 +176,15 @@ __rvm_filter_installed_packages()
   shift
 
   __rvm_filter_installed_packages_reset
-  for _package_name
-  do __rvm_filter_installed_package_check "${_package_installed_cmd}" "${_package_name}"
-  done
+  if
+    is_a_function "${_package_installed_cmd}_all_missing" "$@"
+  then
+    __rvm_filter_installed_package_from_missing "${_package_installed_cmd}_all_missing" "$@"
+  else
+    for _package_name
+    do __rvm_filter_installed_package_check "${_package_installed_cmd}" "${_package_name}"
+    done
+  fi
   __rvm_filter_installed_packages_summary || return $?
   __rvm_filter_installed_packages_install "${_package_install_cmd}"
 }
