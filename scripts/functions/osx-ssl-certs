@@ -46,16 +46,30 @@ __rvm_osx_ssl_certs_update_for_path()
   cert_file="$( __rvm_osx_ssl_certs_file_for_ruby )"
   ssl_dir="${cert_file%/*}"
 
-  printf "%b" "Updating certificates for ${cert_file}: "
+  if (( ${rvm_silent_flag:-0} == 0 ))
+  then printf "%b" "Updating certificates for ${cert_file}: "
+  fi
   if
     requirements_osx_update_openssl_cert_old
   then
-    if requirements_osx_update_openssl_cert_run
-    then printf "%b" "Updated.\n"
-    else printf "%b" "Failed.\n"
+    if
+      requirements_osx_update_openssl_cert_run
+    then
+      if (( ${rvm_silent_flag:-0} == 0 ))
+      then printf "%b" "Updated.\n"
+      fi
+    else
+      typeset result=$?
+      if (( ${rvm_silent_flag:-0} == 0 ))
+      then printf "%b" "Failed.\n"
+      else printf "%b" "Updating certificates for ${cert_file}: Failed.\n"
+      fi
+      return $result
     fi
   else
-    printf "%b" "Already are up to date.\n"
+    if (( ${rvm_silent_flag:-0} == 0 ))
+    then printf "%b" "Already are up to date.\n"
+    fi
   fi
 }
 
@@ -81,3 +95,23 @@ __rvm_osx_ssl_certs_file_from_openssl()
 {
   "${1:-openssl}" version -d | awk -F'"' '{print $2"/cert.pem"}'
 }
+
+__rvm_cron_find()
+{
+  EDITOR=\cat crontab -e 2>/dev/null | GREP_OPTIONS="" \grep "$1" >/dev/null || return $?
+}
+
+__rvm_cron_uninstall()
+{
+  EDITOR=\cat crontab -e 2>/dev/null | GREP_OPTIONS="" \grep -v "$1" | crontab -
+}
+
+__rvm_cron_install()
+{
+  {
+    EDITOR=\cat crontab -e 2>/dev/null
+    echo "@daily $1"
+  } | crontab -
+}
+
+export RVM_OSX_SSL_UPDATER="$rvm_path/bin/rvm --silent osx-ssl-certs update all"
