@@ -5,7 +5,7 @@ __rvm_setup_compile_environment()
   typeset __type
   typeset -a __types
   __types=(
-    setup requirements osx_gcc osx_clang architectures gcc47plus bison smartos sunos openbsd
+    setup requirements osx_compiler architectures gcc47plus bison smartos sunos openbsd
     auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
@@ -57,7 +57,19 @@ __ruby_clang_ok()
   true
 }
 
-__rvm_setup_compile_environment_osx_gcc_42()
+__rvm_setup_compile_environment_osx_compiler_selected()
+{
+  case "${rvm_autolibs_flag_number}" in
+    (0) rvm_debug "User selected compiler: $initially_selected_compiler"
+      ;;
+    (1) rvm_warn  "Warning: found user selected compiler '$initially_selected_compiler', this will suppress RVM auto detection mechanisms."
+      ;;
+    (*) rvm_error "Warning: found user selected compiler '$initially_selected_compiler', this will suppress RVM auto detection mechanisms."
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_osx_compiler_find()
 {
   if
     [[ -x /usr/local/bin/gcc-4.2 ]] # HomeBrew
@@ -86,33 +98,9 @@ __rvm_setup_compile_environment_osx_gcc_42()
   fi
 }
 
-__rvm_setup_compile_environment_osx_gcc()
-{
-  [[ "Darwin" == "$(uname)" ]] || return 0
+__rvm_setup_compile_environment_osx_compiler_clang_installed() [[ -x /usr/bin/clang ]]
 
-  if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
-  then rvm_force_autoconf_flag=1
-  fi
-
-  if
-    [[ -n "${initially_selected_compiler:-}" ]]
-  then
-    case "${rvm_autolibs_flag_number}" in
-      (0) rvm_debug "User selected compiler: $initially_selected_compiler"
-        ;;
-      (1) rvm_warn  "Warning: found user selected compiler '$initially_selected_compiler', this will suppress RVM auto detection mechanisms."
-        ;;
-      (*) rvm_error "Warning: found user selected compiler '$initially_selected_compiler', this will suppress RVM auto detection mechanisms."
-        ;;
-    esac
-  else
-    __rvm_setup_compile_environment_osx_gcc_42
-  fi
-}
-
-__rvm_setup_compile_environment_osx_clang_installed() [[ -x /usr/bin/clang ]]
-
-__rvm_setup_compile_environment_osx_clang_latest()
+__rvm_setup_compile_environment_osx_compiler_clang_latest()
 {
   typeset __clang_version
   __clang_version="$( /usr/bin/clang --version | grep -oE "clang-\d+\.\d+\.\d+" )" || return $?
@@ -121,33 +109,62 @@ __rvm_setup_compile_environment_osx_clang_latest()
   true # for osx
 }
 
-__rvm_setup_compile_environment_osx_clang()
+__rvm_setup_compile_environment_osx_compiler_clang()
+{
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.7
+  then
+    __rvm_setup_compile_environment_osx_compiler_clang_installed ||
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Can not find 'Command Line Tools for Xcode',
+You should install the latest version from: http://connect.apple.com" \
+      true || return $?
+
+    __rvm_setup_compile_environment_osx_compiler_clang_latest ||
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Found older 'Command Line Tools for Xcode',
+You should install the latest version from: http://connect.apple.com" \
+      true || return $?
+  else
+    rvm_requiremnts_fail_or_run_action 2 \
+      "You are using 'clang' which is known to be buggy on older OSX (like: ${_system_version}).
+Make sure 'gcc-4.2' is available and try again." \
+      true || return $?
+  fi
+}
+
+__rvm_setup_compile_environment_osx_compiler_missing()
+{
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.7
+  then
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Can not find 'Command Line Tools for Xcode',
+You should install the latest version from: http://connect.apple.com" \
+      false || return $?
+  else
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Can not find 'Xcode',
+You should install the latest version from: http://connect.apple.com" \
+      false || return $?
+  fi
+}
+
+__rvm_setup_compile_environment_osx_compiler()
 {
   [[ "Darwin" == "$(uname)" ]] || return 0
 
-  if
-    [[ "$( __rvm_found_compiler )" =~ "clang" ]]
-  then
-    if
-      __rvm_version_compare "${_system_version}" -ge 10.7
-    then
-      __rvm_setup_compile_environment_osx_clang_installed ||
-      rvm_requiremnts_fail_or_run_action 2 \
-        "Can not find 'Command Line Tools for Xcode',
-You should install the latest version from: http://connect.apple.com" \
-        true || return $?
-
-      __rvm_setup_compile_environment_osx_clang_latest ||
-      rvm_requiremnts_fail_or_run_action 2 \
-        "Found older 'Command Line Tools for Xcode',
-You should install the latest version from: http://connect.apple.com" \
-        true || return $?
-    else
-      rvm_requiremnts_fail_or_run_action 2 \
-        "You are using 'clang' which is known to be buggy on older OSX (like: ${_system_version}).
-Make sure 'gcc-4.2' is available and try again." \
-        true || return $?
-    fi
+  if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
+  then rvm_force_autoconf_flag=1
+  fi
+  if [[ -n "${initially_selected_compiler:-}" ]]
+  then __rvm_setup_compile_environment_osx_compiler_selected "$@"
+  else __rvm_setup_compile_environment_osx_compiler_find     "$@"
+  fi
+  if [[ "$( __rvm_found_compiler )" =~ "clang" ]]
+  then __rvm_setup_compile_environment_osx_compiler_clang    "$@"
+  elif [[ "$( __rvm_found_compiler )" == "" ]]
+  then __rvm_setup_compile_environment_osx_compiler_missing  "$@"
   fi
 }
 
