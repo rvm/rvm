@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+
+source "$rvm_scripts_path/functions/osx-ssl-certs"
+
+__rvm_osx_ssl_certs_run_select_rubies()
+{
+  case "$2" in
+    (all)
+      __rvm_read_lines __rubies < <(
+        __rvm_cd "$rvm_rubies_path"
+        find . -maxdepth 1 -mindepth 1 -type d 2>/dev/null | cut -c 3-
+      )
+      ;;
+    (*,*)
+      __rvm_custom_separated_array __rubies , "$2"
+      ;;
+    ("")
+      __rubies=( "${GEM_HOME##*/}" )
+      ;;
+    (*)
+      __rubies=( "$2" )
+      ;;
+  esac
+}
+
+__rvm_osx_ssl_certs_run_filter_and_run()
+{
+  for __ruby in "${__rubies[@]}"
+  do
+    rvm_debug  "${__ruby} # getting cert file"
+    __path="$( __rvm_with "${__ruby}" "__rvm_osx_ssl_certs_file_for_ruby" )"
+    [[ " ${__paths[*]} " =~ " ${__path} " ]] || __paths+=( "${__path}" )
+  done
+
+  for __path in "${__paths[@]}"
+  do
+    rvm_debug  "${__path} # updating certs"
+    "$1" "${__path}"
+  done
+}
+
+__rvm_osx_ssl_certs_run()
+{
+  typeset __ruby __path
+  typeset -a __rubies __paths
+  __rubies=()
+  __paths=()
+
+  __rvm_osx_ssl_certs_run_select_rubies  "$@"
+  __rvm_osx_ssl_certs_run_filter_and_run "$@"
+}
+
+__rvm_osx_ssl_certs_status()
+{
+  __rvm_osx_ssl_certs_run __rvm_osx_ssl_certs_status_for_path "$1"
+}
+
+__rvm_osx_ssl_certs_update()
+{
+  __rvm_osx_ssl_certs_run __rvm_osx_ssl_certs_update_for_path "$1"
+}
+
+__rvm_osx_ssl_certs_cron_status()
+{
+  if __rvm_cron_find "$RVM_OSX_SSL_UPDATER"
+  then rvm_log "Automatic certs updating installed."
+  else rvm_warn "Automatic certs updating not installed."
+  fi
+}
+
+__rvm_osx_ssl_certs_cron_install()
+{
+  if
+    __rvm_cron_find "$RVM_OSX_SSL_UPDATER"
+  then
+    __rvm_cron_uninstall "$RVM_OSX_SSL_UPDATER" ||
+    {
+      typeset result=$?
+      rvm_error "Automatic certs updating failed uninstalling."
+      return $result
+    }
+  fi
+  if
+    __rvm_cron_install "$RVM_OSX_SSL_UPDATER"
+  then
+    rvm_log "Automatic certs updating installed."
+  else
+    typeset result=$?
+    rvm_error "Automatic certs updating failed installing."
+    return $result
+  fi
+}
+
+__rvm_osx_ssl_certs_cron_uninstall()
+{
+  if
+    __rvm_cron_find "$RVM_OSX_SSL_UPDATER"
+  then
+    if
+      __rvm_cron_uninstall "$RVM_OSX_SSL_UPDATER"
+    then
+      rvm_log "Automatic certs updating uninstalled."
+    else
+      typeset result=$?
+      rvm_error "Automatic certs updating failed uninstalling."
+      return $result
+    fi
+  else
+    rvm_log "Automatic certs updating already uninstalled."
+  fi
+}
+
+__rvm_osx_ssl_certs_cron()
+{
+  typeset cron_action="${1:-status}"
+  shift 1
+  case "${cron_action}" in
+    (status|install|uninstall)
+      __rvm_osx_ssl_certs_cron_${cron_action}
+      ;;
+    (help)
+      rvm_help osx-ssl-certs cron "$@"
+      ;;
+    (*)
+      rvm_error_help "Unknown subcommand '$*' for osx-ssl-certs cron" osx-ssl-certs cron "$@"
+      return 1
+      ;;
+  esac
+}
+
+__rvm_osx_ssl_certs()
+{
+  typeset action="${1:-status}"
+  shift 1
+  case "${action}" in
+    (status|update|cron)
+      __rvm_osx_ssl_certs_${action} "$@"
+      ;;
+    (help)
+      rvm_help osx-ssl-certs "$@"
+      ;;
+    (*)
+      rvm_error_help "Unknown subcommand '$*' for osx-ssl-certs" osx-ssl-certs "$@"
+      return 1
+      ;;
+  esac
+}
+
+__rvm_osx_ssl_certs "${args[@]}"
