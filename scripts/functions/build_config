@@ -69,7 +69,7 @@ __rvm_setup_compile_environment_osx_compiler_selected()
   esac
 }
 
-__rvm_setup_compile_environment_osx_compiler_find()
+__rvm_setup_compile_environment_osx_compiler_find_gcc42()
 {
   if
     [[ -x /usr/local/bin/gcc-4.2 ]] # HomeBrew
@@ -91,11 +91,54 @@ __rvm_setup_compile_environment_osx_compiler_find()
     [[ -x /usr/bin/gcc-4.2 ]] # OSX-GCC-Installer / Xcode - might be LLVM
   then
     export CC=/usr/bin/gcc-4.2
-  elif
+  else
+    return 1
+  fi
+  true # for osx
+}
+
+__rvm_setup_compile_environment_osx_compiler_find_clang()
+{
+  if
     __rvm_compiler_is_llvm
   then
-    export CC=clang
+    if
+      __rvm_which clang > /dev/null # Any clang
+    then
+      export CC=clang
+    elif
+      [[ -x /usr/bin/clang ]]
+    then
+      export CC=/usr/bin/clang
+    else
+      return 1
+    fi
   fi
+  true # for osx
+}
+
+__rvm_setup_compile_environment_osx_compiler_find()
+{
+  case "$1" in
+    (ruby-2*|ruby-head*)
+      if
+        __rvm_setup_compile_environment_osx_compiler_clang_installed &&
+        __rvm_setup_compile_environment_osx_compiler_clang_latest
+      then
+        export CC=/usr/bin/clang
+      else
+        __rvm_setup_compile_environment_osx_compiler_find_gcc42 ||
+        __rvm_setup_compile_environment_osx_compiler_find_clang ||
+        return $?
+      fi
+      ;;
+    (ruby*|ree*)
+      __rvm_setup_compile_environment_osx_compiler_find_gcc42 ||
+      __rvm_setup_compile_environment_osx_compiler_find_clang ||
+      return $?
+      ;;
+  esac
+  true # for osx
 }
 
 __rvm_setup_compile_environment_osx_compiler_clang_installed() [[ -x /usr/bin/clang ]]
