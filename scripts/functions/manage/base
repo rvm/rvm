@@ -296,11 +296,19 @@ __rvm_install_source()
 __rvm_install_ruby_try_remote()
 {
   : rvm_disable_binary_flag:${rvm_disable_binary_flag:=0}: rvm_remote_flag:${rvm_remote_flag:=0}:
-  (( rvm_disable_binary_flag )) ||
-  {
+  if
+    (( rvm_remote_flag         >  0 )) || # prefer users remote over auto-detected disable
+    (( rvm_disable_binary_flag == 0 ))
+  then
     rvm_log "Searching for binary rubies, this might take some time."
-    typeset __rvm_ruby_url
+    typeset __rvm_ruby_url __rvm_ruby_verify_download_flag
     __rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}" )"
+    IFS=: read __rvm_ruby_verify_download_flag __rvm_ruby_url <<<"${__rvm_ruby_url}"
+    if
+      (( ${rvm_verify_downloads_flag:-0} > ${__rvm_ruby_verify_download_flag:=0} ))
+    then
+      __rvm_ruby_verify_download_flag=${rvm_verify_downloads_flag}
+    fi
     if
       [[ -z "${__rvm_ruby_url}" ]]
     then
@@ -317,7 +325,7 @@ Continuing with compilation. Please read 'rvm mount' to get more information on 
       __rvm_setup_compile_environment_setup
       __rvm_setup_compile_environment_requirements "${rvm_ruby_string}" || return 1
         if
-          rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "${__rvm_ruby_url}" "${rvm_ruby_string}"
+          rvm_verify_downloads_flag=${__rvm_ruby_verify_download_flag} rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "${__rvm_ruby_url}" "${rvm_ruby_string}"
         then
           return 0
         else
@@ -325,7 +333,7 @@ Continuing with compilation. Please read 'rvm mount' to get more information on 
           rvm_warn "Mounting remote ruby failed, trying to compile."
         fi
     fi
-  }
+  fi
   return 2 # continue with compilation
 }
 
