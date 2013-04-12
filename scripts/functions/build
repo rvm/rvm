@@ -3,6 +3,7 @@
 source "$rvm_scripts_path/functions/autolibs"
 source "$rvm_scripts_path/functions/build_config"
 source "$rvm_scripts_path/functions/build_requirements"
+source "$rvm_scripts_path/functions/osx-ssl-certs"
 
 # show the user selected compiler or return 1
 __rvm_selected_compiler()
@@ -86,20 +87,12 @@ __rvm_compiler_is_llvm()
   return $?
 }
 
-__rvm_compiler_is_gcc47()
-{
-  typeset compiler
-  compiler="${1:-$(  __rvm_found_compiler )}" &&
-  __rvm_compiler_is "$compiler" "-dumpversion" "4.7" ||
-  return $?
-}
-
-__rvm_compiler_is_gcc46_or_higher()
+__rvm_compiler_version_or_higher()
 {
   typeset __version compiler
-  compiler="${1:-$(  __rvm_found_compiler )}" &&
+  compiler="${2:-$(  __rvm_found_compiler )}" &&
   __version="$( __rvm_run_compiler "$compiler" "-dumpversion" )" &&
-  __rvm_version_compare "${__version:-0}" -ge "4.6" ||
+  __rvm_version_compare "${__version:-0}" -ge "$1" ||
   return $?
 }
 
@@ -120,7 +113,10 @@ __rvm_update_configure_env()
 __rvm_update_configure_opt_dir()
 {
   case "$1" in
-    (ruby-head*|ruby-2*|rbx*|rubinius*)
+    (rbx*|rubinius*)
+      __rvm_update_configure_opt_dir_options "$2"
+      ;;
+    (ruby-head*|ruby-2*)
       __rvm_update_configure_opt_dir_option "$2"
       ;;
     (ruby-1.9.3-p*)
@@ -144,6 +140,14 @@ __rvm_update_configure_opt_dir()
   esac
 }
 
+# add multiple --with-opt-dir=
+__rvm_update_configure_opt_dir_options()
+{
+  rvm_debug "rvm_configure_flags+=( --with-opt-dir=$1 )"
+  rvm_configure_flags+=( --with-opt-dir="$1" )
+}
+
+# update single --with-opt-dir=
 __rvm_update_configure_opt_dir_option()
 {
   rvm_debug "rvm_configure_flags+=( --with-opt-dir=$1 )"
@@ -167,7 +171,7 @@ __rvm_update_configure_opt_dir_flags()
 {
   typeset __enable_rpath __lib_path
   if
-    which bash | xargs head -n 1 | cat -e | \grep -b '^^?ELF' >/dev/null
+    which bash | xargs head -n 1 | \cat -e | \grep -b '^^?ELF' >/dev/null
   then
     __enable_rpath="true"
   fi
