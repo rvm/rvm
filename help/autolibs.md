@@ -18,11 +18,11 @@ Some people might get confused at the difference between `--autolibs` and `autol
 
 ## Modes
 
-* `0` - do not do anything,
-* `1` - use available libraries, ignore missing,
-* `2` - use libraries, fail if some are missing,
-* `3` - use libraries, install missing libraries,
-* `4` - install missing package manager (only osx)
+* `0`, `disable`, `disabled` - Do not do anything.
+* `1`, `read`, `read-only` - Use available libs, ignore missing.
+* `2`, `fail`, `read-fail` - Use libs, fail if some are missing.
+* `3`, `packages`, `install-packages`, - Use libs, install missing libs.
+* `4`, `enable`, `enabled` - Install missing package manager (only OSX, on Linux it's like 3).
 
 ## Letting RVM take care of it all (4)
 
@@ -61,14 +61,6 @@ Autolibs also has three other options and these options are 2, which will read p
 * `show` &nbsp;=>&nbsp; Display your current mode.
 * `help` &nbsp;=>&nbsp; Display basic mode descriptions.
 * `status` &nbsp;=>&nbsp; Display detailed information about your mode.
-
-## Modes
-
-* `0`, `disable`, `disabled` &nbsp;=>&nbsp; Disable autolibs.
-* `1`, `read`, `read-only` &nbsp;=>&nbsp; Do not fail if missing packages.
-* `2`, `fail`, `read-fail` &nbsp;=>&nbsp; Fail if missing packages.
-* `3`, `packages`, `install-packages` &nbsp;=>&nbsp; Install missing packages.
-* `4`, `enable`, `enabled` &nbsp;=>&nbsp; Install packages and homebrew if missing.
 
 ## Additional modes
 
