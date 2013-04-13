@@ -31,7 +31,7 @@ external_grep_existing()
   then
     GREP_OPTIONS="" \grep -vE "${existing[*]}" -
   else
-    cat -
+    \cat -
   fi
 }
 
@@ -154,7 +154,7 @@ external_mount()
   )
   ln -nfs "${old_gem_home}" "$rvm_gems_path/$rvm_ruby_string"
 
-  __rvm_bin_script
+  __rvm_generate_wrappers
 
   (
     export rvm_gemset_name=global
@@ -273,7 +273,7 @@ external_propose_name()
 
 external_import_configure()
 {
-  typeset platfo\rm architecture libc
+  typeset platform architecture libc
 
   if (( ${rvm_install_flag:-0} > 0 ))
   then err_command=rvm_warn
@@ -288,14 +288,27 @@ external_import_configure()
     (http*) true ;;
     (*)
       __rvm_ruby_string
-      rvm_ruby_url="$(__rvm_remote_server_path "${rvm_ruby_string}" )"
+      typeset __rvm_ruby_verify_download_flag
+      rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}" )"
+      IFS=: read __rvm_ruby_verify_download_flag rvm_ruby_url <<<"$rvm_ruby_url"
+      if
+        (( ${__rvm_ruby_verify_download_flag:-0} > ${rvm_verify_downloads_flag:=0} ))
+      then
+        rvm_verify_downloads_flag=${__rvm_ruby_verify_download_flag}
+      fi
       ;;
   esac
 
   rvm_ruby_string="${rvm_ruby_string##*/}"
   rvm_ruby_string="${rvm_ruby_string%.t*}"
   __rvm_ruby_package_file "${rvm_ruby_string}"
-  rvm_ruby_package_file="bin-${rvm_ruby_string}.$(__rvm_remote_extension "${rvm_ruby_string}" -)"
+  if
+    [[ "${rvm_ruby_url##*/}" =~ "bin" ]]
+  then
+    rvm_ruby_package_file="${rvm_ruby_url##*/}"
+  else
+    rvm_ruby_package_file="bin-${rvm_ruby_string}.$(__rvm_remote_extension "${rvm_ruby_string}" -)"
+  fi
 }
 
 external_import_download()
@@ -320,7 +333,7 @@ external_import_validate_archive()
   typeset -a downloaded_names path_to_bin_ruby
 
   __rvm_read_lines path_to_bin_ruby < <(
-    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | grep "bin/ruby$"
+    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | \grep "bin/ruby$"
   )
   __rvm_read_lines downloaded_names < <(
     __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
@@ -445,7 +458,7 @@ external_import_setup()
 
   rvm_create_flag=1 __rvm_use
 
-  __rvm_bin_script # environment + wrappers
+  __rvm_generate_wrappers
   __rvm_fix_gcc_path "$rvm_rubies_path"
   __rvm_gemsets_initial
   __rvm_ruby_config_save "$rvm_rubies_path/$rvm_ruby_string/bin/ruby" "$rvm_rubies_path/$rvm_ruby_string/config"
@@ -489,8 +502,8 @@ external_prepare_package()
     if
       (( ${rvm_install_flag:-0} > 0 ))
     then
-      rvm_configure_flags+=( --enable-shared --enable-load-relative --sysconfdir=/etc )
-      __rvm_manage_wrapper install "${rvm_ruby_string}" || return $?
+      rvm_configure_flags+=( --enable-load-relative --sysconfdir=/etc )
+      __rvm_run_wrapper manage install "${rvm_ruby_string}" || return $?
     else
       rvm_error "Ruby ${rvm_ruby_string} does not exist, maybe install first?."
       return 2
@@ -570,9 +583,14 @@ case "${action}" in
     external_$action "$@"
     ;;
   (mount|*_name)
+    [[ -n "${1:-}" ]] ||
+    {
+      rvm_error_help "Missing path/url for '$action'." mount $action
+      exit 2
+    }
     if
       (( rvm_remote_flag > 0 )) ||
-      [[ "${next_token:-}" =~ ^http || "${next_token:-}" =~ tar.bz2$ ]]
+      [[ "$1" =~ ^http || "$1" =~ tar.bz2$ ]]
     then
       external_import "$@"
     else
@@ -580,7 +598,7 @@ case "${action}" in
     fi
     ;;
   (*)
-    rvm_error_help "Wrong action for external '$action'." external $action
+    rvm_error_help "Wrong action for external '$action'." mount $action
     exit 2
     ;;
 esac

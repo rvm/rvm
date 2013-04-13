@@ -10,11 +10,6 @@ then
   rvm_ruby_gem_home="$(gem env home)"
 fi
 
-usage()
-{
-  cat -v "${rvm_help_path}/gemset"
-}
-
 gemset_list_all()
 {
   for rvm_ruby_string in $( rvm_project_rvmrc=0 rvm list strings )
@@ -190,10 +185,9 @@ gemset_create()
     fi
     if
       (
-        rvm_ruby_string="$(__rvm_env_string)${rvm_gemset_separator:-"@"}${gemset}"
         rvm_create_flag=1
         rvm_verbose_flag=0
-        __rvm_select
+        __rvm_select "$(__rvm_env_string)${rvm_gemset_separator:-"@"}${gemset}"
       )
     then
       rvm_log "gemset created $gemset\t=> $gem_home"
@@ -274,7 +268,7 @@ gemset_delete_task()
   gemdir=$3
 
   case $(uname) in
-    (OpenBSD)
+    (OpenBSD|FreeBSD)
       # will not find broken links
       find "${rvm_bin_path:=$rvm_path/bin}" -name \*${ruby_at_gemset} -delete
       find -L "${rvm_bin_path:=$rvm_path/bin}" -name \*${ruby_at_gemset} -delete
@@ -448,8 +442,7 @@ gemset_copy()
         mkdir -p "$destination_path/$dir"
       fi
     done
-    rvm_log "Making gemset for $destination_ruby pristine."
-    __rvm_run_with_env "gemset.pristine" "$destination_ruby" "rvm gemset pristine"
+    __rvm_gemset_pristine "$destination_ruby"
   else
     rvm_error "Gems directory does not exist for $source_path ($source_path)"
     return 1
@@ -485,7 +478,7 @@ gemset_rename()
       [[ ! -d "$destination_path" ]]
     then
       __rvm_log_command "gemset.rename" "Renaming gemset ${source_path##*/} => ${destination_path##*/}" \mv "$source_path" "$destination_path"
-      __rvm_run_with_env "gemset.pristine" "${destination_path##*/}" "rvm gemset pristine" "Making gemset ${destination_path##*/} pristine."
+      __rvm_gemset_pristine "${destination_path##*/}"
     else
       rvm_error "Gemset $destination_name already exists!"
       return 1
@@ -870,7 +863,7 @@ gemset_pristine()
   fi
 }
 
-# Transfo\rm the list of gems one version per line
+# Transform the list of gems one version per line
 __rvm_list_gems()
 {
   gem list |
@@ -980,7 +973,7 @@ if
   [[ " ${gemset_actions_with_gem[*]} " =~ " $action " ]] &&
   ! builtin command -v gem > /dev/null
 then
-  rvm_error "'gem' was not found, cannot perfo\rm gem actions (Do you have an RVM ruby selected?)"
+  rvm_error "'gem' was not found, cannot perform gem actions (Do you have an RVM ruby selected?)"
   exit 1
 fi
 
@@ -1042,11 +1035,10 @@ case "$action" in
     search "$@"
     ;;
   help)
-    usage
-    exit 0
+    rvm_help gemset
     ;;
   *)
-    usage
+    rvm_error_help "Unknown subcommand '$action'" gemset
     exit 1
     ;;
 esac

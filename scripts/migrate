@@ -10,7 +10,7 @@ usage()
 
   Usage:
 
-    rvm migrate {source-ruby} {destination-ruby}
+    rvm migrate {source-ruby} {destination-ruby} [--force]
 
   Description:
 
@@ -21,6 +21,10 @@ usage()
 
 confirm()
 {
+  if (( ${rvm_force_flag:-0} > 0 ))
+  then return 0
+  fi
+
   typeset confirmation_response
 
   printf "%b" "$1 (Y/n): "
@@ -71,7 +75,7 @@ migrate_rubies()
 
   echo "Are you sure you wish to MOVE gems from $expanded_source to $expanded_destination?"
 
-  confi\rm "This will overwrite existing gems in $expanded_destination and remove them from $expanded_source" || return 1
+  confirm "This will overwrite existing gems in $expanded_destination and remove them from $expanded_source" || return 1
 
   echo "Moving gemsets..."
 
@@ -104,12 +108,12 @@ migrate_rubies()
 
     [[ $result -gt 0 ]] && die_with_error "Unable to move '${rvm_gems_path:-"$rvm_path/gems"}/$origin_gemset' to '${rvm_gems_path:-"$rvm_path/gems"}/$destination_gemset'" "$result"
 
-    __rvm_run_with_env "gemset.pristine" "$destination_gemset" "rvm gemset pristine" "Making gemset $destination_gemset pristine."
+    __rvm_gemset_pristine "$destination_gemset"
 
   done < <("$rvm_scripts_path/list" gemsets strings | GREP_OPTIONS="" \grep "^$expanded_source")
 
 
-  if confi\rm 'Do you wish to move over aliases?'
+  if confirm 'Do you wish to move over aliases?'
   then
     while read -r alias_pair
     do
@@ -126,7 +130,7 @@ migrate_rubies()
     done < "$rvm_path/config/alias"
   fi
 
-  if confi\rm "Do you wish to move over wrappers?"
+  if confirm "Do you wish to move over wrappers?"
   then
     origin_wrappers_path="$rvm_wrappers_path/$expanded_source"
     binaries=($(__rvm_cd "${rvm_bin_path}" ; find . -maxdepth 1 -mindepth 1 -type f))
@@ -147,7 +151,7 @@ migrate_rubies()
     done
   fi
 
-  if confi\rm "Do you also wish to completely remove $expanded_source (inc. archive)?"
+  if confirm "Do you also wish to completely remove $expanded_source (inc. archive)?"
   then
     __rvm_log_command "rvm.remove" "Removing $expanded_source" rvm remove "$expanded_source" --archive --gems
   fi

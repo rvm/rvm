@@ -1,5 +1,80 @@
 #!/usr/bin/env bash
 
+__rvm_select_rbx_nightly()
+{
+  (( ${rvm_nightly_flag:=0} == 1 )) || return 0
+
+  typeset org_rvm_ruby_patch_level _rvm_ruby_name
+  if [[ "$rvm_ruby_version" == head ]]
+  then rvm_ruby_version=""
+  fi
+  rvm_debug "searching for binary rbx ${rvm_ruby_version:-}${rvm_ruby_version:+-}${rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-}"
+  org_rvm_ruby_patch_level="$rvm_ruby_patch_level"
+  _rvm_ruby_name="${rvm_ruby_name:-${detected_rvm_ruby_name:-}}"
+  rvm_ruby_patch_level="$(
+    __list_remote_rbx_for $( __rvm_system_path_for rbx ) |
+      GREP_OPTIONS="" \grep ${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}.*${_rvm_ruby_name:+-}${_rvm_ruby_name:-} |
+      tail -n 1
+  )"
+  [[ -n "${rvm_ruby_patch_level:-}" ]] ||
+  {
+    rvm_error "Could not find rbx binary '${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-}' release for '$( __rvm_system_path_for rbx )'."
+    return 1
+  }
+  rvm_ruby_patch_level="${rvm_ruby_patch_level##*/}"
+  rvm_ruby_patch_level="${rvm_ruby_patch_level%.tar.*}"
+  if
+    [[ -z "${rvm_ruby_version:-}" ]]
+  then
+    rvm_ruby_patch_level="${rvm_ruby_patch_level#rubinius-}"
+    rvm_ruby_version="${rvm_ruby_patch_level%%-*}"
+  fi
+  if
+    [[ -z "${rvm_ruby_name:-}" ]]
+  then
+    rvm_ruby_name="${rvm_ruby_patch_level##*-}"
+  fi
+  rvm_ruby_patch_level="${rvm_ruby_patch_level##*${org_rvm_ruby_patch_level}}"
+  rvm_ruby_patch_level="${rvm_ruby_patch_level%%-*}"
+  rvm_ruby_patch_level="${org_rvm_ruby_patch_level}${rvm_ruby_patch_level}"
+  rvm_ruby_string="rubinius-${rvm_ruby_version}-${rvm_ruby_patch_level}-${rvm_ruby_name}"
+  rvm_debug "detected rbx ${rvm_ruby_string}"
+  rvm_verify_downloads_flag=1
+}
+
+__rvm_select_macruby_nightly()
+{
+  __rvm_db "macruby_nightly_url" "rvm_ruby_url"
+  if
+    [[ "${rvm_ruby_version}" == "nightly" ]]
+  then
+    # detect latest version from server
+    rvm_ruby_version="$(
+      __rvm_curl -s "$rvm_ruby_url" |
+      GREP_OPTIONS="" \grep -oE "<a href=\"macruby_nightly-[^<]+\.pkg</a>" |
+      awk -F"[<>]" '{print $3}' | sort | tail -n 1
+    )"
+    [[ -n "${rvm_ruby_version}" ]] ||
+    {
+      rvm_error "Could not find MacRuby nightly binary."
+      return 1
+    }
+    rvm_ruby_version="${rvm_ruby_version#macruby_nightly-}"
+    rvm_ruby_version="${rvm_ruby_version%.pkg}"
+    rvm_ruby_string="macruby_nightly-${rvm_ruby_version}${rvm_ruby_name:+-}${rvm_ruby_name:-}"
+    rvm_debug "detected macruby nightly ${rvm_ruby_version}"
+  else
+    # allow specifying nightly[.]2013.03.31
+    rvm_ruby_version="${rvm_ruby_version#nightly}"
+    rvm_ruby_version="${rvm_ruby_version#.}"
+    rvm_ruby_version="${rvm_ruby_version//./-}"
+  fi
+  rvm_ruby_package_name="${rvm_ruby_interpreter}_nightly-${rvm_ruby_version}"
+  rvm_ruby_package_file="$rvm_ruby_package_name.pkg"
+  rvm_ruby_url+="/${rvm_ruby_package_file}"
+  rvm_verify_downloads_flag=1
+}
+
 # __rvm_select implementation version patch_level
 __rvm_select()
 {
@@ -12,27 +87,18 @@ __rvm_select()
   export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
   export rvm_env_string rvm_action rvm_alias_expanded rvm_archive_extension rvm_bin_flag rvm_bin_path rvm_debug_flag rvm_default_flag rvm_delete_flag rvm_docs_type rvm_dump_environment_flag rvm_error_message rvm_expanding_aliases rvm_file_name rvm_gemdir_flag rvm_gemset_name rvm_gemstone_package_file rvm_gemstone_url rvm_head_flag rvm_hook rvm_install_on_use_flag rvm_llvm_flag rvm_loaded_flag rvm_niceness rvm_nightly_flag rvm_only_path_flag rvm_parse_break rvm_patch_original_pwd rvm_pretty_print_flag rvm_proxy rvm_quiet_flag rvm_reload_flag rvm_remove_flag rvm_ruby_alias rvm_ruby_args rvm_ruby_binary rvm_ruby_bits rvm_ruby_configure rvm_ruby_file rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_global_gems_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_major_version rvm_ruby_make rvm_ruby_make_install rvm_ruby_minor_version rvm_ruby_mode rvm_ruby_name rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_patch rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_sha rvm_ruby_string rvm_ruby_strings rvm_ruby_tag rvm_ruby_url rvm_ruby_user_tag rvm_ruby_version rvm_script_name rvm_sdk rvm_silent_flag rvm_sticky_flag rvm_system_flag rvm_token rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_wrapper_name rvm_architectures
 
-  if [[ -z "${rvm_ruby_string:-}" ]]
-  then # First we build rvm_ruby_string from components if it is empty.
-    if [[ -n "${rvm_ruby_interpreter:-}" ]]
-    then
-      rvm_ruby_string="$rvm_ruby_interpreter"
-    fi
-    if [[ -n "${rvm_ruby_version:-}" ]]
-    then
-      rvm_ruby_string="$rvm_ruby_string-$rvm_ruby_version"
-    fi
-    if [[ -n "${rvm_ruby_patch_level:-}" ]]
-    then
-      rvm_ruby_string="$rvm_ruby_string-$rvm_ruby_patch_level"
-    fi
-    if [[ -n "${rvm_ruby_revision:-}" ]]
-    then
-      rvm_ruby_string="$rvm_ruby_string-$rvm_ruby_revision"
-    fi
+  # First respect parameter
+  rvm_ruby_string="${1:-${rvm_ruby_string:-}}"
+  # Then try to detect
+  if
+    [[ -z "${rvm_ruby_string:-}" ]]
+  then
+    rvm_ruby_string="${rvm_ruby_interpreter:-}"
+    rvm_ruby_string="${rvm_ruby_string:-}${rvm_ruby_version:+-}${rvm_ruby_version:-}"
+    rvm_ruby_string="${rvm_ruby_string:-}${rvm_ruby_patch_level:+-}${rvm_ruby_patch_level:-}"
+    rvm_ruby_string="${rvm_ruby_string:-}${rvm_ruby_revision:+-}${rvm_ruby_revision:-}"
     if [[ -n "${rvm_ruby_name:-}" ]]
-    then
-      rvm_ruby_name="$rvm_ruby_string-$rvm_ruby_name"
+    then rvm_ruby_name="$rvm_ruby_string-$rvm_ruby_name"
     fi
   fi
 
@@ -77,11 +143,9 @@ __rvm_select()
           rvm_ruby_url="$rvm_ruby_repo_url"
           rvm_disable_binary_flag=1
 
-        elif [[ "nightly" == "${rvm_ruby_version:-}" ]]
+        elif [[ "${rvm_ruby_version:-}" =~ "nightly" ]]
         then
-          __rvm_db "macruby_nightly_url" "rvm_ruby_url"
-          rvm_ruby_package_name="${rvm_ruby_interpreter}_nightly-${rvm_ruby_version}"
-          rvm_ruby_package_file="$rvm_ruby_package_name"
+          __rvm_select_macruby_nightly
 
         elif [[ -n "${rvm_ruby_version:-}" ]]
         then
@@ -105,46 +169,7 @@ __rvm_select()
       ;;
 
     rbx|rubinius)
-      if
-        (( ${rvm_nightly_flag:=0} == 1 ))
-      then
-        typeset org_rvm_ruby_patch_level _rvm_ruby_name
-        if [[ "$rvm_ruby_version" == head ]]
-        then rvm_ruby_version=""
-        fi
-        rvm_debug "searching for binary rbx ${rvm_ruby_version:-}${rvm_ruby_version:+-}${rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-}"
-        org_rvm_ruby_patch_level="$rvm_ruby_patch_level"
-        _rvm_ruby_name="${rvm_ruby_name:-${detected_rvm_ruby_name:-}}"
-        rvm_ruby_patch_level="$(
-          __list_remote_rbx_for $( __rvm_system_path_for rbx ) |
-            GREP_OPTIONS="" \grep ${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}.*${_rvm_ruby_name:+-}${_rvm_ruby_name:-} |
-            tail -n 1
-        )"
-        [[ -n "${rvm_ruby_patch_level:-}" ]] ||
-        {
-          rvm_error "Could not find rbx binary '${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}*${rvm_ruby_name:+-}${rvm_ruby_name:-}' release for '$( __rvm_system_path_for rbx )'."
-          return 1
-        }
-        rvm_ruby_patch_level="${rvm_ruby_patch_level##*/}"
-        rvm_ruby_patch_level="${rvm_ruby_patch_level%.tar.*}"
-        if
-          [[ -z "${rvm_ruby_version:-}" ]]
-        then
-          rvm_ruby_patch_level="${rvm_ruby_patch_level#rubinius-}"
-          rvm_ruby_version="${rvm_ruby_patch_level%%-*}"
-        fi
-        if
-          [[ -z "${rvm_ruby_name:-}" ]]
-        then
-          rvm_ruby_name="${rvm_ruby_patch_level##*-}"
-        fi
-        rvm_ruby_patch_level="${rvm_ruby_patch_level##*${org_rvm_ruby_patch_level}}"
-        rvm_ruby_patch_level="${rvm_ruby_patch_level%%-*}"
-        rvm_ruby_patch_level="${org_rvm_ruby_patch_level}${rvm_ruby_patch_level}"
-        rvm_ruby_string="rubinius-${rvm_ruby_version}-${rvm_ruby_patch_level}-${rvm_ruby_name}"
-        rvm_debug "detected rbx ${rvm_ruby_string}"
-        rvm_verify_downloads_flag=1
-      fi
+      __rvm_select_rbx_nightly || return $?
 
       rvm_archive_extension="tar.gz"
       rvm_ruby_interpreter="rbx"
@@ -225,7 +250,7 @@ __rvm_select()
         rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
         rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
         rvm_gemstone_version=$(
-          command curl -s https://raw.github.com/MagLev/maglev/master/version.txt |
+          __rvm_curl -s https://raw.github.com/MagLev/maglev/master/version.txt |
             GREP_OPTIONS="" \grep ^GEMSTONE | cut -f2 -d-
         )
         rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
@@ -236,7 +261,7 @@ __rvm_select()
         rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
         rvm_ruby_url="${rvm_ruby_url:-"$maglev_url/${rvm_ruby_package_file}.${rvm_archive_extension}"}"
         rvm_gemstone_version=$(
-          command curl -s https://raw.github.com/MagLev/maglev/MagLev-${rvm_ruby_version}/version.txt |
+          __rvm_curl -s https://raw.github.com/MagLev/maglev/MagLev-${rvm_ruby_version}/version.txt |
             GREP_OPTIONS="" \grep ^GEMSTONE | cut -f2 -d-
         )
         rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
@@ -397,20 +422,19 @@ __rvm_select()
       ;;
 
     default|system|user)
-      # no-op?
+      true
       ;;
 
     *)
-      if [[ -n "${MY_RUBY_HOME:-""}" ]]
+      if
+        [[ -n "${MY_RUBY_HOME:-""}" ]]
       then
-        rvm_ruby_string=$(basename $MY_RUBY_HOME)
-        __rvm_select
-      else
-        if [[ -z "${rvm_ruby_string:-""}" ]]
-        then
-          rvm_error "Ruby implementation '$rvm_ruby_interpreter' is not known."
-          return 1
-        fi
+         __rvm_select $(basename $MY_RUBY_HOME)
+      elif
+        [[ -z "${rvm_ruby_string:-""}" ]]
+      then
+        rvm_error "Ruby implementation '$rvm_ruby_interpreter' is not known."
+        return 1
       fi
   esac
 
@@ -536,7 +560,7 @@ __rvm_use()
       if [[ ${rvm_install_on_use_flag:-0} -eq 1 ]]
       then
         rvm_warn "$rvm_ruby_string is not installed."
-        __rvm_manage_wrapper "install" "$rvm_ruby_string"
+        __rvm_run_wrapper manage "install" "$rvm_ruby_string"
       else
         rvm_error "$rvm_ruby_string is not installed."
         rvm_log "To install do: 'rvm install $rvm_ruby_string'"
@@ -809,6 +833,22 @@ __rvm_ruby_string()
           fi
         else
           case "$string" in
+            (1.8)
+              rvm_ruby_version="$string.7"
+              rvm_ruby_revision=""
+              rvm_ruby_tag=""
+              ;;
+            (1.9)
+              rvm_ruby_version="$string.3"
+              rvm_ruby_revision=""
+              rvm_ruby_tag=""
+              ;;
+            (2.0)
+              rvm_ruby_version="$string.0"
+              rvm_ruby_revision=""
+              rvm_ruby_tag=""
+              ;;
+
             (0.+([[:digit:]])|0.+([[:digit:]]).+([[:digit:]])|1.+([[:digit:]]).+([[:digit:]])|2.+([[:digit:]]).+([[:digit:]])|1.+([[:digit:]]).+([[:digit:]]).+([[:digit:]])|1.+([[:digit:]]))
               rvm_ruby_version="$string"
               rvm_ruby_revision=""
@@ -920,15 +960,11 @@ __rvm_ruby_string()
   then
     # Detect interpreter based on version.
     case "$rvm_ruby_version" in
-      (1.[8-9]*) rvm_ruby_interpreter="ruby"    ;;
       (0.[5-6]*) rvm_ruby_interpreter="macruby" ;;
       (1.[0-4]*) rvm_ruby_interpreter="rbx"     ;;
       (1.[5-7]*) rvm_ruby_interpreter="jruby"   ;;
-      (2.0.0*)   rvm_ruby_interpreter="ruby"    ;;
-      (2.*)
-        rvm_error "Version '$rvm_ruby_version' is ambiguous. Cannot select Ruby implementation/version, please be more specific."
-        return 2
-        ;;
+      (1.[8-9]*) rvm_ruby_interpreter="ruby"    ;;
+      (2.*)      rvm_ruby_interpreter="ruby"    ;;
     esac
   fi
 
@@ -983,7 +1019,7 @@ __rvm_ruby_string()
     then
       rvm_ruby_patch_level="$(
         "${rvm_scripts_path:-$rvm_path/scripts}/list" strings |
-          grep "${rvm_ruby_interpreter}-${rvm_ruby_version}-" |
+          \grep "${rvm_ruby_interpreter}-${rvm_ruby_version}-" |
           awk -F- '{print $3}' | sort | tail -n 1
       )"
     fi
@@ -995,7 +1031,7 @@ __rvm_ruby_string()
       rvm_ruby_patch_level="$(
         __list_remote_rubies_for $( __rvm_system_path_for rubies ) |
           awk -F/ '{x=$NF; gsub(".tar.*","",x); print x}' |
-          grep "${rvm_ruby_interpreter}-${rvm_ruby_version}-" |
+          \grep "${rvm_ruby_interpreter}-${rvm_ruby_version}-" |
           awk -F- '{print $3}' | sort | tail -n 1
       )"
     fi
@@ -1008,7 +1044,8 @@ __rvm_ruby_string()
     fi
   fi
 
-  if [[ -n "${rvm_ruby_name:-}" ]]
+  if
+    [[ -n "${rvm_ruby_name:-}" ]]
   then
     rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_name}"
     # record the name for validation of -n option
@@ -1019,6 +1056,7 @@ __rvm_ruby_string()
     # record the no name for validation of -n option
     detected_rvm_ruby_name=""
   fi
+  true # OSX --trace FIX
 }
 
 __rvm_ruby_strings_exist()

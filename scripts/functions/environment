@@ -135,73 +135,26 @@ __rvm_ensure_has_environment_files()
   return 0
 }
 
-# Loop over the currently installed rubies and refresh their binscripts.
-__rvm_bin_scripts()
-{
-  for rvm_ruby_binary in "$rvm_rubies_path"/*/bin/ruby
-  do
-    if [[ -x "$rvm_ruby_binary" ]]
-    then
-      rvm_ruby_string=$(
-        dirname "$rvm_ruby_binary" | xargs dirname | xargs basename
-      )
-
-      __rvm_select
-
-      __rvm_bin_script
-    fi
-  done
-  return 0
-}
-
 # Write the bin/ wrapper script for currently selected ruby.
 # TODO: Adjust binscript to be able to handle all rubies,
 #       not just the standard interpreteres.
-__rvm_bin_script()
+__rvm_generate_wrappers()
 {
-  "$rvm_scripts_path/wrapper" "$rvm_ruby_string"
+  "$rvm_scripts_path/wrapper" "$rvm_ruby_string" --no-links --all
 }
 
 # Runs a command in a given env.
-__rvm_run_with_env()
+__rvm_with()
+(
+  __rvm_use "$1"
+  shift
+  "$@" || return $?
+)
+
+__rvm_gemset_pristine()
 {
-  typeset name environment _command message log __logs_path
-
-  name="${1:-""}"
-  environment="${2:-""}"
-  _command="${3:-""}"
-  message="${4:-""}"
-  [[ -n "$environment" ]] || environment="$(__rvm_env_string)"
-
-  if [[ -n "$message" ]]
-  then rvm_log "$message"
-  fi
-  if (( ${rvm_debug_flag:=0} == 1 ))
-  then rvm_debug "Executing: $_command in environment $environment"
-  fi
-
-  __logs_path="${rvm_log_path}/$rvm_ruby_string"
-  [[ -d "$__logs_path" ]] || command mkdir -p "$__logs_path"
-
-  log="$__logs_path/$name.log"
-  [[ -f "$log" ]] || command touch "$log" # for zsh :(
-
-  printf "%b"  "[$(date +'%Y-%m-%d %H:%M:%S')] $_command # under $environment\n" >> "${log}"
-
-  if (( ${rvm_niceness:=0} > 0 ))
-  then _command="nice -n $rvm_niceness $_command"
-  fi
-
-  (
-    rvm_ruby_string="$environment"
-    __rvm_use
-    eval "$_command" >> "${log}" 2>&1
-  ) ||
-  {
-    result=$?
-    rvm_error "Error running '$command' under $env_name,\nplease read $log"
-    return $result
-  }
+  __rvm_log_command "gemset.pristine-$1" "Making gemset $1 pristine." \
+    __rvm_with "$1" "$rvm_scripts_path/gemsets" pristine
 }
 
 __variables_definition()
@@ -234,8 +187,9 @@ __variables_definition()
     rvm_error_message rvm_gemset_name rvm_parse_break rvm_token rvm_action rvm_export_args
     rvm_gemset_separator rvm_expanding_aliases rvm_architectures rvm_tar_command rvm_tar_options
     rvm_patch_original_pwd rvm_project_rvmrc rvm_archive_extension rvm_autoinstall_bundler_flag
-    rvm_codesign_identity rvm_expected_gemset_name rvm_with_gems rvm_without_gems rvm_force_clang_ok
-    rvm_ignore_dotfiles_flag rvm_latest_binary_flag rvm_fuzzy_flag
+    rvm_codesign_identity rvm_expected_gemset_name rvm_with_gems rvm_without_gems
+    rvm_ignore_dotfiles_flag rvm_latest_binary_flag rvm_fuzzy_flag rvm_autolibs_flag
+    rvm_autolibs_flag_number rvm_autolibs_flag_runner rvm_quiet_curl_flag
   )
 
   __array_list=(

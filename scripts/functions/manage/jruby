@@ -51,17 +51,27 @@ jruby_install()
   __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
 
   __rvm_apply_patches
-  __rvm_log_command "ant.jar" "$rvm_ruby_string - #ant jar" ant jar
+  __rvm_log_command "ant.jar" "$rvm_ruby_string - #ant jar" ant jar || return $?
+
+  [[ -f "${rvm_src_path}/$rvm_ruby_string/bin/jruby" ]] ||
+  {
+    result=$?
+    rvm_error "JRuby reported it was installed successfully, but RVM could not find proper installation,
+please check why '${rvm_src_path}/$rvm_ruby_string/bin/jruby' was not created,
+maybe here '$rvm_log_path/$rvm_ruby_string/ant.jar.log',
+also make sure to report an error here 'https://github.com/jruby/jruby/issues'
+about not returning non zero status in case of errors."
+    return $result
+  }
+
   if
     (( ${#rvm_configure_flags[@]} ))
   then
     __rvm_log_command "ant.jar.flags" "$rvm_ruby_string - #ant jar ${rvm_configure_flags[*]}" \
-      ant jar "${rvm_configure_flags[@]}"
+      ant jar "${rvm_configure_flags[@]}" || return $?
   fi
   __rvm_log_command "ant.cext" "$rvm_ruby_string - #ant cext" ant cext "${rvm_configure_flags[@]}" ||
     rvm_warn "cext is known to fail please report here: https://jira.codehaus.org/browse/JRUBY"
-
-  mkdir -p "$rvm_ruby_home/bin/"
 
   {
     __rvm_version_compare "$rvm_ruby_version" -ge "1.7.0" ||
@@ -69,7 +79,7 @@ jruby_install()
   } &&
   __rvm_rm_rf "$rvm_ruby_home" &&
   __rvm_log_command "install" "$rvm_ruby_string - #installing to $rvm_ruby_home" \
-    /bin/\cp -Rf "${rvm_src_path}/$rvm_ruby_string" "$rvm_ruby_home" || return $?
+    /bin/cp -Rf "${rvm_src_path}/$rvm_ruby_string" "$rvm_ruby_home" || return $?
 
   case ${rvm_ruby_string} in
     jruby-head*|jruby-1.7.*)
@@ -109,7 +119,7 @@ jruby_install()
   esac
   __rvm_post_install
 
-  __rvm_bin_script
+  __rvm_generate_wrappers
 
   # jruby ships with some built in gems, copy them in to place.
   if [[ -d "$rvm_ruby_home/lib/ruby/gems/1.8" ]]

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+sudo_args=()
+
+while
+  (( $# ))
+do
+  case "$1" in
+  (--trace)
+    export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+    set -o xtrace
+    ;;
+  (--verbose)
+    set -o verbose
+    ;;
+  (-*)
+    sudo_args+=("$1")
+    case "$1" in
+    (-g|-u|-p|-r|-t|-U|-C)
+      shift
+      sudo_args+=("${1:-}")
+      ;;
+    esac
+    ;;
+  (*)
+    break
+    ;;
+  esac
+  (( $# == 0 )) || shift
+done
+
+if (( $# ))
+then
+  if
+    [[ "${rvmsudo_secure_path:-0}" == 1 ]]
+  then
+    sudo_args+=( "/usr/bin/env" )
+  elif
+    [[ -f "/etc/sudoers" ]]
+  then
+    if
+      [[ ! -r "/etc/sudoers" ]]
+    then
+      sudo_args+=( "/usr/bin/env" )
+      printf "%b" 'Warning: can not check `/etc/sudoers` for `secure_path`, falling back to call via `/usr/bin/env`, this breaks rules from `/etc/sudoers`. export rvmsudo_secure_path=1 to avoid the warning.'
+    elif
+      \grep -E '^[[:space:]]*Defaults[[:space:]]+secure_path=' "/etc/sudoers" >/dev/null
+    then
+      sudo_args+=( "/usr/bin/env" )
+      printf "%b" 'Warning: `secure_path` found in `/etc/sudoers`, falling back to call via `/usr/bin/env`, this breaks rules from `/etc/sudoers`. export rvmsudo_secure_path=1 to avoid the warning.'
+    fi
+  fi
+  eval command sudo \"\${sudo_args[@]}\" $(
+    /usr/bin/env |
+      awk -F= 'BEGIN{v=0;}/^[a-zA-Z_][a-zA-Z0-9_]*=/{v=1;}v==1&&$2~/^['\''\$]/{v=2;} v==1&&$2~/^\(\) \{/{v=0;} v==1&&$2~/^\(/{v=3;}v==2&&/'\''$/&&!/'\'\''$/{v=1;}v==3&&/\)$/{v=1;}v{print;}v==1{v=0;}' |
+      GREP_OPTIONS="" \grep -E '^rvm|^gemset|^http_|^PATH|^IRBRC|RUBY|GEM' |
+      sed 's/=\(.*\)$/="\1"/'
+  ) \"\$@\" ||
+  {
+    result=$?
+    case $result in
+      (126)
+        printf "%b" "\nTarget user does not have access to the given command, try finding problem bellow:\n\n"
+        p="$rvm_path"
+        dirs=()
+        while
+          [[ "$p" != "" ]]
+        do
+          dirs+=( "$p" )
+          p="${p%/*}"
+        done
+        ls -ld "${dirs[@]}"
+        printf "%b" "\nIf you could not find the issue check permissions of all involved users and directories.\n\n"
+        ;;
+    esac
+    exit $result
+  }
+else
+  printf "%b" "Usage:\n  $0 [--trace] [--verbose] [sudo-options] command [command-options]\n"
+fi

@@ -8,8 +8,11 @@ Other implementations allowing to switch ruby environment:
 - https://github.com/postmodern/chruby
 - https://github.com/sam/rb-switch
 - https://github.com/jayferd/ry
+- https://github.com/terlar/fry (Fish)
 - https://github.com/niw/rubies
-- https://github.com/hmans/rbfu
+- https://github.com/hmans/rbfu (deprecated http://redd.it/196qri)
+- https://github.com/nmeum/rbi
+- https://github.com/brixen/mkruby
 - https://github.com/nkryptic/sandbox
 - https://github.com/regularfry/gemenv
 - https://github.com/sstephenson/rbenv

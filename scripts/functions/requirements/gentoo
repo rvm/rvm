@@ -1,57 +1,40 @@
 #!/usr/bin/env bash
 
-set -e
+requirements_gentoo_lib_installed() [[ -n "$(portageq match / "$1" 2>/dev/null)" ]]
 
-function requirements_gentoo()
+requirements_gentoo_libs_install()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (force|run)
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  (( UID == 0 )) || command_to_run+=( sudo )
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        "${command_to_run[@]}" emerge --sync
-        ;;
-      (rvm)
-        "${command_to_run[@]}" emerge bash curl git patch
-        ;;
-      (jruby*)
-        "${command_to_run[@]}" emerge dev-java/sun-jdk dev-java/sun-jre-bin
-        ;;
-      (ir*)
-        "${command_to_run[@]}" emerge dev-lang/mono
-        ;;
-      (opal)
-        "${command_to_run[@]}" emerge nodejs
-        ;;
-      (*)
-        "${command_to_run[@]}" emerge libiconv readline zlib openssl curl git libyaml sqlite libxslt libtool gcc autoconf automake bison m4
-        ;;
-    esac
-    shift
-  done
+  __rvm_try_sudo emerge "$@" || return $?
 }
 
-requirements_gentoo "$@"
+requirements_gentoo_ensure_libs()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages gentoo "$@" || return $?
+}
+
+requirements_gentoo_run()
+{
+  case "$1" in
+    (update-system)
+      rvm_requiremnts_fail_or_run_action 3 \
+        "Skipping \`emerge --sync\` make sure your system is up to date." \
+        __rvm_try_sudo emerge --sync || return $?
+      ;;
+    (rvm)
+      requirements_gentoo_ensure_libs net-misc/curl git sys-devel/patch app-shells/bash
+      ;;
+    (jruby*)
+      requirements_gentoo_ensure_libs dev-java/sun-jdk dev-java/sun-jre-bin
+      ;;
+    (ir*)
+      requirements_gentoo_ensure_libs dev-lang/mono
+      ;;
+    (opal)
+      requirements_gentoo_ensure_libs net-libs/nodejs
+      ;;
+    (*)
+      requirements_gentoo_ensure_libs virtual/libiconv sys-libs/readline sys-libs/zlib dev-libs/openssl net-misc/curl git dev-libs/libyaml dev-db/sqlite dev-libs/libxslt sys-devel/libtool sys-devel/gcc sys-devel/autoconf sys-devel/automake sys-devel/bison sys-devel/m4
+      ;;
+  esac
+}

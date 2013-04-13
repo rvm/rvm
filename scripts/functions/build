@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/autolibs"
 source "$rvm_scripts_path/functions/build_config"
+source "$rvm_scripts_path/functions/build_requirements"
+source "$rvm_scripts_path/functions/osx-ssl-certs"
 
 # show the user selected compiler or return 1
 __rvm_selected_compiler()
@@ -25,19 +28,14 @@ __rvm_selected_compiler()
     echo "${CC}"
     return 0
   fi
-  if # autoselect on osx as there is no standard
-    __rvm_find_osx_gcc42 &&
-    [[ -n "${CC:-}" ]]
-  then
-    echo "$CC"
-    return 0
-  fi
   return 1
 }
 
 __rvm_found_compiler()
 {
-  __rvm_selected_compiler || \which gcc 2>/dev/null
+  __rvm_selected_compiler  ||
+  \which gcc   2>/dev/null ||
+  \which clang 2>/dev/null
 }
 
 __rvm_fix_gcc_path()
@@ -48,8 +46,9 @@ __rvm_fix_gcc_path()
   ) >/dev/null 2>/dev/null ||
   {
     __cc_value="$( "$rvm_ruby_home/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]' 2>/dev/null )"
+    __config_file="$( find $rvm_ruby_home/ -name rbconfig.rb 2>/dev/null )"
     if
-      __config_file="$( find $rvm_ruby_home/ -name rbconfig.rb )" &&
+      [[ -n "${__config_file}" ]] &&
       GREP_OPTIONS="" \grep "CONFIG\[\"CC\"\]" "${__config_file}" >/dev/null
     then
       __cc_new="$( __rvm_found_compiler )"
@@ -57,17 +56,18 @@ __rvm_fix_gcc_path()
       __rvm_sed_i "${__config_file}" \
         -e "s#CONFIG\[\"CC\"\].*\$#CONFIG[\"CC\"] = ENV[\"CC\"] || \"${__cc_new}\"#"
     else
-      rvm_warn "Installed ruby contains path to non existing compiler '${__config_file}', compiling native gems might be impossible."
+      rvm_warn "Installed ruby contains path to non existing compiler '${__cc_value}', compiling native gems might be impossible."
     fi
   }
 }
 
 __rvm_run_compiler()
 {
-  typeset compiler
   if
-    compiler="$( __rvm_found_compiler )"
+    [[ -n "${1:-}" ]]
   then
+    typeset compiler="$1"
+    shift
     if [[ -n "${ZSH_VERSION:-}" ]]
     then ${=compiler} "$@" || return $?
     else ${compiler}  "$@" || return $?
@@ -77,26 +77,23 @@ __rvm_run_compiler()
   fi
 }
 
+__rvm_compiler_is() [[ "$( __rvm_run_compiler "$1" "$2" )" =~ "$3" ]]
+
 __rvm_compiler_is_llvm()
 {
-  __rvm_found_compiler >/dev/null &&
-  [[ "$(__rvm_run_compiler --version)" =~ "llvm" ]] ||
+  typeset compiler
+  compiler="${1:-$( __rvm_found_compiler )}" &&
+  __rvm_compiler_is "$compiler" "--version" llvm ||
   return $?
 }
 
-__rvm_compiler_is_gcc47()
+__rvm_compiler_version_or_higher()
 {
-  __rvm_found_compiler >/dev/null &&
-  [[ "$(__rvm_run_compiler -dumpversion)" =~ "4.7" ]] ||
+  typeset __version compiler
+  compiler="${2:-$(  __rvm_found_compiler )}" &&
+  __version="$( __rvm_run_compiler "$compiler" "-dumpversion" )" &&
+  __rvm_version_compare "${__version:-0}" -ge "$1" ||
   return $?
-}
-
-__rvm_compiler_is_gcc46_or_higher()
-{
-  __rvm_found_compiler >/dev/null || return 1
-  typeset __version
-  __version="$(__rvm_run_compiler -dumpversion)"
-  __rvm_version_compare "${__version:-0}" -ge "4.6" || return $?
 }
 
 __rvm_update_configure_env()
@@ -116,6 +113,9 @@ __rvm_update_configure_env()
 __rvm_update_configure_opt_dir()
 {
   case "$1" in
+    (rbx*|rubinius*)
+      __rvm_update_configure_opt_dir_options "$2"
+      ;;
     (ruby-head*|ruby-2*)
       __rvm_update_configure_opt_dir_option "$2"
       ;;
@@ -140,6 +140,14 @@ __rvm_update_configure_opt_dir()
   esac
 }
 
+# add multiple --with-opt-dir=
+__rvm_update_configure_opt_dir_options()
+{
+  rvm_debug "rvm_configure_flags+=( --with-opt-dir=$1 )"
+  rvm_configure_flags+=( --with-opt-dir="$1" )
+}
+
+# update single --with-opt-dir=
 __rvm_update_configure_opt_dir_option()
 {
   rvm_debug "rvm_configure_flags+=( --with-opt-dir=$1 )"
@@ -163,7 +171,7 @@ __rvm_update_configure_opt_dir_flags()
 {
   typeset __enable_rpath __lib_path
   if
-    which bash | xargs head -n 1 | cat -e | grep -b '^^?ELF' >/dev/null
+    which bash | xargs head -n 1 | \cat -e | \grep -b '^^?ELF' >/dev/null
   then
     __enable_rpath="true"
   fi
@@ -176,39 +184,6 @@ __rvm_update_configure_opt_dir_flags()
     __rvm_update_configure_env LDFLAGS="-L$1/lib64"
     [[ -z "${__enable_rpath:-}" ]] ||
       __rvm_update_configure_env LDFLAGS="-Wl,-rpath,$1/lib64"
-  fi
-}
-
-__rvm_find_osx_gcc42()
-{
-  if
-    [[ "Darwin" == "$(uname)" ]]
-  then
-    export CC
-    # override CC if gcc-4.2 available (OSX)
-    if
-      [[ -x /usr/local/bin/gcc-4.2 ]] # HomeBrew
-    then
-      CC=/usr/local/bin/gcc-4.2
-    elif
-      [[ -x /opt/local/bin/gcc-apple-4.2 ]] # MacPorts
-    then
-      CC=/opt/local/bin/gcc-apple-4.2
-    elif
-      __rvm_which gcc-apple-4.2 > /dev/null # MacPorts via PATH
-    then
-      CC=gcc-apple-4.2
-    elif
-      __rvm_which gcc-4.2 > /dev/null # Any gcc-4.2
-    then
-      CC=gcc-4.2
-    elif
-      [[ -x /usr/bin/gcc-4.2 ]] # OSX-GCC-Installer / Xcode - might be LLVM
-    then
-      CC=/usr/bin/gcc-4.2
-    else
-      return 1
-    fi
   fi
 }
 
@@ -258,7 +233,7 @@ __rvm_mono_env()
 __rvm_mri_rubies()
 {
   typeset versions _ruby
-  versions="${1:-"1.8.|ree|1.9."}"
+  versions="${1:-"ruby-1.9|ruby-2"}"
   for _ruby in $( find $rvm_rubies_path/ -maxdepth 1 -mindepth 1 -type d -not -type l )
   do
     printf "%b" "${_ruby##*/}\n"
@@ -270,7 +245,7 @@ __rvm_mri_rubies()
 __rvm_mri_ruby()
 {
   typeset versions
-  versions="${1:-"1.8.|ree|1.9."}"
+  versions="${1:-"ruby-1.9|ruby-2"}"
   _mri_rubies=( $( __rvm_mri_rubies "$versions" ) )
   _current_ruby=$(__rvm_env_string)
   if [[ " ${_mri_rubies[*]} " =~ " ${_current_ruby} " ]]
@@ -288,16 +263,18 @@ __rvm_mri_ruby()
 __rvm_ensure_has_mri_ruby()
 {
   typeset versions
-  versions="${1:-"1.8.|ree|1.9."}"
-  if [[ -z "$(__rvm_mri_ruby $versions)" ]]
+  versions="${1:-"ruby-1.9|ruby-2"}"
+  if
+    [[ -z "$(__rvm_mri_ruby $versions)" ]]
   then
     typeset compat_result
     compat_result=0
-    if ! ( "$rvm_bin_path"/rvm install 1.8.7 )
+    if
+      ! ( __rvm_run_wrapper manage install ruby )
     then
       rvm_error "
-To proceed rvm requires a 1.8-compatible ruby is installed.
-We attempted to install 1.8.7 automatically but it failed.
+To proceed rvm requires a ${versions} compatible ruby is installed.
+We attempted to install ruby automatically but it failed.
 Please install it manually (or a compatible alternative) to proceed.
 "
       compat_result=1

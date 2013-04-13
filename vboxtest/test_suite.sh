@@ -61,11 +61,11 @@ if [ -f "$messages_file" ] && [ -f "$results_file" ]
 then
   # A helper function to count the number of occurrences of a character in a string.
   count_char () {
-    grep -o "$1" "$2" | wc -l | tr -d " "
+    \grep -o "$1" "$2" | wc -l | tr -d " "
   }
 
   echo
-  cat "$messages_file"
+  \cat "$messages_file"
   echo "$(count_char "\." "$results_file") pass, $(count_char "F" "$results_file") fail"
   rm "$messages_file" "$results_file"
 fi

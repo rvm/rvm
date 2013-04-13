@@ -1,158 +1,28 @@
 #!/usr/bin/env bash
 
-transform_configure_flags()
-{
-  typeset flag _opt_path
-  typeset -a new_flags
-
-  new_flags=()
-  for flag in "${rvm_configure_flags[@]}"
-  do
-    case "${flag}" in
-      --with-opt-dir=*)
-        # merge multiple opt flags
-        __rvm_array_add_or_update new_flags --with-opt-dir= : "${flag#*=}"
-        ;;
-      *)
-        new_flags+=( "${flag}" )
-        ;;
-    esac
-  done
-
-  rvm_configure_flags=( "${new_flags[@]}" )
-}
-
-# 1.9.3-p125+
-__clang_ok()
-{
-  if [[ -n "$rvm_force_clang_ok" ]]; then
-      return 0
-  fi
-  typeset _patch_level
-  case ${rvm_ruby_string} in
-    ruby-1.9.3-head*|ruby-2*)
-      return 0
-      ;;
-    ruby-1.9.3*)
-      _patch_level="${rvm_ruby_patch_level:-p0}"
-      _patch_level="${_patch_level#p}"
-      (( _patch_level >= 125 )) && return 0 || true
-      ;;
-  esac
-  return 1
-}
-
 ruby_install()
 {
   typeset result temp_flags _iterator
-  typeset -a delayed_flags
-  delayed_flags=()
-
-  __rvm_check_for_bison # && Run like hell...
-  if __rvm_check_for_bison
-  then true
-  else
-    result=$?
-    rvm_log "Bison required but not found. Halting."
-    return $result
-  fi
-
-  case ${rvm_ruby_string} in
-    ruby-1.9*|ruby-2.0*|ruby-head)
-      # Ruby 1.9 should now use libyaml which is for Psych.
-      if
-        [[ " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
-      then
-        # when relative is in effect libyaml is installed in ruby itself so it will be moved with ruby
-        (
-          __rvm_setup_compile_environment libyaml
-          prefix_path="${rvm_rubies_path}/${rvm_ruby_string}" install_libyaml
-        )
-        delayed_flags+=( --with-yaml-dir="${rvm_rubies_path}/${rvm_ruby_string}" )
-      else
-        if
-          libyaml_installed
-        then
-          rvm_debug "Libyaml already installed"
-        else
-          (
-            __rvm_setup_compile_environment libyaml
-            install_libyaml
-          )
-        fi
-        delayed_flags+=( --with-yaml-dir="${rvm_path}/usr" )
-      fi
-      ;;
-  esac
-  [[ "Darwin" != "$(uname)" ||
-    "${rvm_skip_openssl_flag:-0}" == "1" ||
-    " ${rvm_configure_flags[*]}" =~ " --with-openssl-dir"
-  ]] ||
-  case ${rvm_ruby_string} in
-    ruby-2*|ruby-head)
-      # Ruby 2.0 should use custom openssl on OSX which is for https connections.
-      if
-        [[ " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
-      then
-        # when relative is in effect openssl is installed in ruby itself so it will be moved with ruby
-        (
-          __rvm_setup_compile_environment openssl
-          prefix_path="${rvm_rubies_path}/${rvm_ruby_string}" install_openssl
-        )
-        delayed_flags+=( --with-openssl-dir="${rvm_rubies_path}/${rvm_ruby_string}" )
-      else
-        if
-          openssl_installed
-        then
-          rvm_debug "Openssl already installed"
-        else
-          (
-            __rvm_setup_compile_environment openssl
-            install_openssl
-          )
-        fi
-        delayed_flags+=( --with-openssl-dir="${rvm_path}/usr" )
-      fi
-      ;;
-  esac
-  rvm_configure_flags+=( "${delayed_flags[@]}" )
-  transform_configure_flags
 
   case ${rvm_ruby_string:-""} in
     ruby-1.8.*-head)
-      if __rvm_ensure_has_mri_ruby "1.8.|ree"
-      then true
-      else return $?
-      fi
+      __rvm_ensure_has_mri_ruby "ruby-1.8.|ree-" || return $?
       ;;
     ruby-head|ruby-1.9.*-head)
+      __rvm_ensure_has_mri_ruby || return $?
+      typeset compatible_baseruby
       if
-        __rvm_ensure_has_mri_ruby
+        compatible_baseruby="$rvm_wrappers_path/$(__rvm_mri_ruby)/ruby" &&
+        [[ -x "$compatible_baseruby" ]]
       then
-        typeset compatible_baseruby
-        compatible_baseruby="$rvm_wrappers_path/$(__rvm_mri_ruby)/ruby"
-        if [[ -x "$compatible_baseruby" ]]
-        then
-          rvm_configure_flags+=( --with-baseruby="$compatible_baseruby" )
-        fi
+        rvm_configure_flags+=( --with-baseruby="$compatible_baseruby" )
       else
         return $?
       fi
       ;;
   esac
 
-  # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
-  case "$(uname -s)" in
-    SunOS)
-      case ${rvm_ruby_string} in
-        ruby-1.9*)
-          rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
-          ;;
-      esac
-    ;;
-  esac
-
-  # TODO: needed on some 1.9.3, confi\rm with http://bugs.ruby-lang.org/issues/6903
+  # TODO: needed on some 1.9.3, confirm with http://bugs.ruby-lang.org/issues/6903
   if
     [[ " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
   then
@@ -163,31 +33,18 @@ ruby_install()
     esac
   fi
 
-  __rvm_setup_compile_environment "${rvm_ruby_string}"
 
-  # Force using clang when only LLVM available and user did not selected compiler,
-  # hides the need for `rvm_force_autoconf=1`
-  # which should be default, but is not by default available on Xcode 4.3.
-  if [[ "$MACHTYPE" == *darwin* ]] &&
-    __clang_ok && __rvm_compiler_is_llvm &&
-    ! __rvm_selected_compiler > /dev/null
-  then
-    rvm_configure_flags+=( --with-gcc=clang )
-  fi
-
-  if __rvm_compiler_is_llvm
-  then
-    if __clang_ok || __rvm_selected_compiler > /dev/null
+  (
+    __rvm_setup_compile_environment "${rvm_ruby_string}" &&
+    __rvm_install_source $* &&
+    if
+      ! __ruby_clang_ok ${rvm_ruby_string} &&
+      [[ -n "${initially_selected_compiler:-}" ]] &&
+      __rvm_compiler_is_llvm "${initially_selected_compiler:-}"
     then
-      rvm_warn "Building '${rvm_ruby_string}' using clang - but it's not (fully) supported, expect errors."
-    else
-      rvm_error "The provided compiler '$(__rvm_found_compiler)' is LLVM based, it is not yet fully supported by ruby and gems, please read \`rvm requirements\`."
-      return 1
+      rvm_warn "Ruby '${rvm_ruby_string}' was built using clang - but it's not (fully) supported, expect errors."
     fi
-  fi
-
-  ( __rvm_install_source $* )
-  result=$?
+  ) || return $?
 
   if
     [[ "$MACHTYPE" == *darwin* && " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
@@ -201,27 +58,21 @@ ruby_install()
     __rvm_log_command fix.osx.dependencies "fix osx dependencies" install_name_tool -change "${libyaml_lib_path_old}" "${libyaml_lib_path_new}" "${psych_lib_path}"
   fi
 
-  if __rvm_compiler_is_llvm
-  then
-    rvm_warn "Ruby '${rvm_ruby_string}' was built using clang - but it's not (fully) supported, expect errors."
-  fi
-
   typeset patches_count
   patches_count=$(
     rvm_ruby_string="${rvm_ruby_string}" "$rvm_scripts_path/patchsets" show default | wc -l
   )
-  # 1.9.3 provides a patch to compile better with LLVM
-  if [[ ! "${rvm_ruby_string}" =~ "ruby-1.9.3" ]] && (( patches_count > 0 ))
+
+  typeset _default _version _patch
+  _default=$(__rvm_db "default_ruby")
+  _version=$(__rvm_db "${_default}_version")
+  _patch=$(__rvm_db "${_default}_${_version}_patch_level")
+  _version="${_default}-${_version}${_patch:+-}${_patch:-}"
+  if
+    [[ ! "${rvm_ruby_string}" =~ "${_default}-${_version}" ]] && (( patches_count > 0 ))
   then
-    typeset _default _version _patch
-    _default=$(__rvm_db "default_ruby")
-    _version=$(__rvm_db "${_default}_version")
-    _patch=$(__rvm_db "${_default}_${_version}_patch_level")
-    _version="${_default}-${_version}${_patch:+-}${_patch:-}"
     rvm_warn "Please be aware that you just installed a ruby that requires ${patches_count} patches just to be compiled on up to date linux system.
 This may have known and unaccounted for security vulnerabilities.
 Please consider upgrading to ${_version} which will have all of the latest security patches."
   fi
-
-  return ${result:-0}
 }

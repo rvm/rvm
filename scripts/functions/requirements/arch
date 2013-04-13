@@ -1,64 +1,51 @@
 #!/usr/bin/env bash
 
-set -e
-
-function requirements_arch()
+requirements_arch_lib_installed_all_missing()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (run)
-        shift
-        ;;
-      (force)
-        command_flags+=( --noconfi\rm )
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  (( UID == 0 )) || command_to_run+=( sudo )
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        true
-        ;;
-      (rvm)
-        "${command_to_run[@]}" pacman -SUy --needed --recursive "${command_flags[@]}" bash curl git patch
-        ;;
-      (jruby*head)
-        "${command_to_run[@]}" pacman -SUy --needed --recursive "${command_flags[@]}" jdk7-openjdk jre7-openjdk curl apache-ant
-        ;;
-      (jruby*)
-        "${command_to_run[@]}" pacman -SUy --needed --recursive "${command_flags[@]}" jdk7-openjdk jre7-openjdk curl
-        ;;
-      (ir*)
-        "${command_to_run[@]}" pacman -SUy --needed --recursive "${command_flags[@]}" mono
-        ;;
-      (opal)
-        "${command_to_run[@]}" pacman -SUy --needed --recursive "${command_flags[@]}" nodejs
-        ;;
-      (*)
-        "${command_to_run[@]}" pacman -SUy --needed --recursive "${command_flags[@]}" gcc patch curl zlib readline libxml2 libxslt git autoconf automake diffutils make libtool bison subversion
-        ;;
-    esac
-    shift
-  done
+  pacman -T "$@" >/dev/null || true
 }
 
-requirements_arch "$@"
+requirements_arch_libs_install()
+{
+  __rvm_try_sudo pacman -Sy --needed --recursive --noconfirm "$@" || return $?
+}
+
+requirements_arch_libs_ensure()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages arch "$@" || return $?
+}
+
+requirements_arch_run()
+{
+  case "$1" in
+    (update-system)
+      rvm_requiremnts_fail_or_run_action 3 \
+        "Skipping pacman update, make sure your system is up to date." \
+        requirements_arch_libs_install pacman || return $?
+      ;;
+    (rvm)
+      requirements_arch_libs_ensure bash curl git patch
+      ;;
+    (jruby*head)
+      requirements_arch_libs_ensure jdk7-openjdk jre7-openjdk curl apache-ant
+      ;;
+    (jruby*)
+      requirements_arch_libs_ensure jdk7-openjdk jre7-openjdk curl
+      ;;
+    (ir*)
+      requirements_arch_libs_ensure mono
+      ;;
+    (opal)
+      requirements_arch_libs_ensure nodejs
+      ;;
+    (*)
+      requirements_arch_libs_ensure gcc patch curl zlib readline libxml2 libxslt autoconf automake diffutils make libtool bison
+      ;;
+  esac
+}
+
+requirements_manjaro_run()
+{
+  requirements_arch_run "$@" || return $?
+}

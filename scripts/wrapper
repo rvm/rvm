@@ -138,18 +138,64 @@ then
     rvm_error "No bin path suitable for lining wrapper. Try setting 'rvm_bin_path'."
     exit 4
   fi
-else
-  rvm_log "Saving wrappers to '$rvm_bin_path'."
 fi
 [[ -d "$rvm_bin_path" ]] || mkdir -p "$rvm_bin_path"
 
 __rvm_ensure_has_environment_files
 environment_identifier="$(__rvm_env_string)"
 
+find_all_wrappers()
+{
+  typeset -a search_paths
+  typeset _path
+  search_paths=()
+  for _path in \
+    "$rvm_gems_path/${environment_identifier}"/bin/ \
+    "$rvm_gems_path/${environment_identifier%%@*}@global"/bin/ \
+    "$rvm_rubies_path/${environment_identifier%%@*}"/bin/
+  do
+    if [[ -d "${_path}" ]]
+    then search_paths+=( "${_path}" )
+    fi
+  done
+  (( ${#search_paths[@]} )) || return 0
+  find "${search_paths[@]}" -type f -perm -u=x | awk -F/ '{print $NF}'
+}
+
+if
+  [[ " ${binaries[*]} " =~ " --all " ]]
+then
+  old_binaries=( "${binaries[@]}" )
+  __rvm_read_lines binaries <(
+    for binary_name in "${old_binaries[@]}"
+    do
+      if
+        [[ "$binary_name" == "--all" ]]
+      then
+        find_all_wrappers "${environment_identifier}"
+      else
+        echo "${binary_name}"
+      fi
+    done | sort -u
+  )
+fi
+
+_log="${rvm_log_path}${rvm_ruby_string:+/}${rvm_ruby_string:-}"
+[[ -d "${_log}" ]] || mkdir -p "${_log}"
+_log="${_log}/wrappers.log"
+
+if [[ "--no-links" == "$prefix" ]]
+then wrappers_target="$rvm_wrappers_path/${environment_identifier}"
+else wrappers_target="$rvm_bin_path"
+fi
+
+echo "prefix: '$prefix'." > "$_log"
+
 # For each binary, we want to generate the wrapper / symlink
 # it to the existing wrapper if needed.
 for binary_name in "${binaries[@]}"
 do
+  echo "wrapper: '$binary_name'."
   file_name="$rvm_wrappers_path/${environment_identifier}/${binary_name##*\/}"
   file_name=${file_name// /_}
   if
@@ -172,6 +218,11 @@ do
       ln -sf "$file_name" "$destination"
     fi
   elif
+    [[ "--no-links" == "$prefix" ]]
+  then
+    override_check=1
+    wrap_binary
+  elif
     [[ "--no-prefix" == "$prefix" ]]
   then
     override_check=1
@@ -190,4 +241,8 @@ do
   else
     symlink_binary
   fi
-done
+done | tee -a "$_log" | __rvm_dotted "Saving wrappers to '$wrappers_target'" ||
+{
+  rvm_error "Failed generating wrappers, check for details in '${_log}'."
+  exit 1
+}

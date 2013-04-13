@@ -1,128 +1,106 @@
 #!/usr/bin/env bash
 
-set -e
-
-function requirements_brew()
-{
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (force|run)
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  (( UID == 0 )) || {
-    typeset brew_path
-    brew_path="$( \which brew 2>/dev/null )"
-    {
-      # has to be executable for the running user
-      [[ -x "${brew_path}" ]] &&
-      # must be owned by user or sticky bit set -- #TODO: might need improvement
-      [[ -O "${brew_path}" || -G "${brew_path}" || -u "${brew_path}" || -g "${brew_path}" ]]
-    } ||
-    command_to_run+=( sudo )
-  }
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        "${command_to_run[@]}" brew update
-        "${command_to_run[@]}" brew tap homebrew/dupes
-        ;;
-      (rvm)
-        "${command_to_run[@]}" brew install bash curl git
-        ;;
-      (jruby*)
-        which java >/dev/null 2>&1 || return $?
-        ;;
-      (ir*)
-        which mono >/dev/null 2>&1 || return $?
-        ;;
-      (opal)
-        "${command_to_run[@]}" brew install node
-        ;;
-      (*)
-        "${command_to_run[@]}" brew install autoconf automake apple-gcc42 libtool pkg-config openssl readline libyaml sqlite libxml2 libxslt libksba
-        ;;
-    esac
-    shift
-  done
-}
-
-# TODO it's the same as unknown
-function requirements_osx_show()
-{
-  typeset -a command_to_run
-  command_to_run=( echo )
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        shift
-        ;;
-      (force)
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        "${command_to_run[@]}" "Always update your system first!"
-        ;;
-      (rvm)
-        "${command_to_run[@]}" "Install: bash curl git patch"
-        ;;
-      (jruby*)
-        "${command_to_run[@]}" "Install: openjdk ant"
-        ;;
-      (ir*)
-        "${command_to_run[@]}" "Install: mono"
-        ;;
-      (opal)
-        "${command_to_run[@]}" "Install: nodejs npm"
-        ;;
-      (*)
-        "${command_to_run[@]}" "Install: osx-gcc-installer libksba openssl libreadline git zlib1g libyaml libsqlite3 sqlite3 libxml2 libxslt autoconf libc6 libgdbm ncurses automake libtool bison pkg-config"
-        ;;
-    esac
-    shift
-  done
-}
-
-requirements_osx()
+requirements_find_osx_brew()
 {
   if
     \which brew >/dev/null 2>&1
   then
-    requirements_brew "$@"
+    return 0
   else
-    requirements_osx_show "$@"
+    typeset __binary
+    for __binary in ~/homebrew/bin/brew ~/.homebrew/bin/brew /usr/local/bin/brew
+    do
+      if
+        [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
+      then
+        # link to rvm_bin for easy adding to PATH
+        ln -nfs "${__binary}" "${rvm_bin_path:-$rvm_path/bin}/brew"
+        return 0
+      fi
+    done
+    return 1
   fi
 }
 
-requirements_osx "$@"
+requirements_find_osx_port()
+{
+  if # find macports in PATH
+    \which port >/dev/null 2>&1
+  then
+    return 0
+  else # find macports out of PATH and link to rvm/bin
+    typeset __binary
+    for __binary in ~/opt/local/bin/port ~/.opt/local/bin/port /usr/local/bin/port /opt/local/bin/port
+    do
+      if
+        [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
+      then
+        # link to rvm_bin for easy adding to PATH
+        ln -nfs "${__binary}" "${rvm_bin_path:-$rvm_path/bin}/port"
+        return 0
+      fi
+    done
+    return 1
+  fi
+}
+
+requirements_find_osx_fink()
+{
+  if # find macports in PATH
+    \which fink >/dev/null 2>&1
+  then
+    return 0
+  else # find fink out of PATH and link to rvm/bin
+    typeset __binary
+    for __binary in ~/sw/bin/fink ~/.sw/bin/fink /usr/local/bin/fink /sw/bin/fink
+    do
+      if
+        [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
+      then
+        # link to rvm_bin for easy adding to PATH
+        ln -nfs "${__binary}" "${rvm_bin_path:-$rvm_path/bin}/fink"
+        return 0
+      fi
+    done
+    return 1
+  fi
+}
+
+requirements_find_smf()
+{
+  if # find SMF in PATH
+    \which sm >/dev/null 2>&1
+  then
+    return 0
+  else # find SMF out of PATH and link to rvm/bin
+    typeset __binary
+    for __binary in ~/.sm/bin/sm /opt/sm/bin/sm
+    do
+      if
+        [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
+      then
+        # link to rvm_bin for easy adding to PATH
+        ln -nfs "${__binary}" "${rvm_bin_path:-$rvm_path/bin}/sm"
+        return 0
+      fi
+    done
+    return 1
+  fi
+}
+
+requirements_osx()
+{
+  typeset __type
+  for __type in osx_brew osx_port osx_fink smf # ...
+  do
+    if
+      requirements_find_${__type}
+    then
+      __rvm_requirements_run ${__type} "$@" || return $?
+      return 0
+    fi
+  done
+
+  # fallback
+  __rvm_requirements_run osx_brew "$@" || return $?
+}

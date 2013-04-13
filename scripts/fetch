@@ -3,11 +3,7 @@
 url="$1"
 archive="$2"
 
-shift ||
-  rvm_fail "BUG: $0 called without an argument :/"
-
-builtin command -v curl > /dev/null ||
-  rvm_fail "rvm requires curl. curl was not found in your current PATH."
+shift || rvm_fail "BUG: $0 called without an argument :/"
 
 rvm_base_except="selector"
 source "$rvm_scripts_path/base"
@@ -21,16 +17,7 @@ __rvm_cleanup_download()
 __rvm_cd "$rvm_archives_path"
 
 [[ -n "$archive" ]] || archive=$(basename "$url")
-fetch_command="curl ${rvm_proxy:+-x}${rvm_proxy:-} -f -L --create-dirs -C - -o ${archive}"
-if
-  (( ${rvm_debug_flag:-0} == 0 )) &&
-  (( ${rvm_trace_flag:-0} == 0 )) &&
-  rvm_is_a_shell_function no_warning
-then
-  fetch_command+=" --progress-bar"
-fi
-rvm_debug "Fetching: $url"
-rvm_debug "Fetch command: $fetch_command"
+fetch_command=( __rvm_curl --create-dirs -C - -o "${archive}" )
 
 download=1
 try_ftp=0
@@ -73,7 +60,7 @@ if
 then
   \rm -f $archive
   if
-    eval $fetch_command \"$url\"
+    "${fetch_command[@]}" "$url"
   then
     true
   else
@@ -93,6 +80,24 @@ then
         \rm -f "$archive"
         retry=1
         ;;
+      # duplication marker lfdgzkngdkjvnfjknkjvcnbjkncvjxbn
+      (60)
+        log "
+Could not download '${_url}'.
+  Make sure your certificates are up to date as described above.
+  To continue in insecure mode run 'echo insecure >> ~/.curlrc'.
+"
+        ;;
+      # duplication marker lfdgzkngdkjvnfjknkjvcnbjkncvjxbn
+      (77)
+        log "
+It looks like you have old certificates, run:
+
+    curl -O http://curl.haxx.se/ca/cacert.pem && sudo mv cacert.pem /usr/local/etc/openssl/cacert.pem
+
+Replace /usr/local/etc/openssl/cacert.pem with the displayed CAfile.
+"
+        ;;
       (*)
         rvm_error "There was an error($result), please check ${rvm_log_path}/$rvm_ruby_string/*.log. Next we'll try to fetch via http."
         try_ftp=1
@@ -107,7 +112,7 @@ then
     if
       [[ $try_ftp -eq 1 || $retry -eq 1 ]]
     then
-      eval $fetch_command \"$url\"
+      "${fetch_command[@]}" "$url"
       result=$?
     fi
     (( result == 0 )) ||

@@ -84,10 +84,7 @@ __rvm_apply_patch_prepare()
       mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX
     )"
     rvm_log "Fetching patch ${_full_patch_path}"
-    (
-      unset curl
-      \curl ${rvm_proxy:+-x}${rvm_proxy:-} -f -L --create-dirs -sS -C - -o "${_local_patch_path}" "${_full_patch_path}"
-    )
+    __rvm_curl --create-dirs -C - -o "${_local_patch_path}" "${_full_patch_path}"
   else
     _local_patch_path="${_full_patch_path}"
   fi
@@ -127,7 +124,7 @@ __rvm_apply_patch()
 
 __rvm_install_source()
 {
-  true ${rvm_ruby_selected_flag:=0} ${rvm_static_flag:=0}
+  true ${rvm_ruby_selected_flag:=0}
 
   typeset directory db_configure_flags
   typeset -a autoconf_flags
@@ -159,7 +156,7 @@ __rvm_install_source()
     builtin hash -r
   fi
 
-  if (( rvm_static_flag == 1 ))
+  if (( ${rvm_static_flag:-0} == 1 ))
   then
     if [[ -s "ext/Setup" ]]
     then
@@ -288,7 +285,7 @@ __rvm_install_source()
 
   rvm_create_flag=1 __rvm_use &&
     "$rvm_scripts_path/rubygems" ${rvm_rubygems_version:-latest} &&
-    __rvm_bin_script &&
+    __rvm_generate_wrappers &&
     __rvm_log_command "chmod.bin" "" chmod +x "$rvm_ruby_home/bin"/* &&
     __rvm_post_install ||
     return $?
@@ -299,11 +296,19 @@ __rvm_install_source()
 __rvm_install_ruby_try_remote()
 {
   : rvm_disable_binary_flag:${rvm_disable_binary_flag:=0}: rvm_remote_flag:${rvm_remote_flag:=0}:
-  (( rvm_disable_binary_flag )) ||
-  {
+  if
+    (( rvm_remote_flag         >  0 )) || # prefer users remote over auto-detected disable
+    (( rvm_disable_binary_flag == 0 ))
+  then
     rvm_log "Searching for binary rubies, this might take some time."
-    typeset __rvm_ruby_url
+    typeset __rvm_ruby_url __rvm_ruby_verify_download_flag
     __rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}" )"
+    IFS=: read __rvm_ruby_verify_download_flag __rvm_ruby_url <<<"${__rvm_ruby_url}"
+    if
+      (( ${rvm_verify_downloads_flag:-0} > ${__rvm_ruby_verify_download_flag:=0} ))
+    then
+      __rvm_ruby_verify_download_flag=${rvm_verify_downloads_flag}
+    fi
     if
       [[ -z "${__rvm_ruby_url}" ]]
     then
@@ -317,8 +322,10 @@ __rvm_install_ruby_try_remote()
 Continuing with compilation. Please read 'rvm mount' to get more information on binary rubies."
         fi
     else
+      __rvm_setup_compile_environment_setup
+      __rvm_setup_compile_environment_requirements "${rvm_ruby_string}" || return 1
         if
-          rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "${__rvm_ruby_url}" "${rvm_ruby_string}"
+          rvm_verify_downloads_flag=${__rvm_ruby_verify_download_flag} rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "${__rvm_ruby_url}" "${rvm_ruby_string}"
         then
           return 0
         else
@@ -326,7 +333,7 @@ Continuing with compilation. Please read 'rvm mount' to get more information on 
           rvm_warn "Mounting remote ruby failed, trying to compile."
         fi
     fi
-  }
+  fi
   return 2 # continue with compilation
 }
 
@@ -803,7 +810,8 @@ __rvm_check_default()
     [[ -n "$current_ruby_interpreter" ]] &&
     [[ "$current_ruby_interpreter" == "$default_ruby_interpreter" ]]
   then
-    __rvm_run_with_env 'default.restore' 'system' 'rvm use system --default' 'Removing default ruby interpreter'
+    __rvm_log_command 'default.restore' 'Removing default ruby interpreter' \
+      rvm use system --default
   fi
 }
 
@@ -876,10 +884,8 @@ __rvm_reinstall_ruby()
 __rvm_gemset_pristine_all()
 {
   typeset destination_gemset
-  while
-    read -r destination_gemset
-  do
-    __rvm_run_with_env "gemset.pristine" "$destination_gemset" "rvm gemset pristine" "Making gemset $destination_gemset pristine."
+  while read -r destination_gemset
+  do __rvm_gemset_pristine "$destination_gemset"
   done < <(
     "$rvm_scripts_path/list" gemsets strings | GREP_OPTIONS="" \grep -E "^$1(@.*)?$"
   )
@@ -1013,16 +1019,6 @@ __rvm_post_install()
   binaries=(gem irb erb ri rdoc testrb rake) #reset
   __rvm_gemsets_initial
   __rvm_irbrc
-  __rvm_generate_default_docs
-}
-
-__rvm_generate_default_docs()
-{
-  if [[ "$rvm_docs_flag" == "1" && "$rvm_ruby_interpreter" != "macruby" ]]
-  then
-    __rvm_run_with_env "docs.generate" "$rvm_ruby_string" \
-      "rvm docs generate-ri" "Attempting to generate ri documentation..."
-  fi
 }
 
 __rvm_inject_ruby_shebang()

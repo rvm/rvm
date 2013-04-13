@@ -1,70 +1,104 @@
 #!/usr/bin/env bash
 
-set -e
+# If they have the alternate package then send it back but if they
+# don't then we test and see if the main package is available
+# and if it is then we use it, otherwise we fallback to the older.
 
-function requirements_apt()
+requirements_debian_fallback_lib()
 {
-  typeset -a command_to_run command_flags
-  command_to_run=()
-  command_flags=()
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (echo)
-        command_to_run+=( $1 )
-        shift
-        ;;
-      (run)
-        shift
-        ;;
-      (force)
-        command_flags+=( --quiet --yes )
-        shift
-        ;;
-      (*)
-        break
-        ;;
-    esac
-  done
-
-  (( UID == 0 )) || command_to_run+=( sudo )
-
-  while
-    (( $# ))
-  do
-    case "$1" in
-      (update-system)
-        "${command_to_run[@]}" apt-get "${command_flags[@]}" update
-        ;;
-      (rvm)
-        "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install bash curl git patch bzip2
-        ;;
-      (jruby*head)
-        if (( ${_system_version//./} >= 1110 ))
-        then "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install ant openjdk-7-jdk
-        else "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install ant openjdk-6-jdk
-        fi
-        ;;
-      (jruby*)
-        if (( ${_system_version//./} >= 1110 ))
-        then "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install g++ openjdk-7-jre-headless
-        else "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install g++ openjdk-6-jre-headless
-        fi
-        ;;
-      (ir*)
-        "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install curl mono-2.0-devel
-        ;;
-      (opal)
-        "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install nodejs npm
-        ;;
-      (*)
-        "${command_to_run[@]}" apt-get --no-install-recommends "${command_flags[@]}" install build-essential openssl libreadline6 libreadline6-dev curl git-core zlib1g zlib1g-dev libssl-dev libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt-dev autoconf libc6-dev libgdbm-dev ncurses-dev automake libtool bison subversion pkg-config libffi-dev
-        ;;
-    esac
-    shift
-  done
+  if requirements_debian_lib_installed "$2"
+  then echo $2
+  else
+    if apt-cache show $1 >/dev/null 2>&1
+    then echo $1
+    else echo $2
+    fi
+  fi
 }
 
-requirements_apt "$@"
+requirements_debian_lib_installed()
+{
+  case requirements_debian_is_multiarch in
+    (0)
+      dpkg -s "$1:$(dpkg --print-architecture)" >/dev/null 2>/dev/null || return $?
+      ;;
+    (*)
+      dpkg -s "$1" >/dev/null 2>/dev/null || return $?
+      ;;
+  esac
+}
+
+# See: http://wiki.debian.org/Multiarch/HOWTO
+requirements_debian_is_multiarch()
+{
+  dpkg --print-foreign-architectures >/dev/null 2>&1 || return $?
+}
+
+requirements_debian_libs_install()
+{
+  export DEBIAN_FRONTEND=noninteractive
+  __rvm_try_sudo apt-get --no-install-recommends --quiet --yes install "$@" || return $?
+}
+
+requirements_debian_ensure_libs()
+{
+  typeset -a packages_installed packages_missing packages_to_install
+  __rvm_filter_installed_packages debian "$@" || return $?
+}
+
+# find first installed lib
+requirements_debian_lib_pick_first()
+{
+  typeset __lib
+  for __lib
+  do
+    if
+      requirements_debian_lib_installed "${__lib}"
+    then
+      echo "${__lib}"
+      return 0
+    fi
+  done
+  # fallback to first if none installed
+  echo "$1"
+}
+
+requirements_debian_run()
+{
+  case "$1" in
+    (update-system)
+      rvm_requiremnts_fail_or_run_action 3 \
+        "Skipping \`apt-get update\` make sure your system is up to date." \
+        __rvm_try_sudo apt-get --quiet --yes update || return $?
+      ;;
+    (rvm)
+      requirements_debian_ensure_libs bash curl git-core patch bzip2 ca-certificates
+      ;;
+    (jruby*head)
+      if (( ${_system_version//./} >= 1110 ))
+      then requirements_debian_ensure_libs ant $( requirements_debian_lib_pick_first openjdk-7-jdk openjdk-6-jdk )
+      else requirements_debian_ensure_libs ant openjdk-6-jdk
+      fi
+      ;;
+    (jruby*)
+      if (( ${_system_version//./} >= 1110 ))
+      then requirements_debian_ensure_libs g++ $( requirements_debian_lib_pick_first openjdk-7-jre-headless openjdk-7-jdk openjdk-6-jre-headless openjdk-6-jdk )
+      else requirements_debian_ensure_libs g++ $( requirements_debian_lib_pick_first openjdk-6-jre-headless openjdk-6-jdk )
+      fi
+      ;;
+    (ir*)
+      requirements_debian_ensure_libs curl mono-2.0-devel
+      ;;
+    (opal)
+      requirements_debian_ensure_libs nodejs npm
+      ;;
+    (*)
+      requirements_debian_ensure_libs $( requirements_debian_fallback_lib "git" "git-core" ) g++ gcc make libc6-dev patch openssl ca-certificates libreadline6 libreadline6-dev curl zlib1g zlib1g-dev libssl-dev libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt1-dev autoconf libc6-dev libgdbm-dev libncurses5-dev automake libtool bison pkg-config libffi-dev
+      ;;
+  esac
+}
+
+requirements_ubuntu_run()
+{
+  requirements_debian_run "$@"
+}
