@@ -57,14 +57,14 @@ Autolibs also has three other options and these options are 2, which will read p
 
 ## Other modes
 
-* `reset` &nbsp;=>&nbsp; Reset RVM back to default mode.
-* `show` &nbsp;=>&nbsp; Display your current mode.
-* `help` &nbsp;=>&nbsp; Display basic mode descriptions.
-* `status` &nbsp;=>&nbsp; Display detailed information about your mode.
+* `reset` - Reset RVM back to default mode.
+* `show` - Display your current mode.
+* `help` - Display basic mode descriptions.
+* `status` - Display detailed information about your mode.
 
 ## Additional modes
 
-* `brew`, `homebrew`, `osx_brew` &nbsp;=>&nbsp; Like 4, enforce Homebrew.
-* `fink`, `osx_fink` &nbsp;=>&nbsp; Like 4, enforces Fink.
-* `smf` &nbsp;=>&nbsp; Like 4, enforce SM Framework.
-* `port`, `macports`, `osx_port` &nbsp;=>&nbsp; Like 4, enforce MacPorts.
+* `brew`, `homebrew`, `osx_brew` - Like 4, enforce Homebrew.
+* `fink`, `osx_fink` - Like 4, enforces Fink.
+* `smf` - Like 4, enforce SM Framework.
+* `port`, `macports`, `osx_port` - Like 4, enforce MacPorts.
