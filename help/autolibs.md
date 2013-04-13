@@ -16,17 +16,23 @@ Some people might get confused at the difference between `--autolibs` and `autol
 * `rvm autolibs <flag>` is permanent.
 * `rvm install [ruby] --autolibs=<flag>` overrides `rvm autolibs <flag>` temporarily.
 
+## Modes
+
+* `0` - do not do anything,
+* `1` - use available libraries, ignore missing,
+* `2` - use libraries, fail if some are missing,
+* `3` - use libraries, install missing libraries,
+* `4` - install missing package manager (only osx)
+
 ## Letting RVM take care of it all (4)
 
 __*This only applies to OS X users, for non OS X users this will behave like 3*__
 
 RVM can take care of everything for you as an OS X user, this means it will install Homebrew in the `.rvm` folder and manage all it's own dependencies. Typically this would be the best option for new users who do not have their own package manager installed and do not know how to compile their own software.
 
-
-
 Enabling 4:
 ```
-rvm autolibs 4
+rvm autolibs enable
 ```
 
 ## Letting RVM take care of packages (3)
@@ -35,12 +41,12 @@ RVM can also be set to only check for a package manager and install any packages
 
 Enabling 3:
 ```
-rvm autolibs 3
+rvm autolibs packages
 ```
 
 Using 3 only once:
 ```
-rvm install --autolibs=3
+rvm install --autolibs=packages
 ```
 
 You can also optionally enforce a package manager if you are using smf or on OS X by issuing one of the following instead of 4: `brew, homebrew, osx_brew, port, macports, osx_port, fink, osx_fink`
