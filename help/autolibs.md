@@ -16,17 +16,23 @@ Some people might get confused at the difference between `--autolibs` and `autol
 * `rvm autolibs <flag>` is permanent.
 * `rvm install [ruby] --autolibs=<flag>` overrides `rvm autolibs <flag>` temporarily.
 
+## Modes
+
+* `0`, `disable`, `disabled` - Do not do anything.
+* `1`, `read`, `read-only` - Use available libs, ignore missing.
+* `2`, `fail`, `read-fail` - Use libs, fail if some are missing.
+* `3`, `packages`, `install-packages`, - Use libs, install missing libs.
+* `4`, `enable`, `enabled` - Install missing package manager (only OSX, on Linux it's like 3).
+
 ## Letting RVM take care of it all (4)
 
 __*This only applies to OS X users, for non OS X users this will behave like 3*__
 
 RVM can take care of everything for you as an OS X user, this means it will install Homebrew in the `.rvm` folder and manage all it's own dependencies. Typically this would be the best option for new users who do not have their own package manager installed and do not know how to compile their own software.
 
-
-
 Enabling 4:
 ```
-rvm autolibs 4
+rvm autolibs enable
 ```
 
 ## Letting RVM take care of packages (3)
@@ -35,12 +41,12 @@ RVM can also be set to only check for a package manager and install any packages
 
 Enabling 3:
 ```
-rvm autolibs 3
+rvm autolibs packages
 ```
 
 Using 3 only once:
 ```
-rvm install --autolibs=3
+rvm install --autolibs=packages
 ```
 
 You can also optionally enforce a package manager if you are using smf or on OS X by issuing one of the following instead of 4: `brew, homebrew, osx_brew, port, macports, osx_port, fink, osx_fink`
@@ -51,22 +57,14 @@ Autolibs also has three other options and these options are 2, which will read p
 
 ## Other modes
 
-* `reset` &nbsp;=>&nbsp; Reset RVM back to default mode.
-* `show` &nbsp;=>&nbsp; Display your current mode.
-* `help` &nbsp;=>&nbsp; Display basic mode descriptions.
-* `status` &nbsp;=>&nbsp; Display detailed information about your mode.
-
-## Modes
-
-* `0`, `disable`, `disabled` &nbsp;=>&nbsp; Disable autolibs.
-* `1`, `read`, `read-only` &nbsp;=>&nbsp; Do not fail if missing packages.
-* `2`, `fail`, `read-fail` &nbsp;=>&nbsp; Fail if missing packages.
-* `3`, `packages`, `install-packages` &nbsp;=>&nbsp; Install missing packages.
-* `4`, `enable`, `enabled` &nbsp;=>&nbsp; Install packages and homebrew if missing.
+* `reset` - Reset RVM back to default mode.
+* `show` - Display your current mode.
+* `help` - Display basic mode descriptions.
+* `status` - Display detailed information about your mode.
 
 ## Additional modes
 
-* `brew`, `homebrew`, `osx_brew` &nbsp;=>&nbsp; Like 4, enforce Homebrew.
-* `fink`, `osx_fink` &nbsp;=>&nbsp; Like 4, enforces Fink.
-* `smf` &nbsp;=>&nbsp; Like 4, enforce SM Framework.
-* `port`, `macports`, `osx_port` &nbsp;=>&nbsp; Like 4, enforce MacPorts.
+* `brew`, `homebrew`, `osx_brew` - Like 4, enforce Homebrew.
+* `fink`, `osx_fink` - Like 4, enforces Fink.
+* `smf` - Like 4, enforce SM Framework.
+* `port`, `macports`, `osx_port` - Like 4, enforce MacPorts.
