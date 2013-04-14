@@ -20,7 +20,7 @@ __rvm_project_rvmrc()
   while :
   do
     if
-      [[ -z "$working_dir" || "$HOME" == "$working_dir" || "${rvm_prefix:-}" == "$working_dir"  || "/" == "$working_dir" ]]
+      [[ -z "$working_dir" || "$HOME" == "$working_dir" || "${rvm_prefix:-}" == "$working_dir"  || "" == "$working_dir" ]]
     then
       if
         [[ -n "${rvm_current_rvmrc:-""}" ]]
@@ -56,7 +56,7 @@ __rvm_project_rvmrc()
         fi
         break
       else
-        working_dir="$(dirname "$working_dir")"
+        working_dir="${working_dir%/*}"
       fi
     fi
   done
@@ -92,33 +92,34 @@ __rvm_load_project_config()
       rvm_previous_environment="$(__rvm_env_string)"
       rvm_current_rvmrc="$1"
 
-      rvm_ruby_string="$(sed -n '/^ruby=/ {s/ruby=//;p;}' < "$1")"
+      rvm_ruby_string="$( tr -d '\r' <"$1" | sed -n '/^ruby=/ {s/ruby=//;p;}' )"
       [[ -n "${rvm_ruby_string}" ]] || return 2
-      rvm_gemset_name="$(sed -n '/^ruby-gemset=/ {s/ruby-gemset=//;p;}' < "$1")"
+      rvm_gemset_name="$( tr -d '\r' <"$1" | sed -n '/^ruby-gemset=/ {s/ruby-gemset=//;p;}' )"
       rvm_create_flag=1 __rvm_use   || return 3
       # TODO: read env.* # how to sanitize ?
 
-      _gem_names="$(sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' < "$1")"
+      _gem_names="$( tr -d '\r' <"$1" | sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' )"
       for _gem in ${_gem_names//,/ }
       do
         # TODO: add support for versions
-        if ! gem list | GREP_OPTIONS="" \grep "^${_gem} " > /dev/null
-        then gem install "${_gem}"
-        fi
+        gem list | GREP_OPTIONS="" \grep "^${_gem} " > /dev/null || gem install "${_gem}"
       done
 
-      _bundle_install="$(sed -n '/^ruby-bundle-install=/ {s/ruby-bundle-install=//;p;}' < "$1")"
+      _bundle_install="$( tr -d '\r' <"$1" | sed -n '/^ruby-bundle-install=/ {s/ruby-bundle-install=//;p;}' )"
       if [[ -n "${_bundle_install}" ]] || [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
       then
-        if [[ "${_bundle_install}" == true ]] # prevent file named true for Gemfile
-        then __gemfile="$(dirname $1)/Gemfile"
-
-        elif [[ -f "${_bundle_install}" ]]
-        then __gemfile="${_bundle_install}"
-
-        elif [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
-        then __gemfile="$(dirname $1)/Gemfile"
-
+        if
+          [[ "${_bundle_install}" == true ]] # prevent file named true for Gemfile
+        then
+          __gemfile="${1%/*}/Gemfile"
+        elif
+          [[ -f "${_bundle_install}" ]]
+        then
+          __gemfile="${_bundle_install}"
+        elif
+          [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
+        then
+          __gemfile="${1%/*}/Gemfile"
         fi
       fi
       ;;
@@ -128,23 +129,22 @@ __rvm_load_project_config()
       rvm_previous_environment="$(__rvm_env_string)"
       rvm_current_rvmrc="$1"
 
-      rvm_ruby_string="$(sed -n '/^#ruby=/ {s/#ruby=//;p;}' < "$1")"
+      rvm_ruby_string="$( tr -d '\r' <"$1" | sed -n '/^#ruby=/ {s/#ruby=//;p;}' )"
       [[ -n "${rvm_ruby_string}" ]] || {
-        rvm_ruby_string="$(sed -n "s/ rescue nil$//; /^\s*ruby/ {s/^\s*ruby//; s/[ ()'\"]//g; p;}" < "$1")"
+        rvm_ruby_string="$( tr -d '\r' <"$1" | sed -n "s/ rescue nil$//; /^\s*ruby/ {s/^\s*ruby//; s/[ ()'\"]//g; p;}" )"
         [[ -n "${rvm_ruby_string}" ]] || return 2
       } #'
-      rvm_gemset_name="$(sed -n '/^#ruby-gemset=/ {s/#ruby-gemset=//;p;}' < "$1")"
+      rvm_gemset_name="$( tr -d '\r' <"$1" | sed -n '/^#ruby-gemset=/ {s/#ruby-gemset=//;p;}' )"
       __rvmrc_warning_display_for_Gemfile "$1"
 
       rvm_create_flag=1 __rvm_use   || return 3
 
       # TODO: read #env.* # how to sanitize ?
-
-      if [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
+      if
+        [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
       then
         __gemfile="$1"
-        gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null ||
-          gem install bundler
+        gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null || gem install bundler
       fi
       ;;
 
@@ -153,22 +153,20 @@ __rvm_load_project_config()
       rvm_previous_environment="$(__rvm_env_string)"
       rvm_current_rvmrc="$1"
 
-      rvm_ruby_string="$(\cat "$1")"
+      rvm_ruby_string="$( tr -d '\r' <"$1" )"
       [[ -n "${rvm_ruby_string}" ]] || return 2
-      if [[ -f "$(dirname "$1")/.ruby-gemset" ]]
+      if
+        [[ -f "${1%/*}/.ruby-gemset" ]]
       then
-        rvm_gemset_name="$(\cat "$(dirname "$1")/.ruby-gemset")"
+        rvm_gemset_name="$( tr -d '\r' <"${1%/*}/.ruby-gemset" )"
       fi
       rvm_create_flag=1 __rvm_use   || return 3
-      # "$(dirname $1)/.rbenv-vars" ... can we support those without licensing ?
-
-      if [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "$(dirname $1)/Gemfile" ]]
+      # "${1%/*}/.rbenv-vars" ... can we support those without licensing ?
+      if
+        [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "${1%/*}/Gemfile" ]]
       then
-        if ! gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null
-        then
-          gem install "bundler"
-        fi
-        __gemfile="$(dirname "$1")/Gemfile"
+        gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null || gem install "bundler"
+        __gemfile="${1%/*}/Gemfile"
       fi
       ;;
 
