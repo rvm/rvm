@@ -1,28 +1,47 @@
 #!/usr/bin/env bash
 
+requirements_smartos_lib_installed()
+{
+	result=`pkgin -n install "$1"`
+	[[ $result =~ "nothing to do." ]] || return $?
+}
+
+requirements_smartos_lib_install()
+{
+	__rvm_try_sudo pkgin -y install "$@" || return $?
+}
+
+requirements_smartos_ensure_libs()
+{
+	typeset -a packages_installed packages_missing packages_to_install
+	__rvm_filter_installed_packages smartos "$@" || return $?
+}
+
 requirements_smartos_run()
 {
   case "$1" in
     (update-system)
-      true
+      rvm_requiremnts_fail_or_run_action 3 \
+				"Skipping \`pkgin full-upgrade\` make sure your system is up to date." \
+				__rvm_try_sudo pkgin full-upgrade || return $?
       ;;
     (rvm)
-      __rvm_try_sudo pkgin in bash curl git patch
+      requirements_smartos_ensure_libs bash curl scmgit-base patch
       ;;
     (jruby-head*)
-      __rvm_try_sudo pkgin in jdk apache-ant
+      requirements_smartos_ensure_libs jdk apache-ant
       ;;
     (jruby*)
-      __rvm_try_sudo pkgin in jdk
+      requirements_smartos_ensure_libs jdk
       ;;
     (ir*)
-      __rvm_try_sudo pkgin in mono
+      requirements_smartos_ensure_libs mono
       ;;
     (opal)
-      __rvm_try_sudo pkgin in node-devel
+      requirements_smartos_ensure_libs node-devel
       ;;
     (*)
-      __rvm_try_sudo pkgin in coreutils gcc47 gmake readline scmgit-base sqlite3 libxml2 libxslt ncurses autoconf automake
+      requirements_smartos_ensure_libs coreutils gcc47 gmake readline scmgit-base sqlite3 libxml2 libxslt ncurses autoconf automake
       ;;
   esac
 }
