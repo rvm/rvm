@@ -1,8 +1,24 @@
 #!/usr/bin/env bash
 
-requirements_solaris_install()
+requirements_solaris_lib_installed()
 {
-  __rvm_try_sudo pkg install "$@" ||
+        pkg info "$1" >/dev/null  2>&1 || return $?
+}
+
+requirements_solaris_lib_install()
+{
+        __rvm_try_sudo pkg install "$@" || return $?
+}
+
+requirements_solaris_ensure_libs()
+{
+        typeset -a packages_installed packages_missing packages_to_install
+        __rvm_filter_installed_packages solaris "$@" || return $?
+}
+
+requirements_solaris_update_system()
+{
+  __rvm_try_sudo pkg refresh && __rvm_try_sudo pkg update ||
   {
     typeset ret=$?
     case $ret in
@@ -16,25 +32,29 @@ requirements_solaris_run()
 {
   case "$1" in
     (update-system)
-      true
+      rvm_requiremnts_fail_or_run_action 3 \
+        "Skipping \`pkg update\` make sure your system is up to date." \
+        requirements_solaris_update_system || return $?
+      
       ;;
     (rvm)
-      requirements_solaris_install bash curl git patch
+      requirements_solaris_ensure_libs bash curl git text/gnu-patch
       ;;
     (jruby-head*)
-      requirements_solaris_install jdk apache-ant
+      requirements_solaris_ensure_libs jdk apache-ant
       ;;
     (jruby*)
-      requirements_solaris_install jdk
+      requirements_solaris_ensure_libs jdk
       ;;
     (ir*)
-      requirements_solaris_install mono
+      requirements_solaris_ensure_libs mono
       ;;
     (opal)
-      requirements_solaris_install node-devel
+      requirements_solaris_ensure_libs node-devel
       ;;
     (*)
-      requirements_solaris_install text/gnu-patch developer/gcc-45 developer/library/lint system/header system/library/math/header-math file/gnu-coreutils
+      requirements_solaris_ensure_libs text/gnu-patch developer/gcc-45 \
+        system/header system/library/math file/gnu-coreutils
       ;;
   esac
 }
