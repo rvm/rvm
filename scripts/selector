@@ -42,37 +42,55 @@ __rvm_select_rbx_nightly()
   rvm_verify_downloads_flag=1
 }
 
+__rvm_select_macruby_nightly_selected()
+{
+  typeset __string_version
+  __string_version="${rvm_ruby_version//./-}"
+  __string_version="${__string_version#nightly_}"
+
+  rvm_ruby_package_name="${rvm_ruby_interpreter}_nightly-${__string_version}"
+  rvm_ruby_package_file="$rvm_ruby_package_name.pkg"
+}
+
+__rvm_select_macruby_nightly_detect()
+{
+  typeset __string_version
+  rvm_ruby_version="$(
+    __rvm_curl -s "$rvm_ruby_url" |
+    GREP_OPTIONS="" \grep -oE "<a href=\"macruby_nightly-[^<]+\.pkg</a>" |
+    awk -F"[<>]" '{print $3}' | sort | tail -n 1
+  )"
+  [[ -n "${rvm_ruby_version}" ]] ||
+  {
+    rvm_error "Could not find MacRuby nightly binary."
+    return 1
+  }
+  rvm_ruby_package_file="${rvm_ruby_version}"
+  rvm_ruby_package_name="${rvm_ruby_package_file%.pkg}"
+
+  __string_version="${rvm_ruby_package_name#macruby_nightly-}"
+  __string_version="${__string_version//-/.}"
+
+  rvm_ruby_version="nightly_${__string_version}"
+  rvm_ruby_string="macruby-${rvm_ruby_version}${rvm_ruby_name:+-}${rvm_ruby_name:-}"
+}
+
 __rvm_select_macruby_nightly()
 {
   __rvm_db "macruby_nightly_url" "rvm_ruby_url"
-  if
-    [[ "${rvm_ruby_version}" == "nightly" ]]
-  then
-    # detect latest version from server
-    rvm_ruby_version="$(
-      __rvm_curl -s "$rvm_ruby_url" |
-      GREP_OPTIONS="" \grep -oE "<a href=\"macruby_nightly-[^<]+\.pkg</a>" |
-      awk -F"[<>]" '{print $3}' | sort | tail -n 1
-    )"
-    [[ -n "${rvm_ruby_version}" ]] ||
-    {
-      rvm_error "Could not find MacRuby nightly binary."
-      return 1
-    }
-    rvm_ruby_version="${rvm_ruby_version#macruby_nightly-}"
-    rvm_ruby_version="${rvm_ruby_version%.pkg}"
-    rvm_ruby_string="macruby_nightly-${rvm_ruby_version}${rvm_ruby_name:+-}${rvm_ruby_name:-}"
-    rvm_debug "detected macruby nightly ${rvm_ruby_version}"
-  else
-    # allow specifying nightly[.]2013.03.31
-    rvm_ruby_version="${rvm_ruby_version#nightly}"
-    rvm_ruby_version="${rvm_ruby_version#.}"
-    rvm_ruby_version="${rvm_ruby_version//./-}"
-  fi
-  rvm_ruby_package_name="${rvm_ruby_interpreter}_nightly-${rvm_ruby_version}"
-  rvm_ruby_package_file="$rvm_ruby_package_name.pkg"
+
+  case "${rvm_ruby_version:-}" in
+    (nightly_*)
+      __rvm_select_macruby_nightly_selected
+      ;;
+    (*)
+      __rvm_select_macruby_nightly_detect
+      ;;
+  esac
+
   rvm_ruby_url+="/${rvm_ruby_package_file}"
   rvm_verify_downloads_flag=1
+  rvm_debug "selected macruby $rvm_ruby_string => $rvm_ruby_url"
 }
 
 # __rvm_select implementation version patch_level
@@ -805,8 +823,11 @@ __rvm_ruby_string()
         rvm_nightly_flag=1
         ;;
 
-      (nightly*|weekly*) # rbx binary
-        rvm_ruby_patch_level="$string"
+      (nightly*|weekly*)
+        if [[ "${rvm_ruby_interpreter}" == "rbx" ]]
+        then rvm_ruby_patch_level="$string"
+        else rvm_ruby_version="$string"
+        fi
         ;;
 
       (preview*)
