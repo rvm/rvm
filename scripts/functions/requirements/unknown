@@ -1,22 +1,45 @@
 #!/usr/bin/env bash
 
-requirements_unknown_install()
-{
-  echo "Install: $*"
-}
-
 requirements_unknown_binaries()
 {
-  typeset -a list
-  list=()
   while
     (( $# ))
   do
-    __rvm_which "$1" >/dev/null || list+=( "$1" )
+    __rvm_which "$1" >/dev/null || missing_libs+=( "$1" )
     shift
   done
-  (( ${#list[@]} )) || return 0
-  requirements_unknown_install ${list[@]}
+}
+
+requirements_unknown_run()
+{
+  case "$1" in
+    (update-system)
+      echo "Always update your system first!"
+      ;;
+    (rvm)
+      requirements_unknown_binaries bash curl patch
+      ;;
+    (jruby*head)
+      requirements_unknown_binaries git
+      missing_libs+=( openjdk ant )
+      ;;
+    (jruby*)
+      missing_libs+=( openjdk )
+      ;;
+    (ir*)
+      missing_libs+=( mono )
+      ;;
+    (opal)
+      missing_libs+=( nodejs npm )
+      ;;
+    (*-head)
+      requirements_unknown_binaries git
+      missing_libs+=( build-essential openssl libreadline zlib1g libyaml libsqlite3 sqlite3 libxml2 libxslt autoconf libc6 libgdbm ncurses automake libtool bison pkg-config )
+      ;;
+    (*)
+      missing_libs+=( build-essential openssl libreadline zlib1g libyaml libsqlite3 sqlite3 libxml2 libxslt autoconf libc6 libgdbm ncurses automake libtool bison pkg-config )
+      ;;
+  esac
 }
 
 requirements_unknown_wait_key()
@@ -38,32 +61,11 @@ for details how to disable this message.
   builtin read -${_read_char_flag} 1 -s -r anykey
 }
 
-requirements_unknown_run()
-{
-  case "$1" in
-    (update-system)
-      echo "Always update your system first!"
-      ;;
-    (rvm)
-      requirements_unknown_binaries bash curl git patch
-      ;;
-    (jruby*)
-      requirements_unknown_install openjdk ant
-      ;;
-    (ir*)
-      requirements_unknown_install mono
-      ;;
-    (opal)
-      requirements_unknown_install nodejs npm
-      ;;
-    (*)
-      requirements_unknown_install build-essential openssl libreadline zlib1g libyaml libsqlite3 sqlite3 libxml2 libxslt autoconf libc6 libgdbm ncurses automake libtool bison pkg-config
-      ;;
-  esac
-}
-
 requirements_unknown()
 {
+  typeset -a missing_libs
+  missing_libs=()
   __rvm_requirements_iterate requirements_unknown_run "$@" || return $?
+  echo "Install: ${missing_libs[*]}"
   requirements_unknown_wait_key || return $?
 }
