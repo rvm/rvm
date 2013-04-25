@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# old handlers before pkgng
 requirements_freebsd_lib_installed()
 {
   pkg_info | \grep "^$1" >/dev/null 2>&1 || return $?
@@ -10,21 +11,49 @@ requirements_freebsd_libs_install()
   __rvm_try_sudo pkg_add -r "$@" || return $?
 }
 
+# new handlers for pkgng
+requirements_freebsd_pkgng_lib_installed()
+{
+  pkg info | \grep "^$1" >/dev/null 2>&1 || return $?
+}
+
+requirements_freebsd_pkgng_libs_install()
+{
+  __rvm_try_sudo pkg install "$@" || return $?
+}
+
 requirements_freebsd_ensure_libs()
 {
   typeset -a packages_installed packages_missing packages_to_install
-  __rvm_filter_installed_packages freebsd "$@" || return $?
+  typeset __handler="freebsd"
+  if __rvm_which pkg >/dev/null
+  then __handler+='_pkgng'
+  fi
+  __rvm_filter_installed_packages "${__handler}" "$@" || return $?
 }
 
 requirements_freebsd_update_system()
 {
-  __rvm_try_sudo portsnap fetch extract &&
-  __rvm_try_sudo portsnap fetch update  ||
-  return $?
+  # Test if we already have ports. If not, get it. If so, update it
+  if [[ ! -d /usr/ports ]]
+  then __rvm_try_sudo portsnap fetch extract || return $?
+  else __rvm_try_sudo portnsap fetch update  || return $?
+  fi
   # or the below to do it like the openbsd support does
   # curl ftp://ftp.freebsd.org/pub/FreeBSD/releases/$(uname -m)/$(uname -r)/ports.txz | __rvm_try_sudo tar --xz -C /usr -xz
 }
 
+requirements_freebsd_bootstrap_pkgng()
+{
+  # pkgng should work fine on FreeBSD 8.0+ upwards
+  # The bootstrapper is natively available in 9.1+
+  if __rvm_version_compare "$_system_version" -ge 9.1
+  then
+    __rvm_try_sudo /usr/sbin/pkg || return $?
+  else
+    __rvm_try_sudo make -C /usr/ports/ports-mgmt/pkg install clean || return $?
+  fi
+}
 
 requirements_freebsd_run()
 {
@@ -35,12 +64,13 @@ requirements_freebsd_run()
           "Skipping ports installation, make sure '/usr/ports' is set up." \
           requirements_freebsd_update_system || return $?
       }
+      requirements_freebsd_bootstrap_pkgng || return $?
       ;;
     (rvm)
-      requirements_freebsd_ensure_libs bash curl git
+      requirements_freebsd_ensure_libs bash curl
       ;;
-    (jruby-head*)
-      requirements_freebsd_ensure_libs jdk apache-ant
+    (jruby*head)
+      requirements_freebsd_ensure_libs jdk apache-ant git
       ;;
     (jruby*)
       requirements_freebsd_ensure_libs jdk
@@ -51,9 +81,14 @@ requirements_freebsd_run()
     (opal)
       __rvm_try_sudo make -C /usr/ports/www/node install clean
       ;;
+    (*-head)
+      # OpenSSL is installed by default http://www.freebsd.org/crypto.html
+      requirements_freebsd_ensure_libs gcc-4 autotools-2 libtool bison readline-6 libxslt-1 libyaml-0 sqlite3 gdbm git
+      __rvm_update_configure_opt_dir "$1" "/usr/local"
+      ;;
     (*)
       # OpenSSL is installed by default http://www.freebsd.org/crypto.html
-    requirements_freebsd_ensure_libs gcc-4 autotools-2 libtool bison readline-6 libxslt-1 libyaml-0 sqlite3 gdbm
+      requirements_freebsd_ensure_libs gcc-4 autotools-2 libtool bison readline-6 libxslt-1 libyaml-0 sqlite3 gdbm
       __rvm_update_configure_opt_dir "$1" "/usr/local"
       ;;
   esac

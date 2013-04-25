@@ -38,8 +38,12 @@ You can get help using IRC: http://webchat.freenode.net/?channels=rvm"
 requirements_smf_libs_default_calculate()
 {
   smf_libs=(
-    autoconf automake libtool pkg-config
+    autoconf automake pkg-config libtool
   )
+  case "$1" in
+    (*-head) __rvm_which git >/dev/null || smf_libs+=( git )
+      ;;
+  esac
   case "$1" in
     (ruby-2*|ruby-head) true ;; # ruby-2.0.0+ is supposed to work with clang
     (*)
@@ -50,10 +54,10 @@ requirements_smf_libs_default_calculate()
       then
         rvm_error "SM Framework does not know how to install gcc-4.2, please install osx-gcc-installer first for older rubies."
       fi
-    ;;
+      ;;
   esac
   smf_libs+=(
-    libyaml readline libxml2 libxslt libksba openssl sqlite
+    libyaml zlib ncurses readline openssl libxml2 libxslt sqlite3
   )
 }
 
@@ -73,11 +77,23 @@ requirements_smf_install_sm()
   return 100
 }
 
+requirements_smf_update_system()
+{
+  __smf_try_sudo sm get head &&
+  __smf_try_sudo sm set install all ||
+  return $?
+}
+
+
 requirements_smf_route_install()
 {
   case "$1" in
     (update-system)
-      true
+      rvm_requiremnts_fail_or_run_action 3 \
+        "Skipping SMF update, make sure your installation is up to date." \
+        __rvm_log_command requirements_smf_update_system "Updating SMF" \
+          requirements_smf_update_system ||
+        return $?
       ;;
     (rvm)
       true

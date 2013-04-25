@@ -1,40 +1,78 @@
 #!/usr/bin/env bash
 
-requirements_gentoo_lib_installed() [[ -n "$(portageq match / "$1" 2>/dev/null)" ]]
-
-requirements_gentoo_libs_install()
+requirements_find_gentoo_portage()
 {
-  __rvm_try_sudo emerge "$@" || return $?
+  if eselect package-manager >/dev/null 2>&1
+  then
+    if [[ $(eselect package-manager show | tail -1 | sed 's/ //g') = 'portage' ]] || [[ $(eselect package-manager show | tail -1 | sed 's/ //g') = '(none)' ]]
+    then
+      return 0
+    else
+      return 1
+    fi
+  else
+    if which emerge >/dev/null 2>&1
+    then
+      return 0
+    else
+      return 1
+    fi
+  fi
 }
 
-requirements_gentoo_ensure_libs()
+requirements_find_gentoo_paludis()
 {
-  typeset -a packages_installed packages_missing packages_to_install
-  __rvm_filter_installed_packages gentoo "$@" || return $?
+  if eselect package-manager >/dev/null 2>&1
+  then
+    if [[ $(eselect package-manager show | tail -1 | sed 's/ //g') = 'paludis' ]]
+    then
+      return 0
+    else
+      return 1
+    fi
+  else
+    if which cave >/dev/null 2>&1
+    then
+      return 0
+    else
+      return 1
+    fi
+  fi
 }
 
-requirements_gentoo_run()
+requirements_find_gentoo_pkgcore()
 {
-  case "$1" in
-    (update-system)
-      rvm_requiremnts_fail_or_run_action 3 \
-        "Skipping \`emerge --sync\` make sure your system is up to date." \
-        __rvm_try_sudo emerge --sync || return $?
-      ;;
-    (rvm)
-      requirements_gentoo_ensure_libs net-misc/curl git sys-devel/patch app-shells/bash
-      ;;
-    (jruby*)
-      requirements_gentoo_ensure_libs dev-java/sun-jdk dev-java/sun-jre-bin
-      ;;
-    (ir*)
-      requirements_gentoo_ensure_libs dev-lang/mono
-      ;;
-    (opal)
-      requirements_gentoo_ensure_libs net-libs/nodejs
-      ;;
-    (*)
-      requirements_gentoo_ensure_libs virtual/libiconv sys-libs/readline sys-libs/zlib dev-libs/openssl net-misc/curl git dev-libs/libyaml dev-db/sqlite dev-libs/libxslt sys-devel/libtool sys-devel/gcc sys-devel/autoconf sys-devel/automake sys-devel/bison sys-devel/m4
-      ;;
-  esac
+  if eselect package-manager >/dev/null 2>&1
+  then
+    if [[ $(eselect package-manager show | tail -1 | sed 's/ //g') = 'pkgcore' ]]
+    then
+      return 0
+    else
+      return 1
+    fi
+  else
+    if which pmerge >/dev/null 2>&1
+    then
+      return 0
+    else
+      return 1
+    fi
+  fi
+}
+
+requirements_gentoo()
+{
+  typeset __type
+  for __type in gentoo_portage gentoo_paludis gentoo_pkgcore
+  do
+    if
+      requirements_find_${__type}
+    then
+      __rvm_requirements_run ${__type} "$@" || return $?
+      return 0
+    fi
+  done
+
+  # fallback
+  __rvm_requirements_run gentoo_portage "$@" || return $?
 }

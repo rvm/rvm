@@ -1,0 +1,209 @@
+#!/usr/bin/env bash
+
+# Run a specified command and log it.
+__rvm_run()
+{
+  typeset name message
+  typeset -a _command_array
+
+  name="${1:-}"
+  eval "_command_array=( ${2:-} )"
+  message="${3:-}"
+
+  __rvm_log_command "$name" "$message" "${_command_array[@]}" || return $?
+}
+
+__rvm_log_command_caclulate_log_file_name()
+{
+  _log="${rvm_log_path}${rvm_ruby_string:+/}${rvm_ruby_string:-}/$(date "+%s")_${name}"
+  _log="${_log:0:250}.log"
+}
+
+# Run a specified command and log it.
+__rvm_log_command()
+{
+  typeset name message _log _command_start _command_name
+  typeset -a _command
+
+  name="${1:-}"
+  message="${2:-}"
+  shift 2
+  _command=( "$@" )   # store full command so we can manipulate it
+  _command_start="$1" # store first part so we can detect variables
+  while (( $# )) && [[ "$1" =~ "=" ]] # skip variables from beginning
+  do shift
+  done
+  _command_name="$1"  # store the real command so we can detect functions
+
+  [[ ! "${_command_start}" =~ "=" ]] || _command=( "env" "${_command[@]}" )
+  (( ${rvm_niceness:-0} == 0 ))      || _command=( nice -n $rvm_niceness "${_command[@]}" )
+
+  __rvm_log_command_caclulate_log_file_name
+  rvm_debug "Log file: ${_log}"
+
+  [[ -d "${_log%\/*}" ]] || \mkdir -p "${_log%\/*}"
+  [[ -f "${_log}"     ]] || \rm -f "${_log}"
+  {
+    printf "%b" "[$(date +'%Y-%m-%d %H:%M:%S')] ${_command_name}\n"
+    if is_a_function "${_command_name}"
+    then typeset -f  "${_command_name}"
+    fi
+    printf "%b" "current path: $PWD\n"
+    printf "%b" "command(${#_command[@]}): ${_command[*]}\n"
+  } | tee "${_log}" | rvm_debug_stream
+
+  __rvm_log_dotted "${_log}" "$message" "${_command[@]}" ||
+  {
+    typeset result=$?
+    rvm_error "Error running '${_command[*]}',
+please read ${_log}"
+    return ${result}
+  }
+}
+
+__rvm_debug_command()
+{
+  rvm_debug "Running($#): $*"
+  "$@" || return $?
+}
+
+__rvm_pager_or_cat_v()
+{
+  eval "${PAGER:-\cat -v} '$1'"
+}
+
+__rvm_ask_for()
+{
+  typeset response
+  rvm_warn "$1"
+  printf "%b" "(anything other than '$2' will cancel) > "
+  read response || return $?
+  [[ "$2" == "$response" ]] || return $?
+}
+
+__rvm_dotted_run()
+{
+  typeset __message="$1"
+  shift
+  if
+    [[ -n "${ZSH_VERSION:-}" ]]
+  then
+    rvm_log "${__message} - using ZSH, can not show progress, be patient..."
+    "$@" > "${__log_file}" 2>&1 || return $?
+  else
+    "$@" | tee -a "${__log_file}" | __rvm_dotted "${__message}"
+    __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
+  fi
+}
+
+__rvm_dotted()
+{
+  typeset flush __show_nth_dot
+  __show_nth_dot=${rvm_show_every_nth_dot:-1}
+  unset rvm_show_every_nth_dot
+
+  if (( __show_nth_dot == 1 ))
+  then __show_nth_dot=""
+  else __show_nth_dot="if (NR%${__show_nth_dot}==1)"
+  fi
+
+  if awk '{fflush;}' <<<EO 2>/dev/null
+  then flush=fflush
+  else flush=flush
+  fi
+
+  if (( $# ))
+  then awk '{if (NR==1){printf "'"${rvm_notify_clr:-}$*${rvm_reset_clr:-}"'"}; '"$__show_nth_dot"' printf "."; '$flush';} END{if (NR>0) print ""; else print "'"${rvm_notify_clr:-}$*${rvm_reset_clr:-}"'"}'
+  else awk '{printf "."; '$flush';} END{if (NR>0) print ""}'
+  fi
+}
+
+__rvm_log_dotted()
+{
+  typeset __log_file __message __iterator
+  __log_file="$1"
+  __message="$2"
+  shift 2
+  if
+    [[ -n "${ZSH_VERSION:-}" ]]
+  then
+    rvm_log "${__message} - using ZSH, can not show progress, be patient..."
+    "$@" > "${__log_file}" 2>&1 || return $?
+  else
+    "$@" 2>&1 | tee -a "${__log_file}" | __rvm_dotted "${__message}"
+    __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
+  fi
+}
+
+__rvm_check_pipestatus()
+{
+  for __iterator
+  do
+    case "${__iterator}" in
+      ("") true ;;
+      (0)  true ;;
+      (*)  return ${__iterator} ;;
+    esac
+  done
+  return 0
+}
+
+__rvm_every_nth_dot()
+{
+  typeset result=0
+  export rvm_show_every_nth_dot=$1  # show dot for every nth line
+  shift
+  "$@" || result=$?
+  unset rvm_show_every_nth_dot
+  return $result
+}
+
+__rvm_wait_anykey()
+{
+  if [[ -n "${1:-}" ]]
+  then echo "$1"
+  fi
+  typeset _read_char_flag
+  if [[ -n "${ZSH_VERSION:-}" ]]
+  then _read_char_flag=k
+  else _read_char_flag=n
+  fi
+  builtin read -${_read_char_flag} 1 -s -r anykey
+}
+
+__rvm_table_br()
+{
+  typeset width=${COLUMNS:-78}
+  width=$(( width > 116 ? 116 : width ))
+  printf "%-${width}s\n" " " | sed 's/ /*/g'
+}
+
+__rvm_fold()
+{
+  if fold -s -w 10 <<<bla >/dev/null
+  then fold -s -w $1
+  else fold    -w $1
+  fi
+}
+
+__rvm_table_wrap_text()
+{
+  typeset width=${COLUMNS:-78}
+  width=$(( width > 116 ? 116 : width ))
+  width=$(( width - 4 )) # "* <content> *"
+  __rvm_fold $width | awk -v width=$width '{printf "* %-"width"s *\n", $0}'
+}
+
+# echo text | __rvm_table [header]
+__rvm_table()
+{
+  if
+    [[ -n "${1:-}" ]]
+  then
+    __rvm_table_br
+    echo "$1" | __rvm_table_wrap_text
+  fi
+  __rvm_table_br
+  \cat "${2:--}" | __rvm_table_wrap_text
+  __rvm_table_br
+}

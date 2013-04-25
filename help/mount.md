@@ -89,10 +89,10 @@ Where:
 - `rvm_system_server_path` - can be defined in `$rvm_path/user/db`, autodetected if not defined
 - `rvm_ruby_string` - is the name specified by user
 
-For multiple servers/paths suffix the definition with numbers, for example:
-
-    rvm_remote_server_url=https://own.company.com/binaries
-    rvm_system_server_path=my/system
-    rvm_remote_server_url1=https://rvm.io/binaries
-
 When coresponding path is not defined for url then it is autodetected.
+
+Example `$rvm_path/user/db`:
+
+    rvm_remote_server_url3=http://server/binaries
+    rvm_remote_server_path3=my_distribution
+    rvm_remote_server_verify_downloads3=1

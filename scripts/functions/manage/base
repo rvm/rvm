@@ -503,11 +503,11 @@ __rvm_fetch_from_github()
     __rvm_cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
     if
-      [[ -z "$(git branch | awk "/$rvm_ruby_repo_branch$/")" ]]
+      [[ -z "$(git branch | awk "/$rvm_ruby_repo_branch$/{print}")" ]]
     then
       git checkout -b "$rvm_ruby_repo_branch" --track "$remote/$rvm_ruby_repo_branch" 2>/dev/null
     elif
-       [[ -z "$(git branch | awk "/\* $rvm_ruby_repo_branch$/")" ]]
+       [[ -z "$(git branch | awk "/\* $rvm_ruby_repo_branch$/{print}")" ]]
     then
       if ! git checkout $rvm_ruby_repo_branch 2>/dev/null
       then
@@ -822,6 +822,12 @@ __rvm_uninstall_ruby()
 
 __rvm_remove_ruby()
 {
+  case "${rvm_ruby_string:-}" in
+    (*@*)
+      rvm_warn "'rvm remove' does not work with gemsets, use '--gems' to remove all gemsets or
+'rvm ${rvm_ruby_string%@*} do rvm gemset remove ${rvm_ruby_string#*@}' to remove the '${rvm_ruby_string#*@}' gemset."
+      ;;
+  esac
   (( ${rvm_ruby_selected_flag:=0} )) || __rvm_select
   [[ -n "${rvm_ruby_string:-}"    ]] ||
   {
@@ -944,7 +950,7 @@ __rvm_remove_aliases()
   rvm_log "Removing $rvm_ruby_string aliases..."
   typeset alias_name aliases
 
-  aliases=($(awk '/'$rvm_ruby_string'/' "$rvm_path/config/alias" | sed 's/=.*//'))
+  aliases=($(awk '/'$rvm_ruby_string'/{print}' "$rvm_path/config/alias" | sed 's/=.*//'))
   for alias_name in "${aliases[@]}"
   do
     # Remove from alias key-value store
@@ -985,7 +991,7 @@ __rvm_remove_binaries()
 __rvm_post_install()
 {
   case "$rvm_ruby_interpreter" in
-  (jruby|ree|rbx|mruby) true ;; #skip
+  (jruby|ree|rbx|mruby|macruby) true ;; #skip
   (*)
     (( ${#binaries[@]} )) || binaries=(gem irb erb ri rdoc testrb rake)
     ;;
@@ -1041,11 +1047,11 @@ __rvm_inject_gem_env()
     [[ -s "$actual_file" ]]
   then
     if
-      [[ -n "$(head -n 1 "$actual_file" | awk '/[j]*ruby/')" ]]
+      [[ -n "$(head -n 1 "$actual_file" | awk '/[j]*ruby/{print}')" ]]
     then
       string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_ruby_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_ruby_gem_path'\nENV['PATH']='$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:' + ENV['PATH']\n"
     elif
-      [[ -n "$(head -n 1 "$actual_file" | awk '/bash/')" ]]
+      [[ -n "$(head -n 1 "$actual_file" | awk '/bash/{print}')" ]]
     then
       string="GEM_HOME=\${GEM_HOME:-'$rvm_ruby_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_ruby_gem_home:$rvm_ruby_global_gems_path'}\nPATH=$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH\n"
     fi
@@ -1182,6 +1188,10 @@ __rvm_compatibility_flag_configuration()
     return 1
   fi
   if
+    [[ ${rvm_20_flag:-0} == 1 ]]
+  then
+    rvm_configure_flags+=( ${flag}2.0 )
+  elif
     [[ ${rvm_19_flag:-0} == 1 ]]
   then
     rvm_configure_flags+=( ${flag}1.9 )
