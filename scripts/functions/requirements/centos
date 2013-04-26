@@ -16,6 +16,25 @@ requirements_centos_ensure_libs()
   __rvm_filter_installed_packages centos "$@" || return $?
 }
 
+requirements_centos_install_epel()
+{
+  mv=$(requirements_centos_major_version)
+  # if you change this, change the scripts/functions/pkg version too
+  [[ -f /etc/yum.repos.d/epel.repo ]] || {
+    __rvm_db "epel${mv}_key" "epel_key"
+    __rvm_db "epel${mv}_rpm" "epel_rpm"
+    "${rvm_scripts_path}/fetch" "${epel_key}"
+    "${rvm_scripts_path}/fetch" "${epel_rpm}"
+	__rvm_try_sudo rpm --import "${rvm_archives_path}/${epel_key##*/}"
+	__rvm_try_sudo rpm --quiet -i "${rvm_archives_path}/${epel_rpm##*/}"
+  }
+}
+
+requirements_centos_major_version()
+{
+  grep -Eo '[[:digit:]]+' /etc/centos-release | sed '1!d'
+}
+
 requirements_centos_run()
 {
   case "$1" in
@@ -47,6 +66,7 @@ requirements_centos_run()
       requirements_centos_ensure_libs gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison libxml2-devel libxslt-devel git
       ;;
     (*)
+      requirements_centos_install_epel
       requirements_centos_ensure_libs gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison libxml2-devel libxslt-devel
       ;;
   esac
