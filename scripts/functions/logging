@@ -2,6 +2,62 @@
 
 # Logging functions
 
+__rvm_set_color_single()
+{
+  case "$1" in
+    # emphasized (bolded) colors
+    (bold)     __buffer+='7' ;;
+    (offbold)  __buffer+='27' ;;
+
+    # regular colors
+    (black)    __buffer+='30' ;;
+    (red)      __buffer+='31' ;;
+    (green)    __buffer+='32' ;;
+    (yellow)   __buffer+='33' ;;
+    (blue)     __buffer+='34' ;;
+    (magenta)  __buffer+='35' ;;
+    (cyan)     __buffer+='36' ;;
+    (white)    __buffer+='37' ;;
+    (default)  __buffer+='39' ;;
+
+    # background colors
+    (bblack)   __buffer+='40' ;;
+    (bred)     __buffer+='41' ;;
+    (bgreen)   __buffer+='42' ;;
+    (byellow)  __buffer+='43' ;;
+    (bblue)    __buffer+='44' ;;
+    (bmagenta) __buffer+='45' ;;
+    (bcyan)    __buffer+='46' ;;
+    (bwhite)   __buffer+='47' ;;
+    (bdefault) __buffer+='49' ;;
+
+    # Reset
+    (*)        __buffer+='0' ;;
+  esac
+}
+
+__rvm_set_color()
+{
+  typeset __buffer __variable
+  __buffer='\E['
+  __variable="$1"
+  shift
+  while
+    (( $# ))
+  do
+    __rvm_set_color_single "$1"
+    shift
+    if (( $# ))
+    then __buffer+=';'
+    fi
+  done
+  __buffer+='m'
+  if [[ "${__variable}" == "" || "${__variable}" == "print" ]]
+  then printf "${__buffer}"
+  else eval "${__variable}='${__buffer}'"
+  fi
+}
+
 # check if user wants colors and if output goes to terminal
 # rvm_pretty_print_flag:
 # - 0|no    - disabled always
@@ -46,16 +102,11 @@ case "${TERM:-dumb}" in
     rvm_reset_clr=""
     ;;
   (*)
-    if
-      [[ -z "${rvm_error_clr:-}" || ${rvm_reload_flag:-0} -eq 1 ]]
-    then
-      export rvm_error_clr rvm_warn_clr rvm_debug_clr rvm_notify_clr rvm_reset_clr
-      rvm_error_clr="$(  "${rvm_scripts_path:-${rvm_path}/scripts}/color" "${rvm_error_color:-red}"     )"
-      rvm_warn_clr="$(   "${rvm_scripts_path:-${rvm_path}/scripts}/color" "${rvm_warn_color:-yellow}"   )"
-      rvm_debug_clr="$(  "${rvm_scripts_path:-${rvm_path}/scripts}/color" "${rvm_debug_color:-magenta}" )"
-      rvm_notify_clr="$( "${rvm_scripts_path:-${rvm_path}/scripts}/color" "${rvm_notify_color:-green}"  )"
-      rvm_reset_clr="$(  "${rvm_scripts_path:-${rvm_path}/scripts}/color" "${rvm_reset_color:-reset}"   )"
-    fi
+    __rvm_set_color rvm_error_clr  "${rvm_error_color:-red}"
+    __rvm_set_color rvm_warn_clr   "${rvm_warn_color:-yellow}"
+    __rvm_set_color rvm_debug_clr  "${rvm_debug_color:-magenta}"
+    __rvm_set_color rvm_notify_clr "${rvm_notify_color:-green}"
+    __rvm_set_color rvm_reset_clr  "${rvm_reset_color:-reset}"
     ;;
 esac
 
