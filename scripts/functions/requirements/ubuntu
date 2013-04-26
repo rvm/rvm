@@ -7,12 +7,12 @@
 
 requirements_debian_fallback_lib_available()
 {
-  typeset __package
   for __package
   do
-    if apt-cache show "${__package}" >/dev/null 2>&1
+    if
+      apt-cache show "${__package}" >/dev/null 2>&1
     then
-      __available_dependencies+=("${__package}")
+      __available_dependencies+=( "${__package}" )
     fi
   done
 }
@@ -29,17 +29,16 @@ requirements_debian_fallback_lib_available()
 
 requirements_debian_fallback_lib_installed()
 {
-  typeset __package
   for __package
   do
-    if requirements_debian_lib_installed "${__package}"
+    if
+      requirements_debian_lib_installed "${__package}"
     then
-      __dependencies+=( "${__package}" )
+      requirements_check "${__package}"
       return 0
     fi
   done
-
-  __dependencies+=( "$1" )
+  requirements_check "$1"
 }
 
 # Takes a list of dependencies and first sees if they are available and then
@@ -57,6 +56,8 @@ requirements_debian_fallback_lib_installed()
 requirements_debian_fallback_lib()
 {
   typeset -a __available_dependencies
+  __available_dependencies=()
+  typeset __package
   requirements_debian_fallback_lib_available "$@"
   requirements_debian_fallback_lib_installed "${__available_dependencies[@]}"
 }
@@ -78,7 +79,7 @@ requirements_debian_arch()
 requirements_debian_lib_installed()
 {
   dpkg-query -s "$1:${__architecture}" >/dev/null 2>&1 ||
-  dpkg-query -s "$1:all" >/dev/null 2>&1 ||
+  dpkg-query -s "$1:all"               >/dev/null 2>&1 ||
   return $?
 }
 
@@ -92,91 +93,74 @@ requirements_debian_libs_install()
   __rvm_try_sudo apt-get --no-install-recommends --yes install "$@" || return $?
 }
 
-# Installs missing packages for Debian but this should probably be cleaned.
-
-requirements_debian_ensure_libs()
-{
-  typeset -a packages_installed packages_missing packages_to_install
-  __rvm_filter_installed_packages debian "$@" || return $?
-}
-
-# Common MRI dependencies.
-
-requirements_common_mri_dependencies()
-{
-  __dependencies=(
-    g++ gcc make libc6-dev patch openssl ca-certificates libreadline6
-    libreadline6-dev curl zlib1g zlib1g-dev libssl-dev libyaml-dev
-    libsqlite3-dev sqlite3 libxml2-dev libxslt1-dev autoconf libc6-dev
-    libgdbm-dev libncurses5-dev automake libtool bison pkg-config libffi-dev
-  )
-}
-
 # The actual code that runs when you do rvm install jruby-head, ruby2.0.0
 # or whatever you are installing.
 
-requirements_debian_run()
+requirements_debian_update_system()
 {
-  typeset -a __dependencies
+  __rvm_try_sudo apt-get --quiet --yes update || return $?
+}
+
+requirements_debian_define()
+{
   typeset __architecture
   requirements_debian_arch
 
   case "$1" in
     (update-system)
-      rvm_requiremnts_fail_or_run_action 3 \
-        "Skipping \`apt-get update\` make sure your system is up to date." \
-        __rvm_try_sudo apt-get --quiet --yes update || return $?
+      true
       ;;
 
     (rvm)
-      requirements_debian_ensure_libs bash curl patch bzip2 ca-certificates
+      requirements_check bash curl patch bzip2 ca-certificates
       ;;
 
     (jruby*head)
-      __dependencies=("g++", "ant")
+      requirements_check g++ ant
       requirements_debian_fallback_lib \
-        openjdk-7-jdk opendjk-6-jdk \
-        oracle-j2sdk1.6 oracle-j2sdk1.7
+        openjdk-7-jdk oracle-j2sdk1.7 \
+        opendjk-6-jdk oracle-j2sdk1.6
       requirements_debian_fallback_lib git git-core
-      requirements_debian_ensure_libs "${__dependencies[@]}"
       ;;
 
     (jruby*)
-      __dependencies=("g++")
+      requirements_check g++
       requirements_debian_fallback_lib \
-        openjdk-7-jre-headless openjdk-7-jdk \
-        openjdk-6-jre-headless opendjk-6-jdk \
-        oracle-j2sdk1.6 oracle-j2sdk1.7
-      requirements_debian_ensure_libs "${__dependencies}"
+        openjdk-7-jre-headless openjdk-7-jdk oracle-j2sdk1.7 \
+        openjdk-6-jre-headless opendjk-6-jdk oracle-j2sdk1.6
       ;;
 
     (ir*)
-      requirements_debian_ensure_libs curl mono-2.0-devel
+      requirements_check curl mono-2.0-devel
       ;;
 
     (opal)
-      requirements_debian_ensure_libs nodejs npm
+      requirements_check nodejs npm
       ;;
 
     (*-head)
-      requirements_common_mri_dependencies
       requirements_debian_fallback_lib git git-core
-      requirements_debian_ensure_libs "${__dependencies[@]}"
+      requirements_debian_define default
       ;;
 
     (*)
-      requirements_common_mri_dependencies
-      requirements_debian_ensure_libs "${__dependencies[@]}"
+      requirements_check \
+        g++ gcc make libc6-dev patch openssl ca-certificates libreadline6 \
+        libreadline6-dev curl zlib1g zlib1g-dev libssl-dev libyaml-dev \
+        libsqlite3-dev sqlite3 libxml2-dev libxslt1-dev autoconf libc6-dev \
+        libgdbm-dev libncurses5-dev automake libtool bison pkg-config libffi-dev
       ;;
   esac
 }
 
-requirements_ubuntu_run()
+requirements_ubuntu_define()
 {
-  requirements_debian_run "$@"
+  __lib_type=debian
+  requirements_debian_define "$@"
 }
 
-requirements_mint_run()
+requirements_mint_define()
 {
-  requirements_debian_run "$@"
+  __lib_type=debian
+  requirements_debian_define "$@"
 }
