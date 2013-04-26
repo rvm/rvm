@@ -1,67 +1,5 @@
 #!/usr/bin/env bash
 
-# Checks to see if a package is even available in Debian or Ubuntu without
-# having to know the distro specifics.  So if you send it a list of
-# depenencies it will take the list and only return the ones that are
-# available with apt.
-
-requirements_debian_fallback_lib_available()
-{
-  for __package
-  do
-    if
-      apt-cache show "${__package}" >/dev/null 2>&1
-    then
-      __available_dependencies+=( "${__package}" )
-    fi
-  done
-}
-
-# Takes a list of packages that we want to check for "alternates" and if
-# any of them are installed then we return the first one installed and
-# if none of them are installed we send back our preference which should
-# always be the first one to check for when passing in the list.
-#
-# requirements_debian_fallback_lib_installed "git" "git-core"
-#   -> Is git-core installed?
-#      -> Return "git-core" because they prefer it.
-#   -> Git-core is not installed, we prefer "git" return it.
-
-requirements_debian_fallback_lib_installed()
-{
-  for __package
-  do
-    if
-      requirements_debian_lib_installed "${__package}"
-    then
-      requirements_check "${__package}"
-      return 0
-    fi
-  done
-  requirements_check "$1"
-}
-
-# Takes a list of dependencies and first sees if they are available and then
-# takes the ones that are avilable and checks to see if any of them are
-# installed finally returning either the one that is installed or the one
-# that we recommend.  So:
-#
-# requirements_debian_fallback_lib "openjdk-7-headless" "openjdk-6-headless"
-#   -> Are they all available?
-#      -> Returns ("openjdk-7-headless" "openjdk-6-headless")
-#   -> Are any of them installed?
-#      -> If yes (openjdk-6-headless) then return openjdk-6-headless.
-#      -> If no then we return openjdk-7-headless since we prefer it here.
-
-requirements_debian_fallback_lib()
-{
-  typeset -a __available_dependencies
-  __available_dependencies=()
-  typeset __package
-  requirements_debian_fallback_lib_available "$@"
-  requirements_debian_fallback_lib_installed "${__available_dependencies[@]}"
-}
-
 # Returns the arch:
 #   amd64 || i386 or other doesn't matter to us.
 
@@ -81,6 +19,11 @@ requirements_debian_lib_installed()
   dpkg-query -s "$1:${__architecture}" >/dev/null 2>&1 ||
   dpkg-query -s "$1:all"               >/dev/null 2>&1 ||
   return $?
+}
+
+requirements_debian_lib_available()
+{
+  apt-cache show "$1" >/dev/null 2>&1 || return $?
 }
 
 # Installs a lib with apt automatically without any user interaction.
@@ -117,15 +60,15 @@ requirements_debian_define()
 
     (jruby*head)
       requirements_check g++ ant
-      requirements_debian_fallback_lib \
+      requirements_check_fallback \
         openjdk-7-jdk oracle-j2sdk1.7 \
         opendjk-6-jdk oracle-j2sdk1.6
-      requirements_debian_fallback_lib git git-core
+      requirements_check_fallback git git-core
       ;;
 
     (jruby*)
       requirements_check g++
-      requirements_debian_fallback_lib \
+      requirements_check_fallback \
         openjdk-7-jre-headless openjdk-7-jdk oracle-j2sdk1.7 \
         openjdk-6-jre-headless opendjk-6-jdk oracle-j2sdk1.6
       ;;
@@ -139,7 +82,7 @@ requirements_debian_define()
       ;;
 
     (*-head)
-      requirements_debian_fallback_lib git git-core
+      requirements_check_fallback git git-core
       requirements_debian_define default
       ;;
 
