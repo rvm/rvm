@@ -1,66 +1,10 @@
 #!/usr/bin/env bash
 
-requirements_find_gentoo_portage()
-{
-  if eselect package-manager >/dev/null 2>&1
-  then
-    if [[ $(eselect package-manager show | tail -1 | sed 's/ //g') = 'portage' ]] || [[ $(eselect package-manager show | tail -1 | sed 's/ //g') = '(none)' ]]
-    then
-      return 0
-    else
-      return 1
-    fi
-  else
-    if which emerge >/dev/null 2>&1
-    then
-      return 0
-    else
-      return 1
-    fi
-  fi
-}
+source "$rvm_scripts_path/functions/requirements/gentoo_paludis"
+source "$rvm_scripts_path/functions/requirements/gentoo_pkgcore"
+source "$rvm_scripts_path/functions/requirements/gentoo_portage"
 
-requirements_find_gentoo_paludis()
-{
-  if eselect package-manager >/dev/null 2>&1
-  then
-    if [[ $(eselect package-manager show | tail -1 | sed 's/ //g') = 'paludis' ]]
-    then
-      return 0
-    else
-      return 1
-    fi
-  else
-    if which cave >/dev/null 2>&1
-    then
-      return 0
-    else
-      return 1
-    fi
-  fi
-}
-
-requirements_find_gentoo_pkgcore()
-{
-  if eselect package-manager >/dev/null 2>&1
-  then
-    if [[ $(eselect package-manager show | tail -1 | sed 's/ //g') = 'pkgcore' ]]
-    then
-      return 0
-    else
-      return 1
-    fi
-  else
-    if which pmerge >/dev/null 2>&1
-    then
-      return 0
-    else
-      return 1
-    fi
-  fi
-}
-
-requirements_gentoo()
+requirements_gentoo_before()
 {
   typeset __type
   for __type in gentoo_portage gentoo_paludis gentoo_pkgcore
@@ -68,11 +12,42 @@ requirements_gentoo()
     if
       requirements_find_${__type}
     then
-      __rvm_requirements_run ${__type} "$@" || return $?
+      __lib_type=gentoo_${__type}
       return 0
     fi
   done
 
   # fallback
-  __rvm_requirements_run gentoo_portage "$@" || return $?
+  __lib_type=gentoo_portage
+}
+
+requirements_gentoo_define()
+{
+  case "$1" in
+    (update-system)
+      true
+      ;;
+    (rvm)
+      requirements_check net-misc/curl sys-devel/patch app-shells/bash
+      ;;
+    (jruby*head)
+      requirements_check dev-java/sun-jdk dev-java/sun-jre-bin dev-vcs/git
+      ;;
+    (jruby*)
+      requirements_check dev-java/sun-jdk dev-java/sun-jre-bin
+      ;;
+    (ir*)
+      requirements_check dev-lang/mono
+      ;;
+    (opal)
+      requirements_check net-libs/nodejs
+      ;;
+    (*-head)
+      requirements_gentoo_define "${1%-head}"
+      requirements_check dev-vcs/git
+      ;;
+    (*)
+      requirements_check virtual/libiconv sys-libs/readline sys-libs/zlib dev-libs/openssl net-misc/curl dev-libs/libyaml dev-db/sqlite dev-libs/libxslt sys-devel/libtool sys-devel/gcc sys-devel/autoconf sys-devel/automake sys-devel/bison sys-devel/m4
+      ;;
+  esac
 }
