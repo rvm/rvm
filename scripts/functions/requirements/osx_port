@@ -1,5 +1,27 @@
 #!/usr/bin/env bash
 
+requirements_find_osx_port()
+{
+  if # find macports in PATH
+    \which port >/dev/null 2>&1
+  then
+    return 0
+  else # find macports out of PATH and link to rvm/bin
+    typeset __binary
+    for __binary in ~/opt/local/bin/port ~/.opt/local/bin/port /usr/local/bin/port /opt/local/bin/port
+    do
+      if
+        [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
+      then
+        # link to rvm_bin for easy adding to PATH
+        ln -nfs "${__binary}" "${rvm_bin_path:-$rvm_path/bin}/port"
+        return 0
+      fi
+    done
+    return 1
+  fi
+}
+
 requirements_port_lib_installed()
 {
   __rvm_array_contains "$1" "${packages_available[@]}" || return $?
@@ -70,14 +92,14 @@ requirements_port_install_port()
   return $?
 }
 
+requirements_port_update_system()
+{
+  __rvm_try_sudo port -dv selfupdate || return $?
+}
+
 requirements_port_route_install()
 {
   case "$1" in
-    (update-system)
-      rvm_requiremnts_fail_or_run_action 3 \
-        "Skipping \`port selfupdate\` make sure your macports are up to date." \
-        __rvm_try_sudo port -dv selfupdate || return $?
-      ;;
     (rvm)
       # FIXME: requirements for rvm
       true
