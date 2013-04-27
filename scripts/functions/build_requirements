@@ -2,12 +2,12 @@
 
 __rvm_requirements_run()
 {
-  typeset -a packages_installed packages_missing packages_to_install packages_flags
+  typeset -a packages_installed packages_missing packages_to_install packages_flags packages_custom
   typeset __type __lib_type __iterator
   __type=$1
   __lib_type=$1
   shift
-  for __iterator in load reset before define summary update install after
+  for __iterator in load reset before define summary update install custom after
   do
     __rvm_requirements_run_${__iterator} "$@" || return $?
   done
@@ -44,6 +44,7 @@ __rvm_requirements_run_reset()
   packages_missing=()
   packages_to_install=()
   packages_flags=()
+  packages_custom=()
 }
 
 __rvm_requirements_run_before()
@@ -83,6 +84,11 @@ __rvm_requirements_run_summary()
     _list="${packages_installed[*]}"
     rvm_debug "Found required packages: ${_list// /, }."
   }
+  (( ${#packages_custom[@]} == 0 )) ||
+  {
+    _list="${packages_custom[*]}"
+    rvm_debug "Custom packages: ${_list// /, }."
+  }
   (( ${#packages_missing[@]} == 0 )) ||
   {
     _list="${packages_missing[*]}"
@@ -95,8 +101,10 @@ __rvm_requirements_run_summary()
 
 __rvm_requirements_run_update()
 {
-  (( ${#packages_to_install[@]} == 0 )) ||
-  {
+  if
+    (( ${#packages_to_install[@]} > 0 )) ||
+    (( ${#packages_custom[@]} > 0 ))
+  then
     if
       is_a_function requirements_${__lib_type}_update_system
     then
@@ -110,7 +118,7 @@ __rvm_requirements_run_update()
         "Skipping system update, make sure your system is up to date." \
         requirements_${__type}_update_system || return $?
     fi
-  }
+  fi
 }
 
 __rvm_requirements_run_install()
@@ -122,6 +130,16 @@ __rvm_requirements_run_install()
       "requirements_${__lib_type}_libs_install" "${packages_to_install[@]}" ||
       return $?
   }
+}
+
+__rvm_requirements_run_custom()
+{
+  for __package in "${packages_custom[@]}"
+  do
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Skipping ${__package} installation, make sure ${__package} is installed." \
+      "requirements_${__lib_type}_install_${__package}" || return $?
+  done
 }
 
 __rvm_requirements_run_after()
@@ -139,7 +157,7 @@ __rvm_requirements_run_after()
 }
 
 __rvm_try_sudo()
-{
+(
   typeset -a command_to_run
   command_to_run=()
   (( UID == 0 )) ||
@@ -156,7 +174,7 @@ __rvm_try_sudo()
       ;;
   esac
   "${command_to_run[@]}" "$@"
-}
+)
 
 requirements_check()
 {
