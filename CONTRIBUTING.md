@@ -34,5 +34,5 @@ rvm reload
 rvm --trace [command]
 ```
 
-## Codding guidelines
+## Coding guidelines
 https://github.com/wayneeseguin/rvm/blob/master/FORMATTING.md
