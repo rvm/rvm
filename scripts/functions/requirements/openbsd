@@ -10,52 +10,46 @@ requirements_openbsd_libs_install()
   __rvm_try_sudo pkg_add -z "$@" || return $?
 }
 
-requirements_openbsd_ensure_libs()
+requirements_openbsd_install_node()
 {
-  typeset -a packages_installed packages_missing packages_to_install
-  __rvm_filter_installed_packages openbsd "$@" || return $?
+  __rvm_try_sudo make -C /usr/ports/www/node install clean || return $?
 }
 
 requirements_openbsd_update_system()
 {
-  __rvm_curl ftp://ftp.openbsd.org/pub/OpenBSD/$(uname -r)/ports.tar.gz | __rvm_try_sudo tar -C /usr -zx
-  __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
+  [[ -d /usr/ports ]] ||
+  {
+    __rvm_curl ftp://ftp.openbsd.org/pub/OpenBSD/$(uname -r)/ports.tar.gz | __rvm_try_sudo tar -C /usr -zx
+    __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
+  }
 }
 
-requirements_openbsd_run()
+requirements_openbsd_define()
 {
   case "$1" in
-    (update-system)
-      [[ -d /usr/ports ]] ||
-      {
-        rvm_requiremnts_fail_or_run_action 3 \
-          "Skipping ports installation, make sure '/usr/ports' is set up." \
-          requirements_openbsd_update_system || return $?
-      }
-      ;;
     (rvm)
-      requirements_openbsd_ensure_libs bash curl
+      requirements_check bash curl
       ;;
     (jruby*head)
-      requirements_openbsd_ensure_libs jdk apache-ant git
+      requirements_check jdk apache-ant git
       ;;
     (jruby*)
-      requirements_openbsd_ensure_libs jdk
+      requirements_check jdk
       ;;
     (ir*)
-      requirements_openbsd_ensure_libs mono
+      requirements_check mono
       ;;
     (opal)
-      __rvm_try_sudo make -C /usr/ports/www/node install clean
+      __rvm_which node >/dev/null || packages_custom+=( node )
       ;;
     (*-head)
       # OpenSSL is installed by default http://www.openbsd.org/crypto.html
-      requirements_openbsd_ensure_libs gcc-4 autoconf-2 automake-1 libtool bison readline-6 libxslt-1 libyaml-0 git
+      requirements_check gcc-4 autoconf-2 automake-1 libtool bison readline-6 libxslt-1 libyaml-0 git
       __rvm_update_configure_opt_dir "$1" "/usr/local"
       ;;
     (*)
       # OpenSSL is installed by default http://www.openbsd.org/crypto.html
-      requirements_openbsd_ensure_libs gcc-4 autoconf-2 automake-1 libtool bison readline-6 libxslt-1 libyaml-0
+      requirements_check gcc-4 autoconf-2 automake-1 libtool bison readline-6 libxslt-1 libyaml-0
       __rvm_update_configure_opt_dir "$1" "/usr/local"
       ;;
   esac

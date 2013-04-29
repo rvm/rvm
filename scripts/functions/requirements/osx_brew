@@ -1,44 +1,35 @@
 #!/usr/bin/env bash
 
-requirements_brew_lib_installed()
+requirements_find_osx_brew()
+{
+  if
+    \which brew >/dev/null 2>&1
+  then
+    return 0
+  else
+    typeset __binary
+    for __binary in ~/homebrew/bin/brew ~/.homebrew/bin/brew /usr/local/bin/brew
+    do
+      if
+        [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
+      then
+        # link to rvm_bin for easy adding to PATH
+        ln -nfs "${__binary}" "${rvm_bin_path:-$rvm_path/bin}/brew"
+        return 0
+      fi
+    done
+    return 1
+  fi
+}
+
+requirements_osx_brew_lib_installed()
 {
   brew list -1 | \grep "^${1}$" >/dev/null || return $?
 }
 
-requirements_brew_libs_install()
+requirements_osx_brew_libs_install()
 {
-  brew install "$@" || return $?
-}
-
-requirements_brew_libs_outdated_filter()
-{
-  typeset IFS
-  IFS="|"
-  brew outdated --quiet | \grep -E "$*"
-}
-
-requirements_brew_libs_try_upgrade()
-{
-  (( rvm_autolibs_flag_number > 0 )) || return 0
-
-  typeset -a outdated_libs
-  __rvm_read_lines outdated_libs <(
-    requirements_brew_libs_outdated_filter "$@"
-  )
-  if
-    (( ${#outdated_libs[@]} ))
-  then
-    rvm_requiremnts_fail_or_run_action 2 \
-      "Homebrew libs require update - skipping." \
-      brew upgrade "${outdated_libs[@]}" ||
-      return $?
-  fi
-}
-
-requirements_brew_libs_ensure()
-{
-  typeset -a packages_installed packages_missing packages_to_install
-  __rvm_filter_installed_packages brew "$@" ||
+  brew install "$@" ||
   {
     typeset ret=$?
     rvm_warn "There were package installation errors, make sure to read the log.
@@ -51,54 +42,34 @@ Check Homebrew requirements https://github.com/mxcl/homebrew/wiki/Installation"
     esac
     return $ret
   }
-  requirements_brew_libs_try_upgrade "$@"
 }
 
-requirements_brew_libs_configure()
+requirements_osx_brew_libs_outdated_filter()
 {
-  typeset package brew_lib brew_lib_prefix
-  package="$1"
-  shift
-
-  for brew_lib
-  do
-    if
-      brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
-      [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
-    then
-      __rvm_update_configure_opt_dir "${package}" "${brew_lib_prefix}"
-    fi
-  done
+  typeset IFS
+  IFS="|"
+  brew outdated --quiet | \grep -E "$*"
 }
 
-requirements_brew_libs_default_calculate()
+requirements_osx_brew_libs_try_upgrade()
 {
-  brew_libs=(
-    autoconf automake libtool pkg-config
+  (( rvm_autolibs_flag_number > 0 )) || return 0
+
+  typeset -a outdated_libs
+  __rvm_read_lines outdated_libs <(
+    requirements_osx_brew_libs_outdated_filter "$@"
   )
-  typeset selected_compiler
-  selected_compiler="$( __rvm_selected_compiler )"
-  case "$1" in
-    (*-head) __rvm_which git >/dev/null || brew_libs+=( git )
-      ;;
-  esac
   if
-    ! __ruby_clang_ok "$1" &&
-    [[ -z "${selected_compiler}" || "${selected_compiler}" =~ "gcc-4.2" ]]
+    (( ${#outdated_libs[@]} ))
   then
-    # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
-    __rvm_which gcc-4.2 >/dev/null ||
-    {
-      brew tap | \grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
-      brew_libs+=( apple-gcc42 )
-    }
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Homebrew libs require update - skipping." \
+      brew upgrade "${outdated_libs[@]}" ||
+      return $?
   fi
-  brew_libs_conf=(
-    libyaml readline libxml2 libxslt libksba openssl sqlite
-  )
 }
 
-requirements_brew_libs_default_check_gcc42()
+requirements_osx_brew_libs_default_check_gcc42()
 {
   if
     [[ " ${brew_libs[*]}" =~ "apple-gcc42" ]] && ! which gcc-4.2 >/dev/null
@@ -116,18 +87,119 @@ and make sure that apple-gcc42 is available in your PATH:
   fi
 }
 
-requirements_brew_libs_default()
+requirements_osx_brew_libs_configure()
 {
-  typeset -a brew_libs brew_libs_conf
-  requirements_brew_libs_default_calculate "$1" &&
-  requirements_brew_libs_ensure "${brew_libs[@]}" "${brew_libs_conf[@]}" &&
-  requirements_osx_update_openssl_cert "$(brew --prefix openssl)/bin/openssl" &&
-  requirements_brew_libs_default_check_gcc42 &&
-  requirements_brew_libs_configure "$1" "${brew_libs_conf[@]}" ||
-  return $?
+  typeset package brew_lib brew_lib_prefix
+  package="$1"
+  shift
+
+  for brew_lib
+  do
+    if
+      brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
+      [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
+    then
+      __rvm_update_configure_opt_dir "${package}" "${brew_lib_prefix}"
+    fi
+  done
 }
 
-requirements_brew_install_brew()
+requirements_osx_brew_after()
+{
+  (( ${#packages_installed[@]} == 0 )) ||
+  requirements_osx_brew_libs_try_upgrade "${packages_installed[@]}" || return $?
+
+  requirements_osx_brew_libs_default_check_gcc42                    || return $?
+  requirements_osx_brew_libs_configure "$1" "${brew_libs_conf[@]}"  || return $?
+  unset brew_libs brew_libs_conf
+
+  rvm_requiremnts_fail_or_run_action 2 \
+    "Skipping certificates update, make sure your certificates are up to date." \
+    requirements_osx_update_openssl_cert "$(brew --prefix openssl)/bin/openssl" || return $?
+}
+
+requirements_osx_brew_libs_default()
+{
+  brew_libs=(
+    autoconf automake libtool pkg-config
+  )
+  typeset selected_compiler
+  selected_compiler="$( __rvm_selected_compiler )"
+  if
+    ! __ruby_clang_ok "$1" &&
+    [[ -z "${selected_compiler}" || "${selected_compiler}" =~ "gcc-4.2" ]]
+  then
+    # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
+    __rvm_which gcc-4.2 >/dev/null ||
+    {
+      brew tap | \grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
+      brew_libs+=( apple-gcc42 )
+    }
+  fi
+  brew_libs_conf=(
+    libyaml readline libxml2 libxslt libksba openssl sqlite
+  )
+  requirements_check "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
+}
+
+requirements_osx_brew_define()
+{
+  case "$1" in
+    (rvm)
+      true
+      ;;
+    (jruby*head)
+      __rvm_which git >/dev/null || requirements_check git
+      requiremnts_osx_java_fail  || return $?
+      ;;
+    (jruby*)
+      requiremnts_osx_java_fail  || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_check node
+      ;;
+    (*-head)
+      __rvm_which git >/dev/null || requirements_check git
+      requirements_osx_brew_libs_default "$1"
+      ;;
+    (*)
+      requirements_osx_brew_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_osx_brew_update_system()
+{
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.7
+  then
+    __rvm_detect_xcode_version_at_least 4.6.2 ||
+    {
+      typeset ret=$?
+      rvm_error "
+Xcode version older then 4.6.2 installed, download and install never version from:
+
+    http://connect.apple.com
+
+After installation open Xcode, go to Downloads and install Command Line Tools.
+"
+      return $ret
+    }
+  fi
+  brew update ||
+  {
+    typeset ret=$?
+    rvm_error "Failed to update Homebrew, follow instructions here:
+    https://github.com/mxcl/homebrew/wiki/Common-Issues
+and make sure \`brew update\` works before continuing."
+    return $ret
+  }
+}
+
+requirements_osx_brew_install_brew()
 {
   typeset homebrew_home homebrew_repo
   if
@@ -156,78 +228,18 @@ requirements_brew_install_brew()
   ln -nfs "${homebrew_home}/bin/brew" "${rvm_bin_path:-$rvm_path/bin}/brew"
 }
 
-requirements_brew_update_system_run()
-{
-  if
-    __rvm_version_compare "${_system_version}" -ge 10.7
-  then
-    __rvm_detect_xcode_version_at_least 4.6.2 ||
-    {
-      typeset ret=$?
-      rvm_error "
-Xcode version older then 4.6.2 installed, download and install never version from:
-
-    http://connect.apple.com
-
-After installation open Xcode, go to Downloads and install Command Line Tools.
-"
-      return $ret
-    }
-  fi
-  brew update ||
-  {
-    typeset ret=$?
-    rvm_error "Failed to update Homebrew, follow instructions here:
-    https://github.com/mxcl/homebrew/wiki/Common-Issues
-and make sure \`brew update\` works before continuing."
-    return $ret
-  }
-}
-
-requirements_brew_update_system()
-{
-  rvm_requiremnts_fail_or_run_action 3 \
-    "Skipping \`brew update\` make sure your formulas are up to date." \
-    requirements_brew_update_system_run ||
-    return $?
-}
-
-requirements_brew_route_install()
-{
-  case "$1" in
-    (update-system)
-      requirements_brew_update_system || return $?
-      ;;
-    (rvm)
-      true
-      ;;
-    (jruby*)
-      requiremnts_osx_java_fail || return $?
-      ;;
-    (ir*)
-      which mono >/dev/null 2>&1 || return $?
-      ;;
-    (opal)
-      requirements_brew_libs_ensure node
-      ;;
-    (*)
-      requirements_brew_libs_default "$1"
-      ;;
-  esac
-}
-
-requirements_brew_ensure_brew_available()
+requirements_osx_brew_ensure_brew_available()
 {
   which brew >/dev/null ||
   {
     rvm_requiremnts_fail_or_run_action 2 \
       "Requested installation with homebrew libs, but homebrew is not available." \
-      __rvm_log_command brew_install "Installing homebrew" requirements_brew_install_brew ||
+      __rvm_log_command brew_install "Installing homebrew" requirements_osx_brew_install_brew ||
       return $?
   }
 }
 
-requirements_brew_ensure_brew_can_install()
+requirements_osx_brew_ensure_brew_can_install()
 {
   # only check for 3+ (packages install, enabled)
   (( rvm_autolibs_flag_number > 2 )) || return 0
@@ -249,9 +261,9 @@ requirements_brew_ensure_brew_can_install()
   fi
 }
 
-requirements_osx_brew()
+requirements_osx_brew_before()
 {
-  requirements_brew_ensure_brew_available   || return $?
-  requirements_brew_ensure_brew_can_install || return $?
-  __rvm_requirements_iterate requirements_brew_route_install "$@" || return $?
+  typeset -ax brew_libs brew_libs_conf
+  requirements_osx_brew_ensure_brew_available   || return $?
+  requirements_osx_brew_ensure_brew_can_install || return $?
 }
