@@ -199,33 +199,58 @@ and make sure \`brew update\` works before continuing."
   }
 }
 
-requirements_osx_brew_install_brew()
+requirements_osx_brew_install_brew_setup()
 {
-  typeset homebrew_home homebrew_repo
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.5
+  then
+    homebrew_repo="mxcl/homebrew"
+    homebrew_name="Homebrew"
+  else
+    homebrew_repo="mistydemeo/tigerbrew"
+    homebrew_name="Tigerbrew"
+  fi
   if
     (( UID == 0 )) && [[ -z "${SUDO_USER:-}" ]]
   then
-    rvm_error "Requested installation of Homebrew but the process is running as 'root', make sure to run with 'sudo' from normal user and try again."
+    rvm_error "Requested installation of ${homebrew_name} but the process is running as 'root', make sure to run with 'sudo' from normal user and try again."
     return 1
   fi
-  if (( UID == 0 ))
-  then homebrew_home="/usr/local"
-  else homebrew_home="$HOME/.homebrew"
-  fi
-  if __rvm_version_compare "${_system_version}" -ge 10.5
-  then homebrew_repo="mxcl/homebrew"
-  else homebrew_repo="mistydemeo/tigerbrew"
-  fi
-  if (( UID == 0 ))
-  then su - ${SUDO_USER} -c "ruby -e \"$(curl -fsSL https://raw.github.com/${homebrew_repo}/go)\"" || return $?
+  homebrew_home_default="/usr/local"
+  printf "%b" "About to install ${homebrew_name}, press \`Enter\` for default installation in \`$homebrew_home_default\`,
+type new path if you wish custom ${homebrew_name} installation (the path needs to be writable for user)\n: "
+  read homebrew_home || return $?
+  : homebrew_home=${homebrew_home:=$homebrew_home_default}
+}
+
+requirements_osx_brew_install_brew_install()
+{
+  if
+    [[ "${homebrew_home}" == "${homebrew_home_default}" ]]
+  then
+    if [[ -n "${SUDO_USER:-}" ]]
+    then su - ${SUDO_USER} -c "ruby -e \"$(curl -fsSL https://raw.github.com/${homebrew_repo}/go)\"" || return $?
+    else ruby -e "$(curl -fsSL https://raw.github.com/${homebrew_repo}/go)" || return $?
+    fi
   else
     mkdir -p "${homebrew_home}" || return $?
     __rvm_curl https://github.com/${homebrew_repo}/tarball/master | tar xz --strip 1 -C "${homebrew_home}"
     __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
     chmod +x "${homebrew_home}/bin/brew" # just in case
+    if [[ -n "${SUDO_USER:-}" ]]
+    then chown -R ${SUDO_USER} "${homebrew_home}"
+    fi
   fi
   # link to rvm_bin for easy adding to PATH, TODO: are there better ways to automate it?
   ln -nfs "${homebrew_home}/bin/brew" "${rvm_bin_path:-$rvm_path/bin}/brew"
+}
+
+requirements_osx_brew_install_brew()
+{
+  typeset homebrew_home_default homebrew_home homebrew_repo homebrew_name
+
+  requirements_osx_brew_install_brew_setup   || return $?
+  requirements_osx_brew_install_brew_install || return $?
 }
 
 requirements_osx_brew_ensure_brew_available()
