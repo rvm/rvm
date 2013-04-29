@@ -22,25 +22,14 @@ requirements_find_osx_port()
   fi
 }
 
-requirements_port_lib_installed()
+requirements_osx_port_lib_installed()
 {
   __rvm_array_contains "$1" "${packages_available[@]}" || return $?
 }
 
-requirements_port_libs_install()
+requirements_osx_port_libs_install()
 {
-  __rvm_try_sudo port install "$@" || return $?
-}
-
-requirements_port_libs_ensure()
-{
-  typeset -a packages_installed packages_missing packages_to_install packages_available
-
-  __rvm_read_lines packages_available <(
-    port -q installed active | awk '{print $1}'
-  )
-
-  __rvm_filter_installed_packages port "$@" ||
+  __rvm_try_sudo port install "$@" ||
   {
     typeset ret=$?
     # TODO: offer more help!
@@ -49,9 +38,8 @@ requirements_port_libs_ensure()
   }
 }
 
-requirements_port_libs_default()
+requirements_osx_port_libs_default()
 {
-  typeset -a port_libs
   port_libs=(
     autoconf automake libtool pkgconfig
   )
@@ -68,11 +56,55 @@ requirements_port_libs_default()
   port_libs+=(
     libiconv libyaml libffi readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite3 zlib ncurses gdbm
   )
-  requirements_port_libs_ensure  "${port_libs[@]}" || return $?
-  __rvm_update_configure_opt_dir "$1" "/opt/local" || return $?
+  requirements_check "${port_libs[@]}" || return $?
 }
 
-requirements_port_install_port()
+requirements_osx_port_update_system()
+{
+  __rvm_try_sudo port -dv selfupdate || return $?
+}
+
+requirements_osx_port_define()
+{
+  case "$1" in
+    (rvm)
+      true
+      ;;
+    (jruby*head)
+      __rvm_which git >/dev/null || requirements_check git
+      requiremnts_osx_java_fail  || return $?
+      ;;
+    (jruby*)
+      requiremnts_osx_java_fail || return $?
+      ;;
+    (ir*)
+      which mono >/dev/null 2>&1 || return $?
+      ;;
+    (opal)
+      requirements_osx_port_libs_ensure node
+      ;;
+    (*-head)
+      __rvm_which git >/dev/null || requirements_check git
+      requirements_osx_port_libs_default "$1"
+      ;;
+    (*)
+      requirements_osx_port_libs_default "$1"
+      ;;
+  esac
+}
+
+requirements_osx_port_after()
+{
+  __rvm_update_configure_opt_dir "$1" "/opt/local" || return $?
+  unset packages_available port_libs
+
+  rvm_requiremnts_fail_or_run_action 2 \
+    "Skipping certificates update, make sure your certificates are up to date." \
+    requirements_osx_update_openssl_cert "$(fink --prefix openssl)/bin/openssl" || return $?
+}
+
+
+requirements_osx_port_install_port()
 {
   typeset macports_version
   macports_version="$(
@@ -92,46 +124,24 @@ requirements_port_install_port()
   return $?
 }
 
-requirements_port_update_system()
-{
-  __rvm_try_sudo port -dv selfupdate || return $?
-}
-
-requirements_port_route_install()
-{
-  case "$1" in
-    (rvm)
-      # FIXME: requirements for rvm
-      true
-      ;;
-    (jruby*)
-      requiremnts_osx_java_fail || return $?
-      ;;
-    (ir*)
-      which mono >/dev/null 2>&1 || return $?
-      ;;
-    (opal)
-      requirements_port_libs_ensure node
-      ;;
-    (*)
-      requirements_port_libs_default "$1"
-      ;;
-  esac
-}
-
-requirements_port_ensure_port_available()
+requirements_osx_port_ensure_port_available()
 {
   which port >/dev/null ||
   {
     rvm_requiremnts_fail_or_run_action 2 \
       "Requested installation with macports libs, but macports is not available." \
-      __rvm_log_command port_install "Installing macports" requirements_port_install_port ||
+      __rvm_log_command port_install "Installing macports" requirements_osx_port_install_port ||
       return $?
   }
 }
 
-requirements_osx_port()
+requirements_osx_port_before()
 {
-  requirements_port_ensure_port_available || return $?
-  __rvm_requirements_iterate requirements_port_route_install "$@" || return $?
+  requirements_osx_port_ensure_port_available || return $?
+
+  typeset -ax packages_available port_libs
+
+  __rvm_read_lines packages_available <(
+    port -q installed active | awk '{print $1}'
+  )
 }
