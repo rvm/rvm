@@ -4,12 +4,56 @@ requirements_osx_update_openssl_cert_old() [[ "$cert_file" -ot /Library/Keychain
   "$cert_file" -ot /System/Library/Keychains/SystemRootCertificates.keychain
 ]]
 
+requirements_osx_update_openssl_cert_create_dir()
+{
+  [[ -d "$ssl_dir" ]] || mkdir -p "$ssl_dir" || __rvm_try_sudo mkdir -p "$ssl_dir" ||
+  {
+    typeset __ret=$?
+    rvm_error "Can not create directory '$ssl_dir' for certificates."
+    return ${__ret}
+  }
+}
+
+requirements_osx_update_openssl_cert_target_select()
+{
+  if
+    [[ -f "$cert_file" && -w "$cert_file" ]] ||
+    [[ ! -e "$cert_file" && -d "$ssl_dir" && -w "ssl_dir" ]]
+  then
+    __target="$cert_file"
+  else
+    __target="$(
+      TMPDIR="${rvm_tmp_path}" mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX
+    )"
+  fi
+}
+
+requirements_osx_update_openssl_cert_create_cert()
+{
+  security find-certificate -a -p /Library/Keychains/System.keychain > "$__target"
+  security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> "$__target"
+}
+
+requirements_osx_update_openssl_cert_target_move()
+{
+  [[ "$__target" == "cert_file" ]] ||
+  __rvm_try_sudo \mv -f "$__target" "cert_file" ||
+  {
+    typeset __ret=$?
+    rm -f "$__target"
+    return ${__ret}
+  }
+}
 requirements_osx_update_openssl_cert_run()
 {
+  typeset __target="$cert_file"
+
   rvm_log "Updating certificates in '$cert_file'."
-  mkdir -p "$ssl_dir"
-  security find-certificate -a -p /Library/Keychains/System.keychain > "$cert_file"
-  security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain >> "$cert_file"
+
+  requirements_osx_update_openssl_cert_create_dir    || return $?
+  requirements_osx_update_openssl_cert_target_select || return $?
+  requirements_osx_update_openssl_cert_create_cert   || return $?
+  requirements_osx_update_openssl_cert_target_move   || return $?
 }
 
 requirements_osx_update_openssl_cert()
