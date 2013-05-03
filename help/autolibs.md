@@ -49,7 +49,7 @@ Using 3 only once:
 rvm install --autolibs=packages
 ```
 
-You can also optionally enforce a package manager if you are using smf or on OS X by issuing one of the following instead of 4: `brew, homebrew, osx_brew, port, macports, osx_port, fink, osx_fink`
+You can also optionally enforce a package manager if you are using smf or on OS X by issuing one of the following instead of 4: `brew, homebrew, osx_brew, port, macports, osx_port, fink, osx_fink, rvm_pkg`
 
 ## Other options (2, 1 and 0).
 
@@ -68,3 +68,4 @@ Autolibs also has three other options and these options are 2, which will read p
 * `fink`, `osx_fink` - Like 4, enforces Fink.
 * `smf` - Like 4, enforce SM Framework.
 * `port`, `macports`, `osx_port` - Like 4, enforce MacPorts.
+* `rvm_pkg` - Make use of old `rvm pkg` code, uses extra `pkg-config` code to detect existing libraries.
