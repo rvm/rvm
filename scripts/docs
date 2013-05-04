@@ -12,13 +12,16 @@ then
   exit 1
 fi
 
-[[ -d "${rvm_src_path}/$rvm_docs_ruby_string" ]] || (
-  action="fetch"
-  rubies_string="$rvm_docs_ruby_string"
-  source "$rvm_scripts_path"/manage
-) || {
-  rvm_error "'rvm docs ...' requires ruby sources to be available but fetching failed, run \`rvm reinstall $rvm_docs_ruby_string --disable-binary\`"
-  exit 2
+install_ruby_source()
+{
+  [[ -d "${rvm_src_path}/$rvm_docs_ruby_string" ]] || (
+    action="fetch"
+    rubies_string="$rvm_docs_ruby_string"
+    source "$rvm_scripts_path"/manage
+  ) || {
+    rvm_error "'rvm docs ...' requires ruby sources to be available but fetching failed, run \`rvm reinstall $rvm_docs_ruby_string --disable-binary\`"
+    exit 2
+  }
 }
 
 rvm_docs_type="${rvm_docs_type:-rdoc}"
@@ -26,18 +29,6 @@ rvm_docs_type="${rvm_docs_type:-rdoc}"
 # Ensure we have the doc directories.
 [[ -d "${rvm_docs_path:-"$rvm_path/docs"}" ]] ||
   mkdir -p "${rvm_docs_path:-"$rvm_path/docs"}/rdoc" "${rvm_docs_path:-"$rvm_path/docs"}/yard"
-
-usage()
-{
-  printf "%b" "
-
-  Usage:
-
-    rvm docs {open,generate,generate-ri,generate-rdoc}
-
-"
-  return 0
-}
 
 open_docs()
 {
@@ -71,6 +62,7 @@ run_rdoc()
 
 generate_ri()
 {
+  install_ruby_source
   # Generate ri docs
   (
     __rvm_cd "${rvm_src_path}/$rvm_docs_ruby_string/"
@@ -85,6 +77,7 @@ generate_ri()
 
 generate_rdoc()
 {
+  install_ruby_source
   (
     __rvm_cd "${rvm_src_path}/$rvm_docs_ruby_string/"
 
@@ -107,20 +100,41 @@ generate_rdoc()
   )
 }
 
+install_rdoc_data()
+{
+  __rvm_use ${rvm_docs_ruby_string%%@*}@global
+  gem list rdoc      | GREP_OPTIONS="" \grep "^rdoc" || gem install rdoc
+  gem list rdoc-data | GREP_OPTIONS="" \grep "^rdoc" || gem install rdoc-data
+  rdoc-data --install
+}
+
+generate_docs()
+{
+  case "${rvm_docs_ruby_string}" in
+    (*1.8.7*|*1.9.2*|*1.9.3*|jruby*|rbx*)
+      __rvm_log_command install_rdoc_data "Installing rdoc-data" \
+        install_rdoc_data || return $?
+      ;;
+    (*)
+      generate_ri
+      generate_rdoc
+      ;;
+  esac
+}
+
 args=($*)
 action="${args[0]}"
 args=($(echo ${args[@]:1})) # Strip trailing / leading / extra spacing.
 
 case "$action" in
-  generate)
-    generate_ri
-    generate_rdoc
+  rdoc_data)     install_rdoc_data ;;
+  generate)      generate_docs ;;
+  generate-ri)   generate_ri   ;;
+  generate-rdoc) generate_rdoc ;;
+  open)          open_docs     ;;
+  help)          rvm_help docs ;;
+  *)
+    rvm_help docs
+    exit 1
     ;;
-  open)          open_docs      ;;
-  generate-ri)   generate_ri    ;;
-  generate-rdoc) generate_rdoc  ;;
-  help)          usage          ;;
-  *)             usage ; exit 1 ;;
 esac
-
-exit $?
