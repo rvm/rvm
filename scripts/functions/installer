@@ -108,6 +108,30 @@ determine_install_path()
   export rvm_path
 }
 
+load_custom_flags()
+{
+  if
+    [[ -s "${rvm_path:-}/user/custom_flags" ]]
+  then
+    typeset __key __value
+    while IFS== read __key __value
+    do
+      eval "export ${__key}=\"\${__value}\""
+    done < "${rvm_path:-}/user/custom_flags"
+  fi
+}
+
+save_custom_flags()
+{
+  typeset -a __variables
+  __variables=(
+    ^rvm_ignore_dotfiles_flag=
+    ^rvm_rubies_path=
+  )
+  typeset IFS="|"
+  set | GREP_OPTIONS="" \grep -E "${__variables[*]}" > "${rvm_path:-}/user/custom_flags"
+}
+
 determine_install_or_upgrade()
 {
   export upgrade_flag
@@ -1089,7 +1113,10 @@ setup_user_profile_check()
       printf "%b" "\nrvm_ignore_dotfiles_flag=\"${rvm_ignore_dotfiles_flag}\"\n" >> ~/.rvmrc
     fi
   fi
-  [[ "${rvm_ignore_dotfiles_flag:-${rvm_ignore_dotfiles:-no}}" == "no"  ]] || return 0
+  case "${rvm_ignore_dotfiles_flag:-${rvm_ignore_dotfiles:-no}}" in
+    (yes|1) return 1 ;;
+  esac
+  return 0
 }
 
 setup_user_profile_detect()
@@ -1218,7 +1245,7 @@ setup_user_profile_login()
 
 setup_user_profile()
 {
-  setup_user_profile_check || return $?
+  setup_user_profile_check || return 0
 
   export user_profile_file
   export -a user_login_files user_rc_files
