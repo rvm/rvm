@@ -30,15 +30,15 @@ You can check status, update certificates manually or schedule an automated upda
 
 ## Examples
 
-Show the status for all installed rubies
+Show the status for all installed rubies:
 
     rvm osx-ssl-certs status all
 
-Update certificates for current ruby OpenSSL
+Update OpenSSL certificates for current ruby:
 
-    rvm osx-ssl-certs status all
+    rvm osx-ssl-certs update
 
-Schedule daily update of certificates
+Schedule daily update of certificates:
 
     rvm osx-ssl-certs cron install
 
