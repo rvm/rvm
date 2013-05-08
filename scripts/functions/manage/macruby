@@ -1,18 +1,129 @@
 #!/usr/bin/env bash
 
-macruby_install()
+macruby_install_extract_pkg()
+(
+  set -x
+  typeset __source __target __temp1 __temp1_org __temp2 __result
+  __source="$1"
+  __target="$2"
+  __temp1="$( TMPDIR="${rvm_tmp_path}" mktemp -d -t rvm-tmp1.XXXXXXXXX )"
+  __temp2="$( TMPDIR="${rvm_tmp_path}" mktemp -d -t rvm-tmp2.XXXXXXXXX )"
+  [[ -n "${__temp1}" && -d "${__temp1}" && -n "${__temp2}" && -d "${__temp2}" ]] || return $?
+  __result=0
+  __temp1_org="${__temp1}"
+  __temp1+="/${rvm_ruby_package_name}" # required for the next command to run at all
+  pkgutil --expand "${__source}" "${__temp1}" || __result=$?
+  __temp1="$( \find "${__temp1}" -name Payload -type f )"
+  [[ -n "${__temp1}" ]] &&
+  tar xzf "${__temp1}" -C "${__temp2}" &&
+  mkdir -p "${__target}/" &&
+  mv -f "${__temp2}/Library/Frameworks/MacRuby.framework/Versions/Current"/* "${__target}/" ||
+  __result=$?
+  rm -rf "${__temp1}" "${__temp1_org}" "${__temp2}" || true
+  return ${__result}
+)
+
+macruby_install_extract_zip()
 {
-  if [[ "Darwin" != "$(uname)" ]]
-  then
-    rvm_error "MacRuby can only be installed on a Darwin OS."
-    exit 1
+  mkdir -p ${rvm_src_path}/$rvm_ruby_string &&
+  unzip -o -j "${rvm_archives_path}/$rvm_ruby_package_file" \
+    "MacRuby ${rvm_ruby_version}/MacRuby ${rvm_ruby_version}.pkg" \
+    -d "${rvm_src_path}/$rvm_ruby_string"  &&
+  \mv "${rvm_src_path}/$rvm_ruby_string/MacRuby ${rvm_ruby_version}.pkg" \
+    "${rvm_src_path}/$rvm_ruby_string/$rvm_ruby_string.pkg" &&
+  macruby_install_extract_pkg "${rvm_src_path}/$rvm_ruby_string/$rvm_ruby_string.pkg" "$rvm_ruby_home" ||
+  return $?
+}
+
+macruby_install_wrapper()
+{
+  \cat <<RubyWrapper
+#!/usr/bin/env bash
+
+export DYLD_LIBRARY_PATH="$rvm_ruby_home/usr/lib\${DYLD_LIBRARY_PATH:+:}\${DYLD_LIBRARY_PATH:-}"
+export RUBYOPT="\${RUBYOPT:-} $extra_rubyopt"
+export GEM_HOME="\${GEM_HOME:-$rvm_ruby_gem_home}"
+export GEM_PATH="\${GEM_PATH:-$rvm_ruby_gem_path}"
+export MY_RUBY_HOME="$rvm_ruby_home"
+export PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH"
+
+exec "$rvm_ruby_home/usr/bin/mac$1" "\$@"
+RubyWrapper
+}
+
+macruby_install_wrap_binaries_detect_rubyopt()
+{
+  typeset __path
+  extra_rubyopt=""
+  for __path in $(
+    DYLD_LIBRARY_PATH="$rvm_ruby_home/usr/lib" "$rvm_ruby_home/usr/bin/macruby" -e 'puts $LOAD_PATH'
+  )
+  do
+    [[ "${__path}" == "." ]] ||
+    extra_rubyopt+="-I$rvm_ruby_home/usr${__path#*/usr} "
+  done
+}
+
+macruby_install_fix_shebang()
+{
+  case "$1" in
+    (ruby) return 0 ;; # it's a binary, no fixing needed
+  esac
+  {
+    echo "#!$rvm_ruby_home/usr/bin/macruby"
+    tail -n +2 "$rvm_ruby_home/usr/bin/mac$1"
+  } > "$rvm_ruby_home/usr/bin/mac$1.new"
+  mv -f "$rvm_ruby_home/usr/bin/mac$1.new" "$rvm_ruby_home/usr/bin/mac$1"
+  chmod +x "$rvm_ruby_home/usr/bin/mac$1"
+}
+
+macruby_install_wrap_binary()
+{
+  binary_name="${binary_name#$rvm_ruby_home/usr/bin/mac}"
+  file_name="$rvm_ruby_home/bin/$binary_name"
+
+  if [[ -f "$file_name" ]]
+  then \rm -f "$file_name"
   fi
 
-  if (( rvm_head_flag == 1 ))
+  macruby_install_fix_shebang "$binary_name"
+  macruby_install_wrapper "$binary_name" > "$file_name"
+
+  [[ -x "$file_name" ]] || chmod +x $file_name
+}
+
+macruby_install_wrap_binaries()
+{
+  mkdir -p "$rvm_ruby_home/bin/" ||
+  {
+    rvm_error "Can not create binaries directory => $rvm_ruby_home/bin/"
+    return 1
+  }
+  typeset binary_name extra_rubyopt
+  macruby_install_wrap_binaries_detect_rubyopt
+
+  for binary_name in "$rvm_ruby_home/usr/bin"/mac*
+  do
+    macruby_install_wrap_binary
+  done
+}
+
+macruby_install()
+{
+  [[ "Darwin" == "$(uname)" ]] ||
+  {
+    rvm_error "MacRuby can only be installed on a Darwin OS."
+    exit 1
+  }
+
+  if
+    (( rvm_head_flag == 1 ))
   then
+    rvm_error "macruby-head is temporarily disabled(broken), use macruby-nightly for now."
+    return 1
+
     if (( ${rvm_llvm_flag:=0} == 1 ))
-    then
-      "$rvm_scripts_path/package" llvm install
+    then "$rvm_scripts_path/package" llvm install
     fi
 
     macruby_path="/usr/local/bin"
@@ -26,111 +137,47 @@ macruby_install()
     rvm_ruby_repo_url=$rvm_ruby_url
 
     __rvm_setup_compile_environment "${rvm_ruby_string}"
-    __rvm_install_source $*
-    result=$?
 
-    if (( result > 0 ))
-    then
+    __rvm_install_source $* ||
+    {
+      result=$?
       rvm_error "There has been an error while trying to install from source. \nHalting the installation."
       return $result
-    fi
-
-  elif [[ "nightly" == "$rvm_ruby_version" ]] ; then
-    __rvm_db "macruby_nightly_version" "macruby_nightly_version"
-    macruby_path="/Library/Frameworks/MacRuby.framework/Versions/${macruby_nightly_version}/usr/bin"
-    unset macruby_nightly_version
-    # TODO: Separated nightly from head.
-
-    rvm_log "Retrieving the latest nightly macruby build..."
-
-    "$rvm_scripts_path/fetch" "$rvm_ruby_url"
-    result=$?
-    if (( result > 0 ))
-    then
-      rvm_error "There has been an error while trying to fetch the source.  \nHalting the installation."
-      return $result
-    fi
-
-    \mv "${rvm_archives_path}/macruby_nightly-latest.pkg" \
-      "${rvm_archives_path}/macruby_nightly.pkg"
-
-    __rvm_run "macruby/extract" \
-      "sudo /usr/sbin/installer -pkg '${rvm_archives_path}/macruby_nightly.pkg' -target '/'"
-
-    mkdir -p "$rvm_ruby_home/bin"
-
+    }
   else
     macruby_path="/Library/Frameworks/MacRuby.framework/Versions/${rvm_ruby_version}/usr/bin"
 
-    # TODO: Separated nightly from head.
     rvm_log "Retrieving MacRuby ${rvm_ruby_version} ..."
-
-    "$rvm_scripts_path/fetch" "$rvm_ruby_url"
-
-    result=$?
-
-    if (( result > 0 ))
-    then
+    "$rvm_scripts_path/fetch" "$rvm_ruby_url" ||
+    {
+      result=$?
       rvm_error "There has been an error while trying to fetch the source. Halting the installation."
       return $result
-    fi
+    }
 
-    mkdir -p ${rvm_src_path}/$rvm_ruby_string
-
-    unzip -o -j "${rvm_archives_path}/$rvm_ruby_package_file" \
-      "MacRuby ${rvm_ruby_version}/MacRuby ${rvm_ruby_version}.pkg" \
-      -d "${rvm_src_path}/$rvm_ruby_string"
-
-    \mv "${rvm_src_path}/$rvm_ruby_string/MacRuby ${rvm_ruby_version}.pkg" \
-      "${rvm_src_path}/$rvm_ruby_string/$rvm_ruby_string.pkg"
-
-    __rvm_run "macruby/extract" \
-      "sudo /usr/sbin/installer -pkg '${rvm_src_path}/$rvm_ruby_string/$rvm_ruby_string.pkg' -target '/'"
-
-    mkdir -p "$rvm_ruby_home/bin"
+    case "$rvm_ruby_package_file" in
+      (*.zip)
+        __rvm_log_command "install" "Installing package" \
+          macruby_install_extract_zip ||
+          return $?
+        ;;
+      (*.pkg)
+        __rvm_log_command "install" "Installing package" \
+          macruby_install_extract_pkg "${rvm_archives_path}/$rvm_ruby_package_file" "$rvm_ruby_home" ||
+          return $?
+        ;;
+      (*)
+        rvm_error "Do not know what to do with archive: ${rvm_archives_path}/$rvm_ruby_package_file"
+        return 1
+        ;;
+    esac
   fi
 
-  (
-    rvm_create_flag=1 __rvm_use
-  )
+  macruby_install_wrap_binaries
 
-  binaries=(erb gem irb rake rdoc ri ruby testrb)
-  for binary_name in ${binaries[@]}; do
-    # TODO: This should be generated via an external script.
-    ruby_wrapper=$(\cat <<RubyWrapper
-#!/usr/bin/env bash
+  rvm_create_flag=1 __rvm_use
 
-export GEM_HOME="\${GEM_HOME:-$rvm_ruby_gem_home}"
-export GEM_PATH="\${GEM_PATH:-$rvm_ruby_gem_path}"
-export MY_RUBY_HOME="$rvm_ruby_home"
-export PATH="$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH"
-
-exec "$macruby_path/mac$binary_name" "\$@"
-RubyWrapper
-    )
-
-    file_name="$rvm_ruby_home/bin/$binary_name"
-
-    if [[ -f "$file_name" ]]
-    then
-      \rm -f "$file_name"
-    fi
-
-    echo "$ruby_wrapper" > "$file_name"
-
-    if [[ ! -x "$file_name" ]]
-    then
-      chmod +x $file_name
-    fi
-
-    if [[ "$binary_name" == "ruby" ]]
-    then
-      \rm -f "${rvm_bin_path:-"$rvm_path/bin"}/$rvm_ruby_string"
-      echo "$ruby_wrapper" \
-        > "${rvm_bin_path:-"$rvm_path/bin"}/$rvm_ruby_string"
-    fi
-  done
-  unset binaries
-
-  __rvm_irbrc
+  binaries=()
+  __rvm_post_install
+  __rvm_generate_wrappers
 }

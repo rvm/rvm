@@ -5,31 +5,42 @@ requirements_centos_lib_installed()
   rpm -q --whatprovides "$1" >/dev/null || return $?
 }
 
+requirements_centos_lib_available()
+{
+  yum list --cacheonly --quiet "$1" >/dev/null 2>&1 || return $?
+}
+
 requirements_centos_libs_install()
 {
   __rvm_try_sudo yum install -y "$@" || return $?
 }
 
-requirements_centos_ensure_libs()
+requirements_centos_update_system()
 {
-  typeset -a packages_installed packages_missing packages_to_install
-  __rvm_filter_installed_packages centos "$@" || return $?
+  # if you change this, change the scripts/functions/pkg version too
+  [[ -f /etc/yum.repos.d/epel.repo ]] || {
+    typeset version="${_system_version%%.*}"
+    __rvm_db "epel${version}_key" "epel_key"
+    __rvm_db "epel${version}_rpm" "epel_rpm"
+    "${rvm_scripts_path}/fetch" "${epel_key}"
+    "${rvm_scripts_path}/fetch" "${epel_rpm}"
+    __rvm_try_sudo rpm --import   "${rvm_archives_path}/${epel_key##*/}"
+    __rvm_try_sudo rpm --quiet -i "${rvm_archives_path}/${epel_rpm##*/}"
+  }
 }
 
-requirements_centos_run()
+requirements_centos_define()
 {
   case "$1" in
-    (update-system)
-      true
-      ;;
     (rvm)
-      requirements_centos_ensure_libs bash curl git patch
+      requirements_check bash curl patch
+      ;;
+    (jruby*head)
+      requirements_check_fallback java-1.7.0-openjdk java
+      requirements_check git
       ;;
     (jruby*)
-      if (( ${_system_version%%.*} >= 16 ))
-      then requirements_centos_ensure_libs java-1.7.0-openjdk
-      else requirements_centos_ensure_libs java
-      fi
+      requirements_check_fallback java-1.7.0-openjdk java
       ;;
     (ir*)
       true # not that easy
@@ -37,23 +48,29 @@ requirements_centos_run()
     (opal)
       true # not that easy
       ;;
+    (*-head)
+      requirements_check gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison libxml2-devel libxslt-devel git
+      ;;
     (*)
-      requirements_centos_ensure_libs gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison libxml2-devel libxslt-devel
+      requirements_check gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison libxml2-devel libxslt-devel
       ;;
   esac
 }
 
-requirements_amazon_run()
+requirements_amazon_define()
 {
-  requirements_centos_run "$@"
+  __lib_type=centos
+  requirements_centos_define "$@"
 }
 
-requirements_fedora_run()
+requirements_fedora_define()
 {
-  requirements_centos_run "$@"
+  __lib_type=centos
+  requirements_centos_define "$@"
 }
 
-requirements_redhat_run()
+requirements_redhat_define()
 {
-  requirements_centos_run "$@"
+  __lib_type=centos
+  requirements_centos_define "$@"
 }

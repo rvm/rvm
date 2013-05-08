@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+rubygems_detect_ruby_lib_gem_path_from()
+{
+  ruby_lib_gem_path="$( __rvm_ruby_config_get ${1}prefix "$ruby_path" )"
+  [[ -z "${ruby_lib_gem_path:-}" ]] ||
+  {
+    ruby_lib_gem_path="$( __rvm_ruby_config_get ${1}dir    "$ruby_path" )"
+    ruby_lib_gem_path="${ruby_lib_gem_path%/*}"
+  }
+  [[ -n "${ruby_lib_gem_path:-}"    ]] || return 1
+  [[ -d "${ruby_lib_gem_path}/gems" ]] || return 2
+}
+
+rubygems_detect_ruby_lib_gem_path_fallback()
+{
+  rubygems_detect_ruby_lib_gem_path_from "rubylib" ||
+  rubygems_detect_ruby_lib_gem_path_from "lib"     ||
+  return $?
+
+  ruby_lib_gem_path+="/gems"
+
+  typeset ruby_version
+  ruby_version="$( __rvm_ruby_config_get ruby_version "$ruby_path")"
+  if
+    [[ -d "${ruby_lib_gem_path}/$ruby_version" ]]
+  then
+    ruby_lib_gem_path+="$ruby_version"
+  elif
+    [[ -d "${ruby_lib_gem_path}/shared" ]]
+  then
+    ruby_lib_gem_path+="shared"
+  else
+    return 3
+  fi
+}
+
+rubygems_detect_ruby_lib_gem_path()
+{
+  typeset ruby_path="$( which "${1:-ruby}" )"
+  while [[ -L "$ruby_path" ]]
+  do ruby_path="$( readlink "$ruby_path" )"
+  done
+
+  ruby_lib_gem_path="$( "$ruby_path" -rrubygems -e 'puts Gem.default_dir' 2>/dev/null )"
+
+  [[ -n "$ruby_lib_gem_path" ]] ||
+  rubygems_detect_ruby_lib_gem_path_fallback ||
+  return $?
+}
+
+__rvm_rubygems_create_link()
+{
+  \mkdir -p "$rvm_ruby_gem_home" "$rvm_ruby_global_gems_path"
+
+  typeset ruby_lib_gem_path
+  rubygems_detect_ruby_lib_gem_path "${1:-ruby}" || return 0
+
+  # Add ruby's gem path to ruby's lib direcotry.
+  \mkdir -p "$(dirname $ruby_lib_gem_path)"
+
+  if
+    [[ -d "$ruby_lib_gem_path" && ! -L "$ruby_lib_gem_path" ]]
+  then
+    if
+      [[ "$rvm_ruby_gem_home" != "$rvm_ruby_global_gems_path" ]]
+    then
+      \cp -f "$ruby_lib_gem_path"/* "$rvm_ruby_global_gems_path"/ 2>/dev/null
+    fi
+    \mv -f "$ruby_lib_gem_path"/* "$rvm_ruby_gem_home"/ 2>/dev/null
+  fi
+  __rvm_rm_rf "$ruby_lib_gem_path"
+
+  ln -fs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
+}
+
+# Import the initial gemsets, unless skipped.
+__rvm_gemsets_initial()
+{
+  if
+    (( ${rvm_skip_gemsets_flag:-0} == 0 ))
+  then
+    __rvm_log_command "gemsets.initial" \
+      "$rvm_ruby_string - #importing default gemsets, this may take time" \
+      __rvm_with "$rvm_ruby_string" "$rvm_scripts_path/gemsets" initial
+  else
+    mkdir -p "$rvm_gems_path/$rvm_ruby_string/bin" "$rvm_gems_path/$rvm_ruby_string@global/bin"
+    rvm_log "Skipped importing default gemsets"
+  fi
+}

@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+
+source "$rvm_scripts_path/functions/pkg"
+
+requirements_rvm_pkg_config()
+{
+  PKG_CONFIG_PATH="${rvm_usr_path:-${rvm_path}/usr}/lib/pkgconfig:${rvm_usr_path:-${rvm_path}/usr}/lib64/pkgconfig:/opt:/usr:/usr/local" pkg-config "$@"
+}
+
+requirements_rvm_pkg_lib_installed()
+{
+  if is_a_function ${1}_installed && ${1}_installed
+  then return 0
+  fi
+  requirements_rvm_pkg_config --list-all | grep "^$1[- ]" >/dev/null || return $?
+  true
+}
+
+requirements_rvm_pkg_libs_install()
+{
+  while
+    (( $# ))
+  do
+    PKG_CONFIG_LIBDIR="${rvm_usr_path:-${rvm_path}/usr}/lib/pkgconfig" install_$1 || return $?
+    shift
+  done
+}
+
+requirements_rvm_pkg_wait_key()
+{
+  rvm_is_a_shell_function no_warning ||
+  {
+    rvm_error "
+You are using 'rvm autolibs rvm_pkg', this does not know how to install some of the packages, make sure to install those first.
+"
+    return 1
+  }
+  rvm_log "press any key to continue"
+  typeset _read_char_flag anykey
+  [[ -n "${ZSH_VERSION:-}" ]] && _read_char_flag=k || _read_char_flag=n
+  builtin read -${_read_char_flag} 1 -s -r anykey
+}
+
+requirements_rvm_pkg_install_custom()
+{
+  if
+    (( $# > 0 ))
+  then
+    rvm_warn "Before continuing install: $*"
+    requirements_rvm_pkg_wait_key || return $?
+  fi
+}
+
+requirements_rvm_pkg_before()
+{
+  rvm_warn "
+Warning, you are using 'rvm autolibs rvm_pkg', this is rarely used and can produce errors,
+make sure to report any problems to https://github.com/wayneeseguin/rvm/issues
+"
+}
+
+requirements_rvm_pkg_update_system()
+{
+  rvm_warn "Always update your system first!"
+}
+
+requirements_rvm_pkg_define()
+{
+  case "$1" in
+    (rvm)
+      requirements_check_custom bash curl patch
+      ;;
+    (jruby*head)
+      requirements_check_custom java git
+      ;;
+    (jruby*)
+      requirements_check_custom java
+      ;;
+    (ir*)
+      requirements_check_custom mono
+      ;;
+    (opal)
+      requirements_check_custom node
+      ;;
+    (yaml|zlib|openssl|readline|xml2|xslt)
+      true # just skip the packages
+      ;;
+    (*-head)
+      requirements_check_custom git
+      requirements_rvm_pkg_define "${1%-head}"
+      ;;
+    (*)
+      requirements_check_custom gcc g++ libtool bison bzip2
+      requirements_check yaml zlib openssl readline libxml libxslt
+      ;;
+  esac
+}
+
+requirements_rvm_pkg_after_uniqe_paths()
+{
+  typeset __lib __lib_full_name
+  for __lib in yaml zlib openssl readline libxml libxslt
+  do
+    __lib_full_name=$( requirements_rvm_pkg_config --list-all | awk "/^${__lib}[- ]/{print \$1}" )
+    if
+      [[ -n "${__lib_full_name}" ]]
+    then
+      requirements_rvm_pkg_config ${__lib_full_name} --variable=prefix
+    elif
+      [[ "${__lib}" == 'readline' ]]
+    then
+      # http://lists.gnu.org/archive/html/bug-readline/2010-09/msg00002.html
+      echo ${rvm_usr_path:-${rvm_path}/usr}
+    else
+      rvm_error "Can not find ${__lib} in 'pkg-config'"
+    fi
+  done | sort -u
+}
+
+requirements_rvm_pkg_after()
+{
+  typeset __package
+  while
+    read __package
+  do
+    __rvm_update_configure_opt_dir "$1" "$__package"
+  done < <(
+    requirements_rvm_pkg_after_uniqe_paths
+  )
+}

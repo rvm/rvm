@@ -200,6 +200,14 @@ __rvm_unload_action()
   done
 }
 
+__function_unset()
+{
+  if [[ -n "${ZSH_VERSION:-}" ]]
+  then unset -f "$1"
+  else unset "$1"
+  fi
+}
+
 __rvm_unload()
 {
   typeset _element
@@ -208,9 +216,18 @@ __rvm_unload()
   #PATH
   __rvm_remove_rvm_from_path
 
+  # fpath
+  if [[ -n "${ZSH_VERSION:-}" ]]
+  then
+    __rvm_remove_from_array fpath "$rvm_path/scripts/extras/completion.zsh" "${fpath[@]}"
+  fi
+
   # aliases
   __rvm_unload_action unalias  <(
-    alias | awk -F"[= ]" '/rvm/ {print $2}'
+    if [[ -n "${ZSH_VERSION:-}" ]]
+    then alias | awk -F"=" '/rvm/ {print $1}'
+    else alias | awk -F"[= ]" '/rvm/ {print $2}'
+    fi
   )
 
   # variables
@@ -219,14 +236,27 @@ __rvm_unload()
       awk -F"=" 'BEGIN{v=0;} /^[a-zA-Z_][a-zA-Z0-9_]*=/{v=1;} v==1&&$2~/^['\''\$]/{v=2;}
         v==1&&$2~/^\(/{v=3;} v==2&&/'\''$/&&!/'\'\''$/{v=1;} v==3&&/\)$/{v=1;} v{print;} v==1{v=0;}' |
       awk -F"=" '/^[^ ]*(RUBY|GEM|IRB|gem|rubies|rvm)[^ ]*=/ {print $1} /^[^ ]*=.*rvm/ {print $1}' |
-      \grep -vE "^PS|^BASH_SOURCE"
+      \grep -vE "^PROMPT|^prompt|^PS|^BASH_SOURCE"
   )
 
   # functions
-  __rvm_unload_action unset <(
+  __rvm_unload_action __function_unset <(
     typeset -f | awk '$2=="()" {fun=$1} /rvm/{print fun}' | sort -u | \grep -v __rvm_unload_action
   )
-  unset __rvm_unload_action
+  if
+    [[ -n "${ZSH_VERSION:-}" ]]
+  then
+    unset -f __rvm_unload_action
+    unset -f __function_unset
+    if
+      [[ -n "${_comp_dumpfile:-}" ]]
+    then
+      \rm -f "$_comp_dumpfile"
+      compinit -d "$_comp_dumpfile"
+    fi
+  else
+    unset __rvm_unload_action __function_unset
+  fi
 }
 
 __rvm_ruby_config_get()

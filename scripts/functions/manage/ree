@@ -15,7 +15,7 @@ ree_transform_configure_flags()
 
 ree_install()
 {
-  if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.8/')" ]] && (( rvm_head_flag == 0 ))
+  if [[ -n "$(echo "$rvm_ruby_version" | awk '/^1\.8/{print}')" ]] && (( rvm_head_flag == 0 ))
   then
     rvm_log "Installing Ruby Enterprise Edition from source to: $rvm_ruby_home"
 
@@ -96,15 +96,15 @@ ree_install()
     fi
 
     __rvm_log_command "install" "$rvm_ruby_string - #installing" \
-      "${rvm_configure_env[@]}" ./installer -a "$rvm_rubies_path/$rvm_ruby_string" "${rvm_ree_options[@]}" "${rvm_configure_flags[@]}"
+      "${rvm_configure_env[@]}" ./installer -a "$rvm_rubies_path/$rvm_ruby_string" "${rvm_ree_options[@]}" "${rvm_configure_flags[@]}" ||
+      return $?
 
-    result=$?
-
-    if (( result > 0 ))
-    then
-      rvm_error "There has been an error while trying to run the ree installer. Halting the installation."
-      return $result
-    fi
+    [[ -x "$rvm_rubies_path/$rvm_ruby_string"/bin/ruby ]] ||
+    {
+      rvm_error "There has been an error while trying to run the ree installer - bin/ruby was not created,
+check the log file: $( ls -1t "${rvm_log_path}/${rvm_ruby_string:-}"/*_install.log | tail -n 1 )"
+      return 11
+    }
 
     chmod +x "$rvm_ruby_home"/bin/*
 

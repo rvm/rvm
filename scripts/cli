@@ -137,7 +137,7 @@ __rvm_parse_args()
                 ;;
               (use|delete)
                 [[ "delete" != "$next_token" ]] || rvm_delete_flag=1
-                [[ "use"    != "$next_token" ]] || rvm_use_flag=1
+                [[ "use"    != "$next_token" ]] || rvm_action+="_$next_token"
 
                 case "$rvm_gemset_name" in
                   *${rvm_gemset_separator:-"@"}*)
@@ -156,12 +156,6 @@ __rvm_parse_args()
                     ;;
                 esac
                 ;;
-              #~ (*)
-                #~ # TODO where from do we get the rvm_gemset_name ?
-                #~ if [[ "${rvm_ruby_string:-""}" != "${rvm_gemset_name:-""}" ]]
-                #~ then __rvm_ruby_string
-                #~ fi
-                #~ ;;
             esac
             rvm_parse_break=1
             ;;
@@ -248,7 +242,7 @@ __rvm_parse_args()
             rvm_remove_flag=1
             ;;
 
-          rtfm|RTFM|rvmrc|usage|help|inspect|list|ls|info|strings|get|current|docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|downgrade|upgrade|cron|group|switch|which|config-get|requirements|autolibs|osx-ssl-certs)
+          rtfm|RTFM|rvmrc|usage|help|inspect|list|ls|info|strings|get|current|docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|downgrade|upgrade|cron|group|switch|which|config-get|requirements|autolibs|osx-ssl-certs|fix-permissions)
             case "$rvm_token" in
               (downgrade) rvm_action="upgrade" ;;
               (ls)    rvm_action="list" ;;
@@ -639,7 +633,7 @@ __rvm_parse_args()
             rvm_pretty_print_flag=auto
             ;;
 
-          --1.8|--1.9|--18|--19)
+          --1.8|--1.9|--2.0|--18|--19|--20)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//\./}
             export "rvm_${rvm_token}_flag"=1
@@ -677,7 +671,7 @@ __rvm_parse_args()
             (( $# == 0 )) || shift
             ;;
 
-          --dump-environment|--verify-downloads)
+          --dump-environment|--verify-downloads|--max-time)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
             export "rvm_${rvm_token}_flag"="$next_token"
@@ -813,6 +807,21 @@ __rvm_run_wrapper()
   args=( $@ )
   source "$rvm_scripts_path"/$file
 )
+
+__rvm_fix_selected_ruby()
+{
+  typeset __ret=0
+  if (( $# ))
+  then "$@" || __ret=$?
+  fi
+  [[ -d "$GEM_HOME" && -d "$MY_RUBY_HOME" ]] ||
+  {
+    if [[ -d ${MY_RUBY_HOME%/*}/defaul ]]
+    then __rvm_use default
+    else __rvm_use system
+    fi
+  }
+}
 
 rvm()
 {
@@ -983,7 +992,13 @@ Please do one of the following:
       __rvm_run_script "$rvm_action" "${rvm_ruby_args[@]}"
       ;;
 
-    autolibs|osx-ssl-certs|upgrade)
+    upgrade)
+      #                  file          action        params
+      __rvm_fix_selected_ruby \
+      __rvm_run_wrapper "$rvm_action" "$rvm_action" "${rvm_ruby_args[@]}"
+      ;;
+
+    autolibs|osx-ssl-certs|fix-permissions)
       #                  file          action        params
       __rvm_run_wrapper "$rvm_action" "$rvm_action" "${rvm_ruby_args[@]}"
       ;;
@@ -1026,42 +1041,40 @@ Please do one of the following:
       done
       ;;
 
+    gemset_use)
+      if rvm_is_a_shell_function
+      then __rvm_gemset_use
+      fi
+      ;;
+
     gemset)
+      export rvm_ruby_strings
+      "$rvm_scripts_path/gemsets" "${rvm_ruby_args[@]}"
+      result=$?
+      rvm_ruby_strings=""
       if
-        [[ ${rvm_use_flag:-0} -eq 1 ]]
+        rvm_is_a_shell_function no_warning
       then
-        if rvm_is_a_shell_function
-        then __rvm_gemset_use
-        fi
-      else
-        export rvm_ruby_strings
-        "$rvm_scripts_path/gemsets" "${rvm_ruby_args[@]}"
-        result=$?
-        rvm_ruby_strings=""
+        # Clear the gemset.
         if
-          rvm_is_a_shell_function no_warning
+          [[ ${rvm_delete_flag:-0} -eq 1 ]]
         then
-          # Clear the gemset.
           if
-            [[ ${rvm_delete_flag:-0} -eq 1 ]]
+            [[ "${GEM_HOME:-""}" == "${GEM_HOME%%${rvm_gemset_separator:-@}*}${rvm_gemset_separator:-@}${rvm_gemset_name}" ]]
           then
-            if
-              [[ "${GEM_HOME:-""}" == "${GEM_HOME%%${rvm_gemset_separator:-@}*}${rvm_gemset_separator:-@}${rvm_gemset_name}" ]]
-            then
-              rvm_delete_flag=0
-              __rvm_use "@default"
-            fi
-            unset gem_prefix
-          elif
-            [[ "${rvm_ruby_args[*]}" =~ ^rename ]]
+            rvm_delete_flag=0
+            __rvm_use "@default"
+          fi
+          unset gem_prefix
+        elif
+          [[ "${rvm_ruby_args[*]}" =~ ^rename ]]
+        then
+          typeset _command _from _to
+          read _command _from _to <<<"${rvm_ruby_args[*]}"
+          if
+            [[ "${GEM_HOME:-""}" == "${GEM_HOME%%${rvm_gemset_separator:-@}*}${rvm_gemset_separator:-@}${_from}" ]]
           then
-            typeset _command _from _to
-            read _command _from _to <<<"${rvm_ruby_args[*]}"
-            if
-              [[ "${GEM_HOME:-""}" == "${GEM_HOME%%${rvm_gemset_separator:-@}*}${rvm_gemset_separator:-@}${_from}" ]]
-            then
-              __rvm_use "@${_to}"
-            fi
+            __rvm_use "@${_to}"
           fi
         fi
       fi
@@ -1165,7 +1178,7 @@ To reinstall use:
   case "$rvm_action" in
     reinstall|try_install|install)
       if
-        [[ $(find $rvm_rubies_path -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l) -eq 1 ]] &&
+        [[ $(\find $rvm_rubies_path -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l) -eq 1 ]] &&
         [[ ! -f "${rvm_environments_path}/default" ]] &&
         rvm_is_a_shell_function no_warning
       then

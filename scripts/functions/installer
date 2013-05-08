@@ -59,7 +59,7 @@ install_setup()
 
 install_usage()
 {
-  printf "%b" "
+  rvm_out "
   Usage:
 
     ${0} [options]
@@ -81,7 +81,7 @@ install_usage()
 
 display_thank_you()
 {
-  printf "%b" "
+  rvm_out "
 # ${name:-"${USER:-$(id | sed -e 's/^[^(]*(//' -e 's/).*$//')}"},
 #
 #   Thank you for using RVM!
@@ -108,6 +108,30 @@ determine_install_path()
   export rvm_path
 }
 
+load_custom_flags()
+{
+  if
+    [[ -s "${rvm_path:-}/user/custom_flags" ]]
+  then
+    typeset __key __value
+    while IFS== read __key __value
+    do
+      eval "export ${__key}=\"\${__value}\""
+    done < "${rvm_path:-}/user/custom_flags"
+  fi
+}
+
+save_custom_flags()
+{
+  typeset -a __variables
+  __variables=(
+    ^rvm_ignore_dotfiles_flag=
+    ^rvm_rubies_path=
+  )
+  typeset IFS="|"
+  set | GREP_OPTIONS="" \grep -E "${__variables[*]}" > "${rvm_path:-}/user/custom_flags"
+}
+
 determine_install_or_upgrade()
 {
   export upgrade_flag
@@ -120,8 +144,8 @@ determine_install_or_upgrade()
 print_install_header()
 {
   if [[ ${upgrade_flag:-0} -eq 1 ]]
-  then printf "%b" "\nUpgrading the RVM installation in $rvm_path/\n"
-  else printf "%b" "\nInstalling RVM to $rvm_path/\n"
+  then rvm_out "\nUpgrading the RVM installation in $rvm_path/"
+  else rvm_out "\nInstalling RVM to $rvm_path/"
   fi
 }
 
@@ -148,6 +172,8 @@ load_env_preserving()
   rvm_scripts_path="${PWD%%+(\/)}/scripts"
   source "$PWD/scripts/initialize"
   source "$PWD/scripts/functions/init"
+  source "$PWD/scripts/functions/support"
+  source "$PWD/scripts/functions/logging"
   source "$PWD/scripts/version"
   __rvm_initialize
 
@@ -214,7 +240,7 @@ install_rvm_files()
 
   for directory in config contrib scripts examples lib help patches
   do
-    for entry in $(find $directory 2>/dev/null)
+    for entry in $(\find $directory 2>/dev/null)
     do
       if
         [[ -f "$source_path/$entry" ]]
@@ -242,7 +268,7 @@ install_rvm_hooks()
 {
   typeset hook_x_flag entry name
 
-  for entry in $(find hooks 2>/dev/null)
+  for entry in $(\find hooks 2>/dev/null)
   do
     if
       [[ -f "$source_path/$entry" ]]
@@ -340,6 +366,16 @@ configure_autolibs()
     fi
   done
 
+  if
+    [[ -s "$rvmrc" ]] &&
+    GREP_OPTIONS="" \grep 'rvm_autolibs_flag=' "$rvmrc" >/dev/null 2>&1
+  then
+    export rvm_autolibs_flag="$( awk -F'=' '/rvm_autolibs_flag=/{print $2}' <"$rvmrc" )"
+    [[ -w "$rvmrc" ]] &&
+    sed '/rvm_autolibs_flag/ d' < "$rvmrc" > "$rvmrc.backup" &&
+    \mv -f "$rvmrc.backup" "$rvmrc" || true
+  fi
+
   # migrate SMF settings
   rvmrc=/etc/rvmrc
   if
@@ -409,7 +445,7 @@ install_binscripts()
         [[ "${system_bin}" != "${rvm_bin_path}" && -x "${system_bin}/${file}" ]]
       then
         \rm -f "${system_bin}/${file}" 2>/dev/null ||
-        printf "%b" "!!! could not remove ${system_bin}/${file}, remove it manually with:
+        rvm_out "!!! could not remove ${system_bin}/${file}, remove it manually with:
 !!! > sudo \rm -f ${system_bin}/${file}
 "
       fi
@@ -440,7 +476,7 @@ install_gemsets()
     [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
 
     gemset_files=($(
-      find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
+      \find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
     ))
 
     for gemset_file in "${gemset_files[@]}"
@@ -462,7 +498,11 @@ install_gemsets()
         else
           \cp "$gemset_file" "$destination"
         fi
-        [[ -z "${rvm_with_gems:-}" ]] || printf "%b" "${rvm_with_gems// /\n}\n" >> "$destination"
+        if
+          [[ -n "${rvm_with_gems:-}" && "${destination##*/}" == "global.gems" ]]
+        then
+          printf "%b" "${rvm_with_gems// /\n}\n" >> "$destination"
+        fi
       fi
     done
   fi
@@ -503,7 +543,7 @@ update_gemsets_install_rvm()
   then
     # rvm /gems
     paths=($(
-      find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | sed 's/^\.\///'
+      \find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | sed 's/^\.\///'
     ))
 
     for _iterator in "${paths[@]}"
@@ -518,7 +558,7 @@ update_gemsets_install_rvm()
       # rvm /gems @global /gems
       found=($(
         [[ ! -d "${_current_path}" ]] ||
-        find "${_current_path}" -maxdepth 1 "${name_opt}" 'rvm-*' | sed 's/^\.\///'
+        \find "${_current_path}" -maxdepth 1 "${name_opt}" 'rvm-*' | sed 's/^\.\///'
       ))
       (( ${#found[@]} > 0 )) || missing+=( "$_iterator" )
     done
@@ -526,7 +566,7 @@ update_gemsets_install_rvm()
     if
       (( ${#missing[@]} > 0 ))
     then
-      printf "    Installing rvm gem in ${#missing[@]} gemsets "
+      printf "%b" "    Installing rvm gem in ${#missing[@]} gemsets "
       for _iterator in "${missing[@]}"
       do
         rvm "${_iterator##*/}" do gem install rvm | awk '{printf "."}'
@@ -548,7 +588,7 @@ install_patchsets()
   then
     [[ -d "$rvm_path/patchsets" ]] || mkdir -p "$rvm_path/patchsets"
     patchsets=($(
-      find patchsets/ -type f "${name_opt}" '*'
+      \find patchsets/ -type f "${name_opt}" '*'
     ))
     for patchset_file in "${patchsets[@]}"
     do
@@ -572,7 +612,7 @@ cleanse_old_environments()
   then
     # Remove BUNDLE_PATH from environment files
     environments=($(
-      find "$rvm_path/environments/" -maxdepth 1 -mindepth 1 -type f
+      \find "$rvm_path/environments/" -maxdepth 1 -mindepth 1 -type f
     ))
     if
       (( ${#environments[@]} > 0 ))
@@ -598,7 +638,7 @@ migrate_old_gemsets()
     if
       [[ -d "$gemset" ]] && [[ ! -d "$new_path" ]]
     then
-      printf "%b" "\n    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+      rvm_out "    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
       \mv "$gemset" "$new_path"
     fi
   done
@@ -609,7 +649,7 @@ migrate_old_gemsets()
     if
       [[ -d "$gemset" && ! -d "$new_path" ]]
     then
-      printf "%b" "\n    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+      rvm_out "    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
       \mv $gemset $new_path
     fi
   done
@@ -620,7 +660,7 @@ migrate_old_gemsets()
     if
       [[ -d "$gemset" && ! -d "$new_path" ]]
     then
-      printf "%b" "\n    Fixing: $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
+      rvm_out "    Fixing: $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
       \mv "$gemset" "$new_path"
     fi
   done
@@ -703,7 +743,7 @@ install_man_pages()
 {
   files=($(
     __rvm_cd "$install_source_path/man"
-    find . -maxdepth 2 -mindepth 1 -type f -print
+    \find . -maxdepth 2 -mindepth 1 -type f -print
   ))
 
   for file in "${files[@]//.\/}"
@@ -714,7 +754,7 @@ install_man_pages()
       install_fix_rights $rvm_man_path/${file%\/*}
     }
     \cp -Rf "$install_source_path/man/$file" "$rvm_man_path/$file" || \
-      printf "%b" "
+      rvm_out "
 
     Please run the installer using rvmsudo to fix file permissions
 
@@ -726,12 +766,12 @@ install_man_pages()
 cleanup_tmp_files()
 {
   files=($(
-    find "$rvm_path/" -mindepth 1 -maxdepth 2 "${name_opt}" '*.swp' -type f
+    \find "$rvm_path/" -mindepth 1 -maxdepth 2 "${name_opt}" '*.swp' -type f
   ))
   if
     (( ${#files[@]} > 0 ))
   then
-    printf "%b" "\n    Cleanup any .swp files."
+    rvm_out "    Cleanup any .swp files."
     for file in "${files[@]}"
     do
       if [[ -f "$file" ]]
@@ -765,23 +805,19 @@ display_notes()
     (( upgrade_flag == 0 ))
   then
     profile_file="${user_profile_file:-${etc_profile_file:-$rvm_path/scripts/rvm}}"
-    printf "%b" "$itype of RVM in $rvm_path/ is almost complete:
-"
+    rvm_out "$itype of RVM in $rvm_path/ is almost complete:"
     if
       (( ${rvm_user_install_flag:=0} == 0 ))
     then
-      printf "%b" "
+      rvm_out "
   * First you need to add all users that will be using rvm to '${rvm_group_name}' group,
-    and logout - login again, anyone using rvm will be operating with \`umask u=rwx,g=rwx,o=rx\`.
-"
+    and logout - login again, anyone using rvm will be operating with \`umask u=rwx,g=rwx,o=rx\`."
     fi
-    printf "%b" "
+    rvm_out "
   * To start using RVM you need to run \`source ${profile_file}\`
-    in all your open shell windows, in rare cases you need to reopen all shell windows.
-"
+    in all your open shell windows, in rare cases you need to reopen all shell windows."
   else
-    printf "%b" "$itype of RVM in $rvm_path/ is complete.
-"
+    rvm_out "$itype of RVM in $rvm_path/ is complete."
   fi
 }
 
@@ -795,7 +831,7 @@ setup_rvm_path_permissions()
   chmod -R u+rwX,g+rwX,o+rX "$rvm_path"
 
   if [[ -d "$rvm_path" ]]
-  then find "$rvm_path" -type d -print0 | xargs -n1 -0 chmod g+s
+  then \find "$rvm_path" -type d -print0 | xargs -n1 -0 chmod g+s
   fi
   return 0
 }
@@ -845,11 +881,11 @@ system_check()
   typeset os
   os=$(uname)
   case "$os" in
-    OpenBSD|Linux|FreeBSD|Darwin|SunOS)
+    OpenBSD|Linux|FreeBSD|Darwin|SunOS|GNU*)
       return 0 # Accounted for, continue.
     ;;
     *)
-      printf "%b" "Installing RVM as root is currently only supported on the following known OS's (uname):\n  Linux, FreeBSD, OpenBSD, Darwin and SunOS\nWhereas your OS is reported as '$os'" >&2
+      rvm_error "Installing RVM as root is currently only supported on the following known OS's (uname):\n  Linux, FreeBSD, OpenBSD, Darwin and SunOS\nWhereas your OS is reported as '$os'" >&2
       return 1
     ;;
   esac
@@ -958,8 +994,8 @@ fi
   fi
 
   for zshrc_file in $(
-      find /etc/ -name zprofile -type f 2>/dev/null ;
-      find /etc/ -name zlogin   -type f 2>/dev/null ;
+      \find /etc/ -name zprofile -type f 2>/dev/null ;
+      \find /etc/ -name zlogin   -type f 2>/dev/null ;
       true
     ) /etc/zprofile
   do
@@ -1063,7 +1099,7 @@ pick_a_file()
   eval "${_result}+=( \"\$1\" )"
 }
 
-setup_user_profile()
+setup_user_profile_check()
 {
   (( UID > 0 )) || return 0
   if
@@ -1077,22 +1113,18 @@ setup_user_profile()
       printf "%b" "\nrvm_ignore_dotfiles_flag=\"${rvm_ignore_dotfiles_flag}\"\n" >> ~/.rvmrc
     fi
   fi
-  [[ "${rvm_ignore_dotfiles_flag:-${rvm_ignore_dotfiles:-no}}" == "no"  ]] || return 0
+  case "${rvm_ignore_dotfiles_flag:-${rvm_ignore_dotfiles:-no}}" in
+    (yes|1) return 1 ;;
+  esac
+  return 0
+}
 
-  export user_profile_file
-  export -a user_login_files user_rc_files
-  typeset -a search_list target_rc target_login found_rc found_login
-  typeset etc_profile_file profile_file local_rvm_path local_rvm_path_sed
-  local_rvm_path="${rvm_path/#$HOME/\$HOME}"
-  local_rvm_path_sed="\\${local_rvm_path//\./\\.}"
-  local_rvm_path_sed="${local_rvm_path_sed//\//\/}"
-
+setup_user_profile_detect()
+{
   etc_profile_file="/etc/profile.d/rvm.sh"
-  search_list=(
-    ~/.profile
-    ~/.bashrc ~/.bash_profile ~/.bash_login
-    ~/.zshenv ~/.zprofile ~/.zshrc ~/.zlogin
-  )
+  search_list_bash=( ~/.bashrc ~/.bash_profile ~/.bash_login )
+  search_list_zsh=( ~/.zshenv ~/.zprofile ~/.zshrc ~/.zlogin )
+  search_list=( ~/.profile ${search_list_bash[@]} ${search_list_zsh[@]} )
 
   target_rc=( ~/.bashrc ~/.zshrc )
 
@@ -1121,11 +1153,38 @@ setup_user_profile()
       fi
     fi
   done
+}
 
+setup_user_profile_summary()
+{
+  eval "typeset __list_found=\"\${${1}[*]}\""
+  typeset __target="$2"
+  rvm_log "    RVM ${__target} line found in ${__list_found}."
+
+  typeset __bash_included=0
+  typeset  __zsh_included=0
+  __rvm_string_includes "${__list_found}" "${search_list_bash[@]}" || __bash_included=$?
+  __rvm_string_includes "${__list_found}" "${search_list_zsh[@]}"  ||  __zsh_included=$?
+
+  typeset __missing=""
+  if (( __bash_included>0 && __zsh_included>0  ))
+  then __missing="Bash nor ZSH"
+  elif (( __bash_included>0 ))
+  then __missing="Bash"
+  elif (( __zsh_included>0 ))
+  then __missing="ZSH"
+  fi
+  if [[ -n "${__missing}" ]]
+  then rvm_warn "    RVM ${__target} line not found for ${__missing}, run the installer with '--auto-dotfiles' to fix it."
+  fi
+}
+
+setup_user_profile_rc()
+{
   if
     (( rvm_auto_dotfiles_flag == 1 && ${#found_rc[@]} > 0 ))
   then
-    printf "%b" "    Removing rvm PATH line from ${found_rc[*]}.\n"
+    rvm_out "    Removing rvm PATH line from ${found_rc[*]}."
     for profile_file in ${found_rc[@]}
     do
       __rvm_sed_i "${profile_file}" -e '/PATH=.*'"$local_rvm_path_sed"'\/bin/ d;'
@@ -1137,7 +1196,7 @@ setup_user_profile()
   if
     (( rvm_auto_dotfiles_flag == 1 || ${#found_rc[@]} == 0 ))
   then
-    printf "%b" "    Adding rvm PATH line to ${target_rc[*]}.\n"
+    rvm_out "    Adding rvm PATH line to ${target_rc[*]}."
     for profile_file in ${target_rc[@]}
     do
       touch $profile_file
@@ -1147,13 +1206,17 @@ PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
     done
     user_rc_files=( ${target_rc[@]} )
   else
-    printf "%b" "    RVM PATH line found in ${found_rc[*]}.\n"
+    setup_user_profile_summary found_rc "PATH"
     user_rc_files=( ${found_rc[@]} )
   fi
+}
+
+setup_user_profile_login()
+{
   if
     (( rvm_auto_dotfiles_flag == 1 && ${#found_login[@]} > 0 ))
   then
-    printf "%b" "    Removing rvm loading line from ${found_login[*]}.\n"
+    rvm_out "    Removing rvm loading line from ${found_login[*]}."
     for profile_file in ${found_login[@]}
     do
       __rvm_sed_i "${profile_file}" -e '/source.*scripts\/rvm/ d; /\. .*scripts\/rvm/ d;'
@@ -1165,7 +1228,7 @@ PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
   if
     (( rvm_auto_dotfiles_flag == 1 || ${#found_login[@]} == 0 ))
   then
-    printf "%b" "    Adding rvm loading line to ${target_login[*]}.\n"
+    rvm_out "    Adding rvm loading line to ${target_login[*]}."
     for profile_file in ${target_login[@]}
     do
       touch $profile_file
@@ -1175,10 +1238,29 @@ PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
     done
     user_login_files=( ${target_login[@]} )
   else
-    printf "%b" "    RVM sourcing line found in ${found_login[*]}.\n"
+    setup_user_profile_summary found_login "sourcing"
     user_login_files=( ${found_login[@]} )
   fi
-  return 0
+}
+
+setup_user_profile()
+{
+  setup_user_profile_check || return 0
+
+  export user_profile_file
+  export -a user_login_files user_rc_files
+  typeset -a search_list search_list_bash search_list_zsh
+  typeset -a target_rc target_login found_rc found_login
+  typeset etc_profile_file profile_file local_rvm_path local_rvm_path_sed
+  local_rvm_path="${rvm_path/#$HOME/\$HOME}"
+  local_rvm_path_sed="\\${local_rvm_path//\./\\.}"
+  local_rvm_path_sed="${local_rvm_path_sed//\//\/}"
+
+  setup_user_profile_detect
+  setup_user_profile_rc
+  setup_user_profile_login
+
+  true # for osx
 }
 
 root_canal()

@@ -1,65 +1,47 @@
 #!/usr/bin/env bash
 
-__rvm_md5_for()
-{
-  if builtin command -v md5 > /dev/null; then
-    echo "$1" | md5
-  elif builtin command -v md5sum > /dev/null ; then
-    echo "$1" | md5sum | awk '{print $1}'
-  else
-    rvm_error "Neither md5 nor md5sum were found in the PATH"
-    return 1
-  fi
-
-  return 0
-}
-
-__rvm_sha256_for()
-{
-  if builtin command -v sha256sum > /dev/null ; then
-    echo "$1" | sha256sum | awk '{print $1}'
-  elif builtin command -v sha256 > /dev/null ; then
-    echo "$1" | sha256 | awk '{print $1}'
-  elif builtin command -v shasum > /dev/null ; then
-    echo "$1" | shasum -a256 | awk '{print $1}'
-  else
-    rvm_error "Neither sha256sum nor shasum found in the PATH"
-    return 1
-  fi
-
-  return 0
-}
-
 __rvm_md5_for_contents()
 {
-  if builtin command -v md5 > /dev/null
-  then
-    echo "$1" | \cat - "$1" | md5
-  elif builtin command -v md5sum > /dev/null
-  then
-    echo "$1" | \cat - "$1" | md5sum | awk '{print $1}'
-  else
-    rvm_error "Neither md5 nor md5sum were found in the PATH"
-    return 1
+  if   builtin command -v md5     > /dev/null
+  then md5         | awk '{print $1}'
+  elif builtin command -v md5sum  > /dev/null
+  then md5sum      | awk '{print $1}'
+  elif builtin command -v openssl > /dev/null
+  then openssl md5 | awk '{print $1}'
+  else return 1
   fi
-
-  return 0
+  true # for osx
 }
 
 __rvm_sha256_for_contents()
 {
-  if builtin command -v sha256sum > /dev/null ; then
-    echo "$1" | \cat - "$1" | sha256sum | awk '{print $1}'
-  elif builtin command -v sha256 > /dev/null ; then
-    echo "$1" | \cat - "$1" | sha256 | awk '{print $1}'
-  elif builtin command -v shasum > /dev/null ; then
-    echo "$1" | \cat - "$1" | shasum -a256 | awk '{print $1}'
-  else
+  if   builtin command -v sha256sum > /dev/null
+  then sha256sum           | awk '{print $1}'
+  elif builtin command -v sha256    > /dev/null
+  then sha256              | awk '{print $1}'
+  elif builtin command -v shasum    > /dev/null
+  then shasum -a256        | awk '{print $1}'
+  elif builtin command -v openssl   > /dev/null
+  then openssl sha -sha256 | awk '{print $1}'
+  else return 1
+  fi
+  true # for osx
+}
+
+__rvm_checksum_for_contents()
+{
+  typeset __sum
+  __sum=$(  echo "$1" | \cat - "$1" | __rvm_md5_for_contents   ) ||
+  {
+    rvm_error "Neither md5 nor md5sum were found in the PATH"
+    return 1
+  }
+  __sum+=$( echo "$1" | \cat - "$1" | __rvm_sha256_for_contents ) ||
+  {
     rvm_error "Neither sha256sum nor shasum found in the PATH"
     return 1
-  fi
-
-  return 0
+  }
+  echo ${__sum}
 }
 
 __rvm_rvmrc_key()
@@ -84,7 +66,7 @@ __rvm_trust_rvmrc()
   [[ -f "$1" ]] || return 1
   __rvm_reset_rvmrc_trust "$1"
   "$rvm_scripts_path/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "1;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1 ||
+    "$(__rvm_rvmrc_key "$1")" "1;$(__rvm_checksum_for_contents "$1")" >/dev/null 2>&1 ||
   return $?
 }
 
@@ -93,7 +75,7 @@ __rvm_untrust_rvmrc()
   [[ -f "$1" ]] || return 1
   __rvm_reset_rvmrc_trust "$1"
   "${rvm_scripts_path:-"$rvm_path/scripts"}/db" "$rvm_user_path/rvmrcs" \
-    "$(__rvm_rvmrc_key "$1")" "0;$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" >/dev/null 2>&1 ||
+    "$(__rvm_rvmrc_key "$1")" "0;$(__rvm_checksum_for_contents "$1")" >/dev/null 2>&1 ||
   return $?
 }
 
@@ -107,7 +89,9 @@ __rvm_rvmrc_stored_trust()
 
 __rvm_rvmrc_stored_trust_check()
 {
-  typeset rvmrc_path
+  typeset _first _second rvmrc_path
+  _first=${__array_start}
+  _second=$(( __array_start + 1 ))
   rvmrc_path="$1"
 
   if [[ -f "$rvmrc_path" ]]
@@ -118,7 +102,7 @@ __rvm_rvmrc_stored_trust_check()
     IFS=$saveIFS
 
     if
-      [[ "${trust[${_second}]:-'#'}" != "$(__rvm_md5_for_contents "$rvmrc_path")$(__rvm_sha256_for_contents "$rvmrc_path")" ]]
+      [[ "${trust[${_second}]:-'#'}" != "$(__rvm_checksum_for_contents "$rvmrc_path")" ]]
     then
       echo "The rvmrc at '$rvmrc_path' contains unreviewed changes."
       return 1
@@ -150,13 +134,16 @@ __rvm_check_rvmrc_trustworthiness()
   # Fail if no file given
   [[ -n "$1" ]] || return 1
 
-  typeset saveIFS="$IFS"
+  typeset _first _second saveIFS
+  _first=${__array_start}
+  _second=$(( __array_start + 1 ))
+  saveIFS="$IFS"
   IFS=$';'
   typeset -a trust
   trust=( $( __rvm_rvmrc_stored_trust "$1" ) )
   IFS="$saveIFS"
   if
-    [[ "${trust[${_second}]:-'#'}" == "$(__rvm_md5_for_contents "$1")$(__rvm_sha256_for_contents "$1")" ]]
+    [[ "${trust[${_second}]:-'#'}" == "$(__rvm_checksum_for_contents "$1")" ]]
   then
     [[ "${trust[${_first}]}" == '1' ]] || return $?
   else

@@ -21,7 +21,7 @@ __rvm_setup_compile_environment_setup()
   if [[ -z "${rvm_autolibs_flag:-}" ]]
   then rvm_autolibs_flag="$( "$rvm_scripts_path/db" "$rvm_user_path/db" "autolibs" )"
   fi
-  rvm_debug "rvm_autolibs_flag=${rvm_autolibs_flag:=2}"
+  rvm_debug "rvm_autolibs_flag=${rvm_autolibs_flag:=4}"
   __rvm_autolibs_translate || return $?
   [[ -n "${rvm_autolibs_flag_number:-}" ]] || return $?
   export initially_selected_compiler="$( __rvm_selected_compiler )"
@@ -309,6 +309,13 @@ __rvm_setup_compile_environment_smartos()
   __rvm_update_configure_opt_dir "$1" "/opt/local" # TODO do we needed the next line?
   __rvm_update_configure_env CCFLAGS="-I/opt/local/include"
   __rvm_add_to_path prepend "/opt/local/gnu/bin"
+
+  # work around a make error.. see https://bugs.ruby-lang.org/issues/8268
+  if __rvm_string_match "$1" "ruby-2.0.*"; then
+    __rvm_update_configure_env CFLAGS="-R -fPIC"
+    rvm_configure_env+=( rb_cv_have_signbit=no )
+  fi
+  return 0
 }
 
 __rvm_setup_compile_environment_sunos()
@@ -320,6 +327,10 @@ __rvm_setup_compile_environment_sunos()
       rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
       ;;
   esac
+  if __rvm_string_match "$1" "ruby-2.0.*"
+  then rvm_configure_env+=( bash )
+  fi
+  return 0
 }
 
 __rvm_setup_compile_environment_openbsd()
@@ -404,7 +415,7 @@ __rvm_setup_compile_environment_flags_shared_static()
         ;;
       (ncurses*)  rvm_configure_flags+=( --without-shared )
         ;;
-      (rbx*|rubinius*) true # no flag yet for rbx!
+      (rbx*|rubinius*|jruby*) true # no flag yet for rbx, does not apply to jruby!
         ;;
       (*)         rvm_configure_flags+=( --disable-shared )
         ;;
@@ -417,7 +428,7 @@ __rvm_setup_compile_environment_flags_shared_static()
         ;;
       (ncurses*)  rvm_configure_flags+=( --with-shared )
         ;;
-      (rbx*|rubinius*) true # no flag yet for rbx!
+      (rbx*|rubinius*|jruby*) true # no flag yet for rbx, does not apply to jruby!
         ;;
       (*)         rvm_configure_flags+=( --enable-shared )
         ;;

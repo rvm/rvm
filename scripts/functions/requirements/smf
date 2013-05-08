@@ -1,5 +1,27 @@
 #!/usr/bin/env bash
 
+requirements_find_smf()
+{
+  if # find SMF in PATH
+    \which sm >/dev/null 2>&1
+  then
+    return 0
+  else # find SMF out of PATH and link to rvm/bin
+    typeset __binary
+    for __binary in ~/.sm/bin/sm /opt/sm/bin/sm
+    do
+      if
+        [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
+      then
+        # link to rvm_bin for easy adding to PATH
+        ln -nfs "${__binary}" "${rvm_bin_path:-$rvm_path/bin}/sm"
+        return 0
+      fi
+    done
+    return 1
+  fi
+}
+
 __smf_try_sudo()
 {
   if [[ -w "$( which sm )" ]]
@@ -18,28 +40,19 @@ requirements_smf_libs_install()
   while
     (( $# ))
   do
-    __smf_try_sudo sm $1 install || return $?
+    __smf_try_sudo sm $1 install ||
+    {
+      typeset ret=$?
+      rvm_warn "There were package installation errors with SM Framework, make sure to read the log.
+You can get help using IRC: http://webchat.freenode.net/?channels=rvm"
+      return $ret
+    }
     shift
   done
 }
 
-requirements_smf_libs_ensure()
+requirements_smf_gcc_42_check()
 {
-  typeset -a packages_installed packages_missing packages_to_install
-  __rvm_filter_installed_packages smf "$@" ||
-  {
-    typeset ret=$?
-    rvm_warn "There were package installation errors, make sure to read the log.
-You can get help using IRC: http://webchat.freenode.net/?channels=rvm"
-    return $ret
-  }
-}
-
-requirements_smf_libs_default_calculate()
-{
-  smf_libs=(
-    autoconf automake libtool pkg-config
-  )
   case "$1" in
     (ruby-2*|ruby-head) true ;; # ruby-2.0.0+ is supposed to work with clang
     (*)
@@ -50,27 +63,18 @@ requirements_smf_libs_default_calculate()
       then
         rvm_error "SM Framework does not know how to install gcc-4.2, please install osx-gcc-installer first for older rubies."
       fi
-    ;;
+      ;;
   esac
-  smf_libs+=(
-    libyaml ncurses readline libxml2 libxslt openssl sqlite3
-  )
 }
 
-requirements_smf_libs_default()
+requirements_smf_after()
 {
-  typeset -a smf_libs
-  requirements_smf_libs_default_calculate "$1" &&
-  requirements_smf_libs_ensure "${smf_libs[@]}" &&
-  requirements_osx_update_openssl_cert "${__sm_path%/bin/sm}/pkg/active/bin/openssl" &&
-  __rvm_update_configure_opt_dir "$1" "${__sm_path%/bin/sm}/pkg/active" ||
-  return $?
-}
+  requirements_smf_gcc_42_check || return $?
+  __rvm_update_configure_opt_dir "$1" "${__sm_path%/bin/sm}/pkg/active"
 
-requirements_smf_install_sm()
-{
-  rvm_error "SMF Framework support is only intended for RailsInstaller, please use Homebrew integration instead."
-  return 100
+  rvm_requiremnts_fail_or_run_action 2 \
+    "Skipping certificates update, make sure your certificates are up to date." \
+    requirements_osx_update_openssl_cert "${__sm_path%/bin/sm}/pkg/active/bin/openssl" || return $?
 }
 
 requirements_smf_update_system()
@@ -80,19 +84,15 @@ requirements_smf_update_system()
   return $?
 }
 
-
-requirements_smf_route_install()
+requirements_smf_define()
 {
   case "$1" in
-    (update-system)
-      rvm_requiremnts_fail_or_run_action 3 \
-        "Skipping SMF update, make sure your installation is up to date." \
-        __rvm_log_command requirements_smf_update_system "Updating SMF" \
-          requirements_smf_update_system ||
-        return $?
-      ;;
     (rvm)
       true
+      ;;
+    (jruby*head)
+      requirements_check git
+      which java >/dev/null 2>&1 || return $?
       ;;
     (jruby*)
       which java >/dev/null 2>&1 || return $?
@@ -101,12 +101,23 @@ requirements_smf_route_install()
       which mono >/dev/null 2>&1 || return $?
       ;;
     (opal)
-      requirements_smf_libs_ensure node
+      requirements_check node
+      ;;
+    (*-head)
+      requirements_check git
+      requirements_smf_define default
       ;;
     (*)
-      requirements_smf_libs_default "$1"
+      # FIXME: which autoconf automake libtool || requirements_check ...
+      requirements_check pkg-config libyaml zlib ncurses readline openssl libxml2 libxslt sqlite3
       ;;
   esac
+}
+
+requirements_smf_install_sm()
+{
+  rvm_error "SMF Framework support is only intended for RailsInstaller, please use Homebrew integration instead."
+  return 100
 }
 
 requirements_smf_ensure_smf_available()
@@ -130,9 +141,8 @@ requirements_smf_find_sm()
   [[ -n "${__sm_path}" ]] || return $?
 }
 
-requirements_smf()
+requirements_smf_before()
 {
   requirements_smf_ensure_smf_available || return $?
   requirements_smf_find_sm              || return $?
-  __rvm_requirements_iterate requirements_smf_route_install "$@" || return $?
 }
