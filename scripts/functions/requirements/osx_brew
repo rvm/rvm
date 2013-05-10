@@ -44,6 +44,19 @@ Check Homebrew requirements https://github.com/mxcl/homebrew/wiki/Installation"
   }
 }
 
+requirements_osx_brew_check_custom()
+{
+  brew tap | \grep "$1" >/dev/null || packages_custom+=( "$1" )
+}
+
+requirements_osx_brew_install_custom()
+{
+  typeset __tap
+  for __tap
+  do brew tap "${__tap}" || return $?
+  done
+}
+
 requirements_osx_brew_libs_outdated_filter()
 {
   typeset IFS
@@ -132,13 +145,22 @@ requirements_osx_brew_libs_default()
     # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
     __rvm_which gcc-4.2 >/dev/null ||
     {
-      brew tap | \grep "homebrew[-/]dupes" >/dev/null || brew tap homebrew/dupes || return $?
+      requirements_osx_brew_check_custom homebrew/dupes
       brew_libs+=( apple-gcc42 )
     }
   fi
   brew_libs_conf=(
-    libyaml readline libxml2 libxslt libksba openssl sqlite
+    libyaml readline libxml2 libxslt libksba sqlite
   )
+  case "$1" in
+    (ruby-1.8*|ree-1.8*)
+      requirements_osx_brew_check_custom homebrew/versions
+      brew_libs_conf+=( openssl098 )
+      ;;
+    (*)
+      brew_libs_conf+=( openssl )
+      ;;
+  esac
   requirements_check "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
 }
 
