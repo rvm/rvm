@@ -38,6 +38,17 @@ requirements_osx_port_libs_install()
   }
 }
 
+requirements_osx_port_before()
+{
+  requirements_osx_port_ensure_port_available || return $?
+
+  typeset -ax packages_available port_libs
+
+  __rvm_read_lines packages_available <(
+    port -q installed active | awk '{print $1}'
+  )
+}
+
 requirements_osx_port_libs_default()
 {
   port_libs=(
@@ -54,8 +65,14 @@ requirements_osx_port_libs_default()
     port_libs+=( apple-gcc42 )
   fi
   port_libs+=(
-    libiconv libyaml libffi readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite3 zlib ncurses gdbm
+    libiconv libyaml libffi readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite3 zlib gdbm
   )
+  if   requirements_osx_port_lib_installed ncurses
+  then port_libs+=( ncurses  )
+  elif requirements_osx_port_lib_installed ncursesw
+  then port_libs+=( ncursesw )
+  else port_libs+=( ncurses  )
+  fi
   requirements_check "${port_libs[@]}" || return $?
 }
 
@@ -143,15 +160,4 @@ requirements_osx_port_ensure_port_available()
       __rvm_log_command port_install "Installing macports" requirements_osx_port_install_port ||
       return $?
   }
-}
-
-requirements_osx_port_before()
-{
-  requirements_osx_port_ensure_port_available || return $?
-
-  typeset -ax packages_available port_libs
-
-  __rvm_read_lines packages_available <(
-    port -q installed active | awk '{print $1}'
-  )
 }
