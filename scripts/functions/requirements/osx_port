@@ -24,7 +24,7 @@ requirements_find_osx_port()
 
 requirements_osx_port_lib_installed()
 {
-  __rvm_array_contains "$1" "${packages_available[@]}" || return $?
+  port -q installed $1 | GREP_OPTIONS="" \grep active >/dev/null || return $? ;
 }
 
 requirements_osx_port_libs_install()
@@ -36,6 +36,13 @@ requirements_osx_port_libs_install()
     rvm_warn "There were package installation errors, make sure to read the log."
     return $ret
   }
+}
+
+requirements_osx_port_before()
+{
+  requirements_osx_port_ensure_port_available || return $?
+
+  typeset -ax port_libs
 }
 
 requirements_osx_port_libs_default()
@@ -54,8 +61,14 @@ requirements_osx_port_libs_default()
     port_libs+=( apple-gcc42 )
   fi
   port_libs+=(
-    libiconv libyaml libffi readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite3 zlib ncurses gdbm
+    libiconv libyaml libffi readline libxml2 libxslt libksba openssl curl-ca-bundle sqlite3 zlib gdbm
   )
+  if   requirements_osx_port_lib_installed ncurses
+  then port_libs+=( ncurses  )
+  elif requirements_osx_port_lib_installed ncursesw
+  then port_libs+=( ncursesw )
+  else port_libs+=( ncurses  )
+  fi
   requirements_check "${port_libs[@]}" || return $?
 }
 
@@ -97,7 +110,7 @@ requirements_osx_port_define()
 requirements_osx_port_after()
 {
   __rvm_update_configure_opt_dir "$1" "/opt/local" || return $?
-  unset packages_available port_libs
+  unset port_libs
 
   rvm_requiremnts_fail_or_run_action 2 \
     "Skipping certificates update, make sure your certificates are up to date." \
@@ -127,22 +140,20 @@ requirements_osx_port_install_port()
 
 requirements_osx_port_ensure_port_available()
 {
-  which port >/dev/null ||
+  __rvm_which port >/dev/null ||
   {
+    __rvm_which make > /dev/null &&
+    {
+      __rvm_which clang > /dev/null ||
+      __rvm_which gcc-4.2 > /dev/null
+    } ||
+    {
+      rvm_error "Can not find compiler and 'make' tool - make sure Xcode and/or Command Line Tools are installed."
+      return 11
+    }
     rvm_requiremnts_fail_or_run_action 2 \
       "Requested installation with macports libs, but macports is not available." \
       __rvm_log_command port_install "Installing macports" requirements_osx_port_install_port ||
       return $?
   }
-}
-
-requirements_osx_port_before()
-{
-  requirements_osx_port_ensure_port_available || return $?
-
-  typeset -ax packages_available port_libs
-
-  __rvm_read_lines packages_available <(
-    port -q installed active | awk '{print $1}'
-  )
 }

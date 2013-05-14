@@ -13,7 +13,7 @@ To be able to do the RVM 2.0 work we need to stop working on RVM 1.x -
 this means no more feature requests will be accepted.
 Development on RVM 1.x will continue to provide bugfixes and
 support for new ruby versions as long as RVM 2.0 will not become stable.
-RVM is an opne source project so any contributions are welcome -
+RVM is an open source project so any contributions are welcome -
 including new features pull requests - as long as they keep compatibility and
 do not break anything.
 
