@@ -171,6 +171,25 @@ __rvm_warn_on_rubyopt()
   fi
 }
 
+rubygems_setup_lang_fallback()
+{
+  if
+    [[ -z "${LANG:-}" ]]
+  then
+    LANG="$(
+      {
+        locale -a | grep "^en_US.utf8" ||
+        locale -a | grep "^en_US" ||
+        locale -a | grep "^en" ||
+        locale -a
+      } 2>/dev/null | head -n 1
+    )"
+    : LANG=${LANG:=en_US.utf-8}
+    export LANG
+    rvm_warn "\$LANG was empty, setting up LANG=$LANG, if it fails again try setting LANG to something sane and try again."
+  fi
+}
+
 rubygems_setup()
 {
   __rvm_warn_on_rubyopt
@@ -210,12 +229,7 @@ rubygems_setup()
   if [[ ${rvm_debug_flag:-0} == 1 || ${rvm_trace_flag:-0} == 1 ]]
   then __command+=( --verbose )
   fi
-  if
-    [[ -z "${LANG:-}" ]]
-  then
-    export LANG=en_US.utf-8
-    rvm_warn "\$LANG was empty, setting up LANG=$LANG, if it fails again try setting LANG to something sane and try again."
-  fi
+  rubygems_setup_lang_fallback
   if
     __rvm_log_command "rubygems.install" "Installing $rvm_gem_package_name for ${rvm_ruby_string}" \
       "${__command[@]}"
