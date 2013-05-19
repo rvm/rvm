@@ -8,7 +8,7 @@ requirements_find_osx_fink()
     return 0
   else # find fink out of PATH and link to rvm/bin
     typeset __binary
-    for __binary in ~/sw/bin/fink ~/.sw/bin/fink /usr/local/bin/fink /sw/bin/fink
+    for __binary in ~/sw/bin/fink ~/.sw/bin/fink /sw/bin/fink /usr/local/bin/fink
     do
       if
         [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
@@ -22,6 +22,17 @@ requirements_find_osx_fink()
   fi
 }
 
+__rvm_fink_sudo()
+{
+  if
+    [[ -w "$( requirements_osx_fink_packages_path )" ]]
+  then
+    "$@" || return $?
+  else
+    __rvm_try_sudo "$@" || return $?
+  fi
+}
+
 requirements_osx_fink_lib_installed()
 {
   fink list -i "^${1}$" || return $?
@@ -29,7 +40,7 @@ requirements_osx_fink_lib_installed()
 
 requirements_osx_fink_libs_install()
 {
-  fink install "$@"  ||
+  __rvm_fink_sudo fink install "$@"  ||
   {
     typeset ret=$?
     # FIXME: how to install fink ?
@@ -86,22 +97,30 @@ requirements_osx_fink_define()
   esac
 }
 
+requirements_osx_fink_packages_path()
+{
+  typeset fink_binary
+  fink_binary="$( __rvm_which fink )"
+
+  while [[ -L "${fink_binary}" ]]
+  do fink_binary="$( readlink "${fink_binary}" )"
+  done
+
+  awk '/Basepath:/ {print$2}' < "${fink_binary}"/../../etc/fink.conf
+}
+
 requirements_osx_fink_libs_configure()
 {
   typeset package fink_lib fink_lib_prefix
   package="$1"
-  shift
 
-  for fink_lib
-  do
-    if
-      # FIXME: how to find out package paths
-      fink_lib_prefix="$( fink --prefix "${fink_lib}" 2>/dev/null )" &&
-      [[ -n "${fink_lib_prefix}" && -d "${fink_lib_prefix}" ]]
-    then
-      __rvm_update_configure_opt_dir "${package}" "${fink_lib_prefix}"
-    fi
-  done
+  if
+    # FIXME: how to find out package paths
+    fink_lib_prefix="$( requirements_osx_fink_packages_path )" &&
+    [[ -n "${fink_lib_prefix}" && -d "${fink_lib_prefix}" ]]
+  then
+    __rvm_update_configure_opt_dir "${package}" "${fink_lib_prefix}"
+  fi
 }
 
 requirements_osx_fink_after()
@@ -118,7 +137,7 @@ requirements_osx_fink_install_fink()
 {
   typeset fink_home fink_version
   fink_version=0.34.8
-  rvm_warn "About to install fink-${fink_version}, prepare to answer some questions.
+  rvm_warn "About to install fink-${fink_version}, press ENTER to use default answers.
 Make sure to watch the graphical login, questions for X11 installation will appear!"
 
   mkdir -p "${rvm_src_path}/fink-${fink_version}" || return $?
@@ -147,27 +166,8 @@ requirements_osx_fink_ensure_fink_available()
   }
 }
 
-requirements_osx_fink_ensure_fink_can_install()
-{
-  # only check for 3+ (packages install, enabled)
-  (( rvm_autolibs_flag_number > 2 )) || return 0
-
-  typeset __packages_path
-  __packages_path="$(grep -E '^Basepath:' /sw/etc/fink.conf | sed -E 's/Basepath:\s+?(.+)$/\1/')"
-  if
-    [[ -w "${__packages_path%/*}/bin" ]] &&
-    [[ -w "${__packages_path}" || ! -e "${__packages_path}" ]]
-  then
-    rvm_debug "fink seems to be writable"
-  else
-    rvm_error "ERROR: '${__packages_path}' not writable, fix it first!"
-    return 1
-  fi
-}
-
 requirements_osx_fink_before()
 {
   typeset -ax fink_libs fink_libs_conf
-  requirements_osx_fink_ensure_fink_available   || return $?
-  requirements_osx_fink_ensure_fink_can_install || return $?
+  requirements_osx_fink_ensure_fink_available || return $?
 }
