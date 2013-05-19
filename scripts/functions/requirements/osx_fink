@@ -116,17 +116,24 @@ requirements_osx_fink_after()
 
 requirements_osx_fink_install_fink()
 {
-  typeset fink_home
+  typeset fink_home fink_version
+  fink_version=0.34.8
   if (( UID == 0 ))
   then fink_home="/usr/local"
   else fink_home="$HOME/.fink"
   fi
-  mkdir -p "${fink_home}" || return $?
-  # FIXME: install fink
-  return 1
-  chmod +x "${fink_home}/bin/fink" # just in case
+  mkdir -p "${rvm_src_path}/fink-${fink_version}" || return $?
+  __rvm_curl http://downloads.sourceforge.net/fink/fink-${fink_version}.tar.gz |
+    tar xz --strip 1 -C "${rvm_src_path}/fink-${fink_version}"
+  __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
+  ./bootstrap "${fink_home}"
+  "${fink_home}"/bin/pathsetup.sh
+
   # link to rvm_bin for easy adding to PATH
   ln -nfs "${fink_home}/bin/fink" "${rvm_bin_path:-$rvm_path/bin}/fink"
+
+  # update package definitions
+  fink selfupdate-rsync && fink index -f || return $?
 }
 
 requirements_osx_fink_ensure_fink_available()
