@@ -76,23 +76,82 @@ requirements_osx_fink_update_system()
   __rvm_fink_sudo fink selfupdate && __rvm_fink_sudo fink index -f || return $?
 }
 
-requirements_osx_fink_libs_default()
+requirements_osx_fink_gcc_version_detect()
 {
-  # FIXME: what packages are needed for installation
-  fink_libs=(
-    autoconf automake libtool pkg-config
-  )
+  if
+    __rvm_version_compare "${_system_version}" -le 10.5
+  then
+    fink_libs+=( gcc43 )
+  elif
+    __rvm_version_compare "${_system_version}" -le 10.6
+  then
+    fink_libs+=( gcc45 )
+  elif
+    __rvm_version_compare "${_system_version}" -le 10.7
+  then
+    fink_libs+=( gcc46 )
+  else # 10.8+
+    fink_libs+=( gcc48 )
+  fi
+}
+
+requirements_osx_fink_libs_default_tools()
+{
+  case "$1" in
+    (*-head)
+      fink_libs+=( autoconf2.6 )
+      ;;
+    (*)
+      fink_libs+=( autoconf )
+      ;;
+  esac
+  fink_libs+=( automake1.13 pkgconfig )
+
+  if
+    __rvm_version_compare "${_system_version}" -le 10.6
+  then
+    fink_libs=( libtool14 )
+  fi
+
   if
     ! __ruby_clang_ok "$1" &&
     [[ -z "${selected_compiler}" || "${selected_compiler}" =~ "gcc-4.2" ]]
   then
-    # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
-    __rvm_which gcc-4.2 >/dev/null || fink_libs+=( gcc4.2 )
+    # install gcc only if no gcc-4.2 available, prevents problems with gcc-4.2 on OSX 10.6
+    __rvm_which gcc-4.2 >/dev/null || requirements_osx_fink_gcc_version_detect
   fi
-  fink_libs_conf=(
-    libyaml readline6 readline6-shlibs libxml2 libxslt libksba8 openssl100-dev openssl100-shlibs ca-bundle sqlite3
-  )
-  requirements_check "${fink_libs[@]}" "${fink_libs_conf[@]}" || return $?
+}
+
+requirements_osx_fink_libs_default_libs()
+{
+  typeset __lib
+
+  for __lib in libyaml readline6 libxml2 libxslt libksba8 sqlite3
+  do
+    fink_libs+=( ${__lib} ${__lib}-shlibs )
+  done
+
+  case "$1" in
+    (ruby-1.8*|ree-1.8*)
+      fink_libs+=( openssl098-dev openssl098-shlibs )
+      ;;
+    (*)
+      fink_libs+=( openssl100-dev openssl100-shlibs )
+      ;;
+  esac
+  fink_libs+=( ca-bundle )
+}
+
+requirements_osx_fink_libs_default()
+{
+  # FIXME: what packages are needed for installation
+  typeset -a fink_libs
+  fink_libs=()
+
+  requirements_osx_fink_libs_default_tools "$@" || return $?
+  requirements_osx_fink_libs_default_libs  "$@" || return $?
+
+  requirements_check "${fink_libs[@]}" || return $?
 }
 
 requirements_osx_fink_define()
@@ -140,8 +199,7 @@ requirements_osx_fink_libs_configure()
 
 requirements_osx_fink_after()
 {
-  requirements_osx_fink_libs_configure "$1" "${fink_libs_conf[@]}" || return $?
-  unset fink_libs fink_libs_conf
+  requirements_osx_fink_libs_configure "$1" || return $?
 
   rvm_requiremnts_fail_or_run_action 2 \
     "Skipping certificates update, make sure your certificates are up to date." \
@@ -180,6 +238,5 @@ requirements_osx_fink_ensure_fink_available()
 
 requirements_osx_fink_before()
 {
-  typeset -ax fink_libs fink_libs_conf
   requirements_osx_fink_ensure_fink_available || return $?
 }
