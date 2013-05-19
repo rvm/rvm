@@ -22,10 +22,29 @@ requirements_find_osx_fink()
   fi
 }
 
+requirements_osx_fink_path()
+(
+  typeset fink_binary
+  fink_binary="$( __rvm_which fink )"
+
+  while [[ -L "${fink_binary}" ]]
+  do fink_binary="$( readlink "${fink_binary}" )"
+  done
+
+  echo "${fink_binary%/bin/fink}"
+)
+
+requirements_osx_fink_packages_path()
+{
+  awk '/Basepath:/ {print$2}' < "$(requirements_osx_fink_path)"/etc/fink.conf
+}
+
 __rvm_fink_sudo()
 {
   if
-    [[ -w "$( requirements_osx_fink_packages_path )" ]]
+    [[ -w "$( requirements_osx_fink_path )" &&
+       -w "$( requirements_osx_fink_packages_path )"
+    ]]
   then
     "$@" || return $?
   else
@@ -43,10 +62,18 @@ requirements_osx_fink_libs_install()
   __rvm_fink_sudo fink install "$@"  ||
   {
     typeset ret=$?
-    # FIXME: how to install fink ?
     rvm_warn "There were package installation errors, make sure to read the log."
     return $ret
   }
+}
+
+requirements_osx_fink_update_system()
+{
+  # enable unstable for needed packages
+  __rvm_fink_sudo sed -i'' -e 's#^\(Trees: .*\)$#\1 unstable/main#' "$(requirements_osx_fink_path)"/etc/fink.conf
+
+  # update package definitions
+  __rvm_fink_sudo fink selfupdate && __rvm_fink_sudo fink index -f || return $?
 }
 
 requirements_osx_fink_libs_default()
@@ -97,18 +124,6 @@ requirements_osx_fink_define()
   esac
 }
 
-requirements_osx_fink_packages_path()
-{
-  typeset fink_binary
-  fink_binary="$( __rvm_which fink )"
-
-  while [[ -L "${fink_binary}" ]]
-  do fink_binary="$( readlink "${fink_binary}" )"
-  done
-
-  awk '/Basepath:/ {print$2}' < "${fink_binary}"/../../etc/fink.conf
-}
-
 requirements_osx_fink_libs_configure()
 {
   typeset package fink_lib fink_lib_prefix
@@ -150,9 +165,6 @@ Make sure to watch the graphical login, questions for X11 installation will appe
 
   # link to rvm_bin for easy adding to PATH
   ln -nfs "/sw/bin/fink" "${rvm_bin_path:-$rvm_path/bin}/fink"
-
-  # update package definitions
-  fink selfupdate-rsync && fink index -f || return $?
 }
 
 requirements_osx_fink_ensure_fink_available()
