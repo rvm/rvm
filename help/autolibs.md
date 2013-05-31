@@ -1,5 +1,3 @@
-# Autolibs
-
 ## Synopsis
 
 `rvm autolibs <flag>` __or__ `rvm install --autolibs=<flag>` __or__ `rvm get [type] --autolibs=<flag>`
@@ -24,48 +22,69 @@ Some people might get confused at the difference between `--autolibs` and `autol
 * `3`, `packages`, `install-packages`, - Use libs, install missing libs.
 * `4`, `enable`, `enabled` - Install missing package manager (only OSX, on Linux it's like 3).
 
+## Other options
+
+* `reset`  - Reset RVM back to default mode.
+* `status` - Display detailed information about your mode.
+* `show`   - Display your current mode.
+* `help`   - Display basic mode descriptions.
+
+## Modes explained
+
+The default mode is `enabled`, bellow is explanation of the modes,
+where most useful will be `read-fail` in case user has no `sudo` access.
+
 ## Letting RVM take care of it all (4)
 
-__*This only applies to OS X users, for non OS X users this will behave like 3*__
-
-RVM can take care of everything for you as an OS X user, this means it will install Homebrew in the `.rvm` folder and manage all it's own dependencies. Typically this would be the best option for new users who do not have their own package manager installed and do not know how to compile their own software.
+RVM can take care of everything for user, this means it will detect existing package manager and install one if none is available.
+Typically this would be the best option for new users who do not have their own package manager installed and do not know how to compile their own software.
 
 Enabling 4:
-```
-rvm autolibs enable
-```
+
+    rvm autolibs enable
+
+Most of the systems ships with a package manager so the `enable` mode is the same as `packages`.
+Unfortunately on OSX there is not package manger provided so RVM has to detect one of existing user efforts,
+The detection is in order: `macports`, `homebrew`, `smf`, `fink` if none of them is available then RVM will install `macports`.
+
+You can also optionally enforce a package manager by using one of the following instead of `enable`:
+
+`macports`, `homebrew`, `fink`, `smf` (SM Framework) or `rvm_pkg` (the old `rvm pkg`), like:
+
+    rvm autolibs homebrew
+
+Or with the installer including homebrew, ruby and rails:
+
+    \curl -L https://get.rvm.io | bash -s stable --autolibs=homebrew --rails
+
 
 ## Letting RVM take care of packages (3)
 
 RVM can also be set to only check for a package manager and install any packages you might need or that might need to be updated.  This is the recommended option for users who do not want to deal with the task of managing their own dependencies.  This option works for both Linux and OS X users.
 
 Enabling 3:
-```
-rvm autolibs packages
-```
+
+    rvm autolibs packages
 
 Using 3 only once:
-```
-rvm install --autolibs=packages
-```
 
-You can also optionally enforce a package manager if you are using smf or on OS X by issuing one of the following instead of 4: `brew, homebrew, osx_brew, port, macports, osx_port, fink, osx_fink, rvm_pkg`
+    rvm install --autolibs=packages <ruby>
 
-## Other options (2, 1 and 0).
+## Tell RVM to fail when something is missing (2)
 
-Autolibs also has three other options and these options are 2, which will read packages and fail if a package is missing, 1, which will read packages and continue but warn and 0 which will completely disable autolibs.
+    rvm autolibs read-fail
 
-## Other modes
 
-* `reset` - Reset RVM back to default mode.
-* `show` - Display your current mode.
-* `help` - Display basic mode descriptions.
-* `status` - Display detailed information about your mode.
+## Tell RVM to try to use existing dependencies, but do not fail if something is missing (1)
 
-## Additional modes
+    rvm autolibs read-only
 
-* `brew`, `homebrew`, `osx_brew` - Like 4, enforce Homebrew.
-* `fink`, `osx_fink` - Like 4, enforces Fink.
-* `smf` - Like 4, enforce SM Framework.
-* `port`, `macports`, `osx_port` - Like 4, enforce MacPorts.
-* `rvm_pkg` - Make use of old `rvm pkg` code, uses extra `pkg-config` code to detect existing libraries.
+## Avoid any extra actions or configuration (0)
+
+    rvm autolibs disable
+
+## Examples
+
+Install RVM with Ruby and Ruby on Rails with all required libraries:
+
+    \curl -L https://get.rvm.io | bash -s stable --rails
