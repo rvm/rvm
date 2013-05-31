@@ -43,9 +43,20 @@ Enabling 4:
 
     rvm autolibs enable
 
+Most of the systems ships with a package manager so the `enable` mode is the same as `packages`.
+Unfortunately on OSX there is not package manger provided so RVM has to detect one of existing user efforts,
+The detection is in order: `macports`, `homebrew`, `smf`, `fink` if none of them is available then RVM will install `macports`.
+
 You can also optionally enforce a package manager by using one of the following instead of `enable`:
 
-`homebrew`, `macports`, `fink`, `smf` (SM Framework) or `rvm_pkg` (the old `rvm pkg`).
+`macports`, `homebrew`, `fink`, `smf` (SM Framework) or `rvm_pkg` (the old `rvm pkg`), like:
+
+    rvm autolibs homebrew
+
+Or with the installer including homebrew, ruby and rails:
+
+    \curl -L https://get.rvm.io | bash -s stable --autolibs=homebrew --rails
+
 
 ## Letting RVM take care of packages (3)
 
