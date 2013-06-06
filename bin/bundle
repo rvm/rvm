@@ -6,8 +6,15 @@ function bundle_not_found()
   exit 127
 }
 
+function rvm_ruby_not_used()
+{
+  printf "%b" "$(tput setaf 1)ERROR: RVM Ruby not used, run \`rvm use ${1##*/}\` first.$(tput sgr0)\n"
+  exit 127
+}
+
 # in rvm warn about missing gem
-if [[ -n "${GEM_HOME:-}" ]]
+if
+  [[ -n "${GEM_HOME:-}" && -n "${GEM_PATH:-}" ]]
 then
   bundle_not_found
 else
@@ -17,9 +24,14 @@ else
   PATH="${PATH//:${current_bundle}:/:}"
   PATH="${PATH#:}"
   PATH="${PATH%:}"
-  if [[ -n "${current_bundle}" ]] && builtin command -v bundle >/dev/null 2>&1
+  if
+    [[ -n "${current_bundle}" ]] && builtin command -v bundle >/dev/null 2>&1
   then
     builtin command bundle "$@"
+  elif
+    gem list "^bundler$" --installed >/dev/null
+  then
+    rvm_ruby_not_used $( gem env gemhome )
   else
     bundle_not_found
   fi
