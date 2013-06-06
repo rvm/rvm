@@ -30,7 +30,7 @@ Variables defined in one local in function are available in all other functions 
 ```bash
 [[ -n "${var:-}" ]]       # var is set
 [[ "${var:-}" == "bla" ]] # var equals bla
-[[ -n "${var1:-}" &&      # multi line check, first check has to be after [[ - for ZSH
+[[ -n "${var1:-}" &&      # multi line check, first check has to be after [[ - for Zsh
   -n "${var2:-}" &&
   -n "${var3:-}"
 ]]
