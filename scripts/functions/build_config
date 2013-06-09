@@ -5,7 +5,7 @@ __rvm_setup_compile_environment()
   typeset __type
   typeset -a __types
   __types=(
-    setup requirements osx_compiler architectures gcc47plus bison smartos sunos openbsd
+    setup requirements movable osx_compiler architectures gcc47plus bison smartos sunos openbsd
     auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
@@ -41,6 +41,47 @@ __rvm_setup_compile_environment_requirements()
   (( ${rvm_autolibs_flag_number} > 0 ))  || return 0
   rvm_log "Installing requirements for ${rvm_autolibs_flag_runner}, might require sudo password."
   __rvm_requirements_run ${rvm_autolibs_flag_runner} "$@" || return $?
+}
+
+__rvm_setup_compile_environment_movable_default()
+{
+  rvm_make_flags+=( -j3 )
+  rvm_configure_flags+=( --enable-load-relative --sysconfdir=/etc )
+}
+
+__rvm_setup_compile_environment_movable()
+{
+  (( ${rvm_movable_flag:-0} > 0 ))  || return 0
+  case "$1" in
+    ruby-1.9.3*|ruby-2*|ruby-head*) true ;;
+    (*)
+      rvm_error "Only MRI Ruby 1.9.3+ can be compiled movable with RVM"
+      return 2
+      ;;
+  esac
+  case "${_system_name}" in
+    (*bsd)
+      rvm_error "It is not yet supported to build movable rubies on *BSD systems."
+      return 3
+      ;;
+    (osx)
+      rvm_error "It is not yet supported to build movable rubies on OSX, try https://github.com/tokaido/tokaido-build"
+      return 3
+      ;;
+    (debian|ubuntu)
+      if
+        [[ -z "${rvm_architectures:-}" ]] &&
+        rvm_architectures="$( dpkg --print-architecture )" &&
+        [[ -n "${rvm_architectures:-}" ]]
+      then
+        rvm_warn "Detected debian like system, forcing architecture '$rvm_architectures'."
+      fi
+      __rvm_setup_compile_environment_movable_default
+      ;;
+    (*)
+      __rvm_setup_compile_environment_movable_default
+      ;;
+  esac
 }
 
 # MRI-2.0.0+ && osx-10.7+ - clang in newer Xcode/command line tools works properly
