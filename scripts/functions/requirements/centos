@@ -10,6 +10,12 @@ requirements_centos_lib_available()
   yum list --cacheonly --quiet "$1" >/dev/null 2>&1 || return $?
 }
 
+# required only for libyaml-devel check as fedora is broken ...
+requirements_centos_lib_available_no_caching()
+{
+  yum list --quiet "$1" >/dev/null 2>&1 || return $?
+}
+
 requirements_centos_libs_install()
 {
   __rvm_try_sudo yum install -y "$@" || return $?
@@ -21,7 +27,7 @@ requirements_centos_update_system()
   # if you change this, change the scripts/functions/pkg version too
   [[ -f /etc/yum.repos.d/epel.repo ]] ||
   requirements_centos_lib_installed libyaml-devel ||
-  requirements_centos_lib_available libyaml-devel ||
+  requirements_centos_lib_available_no_caching libyaml-devel ||
   {
     typeset version="${_system_version%%.*}"
     __rvm_db "epel${version}_key" "epel_key"
@@ -91,8 +97,19 @@ requirements_amazon_before()
   __lib_type=centos
 }
 
+requirements_fedora_before_update_cache()
+{
+  __rvm_try_sudo yum clean all || true      # can fail to clean
+  __rvm_try_sudo yum makecache || return $? # but must rebuild cache
+}
+
 requirements_fedora_before()
 {
+  requirements_centos_lib_available_no_caching yum ||
+    rvm_requiremnts_fail_or_run_action 2 \
+      "It is not possible to check if packages are installed, make sure the cache is up to date with 'yum makecache' and try again." \
+      __rvm_log_command fedora_update_cache "Updating packages cache" requirements_fedora_before_update_cache ||
+      return $?
   __lib_type=centos
 }
 
