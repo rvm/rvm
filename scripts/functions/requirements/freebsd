@@ -29,44 +29,63 @@ requirements_freebsd_install_node()
 
 requirements_freebsd_before()
 {
-  # Test if we already have ports. If not, get it. If so, update it
-  [[ -d /usr/ports ]] ||
-  {
-    rvm_requiremnts_fail_or_run_action 2 \
-      "Skipping portsnap fetch extract, make sure your system is up to date." \
-      __rvm_try_sudo portsnap fetch extract || return $?
-    packages_flags+=( "portsnap-extracted" )
-  }
-  __rvm_which pkg >/dev/null ||
-  {
-    rvm_requiremnts_fail_or_run_action 3 \
-      "Skipping pkgng bootstrap, make sure your system is up to date." \
-      requirements_freebsd_bootstrap_pkgng || return $?
-  }
   __lib_type="freebsd"
-  if __rvm_which pkg >/dev/null
-  then __lib_type+='_pkgng'
+  if
+    __rvm_which pkg >/dev/null &&
+    (( $(pkg info | wc -l) > 1 )) # pkgng needs to be initialized, by default it lists itself only, skip it
+  then
+    __lib_type+='_pkgng'
   fi
+  case "${__lib_type}" in
+    (freebsd)
+      # Test if we already have ports. If not, get it. If so, update it
+      [[ -d /usr/ports ]] ||
+      {
+        rvm_requiremnts_fail_or_run_action 2 \
+          "Skipping portsnap fetch extract, make sure your system is up to date." \
+          __rvm_try_sudo portsnap fetch extract || return $?
+        packages_flags+=( "portsnap-extracted" )
+      }
+      ;;
+    (freebsd_pkgng)
+      # TODO: make it working after old one is removed - https://wiki.freebsd.org/pkgng/CharterAndRoadMap
+      #__rvm_which pkg >/dev/null ||
+      #{
+      #  rvm_requiremnts_fail_or_run_action 3 \
+      #    "Skipping pkgng bootstrap, make sure your system is up to date." \
+      #    requirements_freebsd_bootstrap_pkgng || return $?
+      #}
+      true
+      ;;
+  esac
 }
 
-requirements_freebsd_bootstrap_pkgng()
-{
-  # pkgng should work fine on FreeBSD 8.0+ upwards
-  # The bootstrapper is natively available in 9.1+
-  if
-    __rvm_version_compare "$_system_version" -ge 9.1
-  then
-    __rvm_try_sudo /usr/sbin/pkg || return $?
-  else
-    __rvm_try_sudo make -C /usr/ports/ports-mgmt/pkg install clean || return $?
-  fi
-}
+# TODO: check http://forums.freebsd.org/showthread.php?t=35181 for upgrade instructions ...
+#requirements_freebsd_bootstrap_pkgng()
+#{
+#  # pkgng should work fine on FreeBSD 8.0+ upwards
+#  # The bootstrapper is natively available in 9.1+
+#  if
+#    __rvm_version_compare "$_system_version" -ge 9.1
+#  then
+#    __rvm_try_sudo /usr/sbin/pkg || return $?
+#  else
+#    __rvm_try_sudo make -C /usr/ports/ports-mgmt/pkg install clean || return $?
+#  fi
+#}
 
 requirements_freebsd_update_system()
 {
-  # Test if we already have ports. If not, get it. If so, update it
-  [[ " ${packages_flags[*]} " =~ " portsnap-extracted " ]] ||
-    __rvm_try_sudo portsnap fetch update  || return $?
+  case "${__lib_type}" in
+    (freebsd)
+      # Test if we already have ports. If not, get it. If so, update it
+      [[ " ${packages_flags[*]} " =~ " portsnap-extracted " ]] ||
+        __rvm_try_sudo portsnap fetch update  || return $?
+      ;;
+    (freebsd_pkgng)
+      __rvm_try_sudo pkg update || return $?
+      ;;
+  esac
 }
 
 requirements_freebsd_define()
