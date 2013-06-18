@@ -2,6 +2,27 @@
 
 sudo_args=()
 
+etc_sudoers_warning()
+{
+  printf "%b" "Warning: $1, falling back to call via \`/usr/bin/env\`, this breaks rules from \`/etc/sudoers\`. Run:
+
+    export rvmsudo_secure_path=1
+
+to avoid the warning, put it in shell initialization file to make it persistent.
+" >&2
+  case "${2:-}" in
+    (cant_read)
+      printf "%b" "
+In case there is no \`secure_path\` in \`/etc/sudoers\`. Run:
+
+    export rvmsudo_secure_path=0
+
+to avoid the warning, put it in shell initialization file to make it persistent.
+" >&2
+      ;;
+  esac
+}
+
 while
   (( $# ))
 do
@@ -29,25 +50,32 @@ do
   (( $# == 0 )) || shift
 done
 
-if (( $# ))
+if
+  (( $# ))
 then
   if
-    [[ "${rvmsudo_secure_path:-0}" == 1 ]]
-  then
-    sudo_args+=( "/usr/bin/env" )
-  elif
-    [[ -f "/etc/sudoers" ]]
+    [[ -n "${rvmsudo_secure_path}" ]]
   then
     if
-      [[ ! -r "/etc/sudoers" ]]
+      [[ "${rvmsudo_secure_path:-0}" == 1 ]]
     then
       sudo_args+=( "/usr/bin/env" )
-      printf "%b" 'Warning: can not check `/etc/sudoers` for `secure_path`, falling back to call via `/usr/bin/env`, this breaks rules from `/etc/sudoers`. export rvmsudo_secure_path=1 to avoid the warning.'
-    elif
-      \grep -E '^[[:space:]]*Defaults[[:space:]]+secure_path=' "/etc/sudoers" >/dev/null
+    fi
+  else
+    if
+      [[ -f "/etc/sudoers" ]]
     then
-      sudo_args+=( "/usr/bin/env" )
-      printf "%b" 'Warning: `secure_path` found in `/etc/sudoers`, falling back to call via `/usr/bin/env`, this breaks rules from `/etc/sudoers`. export rvmsudo_secure_path=1 to avoid the warning.'
+      if
+        [[ ! -r "/etc/sudoers" ]]
+      then
+        sudo_args+=( "/usr/bin/env" )
+        etc_sudoers_warning 'can not check `/etc/sudoers` for `secure_path`' cant_read
+      elif
+        \grep -E '^[[:space:]]*Defaults[[:space:]]+secure_path=' "/etc/sudoers" >/dev/null
+      then
+        sudo_args+=( "/usr/bin/env" )
+        etc_sudoers_warning '`secure_path` found in `/etc/sudoers`' found_secure_path
+      fi
     fi
   fi
   eval command sudo \"\${sudo_args[@]}\" $(

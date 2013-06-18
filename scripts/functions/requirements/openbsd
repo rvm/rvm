@@ -5,6 +5,11 @@ requirements_openbsd_lib_installed()
   pkg_info | \grep "^$1" >/dev/null 2>&1 || return $?
 }
 
+requirements_openbsd_lib_available()
+{
+  pkg_info -Q "${1%%-[[:digit:]]}" | \grep "^$1" >/dev/null 2>&1 || return $?
+}
+
 requirements_openbsd_libs_install()
 {
   __rvm_try_sudo pkg_add -z "$@" || return $?
@@ -44,7 +49,8 @@ requirements_openbsd_define()
       ;;
     (*-head)
       # OpenSSL is installed by default http://www.openbsd.org/crypto.html
-      requirements_check gcc-4 autoconf-2 automake-1 libtool bison readline-6 libxslt-1 libyaml-0 git
+      requirements_check gcc-4 automake-1 libtool bison readline-6 libxslt-1 libyaml-0 git
+      requirements_check_fallback autoconf-2.69p0 autoconf-2.68 autoconf-2.67
       __rvm_update_configure_opt_dir "$1" "/usr/local"
       ;;
     (*)
@@ -53,4 +59,14 @@ requirements_openbsd_define()
       __rvm_update_configure_opt_dir "$1" "/usr/local"
       ;;
   esac
+}
+
+requirements_openbsd_before()
+{
+  [[ -n "${PKG_PATH:-}" ]] ||
+  {
+    export PKG_PATH=ftp://ftp.openbsd.org/pub/OpenBSD/$(uname -r)/packages/$(arch -s)/
+    rvm_warn "WARNING: \$PKG_PATH was not set, using fallback '$PKG_PATH',
+see http://www.openbsd.org/ftp.html for list of available mirrors."
+  }
 }

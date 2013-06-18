@@ -164,6 +164,8 @@ __rvm_cd()
 
 load_env_preserving()
 {
+  rvm_scripts_path="${rvm_scripts_path:-$rvm_path/scripts}"
+
   typeset __var
   for __var in "$@"
   do eval "typeset save_${__var}=\"\${${__var}}\""
@@ -795,10 +797,9 @@ display_notes()
   then name="$(git config user.name 2>/dev/null || echo ${SUDO_USER:-${USERNAME}} )"
   fi
 
-  [[ -x ./scripts/notes ]] || chmod a+rx ./scripts/notes
   if (( upgrade_flag == 0 ))
-  then ./scripts/notes initial
-  else ./scripts/notes upgrade
+  then bash ./scripts/notes initial
+  else bash ./scripts/notes upgrade
   fi
 
   if
@@ -833,6 +834,9 @@ setup_rvm_path_permissions()
   if [[ -d "$rvm_path" ]]
   then \find "$rvm_path" -type d -print0 | xargs -n1 -0 chmod g+s
   fi
+
+  chmod -R g-ws "$rvm_path/scripts/zsh" "$rvm_path/scripts/extras/completion.zsh"
+
   return 0
 }
 
@@ -1168,11 +1172,11 @@ setup_user_profile_summary()
 
   typeset __missing=""
   if (( __bash_included>0 && __zsh_included>0  ))
-  then __missing="Bash nor ZSH"
+  then __missing="Bash or Zsh"
   elif (( __bash_included>0 ))
   then __missing="Bash"
   elif (( __zsh_included>0 ))
-  then __missing="ZSH"
+  then __missing="Zsh"
   fi
   if [[ -n "${__missing}" ]]
   then rvm_warn "    RVM ${__target} line not found for ${__missing}, run the installer with '--auto-dotfiles' to fix it."
@@ -1286,6 +1290,7 @@ record_ruby_configs()
 record_installation_time()
 {
   date +%s > $rvm_path/installed.at
+  [[ -s "$rvm_path/RELEASE" ]] || echo "manual" > "$rvm_path/RELEASE"
   touch "$rvm_path/config/displayed-notes.txt"
   if
     (( UID == 0 )) && system_check

@@ -12,27 +12,39 @@ external_automount()
   )
 }
 
-external_grep_existing()
+external_reject_existing()
 {
-  typeset IFS
-  typeset -a existing
-  existing=( $(
-    for ext in $rvm_externals_path/*
+  typeset __check
+  typeset -a __existing __failed
+  __failed=()
+  __existing=( $(
+    for ext in $rvm_rubies_path/ext-*/bin/ruby
     do
       if [[ -L "$ext" ]]
-      then
-        readlink "$ext"
+      then readlink "$ext"
       fi
     done
   ) )
-  IFS="|"
-  rvm_debug "existing:${existing[*]}:"
-  if (( ${#existing[@]} > 0 ))
+  rvm_debug "existing:${__existing[*]}:"
+
+  for __check
+  do
+    if
+      [[ "${__check}" =~ " ${__existing[*]} " ]]
+    then
+      __failed+=( ${__check} )
+    fi
+  done
+  if
+    (( ${#__failed[@]} > 1 ))
   then
-    GREP_OPTIONS="" \grep -vE "${existing[*]}" -
-  else
-    \cat -
+    rvm_error "The given paths '${__failed[*]}' are already mounted."
+  elif
+    (( ${#__failed[@]} > 0 ))
+  then
+    rvm_error "The given path '${__failed[*]}' is already mounted."
   fi
+  return ${#__failed[@]}
 }
 
 external_mount_uniq()
@@ -40,23 +52,28 @@ external_mount_uniq()
   typeset ruby_path
   typeset -a ruby_paths
 
-  ruby_paths=( $(
+  __rvm_read_lines ruby_paths <(
     for ruby_path in "$@"
     do
       if
-        [[ -d "${ruby_path}" && -x "${ruby_path}/bin/ruby" ]] ||
-        [[ -f "${ruby_path}" && -x "${ruby_path}"          ]]
+        [[ -d "${ruby_path}" && -x "${ruby_path}/bin/ruby" ]]
+      then
+        echo "${ruby_path}/bin/ruby"
+      elif
+        [[ -f "${ruby_path}" && -x "${ruby_path}" ]]
       then
         echo "${ruby_path}"
       fi
-    done | sort -u | external_grep_existing
-  ) )
+    done | sort -u
+  )
 
-  if (( ${#ruby_paths[@]} == 0 ))
+  if
+    (( ${#ruby_paths[@]} == 0 ))
   then
-    rvm_error "The given paths '$*' either do not point to a ruby installation or are already mounted."
-    exit 1
+    rvm_error "The given paths '$*' do not point to a ruby installation."
+    return 1
   else
+    external_reject_existing ${#ruby_paths[@]} || exit $?
     for ruby_path in ${ruby_paths[@]}
     do
       ( external_mount "${ruby_path}" ) || exit $?
@@ -66,41 +83,68 @@ external_mount_uniq()
 
 external_mount_link_default_binaries()
 {
-  typeset _binary _binary_addition
+  typeset _binary _binary_prefix _binary_suffix
   typeset -a _binaries
-  _binaries=(ruby gem irb erb ri rdoc testrb rake)
+  _binaries=( erb gem irb rake ri rdoc ruby testrb )
 
-  case "${ruby_path##*/}" in
+  _binary="${ruby_path##*/}"
+  case "${_binary}" in
     (ruby)
-      true
+      _binary_prefix=""
+      _binary_suffix=""
       ;;
     (*ruby)
-      _binary_addition="${ruby_path##*/}"
-      _binary_addition="${_binary_addition%ruby}"
-      for _binary in "${_binaries[@]}"
-      do
-        if
-          [[ ! -f "${prefix_path}/${_binary}" ]] &&
-          [[ -f "${prefix_path}/${_binary_addition}${_binary}" ]]
-        then
-          ln -s "${prefix_path}/${_binary_addition}${_binary}" "${prefix_path}/${_binary}"
-        fi
-      done
+      _binary_prefix="${_binary%ruby}"
+      _binary_suffix=""
       ;;
     (ruby*)
-      _binary_addition="${ruby_path##*/}"
-      _binary_addition="${_binary_addition#ruby}"
-      for _binary in "${_binaries[@]}"
-      do
-        if
-          [[ ! -f "${prefix_path}/${_binary}" ]] &&
-          [[ -f "${prefix_path}/${_binary}${_binary_addition}" ]]
-        then
-          ln -s "${prefix_path}/${_binary}${_binary_addition}" "${prefix_path}/${_binary}"
-        fi
-      done
+      _binary_prefix=""
+      _binary_suffix="${_binary#ruby}"
       ;;
   esac
+
+  mkdir -p "$rvm_rubies_path/$rvm_ruby_string/bin"
+
+  for _binary in "${_binaries[@]}"
+  do
+    if
+      [[ -f "${prefix_path}/bin/${_binary_prefix}${_binary}${_binary_suffix}" ]]
+    then
+      ln -s \
+        "${prefix_path}/bin/${_binary_prefix}${_binary}${_binary_suffix}" \
+        "$rvm_rubies_path/$rvm_ruby_string/bin/${_binary}"
+    fi
+  done
+}
+
+external_mount_link_default_gemset()
+{
+  typeset old_gem_home __dir
+
+  old_gem_home=$(
+    unset GEM_HOME
+    "$rvm_rubies_path/$rvm_ruby_string/bin/gem" env gemhome
+  )
+  if
+    [[ -z "${old_gem_home}" ]]
+  then
+    rvm_warn "Can for detect original 'GEM_HOME' for linking in '$rvm_gems_path/$rvm_ruby_string/'."
+  else
+    for __dir in bin build_info bundle bundler cache doc gems specifications
+    do
+      if
+        [[ -d "$rvm_gems_path/$rvm_ruby_string/${__dir}" ]]
+      then
+        rvm_debug "Dir '$rvm_gems_path/$rvm_ruby_string/${__dir}' already exist skipping linking from '${old_gem_home}/${__dir}'."
+      elif
+        [[ -d "${old_gem_home}/${__dir}" ]] || mkdir -p "${old_gem_home}/${__dir}" >/dev/null 2>&1
+      then
+        ln -nfs "${old_gem_home}/${__dir}" "$rvm_gems_path/$rvm_ruby_string/"
+      else
+        rvm_debug "Dir '${old_gem_home}/${__dir}' does not exist and can not be crated for linking in '$rvm_gems_path/$rvm_ruby_string/'."
+      fi
+    done
+  fi
 }
 
 external_mount()
@@ -136,23 +180,17 @@ external_mount()
   fi
 
   rvm_ruby_string="ext-${rvm_ruby_string}"
-  echo "Mounting '${rvm_ruby_string}' from '${prefix_path}'"
+  echo "Mounting '${rvm_ruby_string}' from '${prefix_path}' with 'bin/${ruby_path##*/}'"
 
   mkdir -p "$rvm_externals_path"
   ln -nfs "${prefix_path}" "$rvm_externals_path/$rvm_ruby_string"
-  mkdir -p "$rvm_rubies_path/$rvm_ruby_string/bin"
-  ln -nfs "${ruby_path}" "$rvm_rubies_path/$rvm_ruby_string/bin/ruby"
 
   external_mount_link_default_binaries
+  mkdir -p "$rvm_gems_path/$rvm_ruby_string" "$rvm_gems_path/$rvm_ruby_string@global"
 
   rvm_create_flag=1 __rvm_use
 
-  mkdir -p "$rvm_gems_path/$rvm_ruby_string@global"
-  old_gem_home=$(
-    unset GEM_HOME
-    "${prefix_path}/bin/gem" env gemhome
-  )
-  ln -nfs "${old_gem_home}" "$rvm_gems_path/$rvm_ruby_string"
+  external_mount_link_default_gemset
 
   __rvm_generate_wrappers
   __rvm_fix_gcc_path "$rvm_rubies_path"

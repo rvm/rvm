@@ -31,19 +31,12 @@ __rvm_parse_args_find_known_flags()
         _temp_var="${1#--}"
         export "rvm_${_temp_var//-/_}_flag=1"
         ;;
-      (--32)
-        rvm_architectures="${rvm_architectures:-},i386"
-        rvm_architectures="${rvm_architectures##,}"
-        rvm_disable_binary_flag=1
-        ;;
-      (--64)
-        rvm_architectures="${rvm_architectures:-},x86_64"
-        rvm_architectures="${rvm_architectures##,}"
+      (--32|--64)
+        rvm_architectures+=( "${1#--}" )
         rvm_disable_binary_flag=1
         ;;
       (--universal)
-        rvm_architectures="${rvm_architectures:-},i386,x86_64"
-        rvm_architectures="${rvm_architectures##,}"
+        rvm_architectures+=( "32" "64" )
         rvm_disable_binary_flag=1
         ;;
       (--patches|--patch)
@@ -506,34 +499,24 @@ __rvm_parse_args()
             ;;
 
           --arch|--archflags)
-            rvm_architectures="${rvm_architectures:-},${next_token#-arch }" ;
-            rvm_architectures="${rvm_architectures##,}" ;
+            rvm_architectures+=( "${next_token#-arch }" )
             next_token="${1:-}"
             (( $# == 0 )) || shift
             rvm_disable_binary_flag=1
             ;;
 
           --with-arch=*)
-            rvm_architectures="${rvm_architectures:-},${rvm_token#--with-arch=}" ;
-            rvm_architectures="${rvm_architectures##,}" ;
+            rvm_architectures+=( "${rvm_token#--with-arch=}" )
             rvm_disable_binary_flag=1
             ;;
 
-          --32)
-            rvm_architectures="${rvm_architectures:-},i386" ;
-            rvm_architectures="${rvm_architectures##,}" ;
-            rvm_disable_binary_flag=1
-            ;;
-
-          --64)
-            rvm_architectures="${rvm_architectures:-},x86_64" ;
-            rvm_architectures="${rvm_architectures##,}" ;
+          --32|--64)
+            rvm_architectures+=( "${rvm_token#--}" )
             rvm_disable_binary_flag=1
             ;;
 
           --universal)
-            rvm_architectures="${rvm_architectures:-},i386,x86_64" ;
-            rvm_architectures="${rvm_architectures##,}" ;
+            rvm_architectures+=( "32" "64" )
             rvm_disable_binary_flag=1
             ;;
 
@@ -726,8 +709,7 @@ __rvm_parse_args()
             ;;
 
           --movable)
-            rvm_make_flags+=( -j3 )
-            rvm_configure_flags+=( --enable-load-relative --sysconfdir=/etc )
+            rvm_movable_flag=1
             rvm_disable_binary_flag=1
             ;;
 
@@ -1029,7 +1011,7 @@ Please do one of the following:
 
     config-get)
       typeset __ruby __var
-      __ruby=$( which ruby )
+      __ruby=$( __rvm_which ruby )
       for __var in "${rvm_ruby_args[@]}"
       do
         __rvm_ruby_config_get "${__var}" "${__ruby}"

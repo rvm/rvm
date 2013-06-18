@@ -5,7 +5,7 @@ __rvm_setup_compile_environment()
   typeset __type
   typeset -a __types
   __types=(
-    setup requirements osx_compiler architectures gcc47plus bison smartos sunos openbsd
+    setup requirements movable osx_compiler architectures gcc47plus bison smartos sunos openbsd
     auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
@@ -41,6 +41,32 @@ __rvm_setup_compile_environment_requirements()
   (( ${rvm_autolibs_flag_number} > 0 ))  || return 0
   rvm_log "Installing requirements for ${rvm_autolibs_flag_runner}, might require sudo password."
   __rvm_requirements_run ${rvm_autolibs_flag_runner} "$@" || return $?
+}
+
+__rvm_setup_compile_environment_movable()
+{
+  (( ${rvm_movable_flag:-0} > 0 ))  || return 0
+  case "$1" in
+    ruby-1.9.3*|ruby-2*|ruby-head*) true ;;
+    (*)
+      rvm_error "Only MRI Ruby 1.9.3+ can be compiled movable with RVM"
+      return 2
+      ;;
+  esac
+  case "${_system_name}" in
+    (*bsd)
+      rvm_error "It is not yet supported to build movable rubies on *BSD systems."
+      return 3
+      ;;
+    (osx)
+      rvm_error "It is not yet supported to build movable rubies on OSX, try https://github.com/tokaido/tokaido-build"
+      return 3
+      ;;
+    (*)
+      rvm_make_flags+=( -j3 )
+      rvm_configure_flags+=( --enable-load-relative --sysconfdir=/etc )
+      ;;
+  esac
 }
 
 # MRI-2.0.0+ && osx-10.7+ - clang in newer Xcode/command line tools works properly
@@ -226,72 +252,86 @@ __rvm_setup_compile_environment_bison()
   esac
 }
 
-__rvm_setup_compile_environment_architectures_default()
+__rvm_setup_compile_environment_architectures_osx_map()
 {
-  typeset _architecture _architectures_string
-  typeset -a _architectures _flags
-
+  typeset _architecture
+  typeset _prefix="${1:-}"
+  typeset -a _architectures
   _architectures=()
-  for _architecture in ${rvm_architectures//,/ }
-  do _architectures+=( -arch "${_architecture}" )
+  for _architecture in "${rvm_architectures[@]}"
+  do
+    case "${_architecture}" in
+      (32)  _architecture="i386"   ;;
+      (64)  _architecture="x86_64" ;;
+    esac
+    _architectures+=( "${_prefix}${_architecture}" )
   done
-  _architectures_string="${_architectures[*]}"
-
-  _flags=(
-    CFLAGS="${_architectures_string}"
-    CCFLAGS="${_architectures_string}"
-    CXXFLAGS="${_architectures_string}"
-    LDFLAGS="${_architectures_string}"
-  )
-  __rvm_update_configure_env "${_flags[@]}"
-  rvm_configure_flags+=( --disable-dependency-tracking )
+  rvm_architectures=( "${_architectures[@]}" )
 }
 
 __rvm_setup_compile_environment_architectures_ruby_osx()
 {
-  typeset _architecture _architectures_string
-  typeset -a _architectures _flags
-
-  _architectures=()
-  for _architecture in ${rvm_architectures//,/ }
-  do _architectures+=( -arch "${_architecture}" )
-  done
-  _architectures_string="${_architectures[*]}"
-
+  typeset -a _flags
   _flags=(
     MACOSX_DEPLOYMENT_TARGET="$( sw_vers -productVersion | awk -F'.' '{print $1"."$2}' )"
-    CFLAGS="${_architectures_string} -g -Os -pipe -no-cpp-precomp"
-    CCFLAGS="${_architectures_string} -g -Os -pipe"
-    CXXFLAGS="${_architectures_string} -g -Os -pipe"
-    LDFLAGS="${_architectures_string} -bind_at_load"
-    LDSHARED="cc ${_architectures_string} -dynamiclib -undefined suppress -flat_namespace"
+    CFLAGS="$1 -g -Os -pipe -no-cpp-precomp"
+    CCFLAGS="$1 -g -Os -pipe"
+    CXXFLAGS="$1 -g -Os -pipe"
+    LDFLAGS="$1 -bind_at_load"
+    LDSHARED="cc $1 -dynamiclib -undefined suppress -flat_namespace"
   )
   __rvm_update_configure_env "${_flags[@]}"
   __rvm_array_contains "*osx-arch-fix*" "${rvm_patch_names[@]}" || rvm_patch_names+=( osx-arch-fix )
 }
 
-__rvm_setup_compile_environment_architectures()
+__rvm_setup_compile_environment_architectures_osx()
 {
-  [[ -n "${rvm_architectures:-}" ]] || return 0
   case "$1" in
     ruby-1.9*|ruby-2*|ruby-head*)
       # Ruby 1.9+ supports the easy way
-      rvm_configure_flags+=( --with-arch="${rvm_architectures}" )
+      __rvm_setup_compile_environment_architectures_osx_map
+      rvm_configure_flags+=( --with-arch="${rvm_architectures[*]}" )
       ;;
     ruby*|ree*)
-      case "$(uname)" in
-        (Darwin)
-          __rvm_setup_compile_environment_architectures_ruby_osx
-          ;;
-        (*)
-          __rvm_setup_compile_environment_architectures_default
-          ;;
-      esac
+      __rvm_setup_compile_environment_architectures_osx_map "-arch "
+      __rvm_setup_compile_environment_architectures_ruby_osx "${rvm_architectures[*]}"
       ;;
-    *)
-      __rvm_setup_compile_environment_architectures_default
+    (*)
+      __rvm_setup_compile_environment_architectures_osx_map "-arch "
+      __rvm_update_configure_env_arch "${rvm_architectures[*]}"
+      rvm_configure_flags+=( --disable-dependency-tracking )
       ;;
   esac
+}
+
+__rvm_setup_compile_environment_architectures_other()
+{
+  (( "${#rvm_architectures[@]}" == 1 )) ||
+  {
+    rvm_error "Only OSX supports fat binaries, any other system supports only single architecture, please be more specific."
+    return 1
+  }
+  typeset _architecture
+  case  "${rvm_architectures[*]}" in
+    (i386)   _architecture=( -m32 ) ;;
+    (x86_64) _architecture=( -m64 ) ;;
+    (32|64)  _architecture=( -m${rvm_architectures[*]}      ) ;;
+    (*)      _architecture=( -march=${rvm_architectures[*]} ) ;;
+  esac
+  __rvm_update_configure_env_arch ${_architecture}
+}
+
+__rvm_setup_compile_environment_architectures()
+{
+  rvm_debug "rvm_architectures(${#rvm_architectures[@]}):${rvm_architectures[*]}."
+  (( "${#rvm_architectures[@]}" > 0 )) || return 0
+  if
+    is_a_function __rvm_setup_compile_environment_architectures_${_system_name}
+  then
+    __rvm_setup_compile_environment_architectures_${_system_name} "$@" || return $?
+  else
+    __rvm_setup_compile_environment_architectures_other "$@" || return $?
+  fi
 }
 
 __rvm_setup_compile_environment_gcc47plus()
