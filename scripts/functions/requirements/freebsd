@@ -24,6 +24,17 @@ requirements_freebsd_pkgng_libs_install()
 
 requirements_freebsd_install_node()
 {
+  # TODO: missing pkgng!
+  if
+    [[ -d /usr/ports ]]
+  then
+    __rvm_try_sudo portsnap fetch update  || return $?
+  else
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Skipping portsnap fetch extract, make sure your system is up to date." \
+      __rvm_try_sudo portsnap fetch extract || return $?
+    packages_flags+=( "portsnap-extracted" )
+  fi
   __rvm_try_sudo make -C /usr/ports/www/node install clean || return $?
 }
 
@@ -37,7 +48,8 @@ requirements_freebsd_before_detect_package_manager()
     __lib_type="freebsd"
     if
       __rvm_which pkg >/dev/null &&
-      grep "WITH_PKGNG=\s*YES" /etc/make.conf >/dev/null
+      [[ -f /etc/make.conf ]] &&
+      grep -i "WITH_PKGNG=[\s\"']*YES" /etc/make.conf >/dev/null
     then
       __lib_type+='_pkgng'
     fi
@@ -47,52 +59,12 @@ requirements_freebsd_before_detect_package_manager()
 requirements_freebsd_before()
 {
   requirements_freebsd_before_detect_package_manager
-  case "${__lib_type}" in
-    (freebsd)
-      # Test if we already have ports. If not, get it. If so, update it
-      [[ -d /usr/ports ]] ||
-      {
-        rvm_requiremnts_fail_or_run_action 2 \
-          "Skipping portsnap fetch extract, make sure your system is up to date." \
-          __rvm_try_sudo portsnap fetch extract || return $?
-        packages_flags+=( "portsnap-extracted" )
-      }
-      ;;
-    (freebsd_pkgng)
-      # TODO: make it working after old one is removed - https://wiki.freebsd.org/pkgng/CharterAndRoadMap
-      #__rvm_which pkg >/dev/null ||
-      #{
-      #  rvm_requiremnts_fail_or_run_action 3 \
-      #    "Skipping pkgng bootstrap, make sure your system is up to date." \
-      #    requirements_freebsd_bootstrap_pkgng || return $?
-      #}
-      true
-      ;;
-  esac
+  # TODO: when the time is out deprecate the old pkg_tools https://wiki.freebsd.org/pkgng/CharterAndRoadMap
 }
-
-# TODO: check http://forums.freebsd.org/showthread.php?t=35181 for upgrade instructions ...
-#requirements_freebsd_bootstrap_pkgng()
-#{
-#  # pkgng should work fine on FreeBSD 8.0+ upwards
-#  # The bootstrapper is natively available in 9.1+
-#  if
-#    __rvm_version_compare "$_system_version" -ge 9.1
-#  then
-#    __rvm_try_sudo /usr/sbin/pkg || return $?
-#  else
-#    __rvm_try_sudo make -C /usr/ports/ports-mgmt/pkg install clean || return $?
-#  fi
-#}
 
 requirements_freebsd_update_system()
 {
   case "${__lib_type}" in
-    (freebsd)
-      # Test if we already have ports. If not, get it. If so, update it
-      [[ " ${packages_flags[*]} " =~ " portsnap-extracted " ]] ||
-        __rvm_try_sudo portsnap fetch update  || return $?
-      ;;
     (freebsd_pkgng)
       __rvm_try_sudo pkg update || return $?
       ;;
@@ -118,13 +90,12 @@ requirements_freebsd_define()
       requirements_check_custom node
       ;;
     (*-head)
-      # OpenSSL is installed by default http://www.freebsd.org/crypto.html
-      requirements_check autoconf-2 automake-1 libtool bison readline-6 libxslt-1 libyaml-0 sqlite3 gdbm git
-      __rvm_update_configure_opt_dir "$1" "/usr/local"
+      requirements_check git
+      requirements_freebsd_define "${1%-head}"
       ;;
     (*)
       # OpenSSL is installed by default http://www.freebsd.org/crypto.html
-      requirements_check autoconf-2 automake-1 libtool bison readline-6 libxslt-1 libyaml-0 sqlite3 gdbm
+      requirements_check autoconf automake libtool bison readline libxslt libyaml sqlite3 gdbm
       __rvm_update_configure_opt_dir "$1" "/usr/local"
       ;;
   esac

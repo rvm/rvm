@@ -44,15 +44,6 @@ install_setup()
   [[ -z "${rvm_user_path_prefix:-}" ]] || PATH="${rvm_user_path_prefix}:$PATH"
 
   true ${rvm_group_name:=rvm}
-
-  # TODO: Figure out a much better name for 'rvm_user_install_flag'
-  # mpapis: self contained was a quite good name
-  if (( UID == 0 )) || [[ -n "${rvm_prefix:-}" && "${rvm_prefix:-}" != "${HOME}" ]]
-  then true "${rvm_user_install_flag:=0}"
-  else true "${rvm_user_install_flag:=1}"
-  fi
-
-  export rvm_user_install_flag
   unset rvm_auto_dotfiles_flag
 }
 
@@ -104,8 +95,16 @@ determine_install_path()
     then rvm_path="/usr/local/rvm"
     else rvm_path="${HOME}/.rvm"
     fi
+    rvm_prefix="${rvm_path%/*}"
   fi
-  export rvm_path
+
+  # duplication marker kkdfkgnjfndgjkndfjkgnkfjdgn
+  case "$rvm_path" in
+    ($HOME/*|/$USER*) rvm_user_install_flag=1 ;;
+    (*)               rvm_user_install_flag=0 ;;
+  esac
+
+  export rvm_path rvm_user_install_flag
 }
 
 load_custom_flags()
@@ -1055,7 +1054,7 @@ setup_etc_bashrc()
 setup_rvmrc()
 {
   if
-    (( UID ))
+    (( rvm_user_install_flag == 1 ))
   then
     rvmrc_file="$HOME/.rvmrc"
   else
@@ -1105,7 +1104,7 @@ pick_a_file()
 
 setup_user_profile_check()
 {
-  (( UID > 0 )) || return 0
+  (( rvm_user_install_flag == 1 )) || return 1
   if
     [[ -n "${rvm_ignore_dotfiles_flag:-}" ]]
   then
@@ -1270,7 +1269,7 @@ setup_user_profile()
 root_canal()
 {
   if
-    (( UID == 0 )) && system_check
+    (( rvm_user_install_flag == 0 )) && system_check
   then
     export etc_profile_file
     etc_profile_file="/etc/profile.d/rvm.sh"
@@ -1293,7 +1292,7 @@ record_installation_time()
   [[ -s "$rvm_path/RELEASE" ]] || echo "manual" > "$rvm_path/RELEASE"
   touch "$rvm_path/config/displayed-notes.txt"
   if
-    (( UID == 0 )) && system_check
+    (( rvm_user_install_flag == 0 )) && system_check
   then
     # fix the rights explicitly as this is the last action
     chmod u+rwX,g+rwX,o+rX "$rvm_path/installed.at"
