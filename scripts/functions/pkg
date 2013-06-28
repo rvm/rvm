@@ -1,5 +1,76 @@
 #!/usr/bin/env bash
 
+## common part of requirements_rvm_pkg_* extracted from scripts/functions/requirements/rvm_pkg ->
+requirements_rvm_pkg_config()
+{
+  PKG_CONFIG_PATH="${rvm_usr_path:-${rvm_path}/usr}/lib/pkgconfig:${rvm_usr_path:-${rvm_path}/usr}/lib64/pkgconfig:/opt:/usr:/usr/local" pkg-config "$@"
+}
+
+requirements_rvm_pkg_lib_installed()
+{
+  if is_a_function ${1}_installed && ${1}_installed
+  then return 0
+  fi
+  requirements_rvm_pkg_config --list-all | grep "^$1[- ]" >/dev/null || return $?
+  true
+}
+
+requirements_rvm_pkg_libs_install()
+{
+  while
+    (( $# ))
+  do
+    PKG_CONFIG_LIBDIR="${rvm_usr_path:-${rvm_path}/usr}/lib/pkgconfig" install_$1 || return $?
+    shift
+  done
+}
+
+requirements_rvm_pkg_after_uniqe_paths()
+{
+  typeset __lib __lib_full_name
+  for __lib
+  do
+    __lib_full_name=$( requirements_rvm_pkg_config --list-all | awk "/^${__lib}[- ]/{print \$1}" )
+    if
+      [[ -n "${__lib_full_name}" ]]
+    then
+      requirements_rvm_pkg_config ${__lib_full_name} --variable=prefix
+    elif
+      [[ "${__lib}" == 'readline' ]]
+    then
+      # http://lists.gnu.org/archive/html/bug-readline/2010-09/msg00002.html
+      echo ${rvm_usr_path:-${rvm_path}/usr}
+    else
+      rvm_error "Can not find ${__lib} in 'pkg-config'"
+    fi
+  done | sort -u
+}
+
+requirements_rvm_pkg_configure()
+{
+  typeset __package
+  while
+    read __package
+  do
+    __rvm_update_configure_opt_dir "$1" "$__package"
+  done < <(
+    requirements_rvm_pkg_after_uniqe_paths "$@"
+  )
+}
+## common part of requirements_rvm_pkg_* extracted from scripts/functions/requirements/rvm_pkg <-
+
+## helper for checking marking missing custom packages
+requirements_rvm_pkg_lib_installed_custom()
+{
+  while
+     (( $# ))
+  do
+    requirements_rvm_pkg_lib_installed "$1" || packages_custom+=( "$1" )
+    shift
+  done
+}
+
+## Real work for installing packages from source
 install_package()
 {
   __rvm_db "${package}_url" "package_url"
