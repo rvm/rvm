@@ -743,8 +743,8 @@ permissions_warning()
 install_fix_rights()
 {
   (( ${rvm_user_install_flag:-0} == 0 ))   || return 0
-  check_file_group  "$1" "$rvm_group_name" || chown :$rvm_group_name "$1"
-  check_file_rights "$1" g+w               || chmod g+rwX "$1"
+  check_file_group  "$1" "$rvm_group_name" || chown :$rvm_group_name "$1" || permissions_warning "could not set group of '$1'"
+  check_file_rights "$1" g+w               || chmod g+rwX "$1"            || permissions_warning "could not fix perissions of '$1'"
 }
 
 install_man_pages()
@@ -1015,9 +1015,9 @@ fi
 " > "${etc_profile_file}"
 
   if
-    (( executable )) && [[ ! -x "${etc_profile_file}" ]]
+    (( executable )) && check_file_rights "${etc_profile_file}" a-x
   then
-    chmod a+rx "${etc_profile_file}"
+    chmod a+rx "${etc_profile_file}" || permissions_warning "could not fix '${etc_profile_file}' rights"
   fi
 
   if
@@ -1079,14 +1079,9 @@ setup_etc_bashrc()
     } > "${new_content_path}" &&
     \mv "${new_content_path}" "${system_bashrc_file}"
   fi
-  if
-    check_file_rights $system_bashrc_file a-r
-  then
-    if (( UID ))
-    then chmod a+r $system_bashrc_file
-    else permissions_warning "File '$system_bashrc_file' is not readable for all users, this might cause problems in loading RVM"
-    fi
-  fi
+  check_file_rights $system_bashrc_file a+r ||
+    chmod a+r $system_bashrc_file ||
+      permissions_warning "File '$system_bashrc_file' is not readable for all users, this might cause problems in loading RVM"
 }
 
 setup_rvmrc()
@@ -1113,11 +1108,8 @@ setup_rvmrc()
     then
       echo 'umask u=rwx,g=rwx,o=rx' >> $rvmrc_file
     fi
-    if
-      [[ -s $rvmrc_file ]]
-    then
-      chown $USER:${rvm_group_name:-$USER} $rvmrc_file
-      chmod a+r $rvmrc_file
+    if [[ -s $rvmrc_file ]]
+    then install_fix_rights $rvmrc_file
     fi
   fi
   return 0
