@@ -845,23 +845,41 @@ setup_rvm_path_permissions_root()
   chmod -R g-ws "$rvm_path/scripts/zsh" "$rvm_path/scripts/extras/completion.zsh"
 }
 
+setup_rvm_path_permissions_check_single()
+{
+  typeset __ignore __message __file
+  __ignore="$1"
+  __message="$2"
+  shift 2
+  typeset -a __found
+  __rvm_read_lines __found < <( "$@" )
+  if
+    (( ${#__found[@]} > __ignore ))
+  then
+    permissions_warning "Found ${#__found[@]} ${__message}, use \`--debug\` to see the list"
+    if
+      (( ${rvm_debug_flag:-0} ))
+    then
+      for __file in "${__found[@]}"
+      do printf "%b" "${__file}"
+      done
+    fi
+  fi
+}
+
 # note using awk instead of wc to prevent output formating from BSD wc
 setup_rvm_path_permissions_check()
 {
   typeset __count
 
-  # check for group owner $rvm_group_name
-  __count=$( find "$rvm_path" \! -group "$rvm_group_name" | awk 'END{print NR}' )
-  (( __count == 0 )) || permissions_warning "Found ${__count} files not belonging to '$rvm_group_name'"
+  setup_rvm_path_permissions_check_single 0 "files not belonging to '$rvm_group_name'" \
+    find "$rvm_path" \! -group "$rvm_group_name"
 
-  # check for directories 2775 - u+rwx g+rws o+rw
-  __count=$( find "$rvm_path" -type d \! -perm -2775 | awk 'END{print NR}' )
-  __count=$(( __count - 2 )) # exclude two Zsh dirs - completion issue
-  (( __count == 2 )) || permissions_warning "Found ${__count} directories with mode different then '775'"
+  setup_rvm_path_permissions_check_single 2 "directories with mode different then '775'" \
+    find "$rvm_path" -type d \! -perm -2775
 
-  # files need to be either 664 or 775
-  __count=$( find "$rvm_path" \! -type d \! -perm -775 \! -perm -664 | awk 'END{print NR}' )
-  (( __count == 0 )) || permissions_warning "Found ${__count} files not with mode different then '664' or '775'"
+  setup_rvm_path_permissions_check_single 0 "files with mode different then '664' or '775'" \
+    find "$rvm_path" \! -type d \! -perm -775 \! -perm -664
 }
 
 setup_rvm_path_permissions()
