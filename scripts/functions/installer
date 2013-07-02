@@ -845,21 +845,22 @@ setup_rvm_path_permissions_root()
   chmod -R g-ws "$rvm_path/scripts/zsh" "$rvm_path/scripts/extras/completion.zsh"
 }
 
+# note using awk instead of wc to prevent output formating from BSD wc
 setup_rvm_path_permissions_check()
 {
   typeset __count
 
   # check for group owner $rvm_group_name
-  __count=$( find "$rvm_path" \! -group "$rvm_group_name" | wc -l )
+  __count=$( find "$rvm_path" \! -group "$rvm_group_name" | awk 'END{print NR}' )
   (( __count == 0 )) || permissions_warning "Found ${__count} files not belonging to '$rvm_group_name'"
 
   # check for directories 2775 - u+rwx g+rws o+rw
-  __count=$( find "$rvm_path" -type d \! -perm -2775 | wc -l )
+  __count=$( find "$rvm_path" -type d \! -perm -2775 | awk 'END{print NR}' )
   __count=$(( __count - 2 )) # exclude two Zsh dirs - completion issue
   (( __count == 2 )) || permissions_warning "Found ${__count} directories with mode different then '775'"
 
   # files need to be either 664 or 775
-  __count=$( find "$rvm_path" \! -type d \! -perm -775 \! -perm -664 | wc -l )
+  __count=$( find "$rvm_path" \! -type d \! -perm -775 \! -perm -664 | awk 'END{print NR}' )
   (( __count == 0 )) || permissions_warning "Found ${__count} files not with mode different then '664' or '775'"
 }
 
@@ -1068,7 +1069,11 @@ setup_etc_bashrc()
   if
     [[ ! -f "${system_bashrc_file}" ]]
   then
-    print_etc_bashrc_change > "${system_bashrc_file}"
+    print_etc_bashrc_change > "${system_bashrc_file}" 2>/dev/null ||
+    {
+      permissions_warning "could not create '${system_bashrc_file}'"
+      return
+    }
   elif
     ! GREP_OPTIONS="" \grep "PATH=.*${rvm_bin_path}" "${system_bashrc_file}" >/dev/null
   then
@@ -1078,7 +1083,11 @@ setup_etc_bashrc()
       print_etc_bashrc_change # prepend
       \cat "${system_bashrc_file}" | grep -v "|| export PATH=\"\${PATH}:\""
     } > "${new_content_path}" &&
-    \mv "${new_content_path}" "${system_bashrc_file}"
+    \mv "${new_content_path}" "${system_bashrc_file}" 2>/dev/null ||
+    {
+      permissions_warning "could not update '${system_bashrc_file}'"
+      return
+    }
   fi
   check_file_rights $system_bashrc_file a+r ||
     chmod a+r $system_bashrc_file ||
