@@ -735,6 +735,11 @@ check_file_rights()
   true # for OSX
 }
 
+permissions_warning()
+{
+  rvm_warn "    $1, prefix the command with 'rvmsudo' to fix it, if the situation persist report a bug."
+}
+
 install_fix_rights()
 {
   (( ${rvm_user_install_flag:-0} == 0 ))   || return 0
@@ -826,7 +831,7 @@ display_notes()
 #
 # root install functions.
 #
-setup_rvm_path_permissions()
+setup_rvm_path_permissions_root()
 {
   chown -R root:"$rvm_group_name" "$rvm_path"
 
@@ -837,8 +842,32 @@ setup_rvm_path_permissions()
   fi
 
   chmod -R g-ws "$rvm_path/scripts/zsh" "$rvm_path/scripts/extras/completion.zsh"
+}
 
-  return 0
+setup_rvm_path_permissions_check()
+{
+  typeset __count
+
+  # check for group owner $rvm_group_name
+  __count=$( find "$rvm_path" \! -group "$rvm_group_name" | wc -l )
+  (( __count == 0 )) || permissions_warning "Found ${__count} files not belonging to '$rvm_group_name'"
+
+  # check for directories 2775 - u+rwx g+rws o+rw
+  __count=$( find "$rvm_path" -type d \! -perm -2775 | wc -l )
+  __count=$(( __count - 2 )) # exclude two Zsh dirs - completion issue
+  (( __count == 2 )) || permissions_warning "Found ${__count} directories with mode different then '775'"
+
+  # files need to be either 664 or 775
+  __count=$( find "$rvm_path" \! -type d \! -perm -775 \! -perm -664 | wc -l )
+  (( __count == 0 )) || permissions_warning "Found ${__count} files not with mode different then '664' or '775'"
+}
+
+setup_rvm_path_permissions()
+{
+  if (( UID == 0 ))
+  then setup_rvm_path_permissions_root
+  fi
+  setup_rvm_path_permissions_check
 }
 
 setup_rvm_group()
@@ -1055,7 +1084,7 @@ setup_etc_bashrc()
   then
     if (( UID ))
     then chmod a+r $system_bashrc_file
-    else rvm_error "    File $system_bashrc_file is not readable for all users, this might cause problems in loading RVM."
+    else permissions_warning "File '$system_bashrc_file' is not readable for all users, this might cause problems in loading RVM"
     fi
   fi
 }
