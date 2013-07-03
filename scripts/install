@@ -1,171 +1,20 @@
 #!/usr/bin/env bash
 
-export PS4 PATH
-PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+# make tracing easy
+export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
 
-set -o errtrace
-if [[ "$*" =~ --trace ]] || (( ${rvm_trace_flag:-0} > 0 ))
-then # Tracing, if asked for.
-  set -o xtrace
+# Tracing, if asked for - as early as possible
+if
+  [[ "$*" =~ --trace ]] || (( ${rvm_trace_flag:-0} > 0 ))
+then
+  set -x
   export rvm_trace_flag=1
 fi
 
-#Handle Solaris Hosts
-if [[ "$(uname -s)" == "SunOS" ]]
-then
-  [[ "$(uname -v)" =~ ^joyent ]] ||
-    PATH="/usr/gnu/bin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:$PATH"
-elif [[ "$(uname)" == "OpenBSD" ]]
-then
-  # don't touch PATH,
-  true
-elif [[ "$(uname)" == "FreeBSD" ]]
-then
-  # don't touch PATH for FreeBSD either
-  true
-else
-  PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/local/sbin:$PATH"
-fi
-
-if [[ -n "${rvm_user_path_prefix:-}" ]]
-then
-  PATH="${rvm_user_path_prefix}:$PATH"
-fi
+set -o errtrace
 
 shopt -s extglob
 
 source "$PWD/scripts/functions/installer"
-# source "$PWD/scripts/rvm"
 
-#
-# RVM Installer
-#
-install_setup
-
-true ${DESTDIR:=}
-# Parse RVM Installer CLI arguments.
-while (( $# > 0 ))
-do
-  token="$1"
-  shift
-
-  case "$token" in
-    (--auto-dotfiles|--ignore-dotfiles|--debug|--quiet-curl)
-      token=${token#--}
-      token=${token//-/_}
-      export "rvm_${token}_flag"=1
-      ;;
-    (--autolibs=*)
-      rvm_autolibs_flag="${token#--autolibs=}"
-      ;;
-    (--with-gems=*)
-      export rvm_with_gems="${token#--with-gems=}"
-      ;;
-    (--without-gems=*)
-      export rvm_without_gems="${token#--without-gems=}"
-      ;;
-    (--path)
-      rvm_path="$1"
-      rvm_bin_path="$1/bin"
-      shift
-      ;;
-    (--add-to-rvm-group)
-      export rvm_add_users_to_rvm_group="$1"
-      shift
-      ;;
-    (--version)
-      rvm_path="${PWD%%+(\/)}"
-      __rvm_version
-      unset rvm_path
-      exit
-      ;;
-    (--trace)
-      export rvm_trace_flag=1
-      set -o xtrace
-      echo "$@"
-      env | GREP_OPTIONS="" \grep '^rvm_'
-      export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
-      ;;
-    (--help)
-      install_usage
-      exit 0
-      ;;
-    (*)
-      echo "Unrecognized option: $token"
-      install_usage
-      exit 1
-      ;;
-  esac
-done
-
-if [[ -n "${DESTDIR}" ]]
-then
-  rvm_prefix="${DESTDIR}"
-fi
-
-determine_install_path
-
-determine_install_or_upgrade
-
-if [[ -z "${rvm_path:-}" ]]
-then
-  echo "ERROR: rvm_path is empty, halting installation."
-  exit 1
-fi
-
-export rvm_prefix rvm_path rvm_debug_flag rvm_trace_flag
-
-create_install_paths
-
-load_custom_flags
-save_custom_flags
-
-configure_installation
-
-print_install_header
-
-cleanse_old_entities
-
-install_rvm_files
-
-install_rvm_hooks
-
-ensure_scripts_are_executable
-
-setup_configuration_files
-
-configure_autolibs
-
-install_binscripts
-
-install_gemsets
-
-install_patchsets
-
-cleanse_old_environments
-
-migrate_old_gemsets
-
-migrate_defaults
-
-correct_binary_permissions
-
-root_canal
-
-install_man_pages
-
-setup_rvmrc
-
-setup_user_profile
-
-record_ruby_configs
-
-update_gemsets_install_rvm
-
-cleanup_tmp_files
-
-display_notes
-
-display_thank_you
-
-record_installation_time
+install_rvm "$@"

@@ -31,7 +31,7 @@ Some people might get confused at the difference between `--autolibs` and `autol
 
 ## Modes explained
 
-The default mode is `enabled`, bellow is explanation of the modes,
+The default mode is `enabled`, below is explanation of the modes,
 where most useful will be `read-fail` in case user has no `sudo` access.
 
 ## Letting RVM take care of it all (4)
