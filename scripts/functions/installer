@@ -45,18 +45,17 @@ install_rvm()
     ensure_scripts_are_executable
     setup_configuration_files
   )
-  if
-    (( rvm_user_install_flag == 1 ))
-  then
-    __steps+=( setup_user_profile )
-  elif
-    (( UID == 0 ))
-  then
-    __steps+=( setup_etc_profile setup_etc_bashrc setup_etc_rvmrc )
-  elif
-    (( upgrade_flag == 0 ))
-  then
-    __steps+=( warning_no_loading_of_rvm )
+  # not using elif for clarity
+  if (( rvm_user_install_flag == 1 ))
+  then __steps+=( setup_user_profile )
+  else
+    if (( UID == 0 ))
+    then __steps+=( setup_etc_profile setup_etc_bashrc setup_etc_rvmrc )
+    else
+      if (( upgrade_flag == 0 ))
+      then __steps+=( warning_no_loading_of_rvm )
+      fi
+    fi
   fi
   __steps+=(
     cleanse_old_environments
@@ -422,6 +421,17 @@ install_rvm_files()
     for entry in $(\find $directory 2>/dev/null)
     do
       if
+        [[ -f "$source_path/$entry" ]] &&
+        [[ "$entry" == "scripts/extras/completion.zsh/_rvm" || "$entry" == "scripts/zsh/Completion/_rvm" ]]
+      then
+        if
+          __rvm_rm_rf "$rvm_path/$entry" 2>/dev/null
+        then
+          \cp -f "$source_path/$entry" "$rvm_path/$entry"
+        else
+          rvm_log "    Can not update '$entry', it's a conflict between Zsh and multiuser installation, prefix the command with 'rvmsudo' to update this file."
+        fi
+      elif
         [[ -f "$source_path/$entry" ]]
       then
         # Target is supposed to be a file, remove if it is a directory.
@@ -440,7 +450,7 @@ install_rvm_files()
       fi
     done
   done
-  return 0
+  true
 }
 
 install_rvm_hooks()
