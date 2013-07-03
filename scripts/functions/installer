@@ -1,15 +1,176 @@
 #!/usr/bin/env bash
 
-export PATH
+install_rvm_step()
+{
+  typeset __status=0
+  rvm_debug "step> '$1' started"
 
-#Handle Solaris Hosts
-if [[ "$(uname -s)" == "SunOS" && ! "$(uname -v)" =~ ^joyent ]]
-then PATH="/usr/gnu/bin:$PATH"
-fi
+  $1 || __status=$?
 
-[[ -z "${rvm_user_path_prefix:-}" ]] || PATH="${rvm_user_path_prefix}:$PATH"
+  rvm_debug "step< '$1' finished with ${__status}"
 
-install_setup()
+  (( __status == 0 )) || {
+    rvm_error "Installer failed at step '$1' with status ${__status}, please run it with --debug and report a bug."
+    return ${__status}
+  }
+}
+
+install_rvm()
+{
+  typeset -a __steps
+  typeset __step
+
+  load_installer
+  parse_args "$@"
+
+  __steps=(
+    configuration_load
+    configure_path
+    determine_install_path
+    determine_install_or_upgrade
+    print_install_header
+    cleanse_old_entities
+    create_install_paths
+    load_custom_flags
+    save_custom_flags
+    install_rvm_files
+    install_rvm_hooks
+    ensure_scripts_are_executable
+    setup_configuration_files
+    configure_autolibs
+    install_binscripts
+    install_gemsets
+    install_patchsets
+    install_man_pages
+    cleanse_old_environments
+    migrate_old_gemsets
+    migrate_defaults
+    correct_binary_permissions
+    record_ruby_configs
+    update_gemsets_install_rvm
+    root_canal
+    setup_rvmrc
+    setup_user_profile
+    record_installation_time
+    cleanup_tmp_files
+    display_notes
+    display_thank_you
+  )
+  for __step in "${__steps[@]}"
+  do install_rvm_step ${__step} || return $?
+  done
+}
+
+load_installer()
+{
+  install_source_path="$(dirname "$0" | sed 's#\/scripts$##')"
+
+  if
+    [[ -d "$install_source_path/scripts" && -s "$install_source_path/scripts/functions/utility" ]]
+  then
+    __rvm_cd "$install_source_path"
+  fi
+
+  source "$PWD/scripts/functions/support"
+  source "$PWD/scripts/functions/logging"
+  source "$PWD/scripts/version"
+
+  item="* "
+  question="\n<?>"
+  cwd="${PWD%%+(\/)}"
+  true "${source_path:=$cwd}"
+
+  return 0
+}
+
+parse_args()
+{
+  true ${DESTDIR:=}
+  # Parse RVM Installer CLI arguments.
+  while (( $# > 0 ))
+  do
+    token="$1"
+    shift
+
+    case "$token" in
+      (--auto-dotfiles|--ignore-dotfiles|--debug|--quiet-curl)
+        token=${token#--}
+        token=${token//-/_}
+        export "rvm_${token}_flag"=1
+        ;;
+      (--autolibs=*)
+        export rvm_autolibs_flag="${token#--autolibs=}"
+        ;;
+      (--with-gems=*)
+        export rvm_with_gems="${token#--with-gems=}"
+        ;;
+      (--without-gems=*)
+        export rvm_without_gems="${token#--without-gems=}"
+        ;;
+      (--path)
+        export rvm_path="$1"
+        export rvm_bin_path="$1/bin"
+        shift
+        ;;
+      (--add-to-rvm-group)
+        export rvm_add_users_to_rvm_group="$1"
+        shift
+        ;;
+      (--version)
+        (
+          export rvm_path="${PWD%%+(\/)}"
+          __rvm_version
+        )
+        exit
+        ;;
+      (--trace)
+        export rvm_trace_flag=1
+        set -o xtrace
+        echo "$@"
+        env | GREP_OPTIONS="" \grep '^rvm_'
+        export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+        ;;
+      (--help)
+        install_usage
+        exit 0
+        ;;
+      (*)
+        echo "Unrecognized option: $token"
+        install_usage
+        exit 1
+        ;;
+    esac
+  done
+
+  if [[ -n "${DESTDIR}" ]]
+  then
+    rvm_prefix="${DESTDIR}"
+  fi
+}
+
+install_usage()
+{
+  rvm_out "
+  Usage:
+
+    ${0} [options]
+
+  options:
+
+    --auto-dotfiles   : Automatically update shell profile files.
+
+    --ignore-dotfiles : Do not update shell profile files.
+
+    --path    : Installation directory (rvm_path).
+
+    --help    : Display help/usage (this) message
+
+    --version : display rvm package version
+
+"
+}
+
+configuration_load()
 {
   set -o errtrace
   export PS4 PATH HOME
@@ -47,27 +208,38 @@ install_setup()
   unset rvm_auto_dotfiles_flag
 }
 
-
-install_usage()
+configure_path()
 {
-  printf "%b" "
-  Usage:
+  export PATH
 
-    ${0} [options]
+  #Handle Solaris Hosts
+  if [[ "$(uname -s)" == "SunOS" && ! "$(uname -v)" =~ ^joyent ]]
+  then PATH="/usr/gnu/bin:$PATH"
+  fi
 
-  options:
+  [[ -z "${rvm_user_path_prefix:-}" ]] || PATH="${rvm_user_path_prefix}:$PATH"
 
-    --auto-dotfiles   : Automatically update shell profile files.
+  #Handle Solaris Hosts
+  if [[ "$(uname -s)" == "SunOS" ]]
+  then
+    [[ "$(uname -v)" =~ ^joyent ]] ||
+      PATH="/usr/gnu/bin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:$PATH"
+  elif [[ "$(uname)" == "OpenBSD" ]]
+  then
+    # don't touch PATH,
+    true
+  elif [[ "$(uname)" == "FreeBSD" ]]
+  then
+    # don't touch PATH for FreeBSD either
+    true
+  else
+    PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/local/sbin:$PATH"
+  fi
 
-    --ignore-dotfiles : Do not update shell profile files.
-
-    --path    : Installation directory (rvm_path).
-
-    --help    : Display help/usage (this) message
-
-    --version : display rvm package version
-
-"
+  if [[ -n "${rvm_user_path_prefix:-}" ]]
+  then
+    PATH="${rvm_user_path_prefix}:$PATH"
+  fi
 }
 
 display_thank_you()
@@ -116,7 +288,28 @@ determine_install_path()
     (*)               rvm_user_install_flag=0 ;;
   esac
 
-  export rvm_path rvm_user_install_flag
+  if
+    [[ -z "${rvm_path:-}" ]]
+  then
+    echo "ERROR: rvm_path is empty, halting installation."
+    exit 1
+  fi
+
+  export rvm_prefix rvm_path rvm_user_install_flag rvm_debug_flag rvm_trace_flag
+}
+
+create_install_paths()
+{
+  typeset -a install_paths
+  install_paths=(
+   archives src log bin gems man rubies config user tmp gems environments wrappers
+  )
+  for install_path in "${install_paths[@]}"
+  do [[ -d "$rvm_path/$install_path" ]] || mkdir -p "$rvm_path/$install_path"
+  done
+
+  [[ -z "$rvm_bin_path" || -d "$rvm_bin_path" ]] || mkdir -p "$rvm_bin_path"
+  return 0
 }
 
 load_custom_flags()
@@ -141,6 +334,7 @@ save_custom_flags()
   )
   typeset IFS="|"
   set | GREP_OPTIONS="" \grep -E "${__variables[*]}" > "${rvm_path:-}/user/custom_flags"
+  true # no failing from grep filtering
 }
 
 determine_install_or_upgrade()
@@ -155,8 +349,8 @@ determine_install_or_upgrade()
 print_install_header()
 {
   if [[ ${upgrade_flag:-0} -eq 1 ]]
-  then rvm_out "\nUpgrading the RVM installation in $rvm_path/"
-  else rvm_out "\nInstalling RVM to $rvm_path/"
+  then rvm_log "\nUpgrading the RVM installation in $rvm_path/"
+  else rvm_log "\nInstalling RVM to $rvm_path/"
   fi
 }
 
@@ -171,63 +365,6 @@ __rvm_cd()
     chpwd_functions="" builtin cd "$@" || ret=$?
     CDPATH="${old_cdpath}"
     return $ret
-}
-
-load_env_preserving()
-{
-  rvm_scripts_path="${rvm_scripts_path:-$rvm_path/scripts}"
-
-  typeset __var
-  for __var in "$@"
-  do eval "typeset save_${__var}=\"\${${__var}}\""
-  done
-
-  rvm_scripts_path="${PWD%%+(\/)}/scripts"
-  source "$PWD/scripts/initialize"
-  source "$PWD/scripts/functions/init"
-  source "$PWD/scripts/functions/support"
-  source "$PWD/scripts/functions/logging"
-  source "$PWD/scripts/version"
-  __rvm_initialize
-
-  for __var in "$@"
-  do eval "${__var}=\"\${save_${__var}:-\${${__var}}}\""
-  done
-}
-
-configure_installation()
-{
-  install_source_path="$(dirname "$0" | sed 's#\/scripts$##')"
-
-  if
-    [[ -d "$install_source_path/scripts" && -s "$install_source_path/scripts/functions/utility" ]]
-  then
-    __rvm_cd "$install_source_path"
-  fi
-
-  load_env_preserving \
-    rvm_without_gems rvm_with_gems rvm_ignore_dotfiles_flag rvm_autolibs_flag rvm_scripts_path
-
-  item="* "
-  question="\n<?>"
-  cwd="${PWD%%+(\/)}"
-  true "${source_path:=$cwd}"
-
-  return 0
-}
-
-create_install_paths()
-{
-  typeset -a install_paths
-  install_paths=(
-   archives src log bin gems man rubies config user tmp gems environments wrappers
-  )
-  for install_path in "${install_paths[@]}"
-  do [[ -d "$rvm_path/$install_path" ]] || mkdir -p "$rvm_path/$install_path"
-  done
-
-  [[ -z "$rvm_bin_path" || -d "$rvm_bin_path" ]] || mkdir -p "$rvm_bin_path"
-  return 0
 }
 
 cleanse_old_entities()
@@ -815,7 +952,7 @@ display_notes()
     (( upgrade_flag == 0 ))
   then
     profile_file="${user_profile_file:-${etc_profile_file:-$rvm_path/scripts/rvm}}"
-    rvm_out "$itype of RVM in $rvm_path/ is almost complete:"
+    rvm_log "$itype of RVM in $rvm_path/ is almost complete:"
     if
       (( ${rvm_user_install_flag:=0} == 0 ))
     then
@@ -827,7 +964,7 @@ display_notes()
   * To start using RVM you need to run \`source ${profile_file}\`
     in all your open shell windows, in rare cases you need to reopen all shell windows."
   else
-    rvm_out "$itype of RVM in $rvm_path/ is complete."
+    rvm_log "$itype of RVM in $rvm_path/ is complete."
   fi
 
   if (( upgrade_flag == 0 ))
@@ -868,7 +1005,7 @@ setup_rvm_path_permissions_check_single()
       (( ${rvm_debug_flag:-0} ))
     then
       for __file in "${__found[@]}"
-      do printf "%b" "${__file}"
+      do printf "%b" "        ${__file}\n"
       done
     fi
   fi
@@ -882,10 +1019,10 @@ setup_rvm_path_permissions_check()
   setup_rvm_path_permissions_check_single 0 "files not belonging to '$rvm_group_name'" \
     find "$rvm_path" \! -group "$rvm_group_name"
 
-  setup_rvm_path_permissions_check_single 2 "directories with mode different then '775'" \
+  setup_rvm_path_permissions_check_single 3 "directories with mode different then '775'" \
     find "$rvm_path" -type d \! -perm -2775
 
-  setup_rvm_path_permissions_check_single 0 "files with mode different then '664' or '775'" \
+  setup_rvm_path_permissions_check_single 2 "files with mode different then '664' or '775'" \
     find "$rvm_path" \! -type d \! -perm -775 \! -perm -664
 }
 
@@ -903,9 +1040,9 @@ setup_rvm_group()
   if
     __rvm_group_exists "$rvm_group_name"
   then
-    echo "    Group '$rvm_group_name' already exists"
+    rvm_warn "    Group '$rvm_group_name' already exists"
   else
-    echo "    Creating group '$rvm_group_name'"
+    rvm_log "    Creating group '$rvm_group_name'"
     __rvm_create_group "${rvm_group_name}" "${rvm_group_id:-}"
   fi
   if
