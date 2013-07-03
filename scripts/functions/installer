@@ -522,7 +522,7 @@ install_binaries()
     # Ensure binscripts are always available in rvm_path/bin first.
     [[ ! -f "${rvm_bin_path}/${file}" ]] || \rm -f "${rvm_bin_path}/${file}"
 
-    \cp -f "${source_path}/bin/${file}" "${rvm_bin_path}/${file}"
+    \cat < "${source_path}/bin/${file}" > "${rvm_bin_path}/${file}"
 
     [[ -x "${rvm_bin_path}/${file}" ]] || chmod a+rx "${rvm_bin_path}/${file}"
 
@@ -555,7 +555,7 @@ install_gemsets()
   typeset gemset_files
 
   if [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 && -d "$rvm_path/gemsets" ]]
-  then \rm -rf "$rvm_path/gemsets"
+  then \find "$rvm_path/gemsets" -type f -delete
   fi
 
   if
@@ -584,7 +584,7 @@ install_gemsets()
           else sed -r '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
           fi
         else
-          \cp "$gemset_file" "$destination"
+          \cat < "$gemset_file" > "$destination"
         fi
         if
           [[ -n "${rvm_with_gems:-}" && "${destination##*/}" == "global.gems" ]]
@@ -624,7 +624,7 @@ install_patchsets()
   if
     [[ ${rvm_keep_patchsets_flag:-0} == 0 && -d "$rvm_path/patchsets" ]]
   then
-    \rm -rf "$rvm_path/patchsets"
+    \find "$rvm_path/patchsets/" -type f -delete
   fi
   if
     [[ -d patchsets/ ]]
@@ -641,8 +641,8 @@ install_patchsets()
       then
         destination_path="${destination%/*}"
         [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-        [[ -f "$destination"      ]] && \rm -f "$destination"
-        \cp "$patchset_file" "$destination"
+        [[ ! -f "$destination"    ]] || \rm -f "$destination"
+        \cat < "$patchset_file" > "$destination"
       fi
     done
   fi
@@ -1357,7 +1357,6 @@ setup_rvm_path_permissions_root()
 {
   # ignore if not root
   (( UID == 0 )) || return 0
-
   chown -R root:"$rvm_group_name" "$rvm_path"
 
   chmod -R u+rwX,g+rwX,o+rX "$rvm_path"
