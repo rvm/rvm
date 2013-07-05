@@ -286,3 +286,36 @@ __rvm_read_lines()
   else eval "$1=( \$( \cat \"\${2:--}\" ) )"
   fi
 }
+
+__rvm_ruby_config_save()
+{
+  typeset ruby_path config_path default_config_path
+  ruby_path="${1:-$rvm_ruby_home/bin/ruby}"
+  default_config_path="#{RbConfig::CONFIG[\"prefix\"]}/config"
+  config_path="${2:-$default_config_path}"
+  "$ruby_path" -rrbconfig -e '\
+    File.open("'"$config_path"'","w") { |file|
+      RbConfig::CONFIG.sort.each{|key,value|
+        file.write("#{key.gsub(/\.|-/,"_")}=\"#{value.gsub("$","\\$")}\"\n")
+      }
+    }
+  ' >/dev/null 2>&1
+}
+
+__rvm_record_ruby_configs()
+{
+  for dir in "$rvm_path/rubies/"*
+  do
+    string=${dir##*/}
+    if [[ "${string}" == default ]]
+    then continue
+    fi
+    if [[ -x "${rvm_path}/rubies/${string}/bin/ruby" ]]
+    then
+      if [[ -s "${rvm_path}/rubies/${string}/config" ]]
+      then continue
+      else __rvm_ruby_config_save "${rvm_path}/rubies/${string}/bin/ruby"
+      fi
+    fi
+  done
+}
