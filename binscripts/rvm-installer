@@ -322,6 +322,7 @@ esac
 install_rubies=()
 install_gems=()
 flags=()
+forwarded_flags=()
 # Parse CLI arguments.
 while (( $# > 0 ))
 do
@@ -333,11 +334,16 @@ do
       set -o xtrace
       rvm_trace_flag=1
       flags+=( "$token" )
+      forwarded_flags+=( "$token" )
       ;;
 
-    --debug)
-      rvm_debug_flag=1
+    --debug|--quiet-curl)
       flags+=( "$token" )
+      forwarded_flags+=( "$token" )
+      token=${token#--}
+      token=${token//-/_}
+      export "rvm_${token}_flag"=1
+      printf "%b" "Turning on ${token/_/ } mode.\n"
       ;;
 
     --path)
@@ -361,7 +367,7 @@ do
       fi
       ;;
 
-    --user-install|--ignore-dotfiles|--quiet-curl)
+    --user-install|--ignore-dotfiles)
       token=${token#--}
       token=${token//-/_}
       export "rvm_${token}_flag"=1
@@ -383,6 +389,7 @@ do
       if [[ -n "${1:-}" ]]
       then
         export rvm_verify_downloads_flag="$1"
+        forwarded_flags+=( "$token" "$1" )
         shift
       else
         fail "--verify-downloads must be followed by level(0|1|2)."
@@ -392,6 +399,7 @@ do
     --autolibs=*)
       flags+=( "$token" )
       export rvm_autolibs_flag="${token#--autolibs=}"
+      forwarded_flags+=( "$token" )
       ;;
 
     --with-gems=*)
@@ -561,23 +569,22 @@ chmod +x ./scripts/install
 if (( ${#install_rubies[@]} > 0 ))
 then
   (
-    rvm_quiet_curl_flag_preserve=${rvm_quiet_curl_flag}
     source ${rvm_scripts_path:-${rvm_path}/scripts}/rvm
     source ${rvm_scripts_path:-${rvm_path}/scripts}/version
     __rvm_version
 
     for _ruby in ${install_rubies[@]}
-    do command rvm install ${_ruby} -j 2 ${rvm_quiet_curl_flag_preserve:+--quiet-curl}
+    do command rvm "${forwarded_flags[@]}" install ${_ruby} -j 2
     done
     # set the first one as default, skip rest
     for _ruby in ${install_rubies[@]}
     do
-      rvm alias create default ${_ruby}
+      rvm "${forwarded_flags[@]}" alias create default ${_ruby}
       break
     done
 
     for _gem in ${install_gems[@]}
-    do rvm all do gem install ${_gem}
+    do rvm "${forwarded_flags[@]}" all do gem install ${_gem}
     done
 
     printf "%b" "
