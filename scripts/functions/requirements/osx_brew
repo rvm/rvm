@@ -30,9 +30,19 @@ requirements_osx_brew_version_list()
   ls -1 $( brew --cellar )/$1/ 2>/dev/null
 }
 
+requirements_osx_brew_lib_installed_prefix_check()
+{
+  brew_lib_prefix="$( brew --prefix "$1" 2>/dev/null )" &&
+  [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]] ||
+  return $?
+}
+
 requirements_osx_brew_lib_installed()
 {
-  brew list -1 | \grep "^${1}$" >/dev/null || return $?
+  typeset brew_lib_prefix
+  brew list -1 | \grep "^${1}$" >/dev/null &&
+  requirements_osx_brew_lib_installed_prefix_check "$1" ||
+  return $?
 }
 
 requirements_osx_brew_libs_install()
@@ -119,11 +129,8 @@ requirements_osx_brew_libs_set_path()
 
   for brew_lib
   do
-    if
-      brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
-      [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}/bin" ]]
-    then
-      __rvm_add_to_path prepend "${brew_lib_prefix}/bin"
+    if requirements_osx_brew_lib_installed_prefix_check "${brew_lib}"
+    then __rvm_add_to_path prepend "${brew_lib_prefix}/bin"
     fi
   done
   rvm_debug "PATH=$PATH"
@@ -137,11 +144,8 @@ requirements_osx_brew_libs_configure()
 
   for brew_lib
   do
-    if
-      brew_lib_prefix="$( brew --prefix "${brew_lib}" 2>/dev/null )" &&
-      [[ -n "${brew_lib_prefix}" && -d "${brew_lib_prefix}" ]]
-    then
-      __rvm_update_configure_opt_dir "${package}" "${brew_lib_prefix}"
+    if requirements_osx_brew_lib_installed_prefix_check "${brew_lib}"
+    then __rvm_update_configure_opt_dir "${package}" "${brew_lib_prefix}"
     fi
   done
 }
@@ -156,9 +160,18 @@ requirements_osx_brew_after()
   requirements_osx_brew_libs_configure "$1" "${brew_libs_conf[@]}"  || return $?
   unset brew_libs brew_libs_conf
 
-  rvm_requiremnts_fail_or_run_action 2 \
-    "Skipping certificates update, make sure your certificates are up to date." \
-    requirements_osx_update_openssl_cert "$(brew --prefix openssl)/bin/openssl" || return $?
+  typeset brew_lib_prefix
+  if
+    requirements_osx_brew_lib_installed_prefix_check openssl &&
+    [[ -x "${brew_lib_prefix}/bin/openssl" ]]
+  then
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Skipping certificates update, make sure your certificates are up to date." \
+      requirements_osx_update_openssl_cert "${brew_lib_prefix}/bin/openssl" || return $?
+  else
+    rvm_error "Somehow it happened there is no executable 'openssl', run 'brew doctor' and make sure latest 'openssl' is installed properly."
+    return 12 # passing by 127 could be read as missing rvm.
+  fi
 }
 
 requirements_osx_brew_libs_default()

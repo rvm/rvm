@@ -796,6 +796,34 @@ __rvm_fix_selected_ruby()
   }
 }
 
+__rvm_use_ruby_warnings()
+{
+  typeset __executable __gem_version
+
+  for __executable in ruby gem irb
+  do
+    [[ -x "$MY_RUBY_HOME/bin/${__executable}" ]] ||
+      rvm_warn "Warning! Executable '${__executable}' missing, \
+something went wrong with this ruby installation!"
+  done
+
+  if
+    [[ "${rvm_ruby_interpreter}" == "ruby" ]] &&
+    {
+      __rvm_version_compare "${rvm_ruby_version}" -ge 2.0.0 ||
+      [[ "${rvm_ruby_version}" == "head" ]]
+    } &&
+    __rvm_which gem >/dev/null &&
+    __gem_version="$(gem --version)" &&
+    [[ -n "${__gem_version}" ]] &&
+    __rvm_version_compare "${__gem_version}" -lt "2.0.0"
+  then
+    rvm_warn "Warning! You have just used ruby 2.0.0 or newer, \
+which is not fully compatible with rubygems 1.8.x or older,
+         consider upgrading rubygems with: 'rvm rubygems latest'."
+  fi
+}
+
 rvm()
 {
   if
@@ -891,7 +919,7 @@ Please do one of the following:
   case "${rvm_action:=help}" in
     use)
       if rvm_is_a_shell_function
-      then __rvm_use
+      then __rvm_use && __rvm_use_ruby_warnings
       fi
       ;;
     switch)
