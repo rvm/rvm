@@ -4,7 +4,7 @@
 turn your eyes away from code and look on it again,
 can you really fast understand it - if no - reformat to make it better.
 
-1. Avoid semicolons, just because they make code harder to read (look rule 1).
+2. Avoid semicolons, just because they make code harder to read (look rule 1).
 
 # variables
 
