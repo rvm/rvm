@@ -15,3 +15,10 @@ rvm version               # match=/is not at first place/
 rvm use 1.9.3             # status=0
 GEM_HOME=$GEM_HOME@veve
 rvm version               # match=/is not available/
+
+: rvm-shell check
+rvm use 1.9.3             # status=0
+GEM_HOME=$GEM_HOME@veve
+rvm-shell 1.9.3 -c 'true'
+# match!=/is not at first place/
+# match!=/is not available/
