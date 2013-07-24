@@ -299,3 +299,29 @@ __list_remote_jruby_for()
     awk '{print "http://jruby.org.s3.amazonaws.com/downloads/"$1"/jruby-bin-"$1".tar.gz"}' |
     GREP_OPTIONS="" \grep "${rvm_ruby_url}"
 }
+
+__rvm_get_user_shell()
+{
+  case "$(uname)" in
+    (*BSD|Linux|SunOS)
+      awk -F: "/$USER/"'{print $NF}' < /etc/passwd ||
+      {
+        rvm_error "Error checking user shell via /etc/passwd - make sure this file is word readable."
+        return 2
+      }
+      ;;
+    (Darwin)
+      typeset __version
+      __version="$(dscl localhost -read "/Local/Default/Users/$USER" shell)" ||
+      {
+        rvm_error "Error checking user shell via dscl ... something went wrong, report a bug."
+        return 3
+      }
+      echo ${__version#*: }
+      ;;
+    (*)
+      rvm_error "Do not know how to check user shell on '$(uname)'."
+      return 1
+      ;;
+  esac
+}
