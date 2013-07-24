@@ -35,9 +35,23 @@ requirements_smf_lib_installed()
   sm pkg list | GREP_OPTIONS="" \grep "^${1}:" >/dev/null || return $?
 }
 
+requirements_smf_lib_install_command()
+{
+  __smf_install_command=( __smf_try_sudo sm "$1" install )
+  if
+    [[ "${rvm_static_flag:-}" == "1" ]]
+  then
+    __smf_install_command=(
+      CFLAGS="-fPIC" LDFLAGS="-fPIC" "${__smf_install_command[@]}" static
+    )
+  fi
+}
+
 requirements_smf_lib_install()
 {
-  __smf_try_sudo sm $1 install ${rvm_static_flag:+static} ||
+  typeset -a __smf_install_command
+  requirements_smf_lib_install_command "$@"
+  "${__smf_install_command}" ||
   {
     typeset ret=$?
     rvm_warn "There were package installation errors with SM Framework, make sure to read the log.
