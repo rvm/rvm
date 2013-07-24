@@ -5,8 +5,8 @@ __rvm_setup_compile_environment()
   typeset __type
   typeset -a __types
   __types=(
-    setup requirements movable osx_compiler architectures gcc47plus bison smartos sunos openbsd
-    auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
+    setup movable_early requirements movable osx_compiler architectures gcc47plus bison smartos
+    sunos openbsd auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
   do
@@ -26,6 +26,27 @@ __rvm_setup_compile_environment_setup()
   [[ -n "${rvm_autolibs_flag_number:-}" ]] || return $?
   export initially_selected_compiler="$( __rvm_selected_compiler )"
   true
+}
+
+__rvm_setup_compile_environment_movable_early()
+{
+  (( ${rvm_movable_flag:-0} > 0 ))  || return 0
+  case "$1" in
+    ruby-1.9.3*|ruby-2*|ruby-head*) true ;;
+    (*)
+      rvm_error "Only MRI Ruby 1.9.3+ can be compiled movable with RVM"
+      return 2
+      ;;
+  esac
+  case "${_system_name}" in
+    (*bsd)
+      rvm_error "It is not yet supported to build movable rubies on *BSD systems."
+      return 3
+      ;;
+    (osx)
+      export rvm_static_flag=1
+      ;;
+  esac
 }
 
 #
@@ -54,20 +75,8 @@ __rvm_setup_compile_environment_requirements()
 __rvm_setup_compile_environment_movable()
 {
   (( ${rvm_movable_flag:-0} > 0 ))  || return 0
-  case "$1" in
-    ruby-1.9.3*|ruby-2*|ruby-head*) true ;;
-    (*)
-      rvm_error "Only MRI Ruby 1.9.3+ can be compiled movable with RVM"
-      return 2
-      ;;
-  esac
   case "${_system_name}" in
-    (*bsd)
-      rvm_error "It is not yet supported to build movable rubies on *BSD systems."
-      return 3
-      ;;
     (osx)
-      rvm_static_flag=1
       rvm_configure_flags+=( --with-static-linked-ext )
       ;;
     (*)
