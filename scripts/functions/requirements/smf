@@ -66,6 +66,14 @@ You can get help using IRC: http://webchat.freenode.net/?channels=rvm"
   shift
 }
 
+requirements_smf_install_custom()
+{
+  typeset __set
+  for __set
+  do __smf_try_sudo sm set install "${__set}" || return $?
+  done
+}
+
 requirements_smf_gcc_42_check()
 {
   case "$1" in
@@ -98,12 +106,9 @@ requirements_smf_after()
 
 requirements_smf_update_system()
 {
-  __smf_try_sudo sm get head &&
-  __smf_try_sudo sm set install databases &&
-  __smf_try_sudo sm set install gnu       &&
-  __smf_try_sudo sm set install libraries &&
-  __smf_try_sudo sm set install tools     ||
-  return $?
+  __rvm_log_command sm_get_head "Updating SMF" \
+    __smf_try_sudo sm get head ||
+    return $?
 }
 
 requirements_smf_define()
@@ -113,6 +118,7 @@ requirements_smf_define()
       true
       ;;
     (jruby*head)
+      packages_custom+=( vcs )
       requirements_check git
       __rvm_which java >/dev/null 2>&1 || return $?
       ;;
@@ -123,14 +129,17 @@ requirements_smf_define()
       __rvm_which mono >/dev/null 2>&1 || return $?
       ;;
     (opal)
+      packages_custom+=( javascript )
       requirements_check node
       ;;
     (*-head)
+      packages_custom+=( vcs )
       requirements_check git
       requirements_smf_define default
       ;;
     (*)
       # TODO: ruby up to 1.9.3 requires openssl 0.9.8 on OSX
+      packages_custom+=( databases gnu libraries tools )
       requirements_check pkg-config libtool libyaml zlib ncurses readline openssl sqlite3 gdbm
       __rvm_system_name_is darwin || requirements_check ncursesw
       ;;
