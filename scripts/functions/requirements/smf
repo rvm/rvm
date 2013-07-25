@@ -68,21 +68,6 @@ You can get help using IRC: http://webchat.freenode.net/?channels=rvm"
   shift
 }
 
-requirements_smf_install_extension_sets()
-{
-  typeset __set
-  for __set
-  do __smf_try_sudo sm set install "${__set}" || return $?
-  done
-}
-
-requirements_smf_install_custom()
-{
-  __rvm_log_command sm_install_extension_sets "Installing/updating extension sets: $*" \
-    requirements_smf_install_extension_sets "$@" ||
-    return $?
-}
-
 requirements_smf_gcc_42_check()
 {
   case "$1" in
@@ -99,11 +84,26 @@ requirements_smf_gcc_42_check()
   esac
 }
 
+requirements_smf_install_extension_sets()
+{
+  typeset __set
+  for __set
+  do __smf_try_sudo sm set install "${__set}" || return $?
+  done
+}
+
 requirements_smf_update_system()
 {
   __rvm_log_command sm_get_head "Updating SMF" \
     __smf_try_sudo sm get head ||
     return $?
+  if
+    [[ "${#required_extension_sets[@]}" -gt 0 ]]
+  then
+    __rvm_log_command sm_install_extension_sets "Installing/updating extension sets: $*" \
+      requirements_smf_install_extension_sets "${required_extension_sets[@]}" ||
+      return $?
+  fi
 }
 
 requirements_smf_define()
@@ -113,7 +113,7 @@ requirements_smf_define()
       true
       ;;
     (jruby*head)
-      packages_custom+=( vcs )
+      required_extension_sets+=( vcs )
       requirements_check git
       __rvm_which java >/dev/null 2>&1 || return $?
       ;;
@@ -124,17 +124,17 @@ requirements_smf_define()
       __rvm_which mono >/dev/null 2>&1 || return $?
       ;;
     (opal)
-      packages_custom+=( javascript )
+      required_extension_sets+=( javascript )
       requirements_check node
       ;;
     (*-head)
-      packages_custom+=( vcs )
+      required_extension_sets+=( vcs )
       requirements_check git
       requirements_smf_define default
       ;;
     (*)
       # TODO: ruby up to 1.9.3 requires openssl 0.9.8 on OSX
-      packages_custom+=( databases gnu libraries tools )
+      required_extension_sets+=( databases gnu libraries tools )
       requirements_check pkg-config libtool libyaml zlib ncurses readline openssl sqlite3 gdbm
       __rvm_system_name_is darwin || requirements_check ncursesw
       ;;
@@ -170,6 +170,8 @@ requirements_smf_find_sm()
 
 requirements_smf_before()
 {
+  export -a required_extension_sets
+  required_extension_sets=()
   requirements_smf_ensure_smf_available || return $?
   requirements_smf_find_sm              || return $?
 }
