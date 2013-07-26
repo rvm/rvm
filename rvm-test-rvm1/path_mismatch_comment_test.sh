@@ -24,6 +24,7 @@ rvm-shell 1.9.3 -c 'true'
 # match!=/is not available/
 
 : cd + .rvmrc
+rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
 rvm use 1.9.3
 true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-cd-rvmrc
