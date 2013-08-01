@@ -7,51 +7,25 @@ ironruby_install()
     printf "%b" "mono must be installed and in your path in order to install IronRuby."
     return 1
   }
+
+  mono_version="$(mono -V | head -n 1 | \grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 )"
+  if
+    __rvm_version_compare "$mono_version" -lt 2.6
+  then
+    printf "%b" "Mono 2.6 (or greater) must be installed and in your path in order to build IronRuby from the repository."
+    printf "%b" "Version detected: ${mono_version}"
+    return 1
+  fi
+
+  
   if
     (( ${rvm_head_flag:=0} == 1 ))
   then
-    mono_version="$(mono -V | head -n 1 | \grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 )"
-    if
-      [[ -n "${mono_version:-}" ]]
-    then
-      mono_major_ver="$(echo "$mono_version" | cut -d '.' -f1)"
-      mono_minor_ver="$(echo "$mono_version" | cut -d '.' -f2)"
-      if
-        [[ $mono_major_ver -lt 2 ]] ||
-        [[ $mono_major_ver -eq 2 && $mono_minor_ver -lt 6 ]]
-      then
-        printf "%b" "Mono 2.6 (or greater) must be installed and in your path in order to build IronRuby from the repository."
-        printf "%b" "Version detected: ${mono_version}"
-        return 1
-      fi
-    else
-      printf "%b" "Cannot recognize mono version."
-      return 1
-    fi
-
     __rvm_ensure_has_mri_ruby
 
     __rvm_fetch_ruby || return $?
 
-    __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
-
-    compatible_ruby="$(__rvm_mri_ruby)"
-
-    "$rvm_wrappers_path/$compatible_ruby/gem" install pathname2 --no-rdoc --no-ri
-
-    # MONO_LIB=/Library/Frameworks/Mono.framework/Versions/current/lib/
-    rvm_ruby_make=( $rvm_wrappers_path/$compatible_ruby/rake MERLIN_ROOT="${rvm_src_path}/$rvm_ruby_string/Merlin/Main" compile mono=1 configuration=release --trace )
-
-    __rvm_log_command rake "Building IronRuby..." "${rvm_ruby_make[@]}" || return $?
-
-    __rvm_rm_rf "$rvm_ruby_home"/*
-
-    mkdir -p "$rvm_ruby_home/bin" "$rvm_ruby_home/lib" "$rvm_ruby_home/Lib/ruby" "$rvm_ruby_home/Lib/IronRuby"
-
-    \cp -r "${rvm_src_path}/$rvm_ruby_string/Merlin/Main/Bin/mono_release"/* "$rvm_ruby_home/bin/"
-    \cp -r "${rvm_src_path}/$rvm_ruby_string/Merlin/Main/Languages/Ruby/Scripts/bin"/* "$rvm_ruby_home/bin/"
-    \cp -r "${rvm_src_path}/$rvm_ruby_string/Merlin/External.LCA_RESTRICTED/Languages/Ruby/redist-libs/ruby"/* "$rvm_ruby_home/lib/ruby"
-    \cp -r "${rvm_src_path}/$rvm_ruby_string/Merlin/Main/Languages/Ruby/Libs"/* "$rvm_ruby_home/lib/IronRuby"
+    __rvm_cd "${rvm_src_path}/$rvm_ruby_string/"
   else
     rvm_log "Retrieving IronRuby"
 
@@ -76,26 +50,17 @@ ironruby_install()
         return 1
         ;;
     esac
-
-    for dir in bin Lib Silverlight
-    do
-      \cp -Rf "${rvm_src_path}/$rvm_ruby_string/$dir" "$rvm_ruby_home/$dir"
-    done
+    __rvm_cd "${rvm_src_path}/$rvm_ruby_string/IronLanguages-main-93ce72d"
   fi
+  
+  rvm_log "Building IronRuby"
+  xbuild /p:Configuration=Release Solutions/Ruby.sln
 
-  binaries=(gem irb rdoc rake ri ruby)
-
-  for binary_name in "${binaries[@]}"
+  mkdir -p "$rvm_ruby_home"
+  for dir in bin Languages Runtime
   do
-    if
-      [[ -s "$rvm_ruby_home/bin/$binary_name" ]]
-    then
-      \tr -d '\r' < "$rvm_ruby_home/bin/$binary_name" > "$rvm_ruby_home/bin/$binary_name.new" &&
-      \mv -f "$rvm_ruby_home/bin/$binary_name.new" "$rvm_ruby_home/bin/$binary_name"
-      chmod +x "$rvm_ruby_home/bin/$binary_name"
-    fi
+    \cp -Rf $dir "$rvm_ruby_home/$dir"
   done
-  unset binaries
 
   if
     [[ -f "$rvm_ruby_home/bin/ir" ]]
@@ -103,7 +68,7 @@ ironruby_install()
     sed -e '1,1s=.*=#!'"/usr/bin/env bash=" "$rvm_ruby_home/bin/ir" | \tr -d '\r' > "$rvm_ruby_home/bin/ir.new" &&
     \mv -f "$rvm_ruby_home/bin/ir.new" "$rvm_ruby_home/bin/ir"
   else
-    echo "mono \"$rvm_ruby_home/bin/ir\" \"\$@\"" > "$rvm_ruby_home/bin/ir"
+    echo "mono \"$rvm_ruby_home/bin/Release/ir.exe\" \"\$@\"" > "$rvm_ruby_home/bin/ir"
   fi
 
   chmod +x "$rvm_ruby_home/bin/ir"
@@ -116,7 +81,7 @@ ironruby_install()
 
   builtin hash -r
 
-  __rvm_run "gems.install" \
-    "PATH=\"$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:$PATH\" GEM_HOME=\"$rvm_ruby_gem_home\" GEM_PATH=\"$rvm_ruby_gem_home:$rvm_ruby_global_gems_path\" $rvm_ruby_home/bin/gem install --no-rdoc --no-ri rake $rvm_gem_options" \
-    "Installing $rvm_gem_name to $dir"
+#  __rvm_run "gems.install" \
+#    "PATH=\"$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:$PATH\" GEM_HOME=\"$rvm_ruby_gem_home\" GEM_PATH=\"$rvm_ruby_gem_home:$rvm_ruby_global_gems_path\" $rvm_ruby_home/bin/gem install --no-rdoc --no-ri rake $rvm_gem_options" \
+#    "Installing $rvm_gem_name to $dir" || true
 }
