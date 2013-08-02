@@ -164,10 +164,27 @@ __rvm_requirements_run_install()
 {
   (( ${#packages_to_install[@]} == 0 )) ||
   {
-    _list="${packages_to_install[*]}"
-    __rvm_log_command package_install_${_list// /_} "Installing required packages: ${_list// /, }." \
-      "requirements_${__lib_type}_libs_install" "${packages_to_install[@]}" ||
-      return $?
+    if
+      is_a_function requirements_${__lib_type}_lib_install
+    then
+      typeset __package
+      for __package in "${packages_to_install[@]}"
+      do
+        __rvm_log_command package_install_${__package} "Installing required package: ${__package}" \
+          "requirements_${__lib_type}_lib_install" "${__package}" ||
+        {
+          typeset __status=$?
+          _list="${packages_to_install[*]}"
+          rvm_warn "Failed installation package: ${__package} of: ${_list// /, }."
+          return ${__status}
+        }
+      done
+    else
+      _list="${packages_to_install[*]}"
+      __rvm_log_command package_install_${_list// /_} "Installing required packages: ${_list// /, }" \
+        "requirements_${__lib_type}_libs_install" "${packages_to_install[@]}" ||
+        return $?
+    fi
   }
 }
 

@@ -35,25 +35,37 @@ requirements_smf_lib_installed()
   sm pkg list | GREP_OPTIONS="" \grep "^${1}:" >/dev/null || return $?
 }
 
-requirements_smf_libs_install()
+requirements_smf_lib_install_command()
 {
-  while
-    (( $# ))
-  do
-    __smf_try_sudo sm $1 install ||
-    {
-      typeset ret=$?
-      rvm_warn "There were package installation errors with SM Framework, make sure to read the log.
+  __smf_install_command=( sm "$1" install )
+  if
+    [[ "${rvm_static_flag:-}" == "1" ]]
+  then
+    __smf_install_command=(
+      /usr/bin/env CFLAGS="-fPIC" LDFLAGS="-fPIC" "${__smf_install_command[@]}" static
+    )
+  fi
+  __smf_install_command=( __smf_try_sudo "${__smf_install_command[@]}" )
+}
+
+requirements_smf_lib_install()
+{
+  typeset -a __smf_install_command
+  requirements_smf_lib_install_command "$@"
+  rvm_debug "__smf_install_command: ${__smf_install_command[*]};"
+  "${__smf_install_command[@]}" ||
+  {
+    typeset ret=$?
+    rvm_warn "There were package installation errors with SM Framework, make sure to read the log.
 If you see this on OSX, then you might want to try macports (http://www.macports.org/) or homebrew (http://mxcl.github.io/homebrew/) and tell RVM to use them by running:
 
     rvm autolibs macports #OR
     rvm autolibs homebrew
 
 You can get help using IRC: http://webchat.freenode.net/?channels=rvm"
-      return $ret
-    }
-    shift
-  done
+    return $ret
+  }
+  shift
 }
 
 requirements_smf_gcc_42_check()
@@ -72,21 +84,26 @@ requirements_smf_gcc_42_check()
   esac
 }
 
-requirements_smf_after()
+requirements_smf_install_extension_sets()
 {
-  requirements_smf_gcc_42_check || return $?
-  __rvm_update_configure_opt_dir "$1" "${__sm_path%/bin/sm}/pkg/active"
-
-  rvm_requiremnts_fail_or_run_action 2 \
-    "Skipping certificates update, make sure your certificates are up to date." \
-    requirements_osx_update_openssl_cert "${__sm_path%/bin/sm}/pkg/active/bin/openssl" || return $?
+  typeset __set
+  for __set
+  do __smf_try_sudo sm set install "${__set}" || return $?
+  done
 }
 
 requirements_smf_update_system()
 {
-  __smf_try_sudo sm get head &&
-  __smf_try_sudo sm set install all ||
-  return $?
+  __rvm_log_command sm_get_head "Updating SMF" \
+    __smf_try_sudo sm get head ||
+    return $?
+  if
+    [[ "${#required_extension_sets[@]}" -gt 0 ]]
+  then
+    __rvm_log_command sm_install_extension_sets "Installing/updating extension sets: ${required_extension_sets[*]}" \
+      requirements_smf_install_extension_sets "${required_extension_sets[@]}" ||
+      return $?
+  fi
 }
 
 requirements_smf_define()
@@ -96,6 +113,7 @@ requirements_smf_define()
       true
       ;;
     (jruby*head)
+      required_extension_sets+=( vcs )
       requirements_check git
       __rvm_which java >/dev/null 2>&1 || return $?
       ;;
@@ -106,22 +124,26 @@ requirements_smf_define()
       __rvm_which mono >/dev/null 2>&1 || return $?
       ;;
     (opal)
+      required_extension_sets+=( javascript )
       requirements_check node
       ;;
     (*-head)
+      required_extension_sets+=( vcs )
       requirements_check git
       requirements_smf_define default
       ;;
     (*)
-      # FIXME: __rvm_which autoconf automake libtool || requirements_check ...
-      requirements_check pkg-config libyaml zlib ncurses readline openssl sqlite3
+      # TODO: ruby up to 1.9.3 requires openssl 0.9.8 on OSX
+      required_extension_sets+=( databases gnu libraries tools )
+      requirements_check pkg-config libtool libyaml zlib ncurses readline openssl sqlite3 gdbm
+      __rvm_system_name_is osx || requirements_check ncursesw
       ;;
   esac
 }
 
 requirements_smf_install_sm()
 {
-  rvm_error "SMF Framework support is only intended for RailsInstaller, please use Homebrew integration instead."
+  rvm_error "SMF Framework support is only intended for RailsInstaller / Tokaido.app, please use Macports / Homebrew integration instead."
   return 100
 }
 
@@ -131,7 +153,7 @@ requirements_smf_ensure_smf_available()
   {
     rvm_requiremnts_fail_or_run_action 2 \
       "Requested installation with SM Framework, but SM Framework is not available." \
-      __rvm_log_command smf_install "Installing SM Framework" requirements_smf_install_sm ||
+      requirements_smf_install_sm ||
       return $?
   }
 }
@@ -148,6 +170,36 @@ requirements_smf_find_sm()
 
 requirements_smf_before()
 {
+  export -a required_extension_sets
+  required_extension_sets=()
   requirements_smf_ensure_smf_available || return $?
   requirements_smf_find_sm              || return $?
+}
+
+requirements_smf_after()
+{
+  requirements_smf_gcc_42_check "$1" || return $?
+
+  if
+    __rvm_system_name_is osx
+  then
+    __rvm_update_configure_env \
+      LDFLAGS="-Z -L${__sm_path%/bin/sm}/pkg/active/lib -L/usr/lib" \
+      CFLAGS="-I${__sm_path%/bin/sm}/pkg/active/include"
+  fi
+
+  case "$PATH" in
+   (${__sm_path%/bin/sm}/pkg/active/bin:*)
+     true
+     ;;
+   (*)
+     __rvm_add_to_path prepend "${__sm_path%/bin/sm}/pkg/active/bin"
+     ;;
+  esac
+
+  export PKG_CONFIG_PATH="${__sm_path%/bin/sm}/pkg/active/lib/pkgconfig"
+
+  rvm_requiremnts_fail_or_run_action 2 \
+    "Skipping certificates update, make sure your certificates are up to date." \
+    requirements_osx_update_openssl_cert "${__sm_path%/bin/sm}/pkg/active/bin/openssl" || return $?
 }
