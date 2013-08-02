@@ -46,18 +46,6 @@ ruby_install()
     fi
   ) || return $?
 
-  if
-    [[ "$MACHTYPE" == *darwin* && " ${rvm_configure_flags[*]}" =~ " --enable-load-relative" ]]
-  then
-    typeset libyaml_lib_path_old libyaml_lib_path_new psych_lib_path target_path target_path_escaped
-    target_path="${rvm_rubies_path%/}/${rvm_ruby_string}"
-    target_path_escaped="${target_path//\//\/}"
-    libyaml_lib_path_old="$( \find "$target_path" -name libyaml-*.dylib )"
-    libyaml_lib_path_new="${libyaml_lib_path_old/${target_path_escaped}/@executable_path/..}"
-    psych_lib_path="$( \find "${target_path}" -name psych.bundle )"
-    __rvm_log_command fix.osx.dependencies "fix osx dependencies" install_name_tool -change "${libyaml_lib_path_old}" "${libyaml_lib_path_new}" "${psych_lib_path}"
-  fi
-
   typeset patches_count
   patches_count=$(
     rvm_ruby_string="${rvm_ruby_string}" "$rvm_scripts_path/patchsets" show default | wc -l
@@ -84,5 +72,30 @@ ${_memo}"
     rvm_warn "Please be aware that you just installed a ruby that requires ${patches_count} patches just to be compiled on up to date linux system.
 This may have known and unaccounted for security vulnerabilities.
 ${_memo}"
+  fi
+}
+
+__rvm_post_configure_ruby()
+{
+  typeset option
+  if
+    (( ${rvm_static_flag:-0} == 1 ))
+  then
+    for option in 'option nodynamic' openssl psych zlib readline
+    do
+      __rvm_update_ext_setup ${option}
+    done
+  fi
+}
+
+__rvm_update_ext_setup()
+{
+  echo "extension setup: $1"
+  if
+    GREP_OPTION="" \grep "$1" ext/Setup >/dev/null
+  then
+    __rvm_sed_i ext/Setup -e "s/#$1/$1/"
+  else
+    echo "$1" >> ext/Setup
   fi
 }
