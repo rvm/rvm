@@ -23,19 +23,28 @@ rvm-shell 1.9.3 -c 'true'
 # match!=/is not at first place/
 # match!=/is not available/
 
-: cd + .rvmrc
+## cd + .rvmrc
+:prepare
 rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
-rvm use 1.9.3
+rvm use system
+rvm alias delete default
 true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-cd-rvmrc
 mkdir -p $d
 echo "rvm use 1.9.3@veve --create" >> $d/.rvmrc
 rvm rvmrc trust $d/.rvmrc
 
+: entering
 cd $d
 # match!=/is not at first place/
 # match!=/is not available/
 # env[GEM_HOME]=/@veve$/
+
+: leaving
+cd ..
+# match!=/is not at first place/
+# match!=/is not available/
+# env[GEM_HOME]=/^$/
 
 rvm rvmrc reset $d/.rvmrc
 rm -rf $d
