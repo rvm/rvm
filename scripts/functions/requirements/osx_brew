@@ -40,9 +40,14 @@ requirements_osx_brew_lib_installed_prefix_check()
 requirements_osx_brew_lib_installed()
 {
   typeset brew_lib_prefix
-  brew list -1 | \grep "^${1}$" >/dev/null &&
+  brew list -1 | GREP_OPTIONS="" \grep "^${1}$" >/dev/null &&
   requirements_osx_brew_lib_installed_prefix_check "$1" ||
   return $?
+}
+
+requirements_osx_brew_lib_available()
+{
+  brew search | GREP_OPTIONS="" \grep "^${1}$" >/dev/null || return $?
 }
 
 requirements_osx_brew_libs_install()
@@ -174,24 +179,75 @@ requirements_osx_brew_after()
   fi
 }
 
+requirements_osx_brew_libs_default_check_gcc()
+{
+  if
+    requirements_detect_installed gcc46 gcc47 gcc48
+  then
+    case "${packages_installed[*]}" in
+      (*gcc46*) export CC=gcc-4.6 ;;
+      (*gcc47*) export CC=gcc-4.7 ;;
+      (*gcc48*) export CC=gcc-4.8 ;;
+      (*)       return 1          ;;
+    esac
+  else
+    return $?
+  fi
+}
+
+requirements_osx_brew_libs_default_add_gcc_v()
+{
+  case "$1" in
+    (4.2) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.2 apple-gcc42 homebrew/dupes    ;;
+    (4.6) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.6 gcc46       homebrew/versions ;;
+    (4.7) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.7 gcc47       homebrew/versions ;;
+    (4.8) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.8 gcc48       homebrew/versions ;;
+    (*)
+      rvm_error "Do not know how to check/install gcc '$1'."
+      return 1
+      ;;
+  esac
+}
+
+requirements_osx_brew_libs_default_add_gcc()
+{
+  if [[ -n "$1" ]] && __rvm_which "$1" >/dev/null
+  then true
+  else
+    export CC="$2"
+    __rvm_which "$2" >/dev/null ||
+    {
+      if [[ -n "${4:-}" ]]
+      then requirements_osx_brew_check_custom "$4"
+      fi
+      brew_libs+=( "$3" )
+    }
+  fi
+}
+
 requirements_osx_brew_libs_default()
 {
   brew_libs=(
     autoconf automake libtool pkg-config
   )
-  typeset selected_compiler
-  selected_compiler="$( __rvm_selected_compiler )"
-  if
-    ! __ruby_clang_ok "$1" &&
-    [[ -z "${selected_compiler}" || "${selected_compiler}" =~ "gcc-4.2" ]]
-  then
-    # install gcc-4.2 only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
-    __rvm_which gcc-4.2 >/dev/null ||
-    {
-      requirements_osx_brew_check_custom homebrew/dupes
-      brew_libs+=( apple-gcc42 )
-    }
-  fi
+  # install gcc only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
+  typeset selected_compiler="$( __rvm_selected_compiler )"
+  case "${selected_compiler:-}" in
+    ("")
+      if __ruby_clang_ok "$1" || requirements_osx_brew_libs_default_check_gcc
+      then true
+      elif __rvm_version_compare "${_system_version}" -ge 10.8
+      then requirements_osx_brew_libs_default_add_gcc_v 4.6 || return $?
+      else requirements_osx_brew_libs_default_add_gcc_v 4.2 || return $?
+      fi
+      ;;
+    (*gcc-4.2|*gcc-4.6|*gcc-4.7|*gcc-4.8)        # version                  full_path
+      requirements_osx_brew_libs_default_add_gcc_v ${selected_compiler##*-} "${selected_compiler}" || return $?
+      ;;
+    (*)
+      rvm_debug "No code to ensure that selected compiler: '${selected_compiler}' exists"
+      ;;
+  esac
   brew_libs_conf=( libyaml readline libksba )
   case "$1" in
     (ruby-1.8*|ree*)
@@ -298,7 +354,7 @@ requirements_osx_brew_install_brew_setup()
   printf "%b" "About to install ${homebrew_name}, press \`Enter\` for default installation in \`$homebrew_home_default\`,
 type new path if you wish custom ${homebrew_name} installation (the path needs to be writable for user)\n: "
   read homebrew_home || return $?
-  : homebrew_home=${homebrew_home:=$homebrew_home_default}
+  rvm_debug "homebrew_home=${homebrew_home:=$homebrew_home_default}"
 }
 
 requirements_osx_brew_install_brew_install()
@@ -337,8 +393,7 @@ requirements_osx_brew_ensure_brew_available()
   {
     rvm_requiremnts_fail_or_run_action 2 \
       "Requested installation with homebrew libs, but homebrew is not available." \
-      __rvm_log_command brew_install "Installing homebrew" requirements_osx_brew_install_brew ||
-      return $?
+      requirements_osx_brew_install_brew || return $?
   }
 }
 
