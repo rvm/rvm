@@ -46,5 +46,13 @@ cd ..
 # match!=/is not available/
 # env[GEM_HOME]=/^$/
 
+: simulate 'rvm reload'
+cd
+rvm use 1.9.3@veve
+rvm_promptless=1 __rvm_project_rvmrc
+# match!=/is not at first place/
+# match!=/is not available/
+# env[GEM_HOME]=/@veve$/
+
 rvm rvmrc reset $d/.rvmrc
 rm -rf $d
