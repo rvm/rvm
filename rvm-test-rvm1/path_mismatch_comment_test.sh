@@ -24,7 +24,7 @@ rvm-shell 1.9.3 -c 'true'
 # match!=/is not available/
 
 ## cd + .rvmrc
-:prepare
+: prepare
 rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
 rvm use system
 rvm alias delete default
