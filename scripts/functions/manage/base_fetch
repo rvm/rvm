@@ -134,6 +134,29 @@ __rvm_fetch_ruby()
     (( ${rvm_head_flag:=0} == 0 )) &&
     [[ -z "${rvm_ruby_tag:-}" && -z "${rvm_ruby_revision:-}" && -z "${rvm_ruby_sha:-}" ]]
   then
+    __rvm_fetch_ruby_package || return $?
+  else
+    typeset result=0
+    mkdir -p "${rvm_repos_path}"
+    true ${rvm_ruby_url:="$rvm_ruby_repo_url"}
+    if
+      echo "$rvm_ruby_url" | GREP_OPTIONS="" \grep 'git' >/dev/null 2>&1
+    then
+      __rvm_fetch_ruby_head_git || return $?
+    else
+      __rvm_fetch_ruby_head_svn || return $?
+    fi
+    rvm_log "Copying from repo to src path..."
+    __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
+    \cp -R "${rvm_repos_path}/${rvm_ruby_interpreter}" "${rvm_src_path}/$rvm_ruby_string"
+    __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"/.git
+    __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"/.svn
+    return ${result:-0}
+  fi
+}
+
+__rvm_fetch_ruby_package()
+{
     rvm_ruby_package_name="${rvm_ruby_package_name:-"$rvm_ruby_string"}"
     rvm_ruby_package_file="${rvm_ruby_package_file:-"$rvm_ruby_package_name"}"
 
@@ -205,15 +228,11 @@ __rvm_fetch_ruby()
       rvm_log "$rvm_ruby_string - #extracted to ${rvm_src_path}/$rvm_ruby_string (already extracted)"
     fi
 
-    return 0
-  else # -head
-    mkdir -p "${rvm_repos_path}"
+    true # for osx
+}
 
-    true ${rvm_ruby_url:="$rvm_ruby_repo_url"}
-
-    if
-      echo "$rvm_ruby_url" | GREP_OPTIONS="" \grep 'git' >/dev/null 2>&1
-    then # Using a  git url.
+__rvm_fetch_ruby_head_git()
+{
       case "$rvm_ruby_interpreter" in
         ruby)
           # Determine Branch
@@ -310,7 +329,10 @@ __rvm_fetch_ruby()
         return $result
       fi
       __rvm_fetch_from_git_revision_or_sha || return $?
-    else #svn
+}
+
+__rvm_fetch_ruby_head_svn()
+{
       if
         [[ -n "${rvm_ruby_tag:-""}" ]]
       then
@@ -372,12 +394,4 @@ __rvm_fetch_ruby()
         rvm_error "There has been an error while trying to fetch / update the source.  \nHalting the installation."
         return $result
       fi
-    fi
-    rvm_log "Copying from repo to src path..."
-    __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"
-    \cp -R "${rvm_repos_path}/${rvm_ruby_interpreter}" "${rvm_src_path}/$rvm_ruby_string"
-    __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"/.git
-    __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string"/.svn
-  fi
-  return ${result:-0}
 }
