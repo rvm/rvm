@@ -70,6 +70,23 @@ if
   (( download > 0 ))
 then
   \rm -f $archive
+  file_exists_at_url "$url" ||
+  {
+    typeset result=$?
+    typeset original_url="${url}"
+    if file_exists_at_url "${url/http:/ftp:}"
+    then url="${url/http:/ftp:}"
+    elif file_exists_at_url "${url/https:/ftp:}"
+    then url="${url/https:/ftp:}"
+    elif file_exists_at_url "${url/http:\/\//http://www.mirrorservice.org/sites/}"
+    then url="${url/http:\/\//http://www.mirrorservice.org/sites/}"
+    elif file_exists_at_url "${url/https:\/\//http://www.mirrorservice.org/sites/}"
+    then url="${url/https:\/\//http://www.mirrorservice.org/sites/}"
+    else rvm_fail "The requested URL does not exist($result): '$url'"
+    fi
+    rvm_warn "Original URL(${original_url}) not found,
+using fallback: ${url}"
+  }
   if
     "${fetch_command[@]}" "$url"
   then
@@ -79,7 +96,6 @@ then
     case "$result" in
       (22|78)
         rvm_error "The requested url does not exist($result): '$url'"
-        try_ftp=1
         ;;
       (18)
         rvm_error "Partial file($result). Only a part of the file was transferred. Removing partial and re-trying."
@@ -113,24 +129,17 @@ Try again and if it crashes more than a couple of times you either need to
 reinstall Curl or consult with your distribution manual and contact support."
         ;;
       (*)
-        rvm_error "There was an error($result), please check ${rvm_log_path}/$rvm_ruby_string/*.log. Next we'll try to fetch via http."
-        try_ftp=1
+        rvm_error "There was an error($result)."
         ;;
     esac
     if
-      [[ $try_ftp -eq 1 ]]
-    then
-      rvm_log "Trying ftp:// URL instead."
-      url="${url/http:/ftp:}"
-    fi
-    if
-      [[ $try_ftp -eq 1 || $retry -eq 1 ]]
+      [[ $retry -eq 1 ]]
     then
       "${fetch_command[@]}" "$url"
       result=$?
     fi
     (( result == 0 )) ||
-      rvm_fail "There was an error($result), please check ${rvm_log_path}/$rvm_ruby_string/*.log" $result
+      rvm_fail "There was an error($result)" $result
   fi
 fi
 
