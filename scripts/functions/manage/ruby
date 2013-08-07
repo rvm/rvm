@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/manage/base_fetch"
+
+ruby_install_baseruby_check()
+{
+  __rvm_ensure_has_mri_ruby || return $?
+  typeset compatible_baseruby
+  if
+    compatible_baseruby="$rvm_wrappers_path/$(__rvm_mri_ruby)/ruby" &&
+    [[ -x "$compatible_baseruby" ]]
+  then
+    rvm_configure_flags+=( --with-baseruby="$compatible_baseruby" )
+  else
+    return $?
+  fi
+}
+
 ruby_install()
 {
   typeset result temp_flags _iterator
@@ -8,16 +24,17 @@ ruby_install()
     ruby-1.8.*-head)
       __rvm_ensure_has_mri_ruby "ruby-1.8.|ree-" || return $?
       ;;
+    ruby-1.8.*)
+      if (( ${rvm_head_flag:-0} == 0 ))
+      then __rvm_ensure_has_mri_ruby "ruby-1.8.|ree-" || return $?
+      fi
+      ;;
     ruby*-head)
-      __rvm_ensure_has_mri_ruby || return $?
-      typeset compatible_baseruby
-      if
-        compatible_baseruby="$rvm_wrappers_path/$(__rvm_mri_ruby)/ruby" &&
-        [[ -x "$compatible_baseruby" ]]
-      then
-        rvm_configure_flags+=( --with-baseruby="$compatible_baseruby" )
-      else
-        return $?
+      ruby_install_baseruby_check || return $?
+      ;;
+    ruby*)
+      if (( ${rvm_head_flag:-0} == 0 ))
+      then ruby_install_baseruby_check || return $?
       fi
       ;;
   esac
