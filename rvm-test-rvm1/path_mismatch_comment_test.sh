@@ -23,6 +23,15 @@ rvm-shell 1.9.3 -c 'true'
 # match!=/is not at first place/
 # match!=/is not available/
 
+: test silencing
+export rvm_silence_path_mismatch_check_flag=1
+rvm use 1.9.3             # status=0
+GEM_HOME=$GEM_HOME@veve
+rvm version
+# match!=/is not at first place/
+# match!=/is not available/
+unset rvm_silence_path_mismatch_check_flag
+
 ## cd + .rvmrc
 :prepare
 rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
