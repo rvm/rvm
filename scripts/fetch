@@ -66,32 +66,18 @@ else
   download=1
 fi
 
-if
-  (( download > 0 ))
-then
-  \rm -f $archive
-  file_exists_at_url "$url" ||
-  {
-    typeset result=$?
-    typeset original_url="${url}"
-    if file_exists_at_url "${url/http:/ftp:}"
-    then url="${url/http:/ftp:}"
-    elif file_exists_at_url "${url/https:/ftp:}"
-    then url="${url/https:/ftp:}"
-    elif file_exists_at_url "${url/http:\/\//http://www.mirrorservice.org/sites/}"
-    then url="${url/http:\/\//http://www.mirrorservice.org/sites/}"
-    elif file_exists_at_url "${url/https:\/\//http://www.mirrorservice.org/sites/}"
-    then url="${url/https:\/\//http://www.mirrorservice.org/sites/}"
-    else rvm_fail "The requested URL does not exist($result): '$url'"
-    fi
-    rvm_warn "Original URL(${original_url}) not found,
-using fallback: ${url}"
-  }
+function download_the_url()
+{
+  typeset counter=${1:-0}
   if
-    "${fetch_command[@]}" "$url"
+    (( counter >3 ))
   then
-    true
-  else
+    rvm_error "ERROR: Retried 3 times and failed!"
+    return 200
+  fi
+  \rm -f $archive
+  "${fetch_command[@]}" "$url" ||
+  {
     result=$?
     case "$result" in
       (22|78)
@@ -99,13 +85,11 @@ using fallback: ${url}"
         ;;
       (18)
         rvm_error "Partial file($result). Only a part of the file was transferred. Removing partial and re-trying."
-        \rm -f "$archive"
-        retry=1
+        download_the_url $counter
         ;;
       (33)
         rvm_debug "Server does not support 'range' command($result), removing '$archive'"
-        \rm -f "$archive"
-        retry=1
+        download_the_url $counter
         ;;
       # duplication marker lfdgzkngdkjvnfjknkjvcnbjkncvjxbn
       (60)
@@ -132,15 +116,39 @@ reinstall Curl or consult with your distribution manual and contact support."
         rvm_error "There was an error($result)."
         ;;
     esac
+    return $result
+  }
+}
+
+function check_fallback_url()
+{
+  file_exists_at_url "$1" && url="$1" || return $?
+}
+
+if
+  (( download > 0 ))
+then
+  download_the_url ||
+  {
+    typeset result=$?
+    rvm_warn "Searching for a fallback for: ${url}"
     if
-      [[ $retry -eq 1 ]]
+      check_fallback_url "${url/http:/ftp:}"  ||
+      check_fallback_url "${url/https:/ftp:}" ||
+      check_fallback_url "${url/http:\/\//http://www.mirrorservice.org/sites/}"  ||
+      check_fallback_url "${url/https:\/\//http://www.mirrorservice.org/sites/}"
     then
-      "${fetch_command[@]}" "$url"
-      result=$?
+      rvm_log "Using fallback: ${url}"
+      download_the_url 1 ||
+        rvm_fail "Failed download" $?
+    else
+      rvm_fail "\
+No fallback URL could be found, try increasing timeout with:
+
+    echo \"export rvm_max_time_flag=20\" >> ~/.rvmrc
+" $result
     fi
-    (( result == 0 )) ||
-      rvm_fail "There was an error($result)" $result
-  fi
+  }
 fi
 
 # Check if we have downloaded the correct archive
