@@ -13,18 +13,43 @@ __rvm_run()
   __rvm_log_command "$name" "$message" "${_command_array[@]}" || return $?
 }
 
+__rvm_log_command_caclulate_log_timestamp()
+{
+  export rvm_log_timestamp="$(date "+%s")"
+  rvm_debug "Log prefix: ${rvm_log_path}/${rvm_log_timestamp}${rvm_ruby_string:+_}${rvm_ruby_string:-}/"
+}
+
+__rvm_log_command_caclulate_log_filesystem()
+{
+  export rvm_log_filesystem="$(
+    mount | awk -v rvm_path=$rvm_path '
+      BEGIN{longest=""; fstype=""}
+      {if (index(rvm_path,$3)==1 && length($3)>length(longest)){longest=$3; fstype=$5}}
+      END{print fstype}
+    '
+  )"
+  rvm_debug "Log filesystem: ${rvm_log_filesystem}"
+}
+
+__rvm_log_command_caclulate_log_namelen()
+{
+  case "${rvm_log_filesystem}" in
+    (ecryptfs) export rvm_log_namelen=138 ;;
+    (*)        export rvm_log_namelen=250 ;;
+  esac
+  rvm_debug "Log max name length: ${rvm_log_namelen}"
+}
+
 __rvm_log_command_caclulate_log_file_name()
 {
-  [[ -n "${__rvm_log_timestamp:-}" ]] ||
-  {
-    export __rvm_log_timestamp="$(date "+%s")"
-    rvm_debug "Log prefix: ${rvm_log_path}/${__rvm_log_timestamp}${rvm_ruby_string:+_}${rvm_ruby_string:-}/"
-  }
+  [[ -n "${rvm_log_timestamp:-}"  ]] || __rvm_log_command_caclulate_log_timestamp
+  [[ -n "${rvm_log_filesystem:-}" ]] || __rvm_log_command_caclulate_log_filesystem
+  [[ -n "${rvm_log_namelen:-}"    ]] || __rvm_log_command_caclulate_log_namelen
   name="${name//[ \/]/_}"
-  _log="${rvm_log_path}/${__rvm_log_timestamp}${rvm_ruby_string:+_}${rvm_ruby_string:-}/${name}"
+  _log="${rvm_log_path}/${rvm_log_timestamp}${rvm_ruby_string:+_}${rvm_ruby_string:-}/${name}"
   if [[ -n "${ZSH_VERSION:-}" ]]
-  then _log="${_log[0,250]}.log"
-  else _log="${_log:0:250}.log"
+  then _log="${_log[0,${rvm_log_namelen}]}.log"
+  else _log="${_log:0:${rvm_log_namelen}}.log"
   fi
 }
 
