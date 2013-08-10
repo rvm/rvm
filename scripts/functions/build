@@ -43,15 +43,21 @@ __rvm_found_compiler()
   __rvm_which clang 2>/dev/null
 }
 
+__rvm_fix_rbconfig_paths()
+{
+  __rvm_fix_gcc_path     "$@" &&
+  __rvm_fix_install_path "$@"
+}
+
 __rvm_fix_gcc_path()
 {
   typeset __config_file __cc_value __cc_new
   __rvm_which $(
-    "$rvm_ruby_home/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]||"true"' 2>/dev/null
+    "$1/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]||"true"' 2>/dev/null
   ) >/dev/null 2>/dev/null ||
   {
-    __cc_value="$( "$rvm_ruby_home/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]' 2>/dev/null )"
-    __config_file="$( __rvm_find $rvm_ruby_home/ -name rbconfig.rb 2>/dev/null )"
+    __cc_value="$( "$1/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]' 2>/dev/null )"
+    __config_file="$( __rvm_find $1/ -name rbconfig.rb 2>/dev/null )"
     if
       [[ -n "${__config_file}" ]] &&
       GREP_OPTIONS="" \grep "CONFIG\[\"CC\"\]" "${__config_file}" >/dev/null
@@ -62,6 +68,29 @@ __rvm_fix_gcc_path()
         -e "s#CONFIG\[\"CC\"\].*\$#CONFIG[\"CC\"] = ENV[\"CC\"] || \"${__cc_new}\"#"
     else
       rvm_warn "Installed ruby contains path to non existing compiler '${__cc_value}', compiling native gems might be impossible."
+    fi
+  }
+}
+
+__rvm_fix_install_path()
+{
+  typeset __config_file __install_value __install_new
+  __rvm_which $(
+    "$1/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["INSTALL"]||"true"' 2>/dev/null
+  ) >/dev/null 2>/dev/null ||
+  {
+    __install_value="$( "$1/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["INSTALL"]' 2>/dev/null )"
+    __config_file="$( __rvm_find $1/ -name rbconfig.rb 2>/dev/null )"
+    if
+      [[ -n "${__config_file}" ]] &&
+      GREP_OPTIONS="" \grep "CONFIG\[\"INSTALL\"\]" "${__config_file}" >/dev/null
+    then
+      __install_new="$( \which install )"
+      rvm_debug "Fixing ruby installer from '${__install_value}' to '${__install_new}'."
+      __rvm_sed_i "${__config_file}" \
+        -e "s#CONFIG\[\"INSTALL\"\].*\$#CONFIG[\"INSTALL\"] = \"${__install_new}\"#"
+    else
+      rvm_warn "Installed ruby contains path to non existing compiler '${__install_value}', compiling native gems might be impossible."
     fi
   }
 }
