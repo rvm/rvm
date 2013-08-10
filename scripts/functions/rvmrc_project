@@ -33,6 +33,7 @@ __rvm_project_rvmrc()
         __rvm_conditionally_add_bin_path
         __rvm_load_environment "$rvm_previous_environment"
       fi
+      __rvm_project_ruby_env_check_unload
       unset rvm_current_rvmrc rvm_previous_environment
       break
     else
@@ -64,9 +65,10 @@ __rvm_project_rvmrc()
 
 __rvm_load_project_config()
 {
-  typeset __gemfile __gem_names _gem _bundle_install
+  typeset __gemfile __gem_names _gem _bundle_install __env_vars_prefix __env_vars_file
   __gemfile=""
   __gem_names=""
+  __env_vars_file=""
   : rvm_autoinstall_bundler_flag:${rvm_autoinstall_bundler_flag:=0}
   case "$1" in
     (*/.rvmrc)
@@ -95,7 +97,9 @@ __rvm_load_project_config()
       [[ -n "${rvm_ruby_string}" ]] || return 2
       rvm_gemset_name="$( \tr -d '\r' <"$1" | sed -n '/^ruby-gemset=/ {s/ruby-gemset=//;p;}' )"
       rvm_create_flag=1 __rvm_use   || return 3
-      # TODO: read env.* # how to sanitize ?
+
+      __env_vars_prefix="env-"
+      __env_vars_file="$1"
 
       __gem_names="$( \tr -d '\r' <"$1" | sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' )"
       if   [[ -z "${__gem_names:-}" ]]
@@ -138,7 +142,8 @@ __rvm_load_project_config()
 
       rvm_create_flag=1 __rvm_use   || return 3
 
-      # TODO: read #env.* # how to sanitize ?
+      __env_vars_prefix="#ruby-env-"
+      __env_vars_file="$1"
       if
         [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
       then
@@ -160,7 +165,17 @@ __rvm_load_project_config()
         rvm_gemset_name="$( \tr -d '\r' <"${1%/*}/.ruby-gemset" )"
       fi
       rvm_create_flag=1 __rvm_use   || return 3
-      # "${1%/*}/.rbenv-vars" ... can we support those without licensing ?
+      if
+        [[ -f "${1%/*}/.ruby-env" ]]
+      then
+        __env_vars_prefix=""
+        __env_vars_file="${1%/*}/.ruby-env"
+      elif
+        [[ -f "${1%/*}/.rbenv-vars" ]]
+      then
+        __env_vars_prefix=""
+        __env_vars_file="${1%/*}/.rbenv-vars"
+      fi
       if
         [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "${1%/*}/Gemfile" ]]
       then
@@ -174,6 +189,9 @@ __rvm_load_project_config()
       return 1
       ;;
   esac
+  if [[ -n "${__env_vars_file:-}" && -f "${__env_vars_file:-}" ]]
+  then __rvm_project_ruby_env_load "${__env_vars_file:-}" "${__env_vars_prefix:-}"
+  fi
 
   # TODO: add support for versions checking
   for _gem in ${__gem_names//,/ }
@@ -214,4 +232,51 @@ __rvm_project_dir_check()
   fi
 
   [[ -n "${_found_file:-$variable_default}" ]] || return $?
+}
+
+__rvm_project_ruby_env_load_parse_file()
+{
+  typeset -a __sed_commands
+  __sed_commands=()
+  if [[ -n "${2:-}" ]]
+  then __sed_commands+=( -e "/^$2/ !d" -e "s/^$2//" ) # filter other content and remove prefix
+  else __sed_commands+=( -e "/^#/ d" )                # remove comments
+  fi
+  __sed_commands+=( -e 's/`/\\`/g' -e 's/$(/\\$(/g' ) # do not allow command execution `` / $()
+  __sed_commands+=( -e "/^$/ d" )                     # remove empty lines
+
+  __rvm_read_lines __variables <( { cat "$1"; echo ""; } | sed "${__sed_commands[@]}" )
+}
+
+__rvm_project_ruby_env_load_set_env()
+{
+  typeset __save_to __key __value
+  __save_to="$1"
+  shift
+  for __set in "$@"
+  do
+    __key="${__set%%=*}"
+    __value="${__set#*=}"
+    if [[ -n "${__save_to}" ]]
+    then eval "${__save_to}+=( \"\${__key}=\${${__key}}\" )"
+    fi
+    eval "export \${__key}=\"${__value}\""
+  done
+}
+
+__rvm_project_ruby_env_load()
+{
+  typeset -a __variables
+  export -a rvm_saved_env
+  __rvm_project_ruby_env_check_unload
+  __rvm_project_ruby_env_load_parse_file "$@"
+  __rvm_project_ruby_env_load_set_env "rvm_saved_env" "${__variables[@]}"
+}
+
+__rvm_project_ruby_env_check_unload()
+{
+  if (( ${#rvm_saved_env[@]} > 0 ))
+  then __rvm_project_ruby_env_load_set_env "" "${rvm_saved_env[@]}"
+  fi
+  rvm_saved_env=()
 }
