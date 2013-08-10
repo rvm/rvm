@@ -64,7 +64,9 @@ __rvm_project_rvmrc()
 
 __rvm_load_project_config()
 {
-  typeset __gemfile
+  typeset __gemfile __gem_names _gem _bundle_install
+  __gemfile=""
+  __gem_names=""
   : rvm_autoinstall_bundler_flag:${rvm_autoinstall_bundler_flag:=0}
   case "$1" in
     (*/.rvmrc)
@@ -85,7 +87,6 @@ __rvm_load_project_config()
       ;;
 
     (*/.versions.conf)
-      typeset _gem _gem_names _bundle_install
       __rvm_ensure_is_a_function
       rvm_previous_environment="$(__rvm_env_string)"
       rvm_current_rvmrc="$1"
@@ -96,12 +97,12 @@ __rvm_load_project_config()
       rvm_create_flag=1 __rvm_use   || return 3
       # TODO: read env.* # how to sanitize ?
 
-      _gem_names="$( \tr -d '\r' <"$1" | sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' )"
-      for _gem in ${_gem_names//,/ }
-      do
-        # TODO: add support for versions
-        gem list | GREP_OPTIONS="" \grep "^${_gem} " > /dev/null || gem install "${_gem}"
-      done
+      __gem_names="$( \tr -d '\r' <"$1" | sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' )"
+      if   [[ -z "${__gem_names:-}" ]]
+      then __gem_names=bundler
+      elif [[ ! ",${__gem_names:-}," =~ ",bundler," ]]
+      then __gem_names="${__gem_names:-},bundler"
+      fi
 
       _bundle_install="$( \tr -d '\r' <"$1" | sed -n '/^ruby-bundle-install=/ {s/ruby-bundle-install=//;p;}' )"
       if [[ -n "${_bundle_install}" ]] || [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
@@ -138,8 +139,11 @@ __rvm_load_project_config()
       rvm_create_flag=1 __rvm_use   || return 3
 
       # TODO: read #env.* # how to sanitize ?
-      if [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
-      then __gemfile="$1"
+      if
+        [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
+      then
+        __gemfile="$1"
+        __gem_names=bundler
       fi
       ;;
 
@@ -157,8 +161,11 @@ __rvm_load_project_config()
       fi
       rvm_create_flag=1 __rvm_use   || return 3
       # "${1%/*}/.rbenv-vars" ... can we support those without licensing ?
-      if [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "${1%/*}/Gemfile" ]]
-      then __gemfile="${1%/*}/Gemfile"
+      if
+        [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "${1%/*}/Gemfile" ]]
+      then
+        __gemfile="${1%/*}/Gemfile"
+        __gem_names=bundler
       fi
       ;;
 
@@ -168,11 +175,13 @@ __rvm_load_project_config()
       ;;
   esac
 
-  if
-    [[ -n "${__gemfile:-}" && -f "${__gemfile:-}" ]]
-  then
-    gem list | GREP_OPTIONS="" \grep "^bundler " > /dev/null || gem install "bundler"
-    bundle install --gemfile="${__gemfile}" | GREP_OPTIONS="" \grep -vE '^Using|Your bundle is complete'
+  # TODO: add support for versions checking
+  for _gem in ${__gem_names//,/ }
+  do gem list | GREP_OPTIONS="" \grep "^${_gem} " > /dev/null || gem install "${_gem}"
+  done
+
+  if [[ -n "${__gemfile:-}" && -f "${__gemfile:-}" ]]
+  then bundle install --gemfile="${__gemfile}" | GREP_OPTIONS="" \grep -vE '^Using|Your bundle is complete'
   fi
 }
 
