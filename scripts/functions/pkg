@@ -11,7 +11,7 @@ requirements_rvm_pkg_lib_installed()
   if is_a_function ${1}_installed && ${1}_installed
   then return 0
   fi
-  requirements_rvm_pkg_config --list-all | grep "^$1[- ]" >/dev/null || return $?
+  requirements_rvm_pkg_config --list-all | __rvm_grep "^$1[- ]" >/dev/null || return $?
   true
 }
 
@@ -30,7 +30,7 @@ requirements_rvm_pkg_after_uniqe_paths()
   typeset __lib __lib_full_name
   for __lib
   do
-    __lib_full_name=$( requirements_rvm_pkg_config --list-all | awk "/^${__lib}[- ]/{print \$1}" )
+    __lib_full_name=$( requirements_rvm_pkg_config --list-all | __rvm_awk "/^${__lib}[- ]/{print \$1}" )
     if
       [[ -n "${__lib_full_name}" ]]
     then
@@ -120,7 +120,7 @@ install_package()
         (( ${#rvm_autoconf_flags[@]} == 0 ))
       then
         if
-          uname -s | GREP_OPTIONS="" \grep -iE 'cygwin|mingw' >/dev/null
+          uname -s | GREP_OPTIONS="" __rvm_grep -iE 'cygwin|mingw' >/dev/null
         then
           rvm_autoconf_flags=( -ivf )  # no symlinks on windows :(
         else
@@ -147,16 +147,16 @@ install_package()
     touch "$rvm_path/config/packages"
     if [[ "$action" == "uninstall" ]]
     then
-      __rvm_log_command "$package/make.uninstall" "Uninstalling $package from ${prefix_path:-$rvm_usr_path}"  make uninstall &&
+      __rvm_log_command "$package/make.uninstall" "Uninstalling $package from ${prefix_path:-$rvm_usr_path}"  __rvm_make uninstall &&
       __rvm_cd "$rvm_src_path" &&
       __rvm_log_command "$package/rm_src.uninstall" "Removing ${package}-${version} from $rvm_src_path" \
         \rm -rf "$rvm_src_path/$package-$version" &&
       "$rvm_scripts_path/db" "$rvm_path/config/packages" "${package}" delete
     else
       __rvm_log_command "$package/make"         "Compiling $package in $rvm_src_path/$package-$version." \
-        make "${rvm_make_flags[@]}" &&
+        __rvm_make "${rvm_make_flags[@]}" &&
       __rvm_log_command "$package/make.install" "Installing $package to ${prefix_path:-$rvm_usr_path}" \
-        make install &&
+        __rvm_make install &&
       "$rvm_scripts_path/db" "$rvm_path/config/packages" "${package}" "${version}"
     fi
   )
@@ -187,7 +187,7 @@ package_installed()
   [[ -n "${__lib_file}" ]] || return $?
 
   case "$(uname)" in
-    (Darwin) lipo -info "${__lib_file}" | \grep "$(uname -m)" >/dev/null || return $? ;;
+    (Darwin) lipo -info "${__lib_file}" | __rvm_grep "$(uname -m)" >/dev/null || return $? ;;
   esac
 }
 
@@ -243,8 +243,8 @@ install_openssl()
       then hw_machine="Power Macintosh"
       fi
     else
-      hw_machine=$(sysctl hw.machine | awk -F: '{print $2}' | sed 's/^ //')
-      hw_cpu64bit=$(sysctl hw.cpu64bit_capable | awk '{print $2}')
+      hw_machine=$(sysctl hw.machine | __rvm_awk -F: '{print $2}' | __rvm_sed 's/^ //')
+      hw_cpu64bit=$(sysctl hw.cpu64bit_capable | __rvm_awk '{print $2}')
     fi
     if
       [[ "Power Macintosh" == "$hw_machine" ]]
@@ -395,8 +395,8 @@ install_llvm()
       svn co -r "$version" "$package_url" llvm
       __rvm_cd "$rvm_src_path/llvm"
       ./configure --enable-bindings=none
-      UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make -j2
-      __rvm_try_sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 make install
+      UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 __rvm_make -j2
+      __rvm_try_sudo env UNIVERSAL=1 UNIVERSAL_ARCH="i386 x86_64" ENABLE_OPTIMIZED=1 __rvm_make install
     fi
   )
 }
