@@ -1,1 +1,118 @@
-ubuntu
+#!/usr/bin/env bash
+
+# AMD64, i386, ARM.
+requirements_debian_arch()
+{
+  __architecture="$(dpkg --print-architecture)"
+}
+
+# Queries the dpkg system for packages that are installed only asking about
+# the package name and it's arch.  This package will fall back to :all for
+# cases where we cannot get an arch specific package (such is the case
+# for a few packages.)
+
+requirements_debian_lib_installed()
+{
+  dpkg-query -s "${1}:${__architecture}" >/dev/null 2>&1 ||
+  dpkg-query -s "${1}:all"               >/dev/null 2>&1 ||
+  dpkg-query -s "$1" 2>/dev/null | __rvm_grep "Architecture: ${__architecture}" >/dev/null ||
+  dpkg-query -s "$1" 2>/dev/null | __rvm_grep "Architecture: all"               >/dev/null ||
+  return $?
+}
+
+# Informs us if a package is even available on the distro we are working
+# with, this is more of a transitional method kind of like Ubuntu
+# has a transitional git-core package right now.  This will allow us
+# to continue to support older versions of Ubuntu while enforcing newer
+# packages on newer Ubuntu.
+
+requirements_debian_lib_available()
+{
+  apt-cache show "$1" >/dev/null 2>&1 || return $?
+}
+
+requirements_debian_libs_install()
+{
+  __rvm_try_sudo apt-get --no-install-recommends --yes install "$@" || return $?
+}
+
+requirements_debian_update_system()
+{
+  __rvm_try_sudo apt-get --quiet --yes update ||
+  {
+    typeset __ret=$?
+    case ${__ret} in
+      (100)
+        rvm_error "There has been error while updating 'apt-get', please give it some time and try again later.
+For 404 errors check your sources configured in:
+    /etc/apt/sources.list
+    /etc/apt/sources.list.d/*.list
+"
+        ;;
+    esac
+    return ${__ret}
+  }
+}
+
+requirements_debian_define()
+{
+  typeset __architecture
+  requirements_debian_arch
+
+  case "$1" in
+    (rvm)
+      requirements_check bash curl patch bzip2 ca-certificates gawk
+      ;;
+
+    (jruby*head)
+      requirements_check g++ ant
+      update-alternatives --list javac >/dev/null 2>&1 ||
+        requirements_check_fallback \
+          openjdk-7-jdk oracle-j2sdk1.7 \
+          opendjk-6-jdk oracle-j2sdk1.6
+      requirements_check_fallback git git-core
+      ;;
+
+    (jruby*)
+      requirements_check g++
+      update-alternatives --list java >/dev/null 2>&1 ||
+        requirements_check_fallback \
+          openjdk-7-jre-headless openjdk-7-jdk oracle-j2sdk1.7 \
+          openjdk-6-jre-headless opendjk-6-jdk oracle-j2sdk1.6
+      ;;
+
+    (ir*)
+      requirements_check curl mono-2.0-devel
+      ;;
+
+    (opal)
+      requirements_check nodejs npm
+      ;;
+
+    (*-head)
+      requirements_check_fallback git git-core
+      requirements_debian_define "${1%-head}"
+      ;;
+
+    (*)
+      # Also ran by *-head.
+      requirements_check \
+        g++ gcc __rvm_make libc6-dev patch openssl ca-certificates libreadline6 \
+        libreadline6-dev curl zlib1g zlib1g-dev libssl-dev libyaml-dev \
+        libsqlite3-dev sqlite3 autoconf \
+        libgdbm-dev libncurses5-dev automake libtool bison pkg-config libffi-dev
+      ;;
+  esac
+}
+
+requirements_ubuntu_define()
+{
+  __lib_type=debian
+  requirements_debian_define "$@"
+}
+
+requirements_mint_define()
+{
+  __lib_type=debian
+  requirements_debian_define "$@"
+}

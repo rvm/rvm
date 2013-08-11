@@ -1,1 +1,119 @@
-centos
+#!/usr/bin/env bash
+
+requirements_centos_lib_installed()
+{
+  rpm -q --whatprovides "$1" >/dev/null || return $?
+}
+
+requirements_centos_lib_available()
+{
+  yum list --cacheonly --quiet "$1" >/dev/null 2>&1 || return $?
+}
+
+# required only for libyaml-devel check as fedora is broken ...
+requirements_centos_lib_available_no_caching()
+{
+  yum list --quiet "$1" >/dev/null 2>&1 || return $?
+}
+
+requirements_centos_libs_install()
+{
+  __rvm_try_sudo yum install -y "$@" || return $?
+}
+
+requirements_centos_update_system()
+{
+  [[ " ${packages_to_install[*]} " =~ " libyaml-devel " ]] || return 0
+  # if you change this, change the scripts/functions/pkg version too
+  [[ -f /etc/yum.repos.d/epel.repo ]] ||
+  requirements_centos_lib_installed libyaml-devel ||
+  requirements_centos_lib_available_no_caching libyaml-devel ||
+  {
+    typeset version="${_system_version%%.*}"
+    __rvm_db "epel${version}_key" "epel_key"
+    __rvm_db "epel${version}_rpm" "epel_rpm"
+    if
+      [[ -z "$epel_rpm" || -z "$epel_key" ]]
+    then
+      rvm_error "There is no 'libyaml-devel' package available for installation and RVM does not know how to __rvm_make that happen,
+please tell us how to install 'libyaml-devel' on '${_system_name}-${_system_version}' here: https://github.com/wayneeseguin/rvm/issues"
+      return 49
+    fi
+    "${rvm_scripts_path}/fetch" "${epel_key}"
+    "${rvm_scripts_path}/fetch" "${epel_rpm}"
+    __rvm_try_sudo rpm --import   "${rvm_archives_path}/${epel_key##*/}"
+    __rvm_try_sudo rpm --quiet -i "${rvm_archives_path}/${epel_rpm##*/}" ||
+    {
+      typeset __ret=$?
+      rvm_error "Error installing EPEL, it is required for libyaml-devel,
+either there was an error installing EPEL package,
+or there was problem checking if libyaml-devel is available / installed."
+      return ${__ret}
+    }
+  }
+}
+
+requirements_centos_check_binary()
+{
+  {
+    __rvm_which update-alternatives >/dev/null &&
+    update-alternatives --display "$1" >/dev/null 2>&1
+  } ||
+  __rvm_which "$1" >/dev/null || return $?
+}
+
+requirements_centos_define()
+{
+  case "$1" in
+    (rvm)
+      requirements_check bash curl patch
+      ;;
+    (jruby*head)
+      requirements_centos_check_binary javac ||
+        requirements_check_fallback java-1.7.0-openjdk-devel java-devel
+      requirements_check git
+      ;;
+    (jruby*)
+      requirements_centos_check_binary java ||
+        requirements_check_fallback java-1.7.0-openjdk java
+      ;;
+    (ir*)
+      true # not that easy
+      ;;
+    (opal)
+      true # not that easy
+      ;;
+    (*-head)
+      requirements_check gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel __rvm_make bzip2 autoconf automake libtool bison git
+      ;;
+    (*)
+      requirements_check gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel __rvm_make bzip2 autoconf automake libtool bison
+      ;;
+  esac
+}
+
+requirements_amazon_before()
+{
+  __lib_type=centos
+}
+
+requirements_fedora_before_update_cache()
+{
+  __rvm_try_sudo yum clean all || true      # can fail to clean
+  __rvm_try_sudo yum __rvm_makecache || return $? # but must rebuild cache
+}
+
+requirements_fedora_before()
+{
+  requirements_centos_lib_available_no_caching yum ||
+    rvm_requiremnts_fail_or_run_action 2 \
+      "It is not possible to check if packages are installed, __rvm_make sure the cache is up to date with 'yum __rvm_makecache' and try again." \
+      __rvm_log_command fedora_update_cache "Updating packages cache" requirements_fedora_before_update_cache ||
+      return $?
+  __lib_type=centos
+}
+
+requirements_redhat_before()
+{
+  __lib_type=centos
+}

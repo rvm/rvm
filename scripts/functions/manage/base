@@ -37,7 +37,7 @@ __rvm_apply_patches()
   typeset -a patches
   patches=()
   patch_level_separator="%"
-  patch_fuzziness="25" # max fuziness that makes sense is 3 (or there are patches with bigger context ?)
+  patch_fuzziness="25" # max fuziness that __rvm_makes sense is 3 (or there are patches with bigger context ?)
   result=0
   source_directory="${1:-"${rvm_src_path}/$rvm_ruby_string"}"
   (( $# == 0 )) || shift
@@ -109,7 +109,7 @@ __rvm_apply_patch()
 
   if
     [[ -r "patches.list" ]] &&
-    GREP_OPTIONS="" \grep "${_patch_name}" "patches.list" >/dev/null
+    GREP_OPTIONS="" __rvm_grep "${_patch_name}" "patches.list" >/dev/null
   then
     rvm_warn "Patch ${_patch_name} was already applied."
   else
@@ -230,7 +230,7 @@ __rvm_install_source()
   then true
   else
     result=$?
-    rvm_error "There has been an error while running make. Halting the installation."
+    rvm_error "There has been an error while running __rvm_make. Halting the installation."
     return $result
   fi
 
@@ -242,7 +242,7 @@ __rvm_install_source()
   then true
   else
     result=$?
-    rvm_error "There has been an error while running make install. Halting the installation."
+    rvm_error "There has been an error while running __rvm_make install. Halting the installation."
     return $result
   fi
 
@@ -348,7 +348,7 @@ __rvm_install_ruby()
         rvm_error "
 The used ruby name (-n) is not valid, it was matched as:
 
-$( env | GREP_OPTIONS="" \grep "^rvm.*=$__rvm_ruby_name$" || printf "# Was not used at all\n")
+$( env | GREP_OPTIONS="" __rvm_grep "^rvm.*=$__rvm_ruby_name$" || printf "# Was not used at all\n")
 
 for more details on selecting names please visit:
 https://rvm.io/rubies/named/
@@ -497,7 +497,7 @@ __rvm_gemset_pristine_all()
   while read -r destination_gemset
   do __rvm_gemset_pristine "$destination_gemset"
   done < <(
-    "$rvm_scripts_path/list" gemsets strings | GREP_OPTIONS="" \grep -E "^$1(@.*)?$"
+    "$rvm_scripts_path/list" gemsets strings | GREP_OPTIONS="" __rvm_grep -E "^$1(@.*)?$"
   )
 }
 
@@ -554,7 +554,7 @@ __rvm_remove_aliases()
   rvm_log "Removing $rvm_ruby_string aliases..."
   typeset alias_name aliases
 
-  aliases=($(awk '/'$rvm_ruby_string'/{print}' "$rvm_path/config/alias" | sed 's/=.*//'))
+  aliases=($(__rvm_awk '/'$rvm_ruby_string'/{print}' "$rvm_path/config/alias" | __rvm_sed 's/=.*//'))
   for alias_name in "${aliases[@]}"
   do
     # Remove from alias key-value store
@@ -651,18 +651,18 @@ __rvm_inject_gem_env()
     [[ -s "$actual_file" ]]
   then
     if
-      [[ -n "$(head -n 1 "$actual_file" | awk '/[j]*ruby/{print}')" ]]
+      [[ -n "$(head -n 1 "$actual_file" | __rvm_awk '/[j]*ruby/{print}')" ]]
     then
       string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_ruby_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_ruby_gem_path'\nENV['PATH']='$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:' + ENV['PATH']\n"
     elif
-      [[ -n "$(head -n 1 "$actual_file" | awk '/bash/{print}')" ]]
+      [[ -n "$(head -n 1 "$actual_file" | __rvm_awk '/bash/{print}')" ]]
     then
       string="GEM_HOME=\${GEM_HOME:-'$rvm_ruby_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_ruby_gem_home:$rvm_ruby_global_gems_path'}\nPATH=$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH\n"
     fi
     if
       [[ -n "$string" ]]
     then
-      awk "NR==2 {print \"$string\"} {print}" "$actual_file" > "$actual_file.new"
+      __rvm_awk "NR==2 {print \"$string\"} {print}" "$actual_file" > "$actual_file.new"
       \mv -f $actual_file.new $actual_file
       [[ -x "$actual_file" ]] || chmod +x "$actual_file"
     fi
