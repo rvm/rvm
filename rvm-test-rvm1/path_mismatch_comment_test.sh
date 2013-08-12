@@ -1,4 +1,5 @@
 source "$rvm_path/scripts/rvm"
+rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
 
 : test no error
 rvm use 1.9.3 --install   # status=0
@@ -33,8 +34,7 @@ rvm version
 unset rvm_silence_path_mismatch_check_flag
 
 ## cd + .rvmrc
-:prepare
-rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
+: prepare
 rvm use system
 rvm alias delete default
 true TMPDIR:${TMPDIR:=/tmp}:

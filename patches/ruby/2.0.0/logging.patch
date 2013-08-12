@@ -1,0 +1,54 @@
+--- trunk/ext/extmk.rb  (revision 40079)
++++ trunk/ext/extmk.rb  (revision 40080)
+@@ -193,19 +193,11 @@
+    Logging::logfile 'mkmf.log'
+    rm_f makefile
+    if conf
+-            stdout = $stdout.dup
+-            stderr = $stderr.dup
+-            unless verbose?
+-              $stderr.reopen($stdout.reopen(@null))
+-            end
+-            begin
++            Logging.open do
++              unless verbose?
++                $stderr.reopen($stdout.reopen(@null))
++              end
+               load $0 = conf
+-            ensure
+-              Logging::log_close
+-              $stderr.reopen(stderr)
+-              $stdout.reopen(stdout)
+-              stdout.close
+-              stderr.close
+             end
+    else
+      create_makefile(target)
+@@ -235,11 +227,13 @@
+         mess = "#{error}\n#{mess}"
+       end
+
+-      Logging::message(mess)
++      Logging::message(mess) if Logging.log_opened?
+       print(mess)
+       $stdout.flush
++      Logging::log_close
+       return true
+     end
++    Logging::log_close
+     args = sysquote($mflags)
+     unless $destdir.to_s.empty? or $mflags.defined?("DESTDIR")
+       args += [sysquote("DESTDIR=" + relative_from($destdir, "../"+prefix))]
+--- trunk/lib/mkmf.rb (revision 40079)
++++ trunk/lib/mkmf.rb (revision 40080)
+@@ -310,6 +310,10 @@
+       @log.sync = true
+     end
+
++    def self::log_opened?
++      @log and not @log.closed?
++    end
++
+     def self::open
+       log_open
+       $stderr.reopen(@log)

@@ -25,14 +25,14 @@ requirements_find_osx_port()
 requirements_osx_port_version_list()
 {
   if __rvm_which $1 >/dev/null
-  then $1 --version 2>/dev/null | sed -n -e '1{s/^.* //; p;}'
+  then $1 --version 2>/dev/null | __rvm_sed -n -e '1{s/^.* //; p;}'
   fi
-  port -q installed $1* 2>/dev/null | sed -e 's/.* @//' -e 's/_.*//' -e 's/ .*//'
+  port -q installed $1* 2>/dev/null | __rvm_sed -e 's/.* @//' -e 's/_.*//' -e 's/ .*//'
 }
 
 requirements_osx_port_lib_installed()
 {
-  port -q installed $1 | GREP_OPTIONS="" \grep active >/dev/null || return $? ;
+  port -q installed $1 | __rvm_grep active >/dev/null || return $? ;
 }
 
 requirements_osx_port_libs_install()
@@ -132,7 +132,7 @@ requirements_osx_port_after()
   do port_root="$( readlink "${port_root}" )"      # resolve any links to point to the final target
   done
   [[ -n "${port_root}" && -x "${port_root}"  ]] && # verify binary and
-  port_root="${port_root%/*/*}"                    # get    root
+  port_root="${port_root%%*(/)bin*(/)port}"        # get    root
   [[ -n "${port_root}" && -d "${port_root}" ]]  || # verify root   or
   port_root="/opt/local"                           # fallback to default
 
@@ -153,8 +153,8 @@ requirements_osx_port_install_port()
   typeset macports_version
   macports_version="$(
     __rvm_curl https://distfiles.macports.org/MacPorts/ |
-    grep -Eo "<a href=\"MacPorts-[[:digit:]\.]+.tar.bz2\">" |
-    awk -F'"' '{print $2}' | sort | tail -n 1
+    __rvm_grep -Eo "<a href=\"MacPorts-[[:digit:]\.]+.tar.bz2\">" |
+    __rvm_awk -F'"' '{print $2}' | sort | __rvm_tail -n 1
   )" #'
   macports_version="${macports_version%.tar.bz2}"
   : macports_version:${macports_version:=MacPorts-2.1.3}
@@ -163,7 +163,8 @@ requirements_osx_port_install_port()
   __rvm_curl "https://distfiles.macports.org/MacPorts/${macports_version}.tar.bz2" | tar -xj --strip 1
   __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
   ./configure &&
-  make &&
+  __rvm_make &&
+  # plain make is required for sudo
   __rvm_try_sudo make install || return $?
   __rvm_which port >/dev/null || ln -s /opt/local/bin/port "${rvm_bin_path}"/port
 }

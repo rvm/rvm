@@ -47,7 +47,7 @@ then
       diff - "${file}" &&
       printf "  * No new notes to display.\n" >&2 ||
       true
-    ) | sed '/^[^<]/ d ; s/^< //'
+    ) | __rvm_sed '/^[^<]/ d ; s/^< //'
     printf "\n" >&2
     \mv -f "${file}.new" "${file}"
   }
@@ -109,7 +109,7 @@ $notes_type Notes:
   : \
     rvm_scripts_path:${rvm_scripts_path:-$rvm_path/scripts}:
 
-  \cat "$rvm_path/help/upgrade-notes.txt" | sed \
+  \cat "$rvm_path/help/upgrade-notes.txt" | __rvm_sed \
    -e "s/\${SHELL}/${SHELL//\//\/}/g" \
    -e "s/\${rvm_scripts_path}/${rvm_scripts_path//\//\/}/g"
 
@@ -118,7 +118,7 @@ $notes_type Notes:
   if
     [[ ${rvm_ignore_dotfiles_flag:-0} == 0 ]] &&
     [[ -f /etc/profile.d/rvm.sh ]] &&
-    ! GREP_OPTIONS="" \grep rvm_stored_umask /etc/profile.d/rvm.sh >/dev/null
+    ! __rvm_grep rvm_stored_umask /etc/profile.d/rvm.sh >/dev/null
   then
     important_message "
   * WARNING: your RVM loading script \`/etc/profile.d/rvm.sh\` is deprecated
@@ -137,7 +137,7 @@ $notes_type Notes:
 
     open new terminal and validate environment is clean from old rvm settings:
 
-      env | GREP_OPTIONS="" \grep rvm
+      env | __rvm_grep rvm
 
     install RVM:
 
@@ -163,21 +163,22 @@ $notes_type Notes:
 
   if
     [[ ${rvm_ignore_dotfiles_flag:-0} == 0 ]] &&
-    [[ -f ~/.profile ]] && ! [[ "$rvm_path" == "/usr/local/rvm" || $UID == 0 ]]
+    [[ -f "$HOME/.profile" ]] && ! [[ "$rvm_path" == "/usr/local/rvm" || $UID == 0 ]]
   then
     for __var in "$HOME/.bash_profile" "$HOME/.bash_login"
     do
-      [[ -f "${__var}" ]] || continue
       if
-        GREP_OPTIONS="" \grep 'source.*profile' "${__var}" >/dev/null 2>&1
+        [[ -f "${__var}" ]]
       then
-        important_message "
+        __rvm_grep 'source.*profile' "${__var}" >/dev/null 2>&1 ||
+        {
+          important_message "
   * WARNING: You have '~/.profile' file, you might want to load it,
     to do that add the following line to '${__var}':
 
       source ~/.profile
 "
-      else
+        }
         break
       fi
     done
@@ -209,8 +210,8 @@ $notes_type Notes:
   if
     [[ ${rvm_ignore_dotfiles_flag:-0} == 0 ]] &&
     (( ${#__files[@]} )) &&
-    GREP_OPTIONS="" \grep -rn '^[^#]*PATH=' "${__files[@]}" |
-      GREP_OPTIONS="" \grep -vE '[[:alnum:]_]PATH=|PATH=.*PATH'
+    __rvm_grep -rn '^[^#]*PATH=' "${__files[@]}" |
+      __rvm_grep -vE '[[:alnum:]_]PATH=|PATH=.*PATH'
   then
     # account for grep not showing file name for just one file checked
     if (( ${#__files[*]} == 1 ))
@@ -235,7 +236,7 @@ $notes_type Notes:
 
   if
     [[ -f /etc/rvmrc && -s /etc/rvmrc ]] &&
-    GREP_OPTIONS="" \grep 'rvm_configure_env=.*/opt/sm' /etc/rvmrc >/dev/null 2>&1
+    __rvm_grep 'rvm_configure_env=.*/opt/sm' /etc/rvmrc >/dev/null 2>&1
   then
     important_message "
   * WARNING: you have 'rvm_configure_env' in /etc/rvmrc, run the following to fix:
@@ -258,7 +259,7 @@ $notes_type Notes:
         for _check in " -n" --user-install gemhome gempath
         do
           if
-            GREP_OPTIONS="" \grep -E -- '^'"${_check}"'|^[^#]*'"${_check}" "${_gemrc}" >/dev/null
+            __rvm_grep -E -- '^'"${_check}"'|^[^#]*'"${_check}" "${_gemrc}" >/dev/null
           then
             (( _found++ ))
             important_message "  * WARNING: Found ${_check} in ${_gemrc}, please remove it, as it will break rubygems in RVM."

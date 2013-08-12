@@ -40,8 +40,8 @@ gemset_update()
     rvm_log "Running gem update for all rubies and gemsets."
     rvm_ruby_strings="$(
       __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
-      \find . -maxdepth 1 -mindepth 1 -type d -print 2>/dev/null |
-        GREP_OPTIONS="" \grep -v '^\(doc\|cache\|@\|system\)' | \tr '\n' ','
+      __rvm_find . -maxdepth 1 -mindepth 1 -type d -print 2>/dev/null |
+        __rvm_grep -v '^\(doc\|cache\|@\|system\)' | \tr '\n' ','
     )"
     rvm_ruby_strings="${rvm_ruby_strings/%,}"
     rvm_ruby_strings="${rvm_ruby_strings//.\/}"
@@ -75,7 +75,7 @@ gemset_globalcache()
     rvm_log "Removing the global cache (note: this will empty the caches)"
     __rvm_read_lines directories < <(
       __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
-      \find . -maxdepth 1 -mindepth 1 -type d -print | cut -c 3-
+      __rvm_find . -maxdepth 1 -mindepth 1 -type d -print | cut -c 3-
     )
 
     for directory_name in "${directories[@]//.\/}"
@@ -96,7 +96,7 @@ gemset_globalcache()
     mkdir -p "$rvm_gems_cache_path"
     __rvm_read_lines directories < <(
       __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
-      \find . -maxdepth 1 -mindepth 1 -type d -print | cut -c 3-
+      __rvm_find . -maxdepth 1 -mindepth 1 -type d -print | cut -c 3-
     )
     for directory_name in "${directories[@]//.\/}"
     do
@@ -146,7 +146,7 @@ gemset_create()
 
   [[ -z "$rvm_ruby_string" ]] || __rvm_select
 
-  prefix=$(echo $rvm_ruby_gem_home | sed 's/'${rvm_gemset_separator:-"@"}'.*$//')
+  prefix=$(echo $rvm_ruby_gem_home | __rvm_sed 's/'${rvm_gemset_separator:-"@"}'.*$//')
 
   for gemset in "$@"
   do
@@ -270,11 +270,11 @@ gemset_delete_task()
   case $(uname) in
     (OpenBSD|FreeBSD)
       # will not find broken links
-      \find "${rvm_bin_path:=$rvm_path/bin}" -name \*${ruby_at_gemset} -delete
-      \find -L "${rvm_bin_path:=$rvm_path/bin}" -name \*${ruby_at_gemset} -delete
+      __rvm_find "${rvm_bin_path:=$rvm_path/bin}" -name \*${ruby_at_gemset} -delete
+      __rvm_find -L "${rvm_bin_path:=$rvm_path/bin}" -name \*${ruby_at_gemset} -delete
       ;;
     (*)
-      \find "${rvm_bin_path:=$rvm_path/bin}" \( -name \*${ruby_at_gemset} -or -lname \*${ruby_at_gemset}/\* \) -delete
+      __rvm_find "${rvm_bin_path:=$rvm_path/bin}" \( -name \*${ruby_at_gemset} -or -lname \*${ruby_at_gemset}/\* \) -delete
       ;;
   esac
   for item in $( $rvm_scripts_path/alias search_by_target ${ruby_at_gemset} )
@@ -634,28 +634,28 @@ __rvm_parse_gems_args()
   if
     __rvm_string_match "$gem" "*.gem$"
   then
-    gem_name="$(basename "${gem/.gem/}" |  awk -F'-' '{$NF=NULL;print}')"
-    gem_version="$(basename "${gem/.gem/}" |  awk -F'-' '{print $NF}' )"
+    gem_name="$(basename "${gem/.gem/}" |  __rvm_awk -F'-' '{$NF=NULL;print}')"
+    gem_version="$(basename "${gem/.gem/}" |  __rvm_awk -F'-' '{print $NF}' )"
     gem_postfix="$(basename "${gem/*.gem/}")"
   else
     gem_name="${gem/ */}"
     case "$gem" in
       *--version*)
         gem_version=$(
-          echo "$gem" | sed -e 's#.*--version[=]*[ ]*##' | awk '{print $1}'
+          echo "$gem" | __rvm_sed -e 's#.*--version[=]*[ ]*##' | __rvm_awk '{print $1}'
         )
         gem_postfix="$(
           echo "$gem" |
-          sed -e "s#${gem_name/ /}##" -e "s#--version[=]*[ ]*${gem_version/ /}##"
+          __rvm_sed -e "s#${gem_name/ /}##" -e "s#--version[=]*[ ]*${gem_version/ /}##"
         )" #"
         ;;
       *-v*)
         gem_version=$(
-          echo "$gem" | sed -e 's#.*-v[=]*[ ]*##' | awk '{print $1}'
+          echo "$gem" | __rvm_sed -e 's#.*-v[=]*[ ]*##' | __rvm_awk '{print $1}'
         )
         gem_postfix="$(
           echo "$gem" |
-          sed -e "s#${gem_name/ /}##" -e "s#-v[=]*[ ]*${gem_version/ /}##"
+          __rvm_sed -e "s#${gem_name/ /}##" -e "s#-v[=]*[ ]*${gem_version/ /}##"
         )" #"
         ;;
       *)
@@ -706,7 +706,7 @@ gem_install()
       cache_file="$(__rvm_current_gemcache_dir)/${gem_file_name}"
 
     else
-      true ${cache_file:=$( \find "$(__rvm_current_gemcache_dir)/${gem_file_name}" -maxdepth 1 -mindepth 1 -type f -print 2> /dev/null | sort | head -n1)}
+      true ${cache_file:=$( __rvm_find "$(__rvm_current_gemcache_dir)/${gem_file_name}" -maxdepth 1 -mindepth 1 -type f -print 2> /dev/null | sort | head -n1)}
       cache_file="${cache_file/.\/}"
     fi
 
@@ -726,7 +726,7 @@ gem_install()
     else # cached
 
       gem_file_name="$(basename "$cache_file")"
-      gem_string="$(echo "$gem_file_name" | sed 's#\.gem$##')"
+      gem_string="$(echo "$gem_file_name" | __rvm_sed 's#\.gem$##')"
 
       if (( ${rvm_force_flag:-0} == 0 )) &&
         [[ -s "${rvm_ruby_gem_home}/specifications/$(basename $gem_file_name)spec" ]]
@@ -780,7 +780,7 @@ gemset_info()
   if
     (( ${rvm_user_flag:-0} == 1 ))
   then
-    (__rvm_use system ; gem env | GREP_OPTIONS="" \grep "\- $HOME" | awk '{print $NF}')
+    (__rvm_use system ; gem env | __rvm_grep "\- $HOME" | __rvm_awk '{print $NF}')
   elif
     [[ ${rvm_system_flag:-0} == 1 ]]
   then
@@ -867,8 +867,8 @@ gemset_pristine()
 __rvm_list_gems()
 {
   gem list |
-    sed '/\*\*\*/ d ; /^$/ d; s/ (/,/; s/, /,/g; s/)//;' |
-    awk -F ',' '{for(i=2;i<=NF;i++) print $1" "$i }'
+    __rvm_sed '/\*\*\*/ d ; /^$/ d; s/ (/,/; s/, /,/g; s/)//;' |
+    __rvm_awk -F ',' '{for(i=2;i<=NF;i++) print $1" "$i }'
 }
 
 # Loads the default gemsets for the current interpreter and gemset.
@@ -933,7 +933,7 @@ search()
   true "${rvm_gems_path:="$rvm_path/gems"}"
 
   __rvm_read_lines gemspecs < <(
-    \find "${rvm_gems_path}" -mindepth 3 -iname "${gem_name}*.gemspec"  -type f
+    __rvm_find "${rvm_gems_path}" -mindepth 3 -iname "${gem_name}*.gemspec"  -type f
   )
 
   if [[ "${option}" != "strings" ]]

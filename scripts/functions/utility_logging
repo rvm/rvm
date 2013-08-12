@@ -13,13 +13,43 @@ __rvm_run()
   __rvm_log_command "$name" "$message" "${_command_array[@]}" || return $?
 }
 
+__rvm_log_command_caclulate_log_timestamp()
+{
+  export rvm_log_timestamp="$(date "+%s")"
+  rvm_debug "Log prefix: ${rvm_log_path}/${rvm_log_timestamp}${rvm_ruby_string:+_}${rvm_ruby_string:-}/"
+}
+
+__rvm_log_command_caclulate_log_filesystem()
+{
+  export rvm_log_filesystem="$(
+    mount | __rvm_awk -v rvm_path=$rvm_path '
+      BEGIN{longest=""; fstype=""}
+      {if (index(rvm_path,$3)==1 && length($3)>length(longest)){longest=$3; fstype=$5}}
+      END{print fstype}
+    '
+  )"
+  rvm_debug "Log filesystem: ${rvm_log_filesystem}"
+}
+
+__rvm_log_command_caclulate_log_namelen()
+{
+  case "${rvm_log_filesystem}" in
+    (ecryptfs) export rvm_log_namelen=138 ;;
+    (*)        export rvm_log_namelen=250 ;;
+  esac
+  rvm_debug "Log max name length: ${rvm_log_namelen}"
+}
+
 __rvm_log_command_caclulate_log_file_name()
 {
+  [[ -n "${rvm_log_timestamp:-}"  ]] || __rvm_log_command_caclulate_log_timestamp
+  [[ -n "${rvm_log_filesystem:-}" ]] || __rvm_log_command_caclulate_log_filesystem
+  [[ -n "${rvm_log_namelen:-}"    ]] || __rvm_log_command_caclulate_log_namelen
   name="${name//[ \/]/_}"
-  _log="${rvm_log_path}${rvm_ruby_string:+/}${rvm_ruby_string:-}/$(date "+%s")_${name}"
+  _log="${rvm_log_path}/${rvm_log_timestamp}${rvm_ruby_string:+_}${rvm_ruby_string:-}/${name}"
   if [[ -n "${ZSH_VERSION:-}" ]]
-  then _log="${_log[0,250]}.log"
-  else _log="${_log:0:250}.log"
+  then _log="${_log[0,${rvm_log_namelen}]}.log"
+  else _log="${_log:0:${rvm_log_namelen}}.log"
   fi
 }
 
@@ -115,14 +145,14 @@ __rvm_dotted()
   else __show_nth_dot="if (NR%${__show_nth_dot}==1)"
   fi
 
-  if awk '{fflush;}' <<<EO 2>/dev/null
+  if __rvm_awk '{fflush;}' <<<EO 2>/dev/null
   then flush=fflush
   else flush=flush
   fi
 
   if (( $# ))
-  then awk 'BEGIN{printf "'"${rvm_notify_clr:-}$*${rvm_reset_clr:-}"'";} {'"$__show_nth_dot"' printf "."; '$flush'} END{print ""}'
-  else awk '{printf "."; '$flush';} END{if (NR>0) print ""}'
+  then __rvm_awk 'BEGIN{printf "'"${rvm_notify_clr:-}$*${rvm_reset_clr:-}"'";} {'"$__show_nth_dot"' printf "."; '$flush'} END{print ""}'
+  else __rvm_awk '{printf "."; '$flush';} END{if (NR>0) print ""}'
   fi
 }
 
@@ -183,7 +213,7 @@ __rvm_table_br()
 {
   typeset width=${COLUMNS:-78}
   width=$(( width > 116 ? 116 : width ))
-  printf "%-${width}s\n" " " | sed 's/ /*/g'
+  printf "%-${width}s\n" " " | __rvm_sed 's/ /*/g'
 }
 
 __rvm_fold()
@@ -199,7 +229,7 @@ __rvm_table_wrap_text()
   typeset width=${COLUMNS:-78}
   width=$(( width > 116 ? 116 : width ))
   width=$(( width - 4 )) # "* <content> *"
-  __rvm_fold $width | awk -v width=$width '{printf "* %-"width"s *\n", $0}'
+  __rvm_fold $width | __rvm_awk -v width=$width '{printf "* %-"width"s *\n", $0}'
 }
 
 # echo text | __rvm_table [header]

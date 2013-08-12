@@ -125,6 +125,7 @@ __rvm_requirements_run_update()
     (( ${#packages_to_install[@]} > 0 )) ||
     (( ${#packages_custom[@]} > 0 && ${rvm_autolibs_flag_number} > 2 ))
   then
+    rvm_log "Installing requirements for ${rvm_autolibs_flag_runner}."
     if
       is_a_function requirements_${__lib_type}_update_system
     then
@@ -164,10 +165,27 @@ __rvm_requirements_run_install()
 {
   (( ${#packages_to_install[@]} == 0 )) ||
   {
-    _list="${packages_to_install[*]}"
-    __rvm_log_command package_install_${_list// /_} "Installing required packages: ${_list// /, }." \
-      "requirements_${__lib_type}_libs_install" "${packages_to_install[@]}" ||
-      return $?
+    if
+      is_a_function requirements_${__lib_type}_lib_install
+    then
+      typeset __package
+      for __package in "${packages_to_install[@]}"
+      do
+        __rvm_log_command package_install_${__package} "Installing required package: ${__package}" \
+          "requirements_${__lib_type}_lib_install" "${__package}" ||
+        {
+          typeset __status=$?
+          _list="${packages_to_install[*]}"
+          rvm_warn "Failed installation package: ${__package} of: ${_list// /, }."
+          return ${__status}
+        }
+      done
+    else
+      _list="${packages_to_install[*]}"
+      __rvm_log_command package_install_${_list// /_} "Installing required packages: ${_list// /, }" \
+        "requirements_${__lib_type}_libs_install" "${packages_to_install[@]}" ||
+        return $?
+    fi
   }
 }
 
@@ -267,7 +285,7 @@ requirements_fallback_lib_installed()
       return 0
     fi
   done
-  requirements_check "$1"
+  return 1
 }
 
 requirements_check_fallback()
@@ -276,7 +294,16 @@ requirements_check_fallback()
   __available_dependencies=()
   typeset __package
   requirements_fallback_lib_available "$@"
-  requirements_fallback_lib_installed "${__available_dependencies[@]}"
+  requirements_fallback_lib_installed "${__available_dependencies[@]}" || requirements_check "$1"
+}
+
+requirements_detect_installed()
+{
+  typeset -a __available_dependencies
+  __available_dependencies=()
+  typeset __package
+  requirements_fallback_lib_available "$@"
+  requirements_fallback_lib_installed "${__available_dependencies[@]}" || return $?
 }
 
 requirements_version_minimal()
@@ -285,7 +312,7 @@ requirements_version_minimal()
   then return 0
   fi
   typeset latest_version="$(
-    requirements_${__lib_type}_version_list $1 | __rvm_version_sort | tail -n 1
+    requirements_${__lib_type}_version_list $1 | __rvm_version_sort | __rvm_tail -n 1
   )"
   if
     [[ -z "${latest_version}" ]] ||

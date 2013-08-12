@@ -8,7 +8,8 @@
 __rvm_has_opt()
 {
   {
-    [[ -n "${ZSH_VERSION}"  ]] && setopt | \grep "^${1}$" >/dev/null 2>&1
+    # pre-gnu
+    [[ -n "${ZSH_VERSION}"  ]] && setopt | GREP_OPTIONS="" \grep "^${1}$" >/dev/null 2>&1
   } ||
   {
     [[ -n "${BASH_VERSION}" ]] && [[ ":$SHELLOPTS:" =~ ":${1}:" ]]
@@ -38,6 +39,7 @@ then
   do
     if [[ -f "$rvmrc" ]]
     then
+      # pre-gnu
       if GREP_OPTIONS="" \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
       then
         printf "%b" "
@@ -54,29 +56,31 @@ Error:
   unset rvm_rvmrc_files
 fi
 
+# duplication marker jdgkjnfnkjdngjkfnd4fd
 # detect rvm_path if not set
 if [[ -z "${rvm_path:-}" ]]
 then
-  if (( UID == 0 ))
+  if [[ -n "${BASH_SOURCE:-$0}" && -f "${BASH_SOURCE:-$0}" ]]
+  then
+    rvm_path="${BASH_SOURCE:-$0}"
+    rvm_path="${rvm_path%/scripts/rvm}"
+    rvm_prefix=$( dirname $rvm_path )
+  elif (( UID == 0 ))
   then
     if (( ${rvm_user_install_flag:-0} == 0 ))
     then
-      rvm_user_install_flag=0
       rvm_prefix="/usr/local"
       rvm_path="${rvm_prefix}/rvm"
     else
-      rvm_user_install_flag=1
       rvm_prefix="$HOME"
       rvm_path="${rvm_prefix}/.rvm"
     fi
   else
     if [[ -d "$HOME/.rvm" && -s "$HOME/.rvm/scripts/rvm" ]]
     then
-      rvm_user_install_flag=1
       rvm_prefix="$HOME"
       rvm_path="${rvm_prefix}/.rvm"
     else
-      rvm_user_install_flag=0
       rvm_prefix="/usr/local"
       rvm_path="${rvm_prefix}/rvm"
     fi
@@ -116,6 +120,7 @@ then
 
     if [[ -f "$rvm_scripts_path/base" ]]
     then
+    #=============++++++++++++++++================++++++++++++++++++++===================================================================================
       source "$rvm_scripts_path/base"
     else
       printf "%b" "WARNING:
@@ -132,8 +137,8 @@ then
     alias rvm-restart="rvm_reload_flag=1 source '${rvm_scripts_path:-${rvm_path}/scripts}/rvm'"
 
     if ! builtin command -v ruby >/dev/null 2>&1 ||
-      builtin command -v ruby | GREP_OPTIONS="" \grep -v "${rvm_path}" >/dev/null ||
-      builtin command -v ruby | GREP_OPTIONS="" \grep "${rvm_path}/bin/ruby$" >/dev/null
+      builtin command -v ruby | __rvm_grep -v "${rvm_path}" >/dev/null ||
+      builtin command -v ruby | __rvm_grep "${rvm_path}/bin/ruby$" >/dev/null
     then
       if [[ -s "$rvm_environments_path/default" && "${rvm_action}" != "switch" ]]
       then

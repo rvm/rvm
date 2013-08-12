@@ -151,11 +151,11 @@ external_mount()
 {
   typeset _given_path ruby_path prefix_path
   _given_path="$1"
-  if [[ ! -d "${_given_path}" && -x "${_given_path}" ]] && "${_given_path}" --version | GREP_OPTIONS="" \grep rub >/dev/null
+  if [[ ! -d "${_given_path}" && -x "${_given_path}" ]] && "${_given_path}" --version | __rvm_grep rub >/dev/null
   then
     ruby_path="${_given_path}"
     prefix_path="$( __rvm_ruby_config_get prefix "${_given_path}" )"
-  elif [[ -d "${_given_path}" && -x "${_given_path}/bin/ruby" ]] && "${_given_path}/bin/ruby" --version | GREP_OPTIONS="" \grep rub >/dev/null
+  elif [[ -d "${_given_path}" && -x "${_given_path}/bin/ruby" ]] && "${_given_path}/bin/ruby" --version | __rvm_grep rub >/dev/null
   then
     ruby_path="${_given_path}/bin/ruby"
     prefix_path="$( __rvm_ruby_config_get prefix "${ruby_path}" )"
@@ -169,6 +169,9 @@ external_mount()
     exit 3
   fi
 
+  if [[ -z "${rvm_ruby_string:-}" && -n "${rvm_ruby_name:-}" ]]
+  then rvm_ruby_string="$rvm_ruby_name"
+  fi
   if [[ -z "${rvm_ruby_string:-}" ]]
   then
     if ! external_select_name "${ruby_path}" "${prefix_path}" ||
@@ -182,9 +185,6 @@ external_mount()
   rvm_ruby_string="ext-${rvm_ruby_string}"
   echo "Mounting '${rvm_ruby_string}' from '${prefix_path}' with 'bin/${ruby_path##*/}'"
 
-  mkdir -p "$rvm_externals_path"
-  ln -nfs "${prefix_path}" "$rvm_externals_path/$rvm_ruby_string"
-
   external_mount_link_default_binaries
   mkdir -p "$rvm_gems_path/$rvm_ruby_string" "$rvm_gems_path/$rvm_ruby_string@global"
 
@@ -193,7 +193,7 @@ external_mount()
   external_mount_link_default_gemset
 
   __rvm_generate_wrappers
-  __rvm_fix_gcc_path "$rvm_rubies_path"
+  __rvm_fix_rbconfig_paths "$rvm_rubies_path/$rvm_ruby_string"
 
   (
     export rvm_gemset_name=global
@@ -231,7 +231,7 @@ external_select_name()
 external_propose_name()
 {
   typeset parts __tmp1 __tmp2
-  parts="$( echo "$1" | sed 's/[()]//g; s/\[.*\]//;' )"
+  parts="$( echo "$1" | __rvm_sed 's/[()]//g; s/\[.*\]//;' )"
   case "${parts}" in
     (*Ruby[[:space:]]Enterprise[[:space:]]Edition*)
       __tmp1="${parts#* }"
@@ -372,10 +372,10 @@ external_import_validate_archive()
   typeset -a downloaded_names path_to_bin_ruby
 
   __rvm_read_lines path_to_bin_ruby < <(
-    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | \grep "bin/ruby$"
+    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | __rvm_grep "bin/ruby$"
   )
   __rvm_read_lines downloaded_names < <(
-    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | awk -F/ '{print $1}' | sort -u
+    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | __rvm_awk -F/ '{print $1}' | sort -u
   )
   if
     [[ "${#path_to_bin_ruby[*]}" -eq 1 ]]
@@ -426,18 +426,18 @@ external_import_validate_binary()
   _libdir="$( __rvm_ruby_config_get libdir "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" )"
   missing_libs=( $(
     case $(uname) in
-      (Linux)
-        \find "${rvm_rubies_path}/${rvm_ruby_string}" -name '*.so' |
+      (Linux|SunOS)
+        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}" -name '*.so' |
           xargs env LD_LIBRARY_PATH="${_libdir}" ldd 2>/dev/null |
-          awk '/not found/{print $1}' | sort -u
+          __rvm_awk '/not found/{print $1}' | sort -u
         ;;
       (Darwin)
-        \find "${rvm_rubies_path}/${rvm_ruby_string}" -name "*.bundle" |
+        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}" -name "*.bundle" |
           xargs env LD_LIBRARY_PATH="${_libdir}" otool -L 2>&1 |
-          awk -F"[ :]" '{print $1}' |
-          sed 's#@executable_path#'"${rvm_rubies_path}/${rvm_ruby_string}"'/bin#' |
+          __rvm_awk -F"[ :]" '{print $1}' |
+          __rvm_sed 's#@executable_path#'"${rvm_rubies_path}/${rvm_ruby_string}"'/bin#' |
           xargs ls -1 2>&1 1>/dev/null |
-          awk -F"[ :]" '{print $3}' | sort -u
+          __rvm_awk -F"[ :]" '{print $3}' | sort -u
         ;;
       (*)
         rvm_warn "$(uname) libraries validation not yet implemented" >&2
@@ -455,7 +455,7 @@ external_import_validate_binary()
 __rvm_fix_wrappers()
 {
   typeset actual_file
-  \find "$rvm_rubies_path/$rvm_ruby_string/bin/" -type f | while read actual_file
+  __rvm_find "$rvm_rubies_path/$rvm_ruby_string/bin/" -type f | while read actual_file
   do
     if
       [[ -s "$actual_file" ]]
@@ -479,10 +479,10 @@ __rvm_fix_lib_files()
   typeset __path __file
   __path="$rvm_rubies_path/$rvm_ruby_string"
 
-  __file="$( \find "${__path}" -name libyaml.la )"
+  __file="$( __rvm_find "${__path}" -name libyaml.la )"
   __rvm_sed_i "${__file}" -e "s#^libdir=.*\$#libdir='$(dirname "${__file}")'#"
 
-  \find "${__path}" -name "*.pc" | while read __file
+  __rvm_find "${__path}" -name "*.pc" | while read __file
   do
     __rvm_sed_i "${__file}" -e "s#^prefix=.*\$#prefix=${__path}#"
   done
@@ -498,7 +498,7 @@ external_import_setup()
   rvm_create_flag=1 __rvm_use
 
   __rvm_generate_wrappers
-  __rvm_fix_gcc_path "$rvm_rubies_path"
+  __rvm_fix_rbconfig_paths "$rvm_rubies_path/$rvm_ruby_string"
   __rvm_gemsets_initial
   __rvm_irbrc
   __rvm_ruby_config_save "$rvm_rubies_path/$rvm_ruby_string/bin/ruby" "$rvm_rubies_path/$rvm_ruby_string/config"

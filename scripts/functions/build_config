@@ -5,8 +5,8 @@ __rvm_setup_compile_environment()
   typeset __type
   typeset -a __types
   __types=(
-    setup requirements movable osx_compiler architectures gcc47plus bison smartos sunos openbsd
-    auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
+    setup movable_early requirements movable osx_compiler architectures gcc47plus bison smartos
+    sunos openbsd auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
   do
@@ -28,6 +28,46 @@ __rvm_setup_compile_environment_setup()
   true
 }
 
+__rvm_setup_compile_environment_movable_early()
+{
+  (( ${rvm_movable_flag:-0} > 0 ))  || return 0
+  case "${_system_name}" in
+    (*bsd)
+      rvm_error "It is not yet supported to build movable rubies on *BSD systems."
+      return 3
+      ;;
+    (osx)
+      case "$1" in
+        ruby-2*|ruby-head*) true ;;
+        (*)
+          rvm_error "Only MRI Ruby 2.0+ can be compiled movable with RVM on OSX"
+          return 2
+          ;;
+      esac
+      [[ "${rvm_autolibs_flag_runner}" == "smf" ]] ||
+      {
+        rvm_error "It is not yet supported to build movable rubies with '${rvm_autolibs_flag}',
+please install SMF and switch autolibs to it (make sure to follow any displayed instructions):
+
+    curl -L https://get.smf.sh | sh
+    rvm autolibs smf
+"
+        return 3
+      }
+      export rvm_static_flag=1
+      ;;
+    (*)
+      case "$1" in
+        ruby-1.9.3*|ruby-2*|ruby-head*) true ;;
+        (*)
+          rvm_error "Only MRI Ruby 1.9.3+ can be compiled movable with RVM"
+          return 2
+          ;;
+      esac
+      ;;
+  esac
+}
+
 #
 # rvm_autolibs_flag
 # - 0 - disabled
@@ -39,14 +79,14 @@ __rvm_setup_compile_environment_setup()
 __rvm_setup_compile_environment_requirements()
 {
   (( ${rvm_autolibs_flag_number} > 0 ))  || return 0
-  rvm_log "Installing requirements for ${rvm_autolibs_flag_runner}, might require sudo password."
+  rvm_log "Checking requirements for ${rvm_autolibs_flag_runner}."
   if
     __rvm_requirements_run ${rvm_autolibs_flag_runner} "$@"
   then
     rvm_log "Requirements installation successful."
   else
     typeset __status=$?
-    rvm_log "Requirements installation failed with status: ${__status}."
+    rvm_error "Requirements installation failed with status: ${__status}."
     return ${__status}
   fi
 }
@@ -54,27 +94,20 @@ __rvm_setup_compile_environment_requirements()
 __rvm_setup_compile_environment_movable()
 {
   (( ${rvm_movable_flag:-0} > 0 ))  || return 0
-  case "$1" in
-    ruby-1.9.3*|ruby-2*|ruby-head*) true ;;
-    (*)
-      rvm_error "Only MRI Ruby 1.9.3+ can be compiled movable with RVM"
-      return 2
-      ;;
-  esac
   case "${_system_name}" in
-    (*bsd)
-      rvm_error "It is not yet supported to build movable rubies on *BSD systems."
-      return 3
-      ;;
     (osx)
-      rvm_error "It is not yet supported to build movable rubies on OSX, try https://github.com/tokaido/tokaido-build"
-      return 3
+      rvm_configure_flags+=(
+        --enable-load-relative --with-static-linked-ext
+        --with-out-ext=dl/win32,fiddle/win32,tk/tkutil,win32ole,-test-/win32/dln,-test-/win32/fd_setsize
+      )
+      rvm_patch_names+=( cc_env static remove_digest_so )
       ;;
     (*)
-      rvm_make_flags+=( -j3 )
-      rvm_configure_flags+=( --enable-load-relative --sysconfdir=/etc )
+      rvm_configure_flags+=( --enable-load-relative )
       ;;
   esac
+  rvm_configure_flags+=( --sysconfdir=/etc )
+  rvm_make_flags+=( -j3 )
 }
 
 # MRI-2.0.0+ && osx-10.7+ - clang in newer Xcode/command line tools works properly
@@ -194,7 +227,7 @@ __rvm_setup_compile_environment_osx_compiler_clang_installed() [[ -x /usr/bin/cl
 __rvm_setup_compile_environment_osx_compiler_clang_latest()
 {
   typeset __clang_version
-  __clang_version="$( /usr/bin/clang --version | GREP_OPTIONS="" \grep -oE "clang-[0-9]+\.[0-9]+\.[0-9]+" )" || return $?
+  __clang_version="$( /usr/bin/clang --version | __rvm_grep -oE "clang-[0-9]+\.[0-9]+\.[0-9]+" )" || return $?
   [[ -n "${__clang_version}" ]] || return $?
   __clang_version="${__clang_version#clang-}"
   __rvm_version_compare "${__clang_version:-0}" -ge "425.0.24" || return $?
@@ -296,7 +329,7 @@ __rvm_setup_compile_environment_architectures_ruby_osx()
 {
   typeset -a _flags
   _flags=(
-    MACOSX_DEPLOYMENT_TARGET="$( sw_vers -productVersion | awk -F'.' '{print $1"."$2}' )"
+    MACOSX_DEPLOYMENT_TARGET="$( sw_vers -productVersion | __rvm_awk -F'.' '{print $1"."$2}' )"
     CFLAGS="$1 -g -Os -pipe -no-cpp-precomp"
     CCFLAGS="$1 -g -Os -pipe"
     CXXFLAGS="$1 -g -Os -pipe"
@@ -420,8 +453,8 @@ __rvm_setup_compile_environment_auto_conf_make()
   then
     export AUTOCONF_VERSION
     AUTOCONF_VERSION="$(
-      ls -1 /usr/local/bin/autoreconf-* | awk -F- '{print $NF}' |
-        __rvm_version_sort | tail -n 1
+      ls -1 /usr/local/bin/autoreconf-* | __rvm_awk -F- '{print $NF}' |
+        __rvm_version_sort | __rvm_tail -n 1
     )"
   fi
   if
@@ -430,8 +463,8 @@ __rvm_setup_compile_environment_auto_conf_make()
     export AUTOMAKE_VERSION
     # FreeBSD might have automake-wrapper
     AUTOMAKE_VERSION="$(
-      ls -1 /usr/local/bin/automake-1* | awk -F- '{print $NF}' |
-        __rvm_version_sort | tail -n 1
+      ls -1 /usr/local/bin/automake-1* | __rvm_awk -F- '{print $NF}' |
+        __rvm_version_sort | __rvm_tail -n 1
     )"
   fi
 }
@@ -441,7 +474,7 @@ __rvm_setup_compile_environment_flags_docs()
   if
     (( ${rvm_docs_flag:-0} == 1 ))
   then
-    true # enabled by default
+    true # docs are enabled by default
   else
     case "$1" in
       (ruby*|ree*)
@@ -468,32 +501,54 @@ __rvm_setup_compile_environment_flags_tcltk()
   true # OSX --trace FIX
 }
 
+__rvm_setup_compile_environment_flags_static_darwin()
+{
+  if
+    __rvm_system_name_is osx
+  then
+    __rvm_update_configure_env CFLAGS="-fPIC" LDFLAGS="-fPIC" "$@"
+    rvm_configure_flags+=( --with-arch=x86_64 )
+  fi
+}
+
 __rvm_setup_compile_environment_flags_shared_static()
 {
   if
     (( ${rvm_static_flag:-0} == 1 ))
   then
     case "$1" in
-      (openssl*)  rvm_configure_flags+=( no-shared )
+      (openssl*)
+        rvm_configure_flags+=( no-shared )
+        __rvm_setup_compile_environment_flags_static_darwin
         ;;
-      (ncurses*)  rvm_configure_flags+=( --without-shared )
+      (ncurses*)
+        rvm_configure_flags+=( --without-shared )
+        __rvm_setup_compile_environment_flags_static_darwin
         ;;
-      (rbx*|rubinius*|jruby*) true # no flag yet for rbx, does not apply to jruby!
+      (rbx*|rubinius*|jruby*)
+        true # no flag yet for rbx, does not apply to jruby!
         ;;
-      (*)         rvm_configure_flags+=( --disable-shared )
+      (*)
+        rvm_configure_flags+=( --disable-shared )
+        __rvm_setup_compile_environment_flags_static_darwin LDFLAGS="-Bstatic"
         ;;
     esac
   else
     case "$1" in
-      (openssl*)  rvm_configure_flags+=( shared )
+      (openssl*)
+        rvm_configure_flags+=( shared )
         ;;
-      (readline*) rvm_configure_flags+=( --disable-static --enable-shared )
+      (readline*)
+        rvm_configure_flags+=( --disable-static --enable-shared )
         ;;
-      (ncurses*)  rvm_configure_flags+=( --with-shared )
+      (ncurses*)
+        rvm_configure_flags+=( --with-shared )
         ;;
-      (rbx*|rubinius*|jruby*) true # no flag yet for rbx, does not apply to jruby!
+      (rbx*|rubinius*|jruby*)
+        true # no flag yet for rbx, does not apply to jruby!
         ;;
-      (*)         rvm_configure_flags+=( --enable-shared )
+      (*)
+        rvm_configure_flags+=( --enable-shared )
         ;;
     esac
   fi
