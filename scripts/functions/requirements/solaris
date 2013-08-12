@@ -2,12 +2,17 @@
 
 requirements_solaris_lib_installed()
 {
-        pkg info "$1" >/dev/null  2>&1 || return $?
+  pkg info "$1" >/dev/null  2>&1 || return $?
+}
+
+requirements_solaris_custom_lib_installed()
+{
+  pkginfo | __rvm_grep "${1/_dev/-dev}" >/dev/null || return $?
 }
 
 requirements_solaris_libs_install()
 {
-        __rvm_try_sudo pkg install "$@" || return $?
+  __rvm_try_sudo pkg install "$@" || return $?
 }
 
 requirements_solaris_update_system()
@@ -24,11 +29,20 @@ requirements_solaris_update_system()
 
 requirements_solaris_install_libyaml_dev()
 {
-  # Install OpenCSW repo
-  __rvm_try_sudo pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now 'CSWpkgutil' > /dev/null 2>&1 &&
-  # Install libyaml (from unstable branch)
-  __rvm_try_sudo /opt/csw/bin/pkgutil -i -y libyaml_dev -t http://mirror.opencsw.org/opencsw/unstable > /dev/null 2>&1 ||
-  return $?
+  requirements_solaris_custom_lib_installed libyaml_dev ||
+  {
+    # Install OpenCSW repo
+    [[ -x /opt/csw/bin/pkgutil && -f /etc/opt/csw/pkgutil.conf ]] ||
+    __rvm_try_sudo pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now 'CSWpkgutil' > /dev/null 2>&1 || return $?
+    # Install libyaml from unstable branch
+    __rvm_try_sudo /opt/csw/bin/pkgutil -i -y libyaml_dev -t http://mirror.opencsw.org/opencsw/unstable > /dev/null 2>&1 || return $?
+  }
+}
+
+requirements_solaris_check_custom()
+{
+  [[ " ${packages_custom[*]} " =~ " $1 " ]] ||
+  requirements_solaris_custom_lib_installed "$1" || packages_custom+=( "$1" )
 }
 
 requirements_solaris_define()
@@ -51,12 +65,12 @@ requirements_solaris_define()
       ;;
     (*-head)
       requirements_check text/gnu-patch developer/gcc-45 system/header system/library/math/header-math file/gnu-coreutils git
-      [[ " ${packages_custom[*]} " =~ " libyaml_dev " ]] || packages_custom+=( libyaml_dev )
+      requirements_solaris_check_custom libyaml_dev
       __rvm_update_configure_opt_dir "$1" "/opt/csw"
       ;;
     (*)
       requirements_check text/gnu-patch developer/gcc-45 system/header system/library/math file/gnu-coreutils
-      [[ " ${packages_custom[*]} " =~ " libyaml_dev " ]] || packages_custom+=( libyaml_dev )
+      requirements_solaris_check_custom libyaml_dev
       __rvm_update_configure_opt_dir "$1" "/opt/csw"
       ;;
   esac
