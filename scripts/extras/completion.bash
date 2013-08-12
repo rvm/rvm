@@ -34,7 +34,7 @@ __rvm_rubies ()
 
 __rvm_gemsets ()
 {
-  echo "$(rvm gemset list | GREP_OPTIONS="" \grep -v gemset 2>/dev/null)"
+  echo "$(rvm gemset list | __rvm_grep -v gemset 2>/dev/null)"
 }
 
 __rvm_help_pages ()
@@ -45,7 +45,7 @@ __rvm_help_pages ()
 __rvm_known ()
 {
   # Strips comments and expands known patterns into each variation
-  rvm list known | sed -e 's/#.*$//;' \
+  rvm list known | __rvm_sed -e 's/#.*$//;' \
                        -e '/^$/d;' \
                        -e 's/^\[\(.*-\)\]\(.*\)\[\(-.*\)\]$/\1\2\3 \1\2 \2\3 \2/;' \
                        -e 's/^\[\(.*-\)\]\(.*\)$/\1\2 \2/;' \

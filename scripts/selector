@@ -13,8 +13,8 @@ __rvm_select_rbx_nightly()
   _rvm_ruby_name="${rvm_ruby_name:-${detected_rvm_ruby_name:-}}"
   rvm_ruby_patch_level="$(
     __list_remote_rbx_for $( __rvm_system_path_for rbx ) |
-      GREP_OPTIONS="" \grep ${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}.*${_rvm_ruby_name:+-}${_rvm_ruby_name:-} |
-      tail -n 1
+      __rvm_grep ${rvm_ruby_version:-}${rvm_ruby_version:+-}${org_rvm_ruby_patch_level}.*${_rvm_ruby_name:+-}${_rvm_ruby_name:-} |
+      __rvm_tail -n 1
   )"
   [[ -n "${rvm_ruby_patch_level:-}" ]] ||
   {
@@ -57,8 +57,8 @@ __rvm_select_macruby_nightly_detect()
   typeset __string_version
   rvm_ruby_version="$(
     __rvm_curl -s "$rvm_ruby_url" |
-    GREP_OPTIONS="" \grep -oE "<a href=\"macruby_nightly-[^<]+\.pkg</a>" |
-    awk -F"[<>]" '{print $3}' | sort | tail -n 1
+    __rvm_grep -oE "<a href=\"macruby_nightly-[^<]+\.pkg</a>" |
+    __rvm_awk -F"[<>]" '{print $3}' | sort | __rvm_tail -n 1
   )"
   [[ -n "${rvm_ruby_version}" ]] ||
   {
@@ -268,7 +268,7 @@ __rvm_select()
         rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
         rvm_gemstone_version=$(
           __rvm_curl -s https://raw.github.com/MagLev/maglev/master/version.txt |
-            GREP_OPTIONS="" \grep "^GEMSTONE" | cut -f2 -d-
+            __rvm_grep "^GEMSTONE" | cut -f2 -d-
         )
         rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
         rvm_disable_binary_flag=1
@@ -279,7 +279,7 @@ __rvm_select()
         rvm_ruby_url="${rvm_ruby_url:-"$maglev_url/${rvm_ruby_package_file}.${rvm_archive_extension}"}"
         rvm_gemstone_version=$(
           __rvm_curl -s https://raw.github.com/MagLev/maglev/MagLev-${rvm_ruby_version}/version.txt |
-            GREP_OPTIONS="" \grep "^GEMSTONE" | cut -f2 -d-
+            __rvm_grep "^GEMSTONE" | cut -f2 -d-
         )
         rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
         export MAGLEV_HOME="$rvm_rubies_path/$rvm_ruby_string"
@@ -321,7 +321,7 @@ __rvm_select()
 
       if [[ -n "${rvm_ruby_patch_level:-0}" ]]
       then
-        rvm_ruby_patch_level="$(echo $rvm_ruby_patch_level | \sed 's#^p##')"
+        rvm_ruby_patch_level="$(echo $rvm_ruby_patch_level | __rvm_sed 's#^p##')"
       fi
 
       rvm_ruby_package_file="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
@@ -507,7 +507,7 @@ __rvm_use_system() {
 
   if [[ -s "$rvm_path/config/system" ]]
   then
-    if GREP_OPTIONS="" \grep "MY_RUBY_HOME='$rvm_rubies_path" "$rvm_path/config/system" > /dev/null
+    if __rvm_grep "MY_RUBY_HOME='$rvm_rubies_path" "$rvm_path/config/system" > /dev/null
     then
       # 'system' should *not* point to an rvm ruby.
       if [[ -f "$rvm_path/config/system" ]]
@@ -693,7 +693,7 @@ __rvm_ruby_string()
     "${rvm_ruby_revision:=}" ${rvm_gemset_separator:="@"} "${rvm_ruby_string:=}"\
     ${rvm_expanding_aliases:=0} ${rvm_head_flag:=0}
 
-  if echo "$rvm_ruby_string" | GREP_OPTIONS="" \grep "${rvm_gemset_separator}" >/dev/null 2>&1
+  if echo "$rvm_ruby_string" | __rvm_grep "${rvm_gemset_separator}" >/dev/null 2>&1
   then
     rvm_gemset_name="${rvm_ruby_string/*${rvm_gemset_separator}/}"
     rvm_ruby_string="${rvm_ruby_string/${rvm_gemset_separator}*/}"
@@ -717,7 +717,7 @@ __rvm_ruby_string()
     fi
   fi
 
-  if echo "$rvm_ruby_string" | GREP_OPTIONS="" \grep "${rvm_gemset_separator}" >/dev/null 2>&1 ; then
+  if echo "$rvm_ruby_string" | __rvm_grep "${rvm_gemset_separator}" >/dev/null 2>&1 ; then
     rvm_gemset_name="${rvm_ruby_string/*${rvm_gemset_separator}/}"
     rvm_ruby_string="${rvm_ruby_string/${rvm_gemset_separator}*/}"
   fi
@@ -746,7 +746,7 @@ __rvm_ruby_string()
 
   if (( ${#strings[@]} == 0 ))
   then
-    if echo "${GEM_HOME:-}" | GREP_OPTIONS="" \grep "${rvm_gems_path}" >/dev/null 2>&1
+    if echo "${GEM_HOME:-}" | __rvm_grep "${rvm_gems_path}" >/dev/null 2>&1
     then
       # Current Ruby
       strings="${GEM_HOME##*\/}"
@@ -976,8 +976,8 @@ __rvm_ruby_string()
     then
       rvm_ruby_version="$(
         "${rvm_scripts_path:-$rvm_path/scripts}/list" strings |
-          \grep "^${rvm_ruby_interpreter}-.*${rvm_ruby_name:-}" |
-          awk -F- '{print $2}' | sort | tail -n 1
+          __rvm_grep "^${rvm_ruby_interpreter}-.*${rvm_ruby_name:-}" |
+          __rvm_awk -F- '{print $2}' | sort | __rvm_tail -n 1
       )"
     fi
     rvm_ruby_version="${rvm_ruby_version:-"$(
@@ -1006,8 +1006,8 @@ __rvm_ruby_string()
     then
       rvm_ruby_string="$(
         "${rvm_scripts_path:-$rvm_path/scripts}/list" strings |
-          \grep "^${rvm_ruby_string}.*${rvm_ruby_name:-}" |
-          sort | tail -n 1
+          __rvm_grep "^${rvm_ruby_string}.*${rvm_ruby_name:-}" |
+          sort | __rvm_tail -n 1
       )"
     fi
 
@@ -1030,8 +1030,8 @@ __rvm_ruby_string()
     then
       rvm_ruby_patch_level="$(
         "${rvm_scripts_path:-$rvm_path/scripts}/list" strings |
-          \grep "^${rvm_ruby_interpreter}-${rvm_ruby_version}-.*${rvm_ruby_name:-}" |
-          awk -F- '{print $3}' | sort | tail -n 1
+          __rvm_grep "^${rvm_ruby_interpreter}-${rvm_ruby_version}-.*${rvm_ruby_name:-}" |
+          __rvm_awk -F- '{print $3}' | sort | __rvm_tail -n 1
       )"
     fi
     if
@@ -1041,9 +1041,9 @@ __rvm_ruby_string()
       #TODO: MRI only implementation, we need a better db/format/handling for this
       rvm_ruby_patch_level="$(
         __list_remote_rubies_for $( __rvm_system_path_for rubies ) |
-          awk -F/ '{x=$NF; gsub(".tar.*","",x); print x}' |
-          \grep "${rvm_ruby_interpreter}-${rvm_ruby_version}-" |
-          awk -F- '{print $3}' | sort | tail -n 1
+          __rvm_awk -F/ '{x=$NF; gsub(".tar.*","",x); print x}' |
+          __rvm_grep "${rvm_ruby_interpreter}-${rvm_ruby_version}-" |
+          __rvm_awk -F- '{print $3}' | sort | __rvm_tail -n 1
       )"
     fi
     [[ -n "${rvm_ruby_patch_level:-""}" ]] ||
