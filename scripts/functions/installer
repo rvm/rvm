@@ -189,7 +189,7 @@ parse_args()
         export rvm_trace_flag=1
         set -o xtrace
         echo "$@"
-        env | GREP_OPTIONS="" \grep '^rvm_'
+        env | __rvm_grep '^rvm_'
         export PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
         ;;
       (--help)
@@ -417,7 +417,7 @@ save_custom_flags()
     ^rvm_rubies_path=
   )
   typeset IFS="|"
-  set | GREP_OPTIONS="" \grep -E "${__variables[*]}" > "${rvm_path:-}/user/custom_flags"
+  set | __rvm_grep -E "${__variables[*]}" > "${rvm_path:-}/user/custom_flags"
   true # no failing from grep filtering
 }
 
@@ -481,8 +481,8 @@ install_rvm_hooks()
       # Source is first level hook (after_use) and target is custom user hook, preserve it
       if
         [[ -f "$rvm_path/$entry" ]] &&
-        echo "$entry" | GREP_OPTIONS="" \grep -E '^hooks/[[:alpha:]]+_[[:alpha:]]+$' >/dev/null &&
-        ! GREP_OPTIONS="" \grep "$(basename ${entry})_\*" "$rvm_path/$entry" >/dev/null
+        echo "$entry" | __rvm_grep -E '^hooks/[[:alpha:]]+_[[:alpha:]]+$' >/dev/null &&
+        ! __rvm_grep "$(basename ${entry})_\*" "$rvm_path/$entry" >/dev/null
       then
         \mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
       fi
@@ -512,7 +512,7 @@ install_rvm_hooks()
     name=${name%_*}
     if
       [[ -f "$rvm_path/hooks/$entry" ]] &&
-      GREP_OPTIONS="" \grep "after_${name}_\*" "$rvm_path/hooks/$entry" >/dev/null
+      __rvm_grep "after_${name}_\*" "$rvm_path/hooks/$entry" >/dev/null
     then
       \rm -f "$rvm_path/hooks/$entry"
     fi
@@ -576,7 +576,7 @@ install_gemsets()
     [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
 
     gemset_files=($(
-      __rvm_find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | sed 's/^\.\///'
+      __rvm_find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | __rvm_sed 's/^\.\///'
     ))
 
     for gemset_file in "${gemset_files[@]}"
@@ -592,8 +592,8 @@ install_gemsets()
           [[ -n "${rvm_without_gems:-}" ]]
         then
           if [[ `uname -s` = "Darwin" ]]
-          then sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
-          else sed -r '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+          then __rvm_sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
+          else __rvm_sed -r '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
           fi
         else
           \cat < "$gemset_file" > "$destination"
@@ -611,7 +611,7 @@ install_gemsets()
     [[ -n "${rvm_with_gems:-}" ]]
   then
     if
-      GREP_OPTIONS="" \grep "rvm_with_gems=" ~/.rvmrc >/dev/null
+      __rvm_grep "rvm_with_gems=" ~/.rvmrc >/dev/null
     then
       __rvm_sed_i ~/.rvmrc -e 's/^rvm_with_gems=.*$/rvm_with_gems="'"${rvm_with_gems}"'"/'
     else
@@ -622,7 +622,7 @@ install_gemsets()
     [[ -n "${rvm_without_gems:-}" ]]
   then
     if
-      GREP_OPTIONS="" \grep "rvm_without_gems=" ~/.rvmrc >/dev/null
+      __rvm_grep "rvm_without_gems=" ~/.rvmrc >/dev/null
     then
       __rvm_sed_i ~/.rvmrc -e 's/^rvm_without_gems=.*$/rvm_without_gems="'"${rvm_without_gems}"'"/'
     else
@@ -726,7 +726,7 @@ setup_configuration_files()
   [[ -f user/sha512 ]] || touch user/sha512
 
   # Prune old (keyed-by-hash) trust entries
-  GREP_OPTIONS="" \grep '^_' user/rvmrcs > user/rvmrcs.new || true
+  __rvm_grep '^_' user/rvmrcs > user/rvmrcs.new || true
   \mv user/rvmrcs.new user/rvmrcs
 
   __rvm_cd "${_save_dir}"
@@ -882,7 +882,7 @@ fi
 
   if
     (( add_to_profile_flag )) &&
-    ! GREP_OPTIONS="" \grep "source ${etc_profile_file}" /etc/profile >/dev/null 2>&1
+    ! __rvm_grep "source ${etc_profile_file}" /etc/profile >/dev/null 2>&1
   then
     printf "%b" "\nsource ${etc_profile_file}\n" >> /etc/profile
   fi
@@ -898,8 +898,8 @@ fi
     then
       printf "%b" "\nsource ${etc_profile_file}\n" > $zshrc_file
     elif
-      ! GREP_OPTIONS="" \grep "source /etc/bash"    "${zshrc_file}" &&
-      ! GREP_OPTIONS="" \grep "source /etc/profile" "${zshrc_file}"
+      ! __rvm_grep "source /etc/bash"    "${zshrc_file}" &&
+      ! __rvm_grep "source /etc/profile" "${zshrc_file}"
     then
       printf "%b" "\nsource ${etc_profile_file}\n" >> $zshrc_file
     fi
@@ -910,7 +910,7 @@ fi
 print_etc_bashrc_change()
 {
   printf "%b" "
-type rvm >/dev/null 2>/dev/null || echo \${PATH} | GREP_OPTIONS=\"\" \\\grep \"${rvm_bin_path}\" > /dev/null || export PATH=\"\${PATH}:${rvm_bin_path}\"
+type rvm >/dev/null 2>/dev/null || echo \${PATH} | __rvm_grep \"${rvm_bin_path}\" > /dev/null || export PATH=\"\${PATH}:${rvm_bin_path}\"
 "
 }
 
@@ -934,13 +934,13 @@ setup_etc_bashrc()
       return
     }
   elif
-    ! GREP_OPTIONS="" \grep "PATH=.*${rvm_bin_path}" "${system_bashrc_file}" >/dev/null
+    ! __rvm_grep "PATH=.*${rvm_bin_path}" "${system_bashrc_file}" >/dev/null
   then
     new_content_path="$( mktemp )"
     [[ -f "${new_content_path}" ]] || \rm -f "${new_content_path}"
     {
       print_etc_bashrc_change # prepend
-      \cat "${system_bashrc_file}" | grep -v "|| export PATH=\"\${PATH}:\""
+      \cat "${system_bashrc_file}" | __rvm_grep -v "|| export PATH=\"\${PATH}:\""
     } > "${new_content_path}" &&
     \mv "${new_content_path}" "${system_bashrc_file}" 2>/dev/null ||
     {
@@ -958,17 +958,17 @@ setup_etc_rvmrc()
   rvmrc_file="/etc/rvmrc"
   if
     [[ -f $rvmrc_file ]] &&
-    GREP_OPTIONS="" \grep '#umask' $rvmrc_file >/dev/null
+    __rvm_grep '#umask' $rvmrc_file >/dev/null
   then
     true # commented out, skip it!
   elif
     [[ -f $rvmrc_file ]] &&
-    GREP_OPTIONS="" \grep 'umask g+w' $rvmrc_file >/dev/null
+    __rvm_grep 'umask g+w' $rvmrc_file >/dev/null
   then
     __rvm_sed_i $rvmrc_file -e 's/umask g+w/umask u=rwx,g=rwx,o=rx/'
   elif
     ! [[ -f $rvmrc_file ]] ||
-    ! GREP_OPTIONS="" \grep 'umask' $rvmrc_file >/dev/null
+    ! __rvm_grep 'umask' $rvmrc_file >/dev/null
   then
     echo 'umask u=rwx,g=rwx,o=rx' >> $rvmrc_file
   fi
@@ -1001,7 +1001,7 @@ setup_user_profile_check()
     [[ -n "${rvm_ignore_dotfiles_flag:-}" ]]
   then
     if
-      GREP_OPTIONS="" \grep "rvm_ignore_dotfiles_flag=" ~/.rvmrc >/dev/null
+      __rvm_grep "rvm_ignore_dotfiles_flag=" ~/.rvmrc >/dev/null
     then
       __rvm_sed_i ~/.rvmrc -e 's/^rvm_ignore_dotfiles_flag=.*$/rvm_ignore_dotfiles_flag="'"${rvm_ignore_dotfiles_flag}"'"/'
     else
@@ -1033,16 +1033,16 @@ setup_user_profile_detect()
       [[ -f $profile_file ]]
     then
       if
-        GREP_OPTIONS="" \grep PATH=.*$local_rvm_path/bin $profile_file >/dev/null
+        __rvm_grep PATH=.*$local_rvm_path/bin $profile_file >/dev/null
       then
         found_rc+=( $profile_file )
       fi
       if
-        GREP_OPTIONS="" \grep \..*scripts/rvm $profile_file >/dev/null
+        __rvm_grep \..*scripts/rvm $profile_file >/dev/null
       then
         found_login+=( $profile_file )
       elif
-        GREP_OPTIONS="" \grep source.*scripts/rvm $profile_file >/dev/null
+        __rvm_grep source.*scripts/rvm $profile_file >/dev/null
       then
         found_login+=( $profile_file )
       fi
@@ -1178,9 +1178,9 @@ cleanse_old_environments()
       for file in "${environments[@]}"
       do
         if
-          GREP_OPTIONS="" \grep 'BUNDLE_PATH' "$file" > /dev/null 2>&1
+          __rvm_grep 'BUNDLE_PATH' "$file" > /dev/null 2>&1
         then
-          GREP_OPTIONS="" \grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
+          __rvm_grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
           \mv "$file.new" "$file"
         fi
       done
@@ -1214,7 +1214,7 @@ migrate_old_gemsets()
 
   for gemset in "$rvm_path"/gems/*\@
   do
-    new_path=$(echo $gemset | sed -e 's#\@$##')
+    new_path=$(echo $gemset | __rvm_sed -e 's#\@$##')
     if
       [[ -d "$gemset" && ! -d "$new_path" ]]
     then
@@ -1231,8 +1231,8 @@ migrate_defaults()
 
   typeset original_version="$(
     basename "$(
-      GREP_OPTIONS="" \grep GEM_HOME "$rvm_path/config/default" |
-        awk -F"'" '{print $2}' | sed "s#\%#${rvm_gemset_separator:-"@"}#"
+      __rvm_grep GEM_HOME "$rvm_path/config/default" |
+        __rvm_awk -F"'" '{print $2}' | __rvm_sed "s#\%#${rvm_gemset_separator:-"@"}#"
     )"
   )"
   if [[ -n "$original_version" ]]
@@ -1258,7 +1258,7 @@ update_gemsets_install_rvm()
   then
     # rvm /gems
     paths=($(
-      __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | sed 's/^\.\///'
+      __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | __rvm_sed 's/^\.\///'
     ))
 
     for _iterator in "${paths[@]}"
@@ -1273,7 +1273,7 @@ update_gemsets_install_rvm()
       # rvm /gems @global /gems
       found=($(
         [[ ! -d "${_current_path}" ]] ||
-        __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" 'rvm-*' | sed 's/^\.\///'
+        __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" 'rvm-*' | __rvm_sed 's/^\.\///'
       ))
       (( ${#found[@]} > 0 )) || missing+=( "$_iterator" )
     done
@@ -1284,7 +1284,7 @@ update_gemsets_install_rvm()
       printf "%b" "    Installing rvm gem in ${#missing[@]} gemsets "
       for _iterator in "${missing[@]}"
       do
-        rvm "${_iterator##*/}" do gem install rvm | awk '{printf "."}'
+        rvm "${_iterator##*/}" do gem install rvm | __rvm_awk '{printf "."}'
       done
       printf "\n"
     fi
@@ -1298,10 +1298,10 @@ configure_autolibs()
   do
     if
       [[ -s "$rvmrc" ]] &&
-      GREP_OPTIONS="" \grep 'rvm_autolibs_flag=' "$rvmrc" >/dev/null 2>&1
+      __rvm_grep 'rvm_autolibs_flag=' "$rvmrc" >/dev/null 2>&1
     then
       [[ -w "$rvmrc" ]] &&
-      sed '/rvm_autolibs_flag=/ d' < "$rvmrc" > "$rvmrc.backup" &&
+      __rvm_sed '/rvm_autolibs_flag=/ d' < "$rvmrc" > "$rvmrc.backup" &&
       \mv -f "$rvmrc.backup" "$rvmrc" ||
       rvm_error "    Can not automatically remove lines with 'rvm_autolibs_flag=' from '$rvmrc', please clean it manually."
     fi
@@ -1309,11 +1309,11 @@ configure_autolibs()
 
   if
     [[ -s "$rvmrc" ]] &&
-    GREP_OPTIONS="" \grep 'rvm_autolibs_flag=' "$rvmrc" >/dev/null 2>&1
+    __rvm_grep 'rvm_autolibs_flag=' "$rvmrc" >/dev/null 2>&1
   then
-    export rvm_autolibs_flag="$( awk -F'=' '/rvm_autolibs_flag=/{print $2}' <"$rvmrc" )"
+    export rvm_autolibs_flag="$( __rvm_awk -F'=' '/rvm_autolibs_flag=/{print $2}' <"$rvmrc" )"
     [[ -w "$rvmrc" ]] &&
-    sed '/rvm_autolibs_flag/ d' < "$rvmrc" > "$rvmrc.backup" &&
+    __rvm_sed '/rvm_autolibs_flag/ d' < "$rvmrc" > "$rvmrc.backup" &&
     \mv -f "$rvmrc.backup" "$rvmrc" || true
   fi
 
@@ -1321,11 +1321,11 @@ configure_autolibs()
   rvmrc=/etc/rvmrc
   if
     [[ -s "$rvmrc" ]] &&
-    GREP_OPTIONS="" \grep 'rvm_configure_env=.*/opt/sm' "$rvmrc" >/dev/null 2>&1
+    __rvm_grep 'rvm_configure_env=.*/opt/sm' "$rvmrc" >/dev/null 2>&1
   then
     export rvm_autolibs_flag=smf
     [[ -w "$rvmrc" ]] &&
-    sed '/rvm_configure_env/ d' < "$rvmrc" > "$rvmrc.backup" &&
+    __rvm_sed '/rvm_configure_env/ d' < "$rvmrc" > "$rvmrc.backup" &&
     \mv -f "$rvmrc.backup" "$rvmrc" || true
   fi
 
@@ -1465,7 +1465,7 @@ display_thank_you()
   : ${name:=${SUDO_USER:-}}
   : ${name:=${USERNAME:-}}
   : ${name:=${USER:-}}
-  : ${name:=$(id | sed -e 's/^[^(]*(//' -e 's/).*$//')}
+  : ${name:=$(id | __rvm_sed -e 's/^[^(]*(//' -e 's/).*$//')}
   case "${name}" in
     (root) name="Administrator" ;;
     ("")   name="User"          ;;
