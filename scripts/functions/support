@@ -11,6 +11,7 @@ fi
 
 if
   [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
+  # pre-gnu
   $rvm_tar_command --help 2>&1 | GREP_OPTIONS="" \grep -- --no-same-owner >/dev/null
 then
   rvm_tar_options="${rvm_tar_options:-}${rvm_tar_options:+ }--no-same-owner"
@@ -150,7 +151,7 @@ __rvm_sed_i()
   fi
 
   {
-    \sed "$@" < "${_filename}" > "${_filename}.new" &&
+    __rvm_sed "$@" < "${_filename}" > "${_filename}.new" &&
     \mv -f "${_filename}.new" "${_filename}"
   } 2>&1 | rvm_debug_stream
 
@@ -186,22 +187,38 @@ __rvm_which()
   fi
 }
 
+gnu_utils=( awk find sed make tail )
+
 case "$(uname)" in
   (SunOS)
-    [[ -x /usr/gnu/bin/find ]] ||
-      rvm_error "ERROR: Missing '/usr/gnu/bin/find', make sure it is installed before using RVM!"
-    __rvm_find()
+    [[ -x /usr/gnu/bin/grep ]] ||
+        rvm_error "ERROR: Missing '/usr/gnu/bin/grep', make sure it is installed before using RVM!"
+    __rvm_grep()
     {
-      /usr/gnu/bin/find "$@" || return $?
+      GREP_OPTIONS="" /usr/gnu/bin/grep "$@" || return $?;
     }
+
+    for gnu_util in "${gnu_utils[@]}"
+    do
+      [[ -x /usr/gnu/bin/$gnu_util ]] ||
+        rvm_error "ERROR: Missing '/usr/gnu/bin/$gnu_util', make sure it is installed before using RVM!"
+      eval "__rvm_$gnu_util() { /usr/gnu/bin/$gnu_util \"\$@\" || return \$?; }"
+    done
     ;;
   (*)
-    __rvm_find()
+    __rvm_grep()
     {
-      \find "$@" || return $?
+      GREP_OPTIONS="" \grep "$@" || return $?
     }
+    
+    for gnu_util in "${gnu_utils[@]}"
+    do
+      eval "__rvm_$gnu_util() { \\$gnu_util \"\$@\" || return \$?; }"
+    done
     ;;
 esac
+
+unset gnu_util gnu_utils
 
 ## duplication marker 32fosjfjsznkjneuera48jae
 __rvm_curl_output_control()
