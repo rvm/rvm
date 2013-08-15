@@ -5,7 +5,7 @@ source "$rvm_scripts_path/base"
 usage()
 {
   echo "Usage: rvm tools {identifier,path-identifier,strings,user}" 1>&2
-  exit 1
+  return 1
 }
 
 # Return the identifier that's current in use.
@@ -27,7 +27,7 @@ tools_path_identifier()
   rvmrc_result="$?"
   __rvm_env_string
   __rvm_do_with_env_after
-  exit $rvmrc_result
+  return $rvmrc_result
 }
 
 tools_strings()
@@ -96,6 +96,11 @@ tools_user_setup()
   fi
 )
 
+tools_user_none()
+{
+  __rvm_sed_i "$1" -E -e "/^(export )?rvm_[a-z]+_path=/ d"
+}
+
 tools_user()
 {
   typeset item dir target
@@ -110,11 +115,15 @@ tools_user()
       hooks)   selection+=( hooks   ) ;;
       pkgs)    selection+=( pkgs    ) ;;
       userdb)  selection+=( userdb  ) ;;
-      log)     selection+=( log  ) ;;
+      log)     selection+=( log     ) ;;
       --skel)  rvm_skel_flag=1        ;;
+      (none)
+        tools_user_none "${HOME}/.rvmrc"
+        return $?
+        ;;
       *)
         tools_user_usage "Unrecognized option '$item'."
-        exit 1
+        return 1
         ;;
     esac
   done
@@ -122,13 +131,13 @@ tools_user()
   if (( ${#selection[@]} == 0 ))
   then
     tools_user_usage
-    exit 1
+    return 1
   fi
 
   if [[ ${rvm_skel_flag:-0} == 1 ]] && (( UID ))
   then
     tools_user_usage "The --skel flag should be run as root: rvmsudo rvm user $@."
-    exit 1
+    return 1
   fi
 
   [[ ${rvm_skel_flag:-0} == 1 ]] && target=/etc/skel || target="${HOME}"
@@ -136,13 +145,13 @@ tools_user()
   if [[ ! -w "${target}" ]] || [[ -d "${target}/.rvm" && ! -w "${target}/.rvm" ]]
   then
     tools_user_usage "Directory '${target}' or '${target}/.rvm' is not writable for current user."
-    exit 1
+    return 1
   fi
 
   if [[ -f "${target}/.rvmrc" && ! -w "${target}/.rvmrc" ]]
   then
     tools_user_usage "Configuration file '${target}/.rvmrc' is not writable for current user."
-    exit 1
+    return 1
   fi
 
   for item in "${selection[@]}"
@@ -238,5 +247,3 @@ case "$action" in
   rvm-env)         tools_rvm_env $args ;;
   *)               usage ;;
 esac
-
-exit $?
