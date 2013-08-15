@@ -11,3 +11,7 @@ To use only gemsets from user home run:
 It is also possible to add this settings as default for new user accounts:
 
     sudo rvm user [all|gemsets] --skel
+
+To restore multiuser defaults run:
+
+    rvm user none
