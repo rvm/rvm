@@ -43,23 +43,35 @@ __rvm_found_compiler()
   __rvm_which clang 2>/dev/null
 }
 
-__rvm_fix_rbconfig_paths()
+__rvm_fix_rbconfig()
 {
-  __rvm_fix_gcc_path     "$@" &&
-  __rvm_fix_install_path "$@"
+  typeset __config_file
+  __config_file="$( __rvm_find $1/ -name rbconfig.rb 2>/dev/null )"
+  [[ -n "${__config_file}" ]]   &&
+  __rvm_remove_static_flag "$@" &&
+  __rvm_fix_gcc_path       "$@" &&
+  __rvm_fix_install_path   "$@"
+}
+
+__rvm_remove_static_flag()
+{
+  if
+    __rvm_grep -- "-Z" "${__config_file}" >/dev/null
+  then
+    rvm_debug "Removing '-Z' from rbconfig."
+    __rvm_sed_i "${__config_file}" -e "s#-Z##"
+  fi
 }
 
 __rvm_fix_gcc_path()
 {
-  typeset __config_file __cc_value __cc_new
+  typeset __cc_value __cc_new
   __rvm_which $(
     "$1/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]||"true"' 2>/dev/null
   ) >/dev/null 2>/dev/null ||
   {
     __cc_value="$( "$1/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["CC"]' 2>/dev/null )"
-    __config_file="$( __rvm_find $1/ -name rbconfig.rb 2>/dev/null )"
     if
-      [[ -n "${__config_file}" ]] &&
       __rvm_grep "CONFIG\[\"CC\"\]" "${__config_file}" >/dev/null
     then
       __cc_new="$( __rvm_found_compiler )"
@@ -74,15 +86,13 @@ __rvm_fix_gcc_path()
 
 __rvm_fix_install_path()
 {
-  typeset __config_file __install_value __install_new
+  typeset __install_value __install_new
   __rvm_which $(
     "$1/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["INSTALL"]||"true"' 2>/dev/null
   ) >/dev/null 2>/dev/null ||
   {
     __install_value="$( "$1/bin/ruby" -rrbconfig -e 'puts RbConfig::CONFIG["INSTALL"]' 2>/dev/null )"
-    __config_file="$( __rvm_find $1/ -name rbconfig.rb 2>/dev/null )"
     if
-      [[ -n "${__config_file}" ]] &&
       __rvm_grep "CONFIG\[\"INSTALL\"\]" "${__config_file}" >/dev/null
     then
       __install_new="$( \which install )"

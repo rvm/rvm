@@ -9,14 +9,27 @@ __rvm_if_sudo()
   "${__command[@]}" || return $?
 }
 
-__rvm_fix_permissions_fix()
+__rvm_fix_permissions_fix_rights()
 {
-  __rvm_if_sudo chown -R "${__user}" "${rvm_path}"
   case "${__user}" in
     (*:*)
-      __rvm_if_sudo chmod -R g+w "${rvm_path}"
+      rvm_log "Fixing rights with 'g+w' - this might take few long minutes..."
+      __rvm_if_sudo chmod -R g+w "${rvm_path}" || return $?
       ;;
   esac
+}
+
+__rvm_fix_permissions_fix()
+{
+  rvm_log "Fixing user/group for '${__user}' - this might take few long minutes..."
+  __rvm_if_sudo chown -R "${__user}" "${rvm_path}" &&
+  __rvm_fix_permissions_fix_rights &&
+  rvm_log "Finished fixing." ||
+  {
+    typeset __result=$?
+    rvm_error "Failed fixing, read the above messages."
+    return ${__result}
+  }
 }
 
 __rvm_fix_permissions_select()
