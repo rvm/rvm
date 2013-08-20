@@ -14,3 +14,21 @@ tools_user_none $d/.fake-rvmrc
 cat $d/.fake-rvmrc
 # match=/rvm_path=/
 # match!=/rvm_gemset_path=/
+
+: __rvm_env_string
+rvm use 2.0.0-p247 --install
+__rvm_env_string # match=/2.0.0-p247/
+
+: __rvm_env_string fake + gems_path
+export rvm_gems_path=/tmp/gems2
+export GEM_HOME=$rvm_gems_path/3.0.0-p1000
+export PATH=$GEM_HOME/bin:$PATH
+__rvm_env_string # match=/^3.0.0-p1000$/
+: __rvm_env_string fake + gems_path
+
+export rvm_gems_path=/tmp/gems2
+export GEM_HOME=$rvm_path/gems/3.0.0-p9000
+export PATH=$GEM_HOME/bin:$PATH
+__rvm_env_string # match=/^3.0.0-p9000$/
+
+rvm use 2.0.0-p247
