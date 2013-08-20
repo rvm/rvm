@@ -12,7 +12,7 @@ function mrvm()
     if [[ -n "${BASH_SOURCE:-$0}" && -f "${BASH_SOURCE:-$0}" ]]
     then
       export rvm_path="${BASH_SOURCE:-$0}"
-      rvm_path="${rvm_path%/scripts/initialize}"
+      rvm_path="$( \cd ${rvm_path%/scripts/extras/chruby.sh}; pwd )"
     elif [[ -x "$HOME/.rvm/bin/rvm" ]]
     then export rvm_path="$HOME/.rvm"
     elif [[ -x "/usr/local/rvm/bin/rvm" ]]
