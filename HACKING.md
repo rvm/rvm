@@ -47,7 +47,7 @@ to write new tests, see [`rvm-test`'s
 README.md](https://github.com/wayneeseguin/rvm-test/blob/master/README.md).
 Then run the test:
 
-    $ tf --text rvm-test/fast/foo_comment_test.sh
+    $ NOEXEC_DISABLE=1 tf --text rvm-test/fast/foo_comment_test.sh
 
 It should fail.  Now repeat the following steps until the test passes:
 
