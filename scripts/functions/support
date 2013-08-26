@@ -172,44 +172,82 @@ __rvm_cd()
     return $ret
 }
 
-# Drop in replacement for which compatible with OSX / Zsh
-__rvm_which()
-{
-  if command which --skip-alias --skip-functions which >/dev/null 2>&1
-  then command which --skip-alias --skip-functions "$@"
-  elif command whence whence >/dev/null 2>&1
-  then command whence -p "$@"
-  elif command which which >/dev/null 2>&1
-  then command which "$@"
-  elif which which >/dev/null 2>&1
-  then which "$@"
-  else return 1
-  fi
-}
-
-gnu_utils=( awk find sed make tail )
+gnu_utils=( awk find sed make tail date )
 
 case "$(uname)" in
   (SunOS)
     case "$(uname -v)" in
-      (*joyent*) gnu_tools_path=/opt/local/bin ;;
-      (*)        gnu_tools_path=/usr/gnu/bin   ;;
+      (*joyent*)
+        gnu_tools_path=/opt/local/bin
+        gnu_prefix=""
+        ;;
+      (*)
+        case "$(uname -r)" in
+          (5.10)
+            gnu_tools_path=/opt/csw/bin
+            gnu_prefix="g"
+            ;;
+          (5.11)
+            gnu_tools_path=/usr/gnu/bin
+            gnu_prefix=""
+            ;;
+        esac
+        ;;
     esac
-    [[ -x $gnu_tools_path/grep ]] ||
-      rvm_error "ERROR: Missing GNU grep. Make sure it is installed in $gnu_tools_path/grep before using RVM!"
-    eval "__rvm_grep() { GREP_OPTIONS=\"\" $gnu_tools_path/grep \"\$@\" || return \$?; }"
+
+    gnu_missing=()
+    if
+      [[ -x $gnu_tools_path/${gnu_prefix}grep ]]
+    then
+      eval "__rvm_grep() { GREP_OPTIONS=\"\" $gnu_tools_path/${gnu_prefix}grep \"\$@\" || return \$?; }"
+    else
+      gnu_missing+=( ${gnu_prefix}grep )
+    fi
+
+    if
+      [[ -x $gnu_tools_path/${gnu_prefix}which ]]
+    then
+      eval "__rvm_which() { $gnu_tools_path/${gnu_prefix}which \"\$@\" || return \$?; }"
+    else
+      gnu_missing+=( ${gnu_prefix}which )
+    fi
 
     for gnu_util in "${gnu_utils[@]}"
     do
-      [[ -x $gnu_tools_path/$gnu_util ]] ||
-        rvm_error "ERROR: Missing GNU $gnu_util. Make sure it is installed in $gnu_tools_path/$gnu_util before using RVM!"
-      eval "__rvm_$gnu_util() { $gnu_tools_path/$gnu_util \"\$@\" || return \$?; }"
+      if
+        [[ -x $gnu_tools_path/$gnu_prefix$gnu_util ]]
+      then
+        eval "__rvm_$gnu_util() { $gnu_tools_path/$gnu_prefix$gnu_util \"\$@\" || return \$?; }"
+      else
+        gnu_missing+=( $gnu_prefix$gnu_util )
+      fi
     done
+
+    if
+      (( ${#gnu_missing[@]} ))
+    then
+      rvm_error "ERROR: Missing GNU tools: ${gnu_missing[@]}. Make sure they are installed in '$gnu_tools_path/' before using RVM!"
+      exit 1
+    fi
     ;;
   (*)
     __rvm_grep()
     {
       GREP_OPTIONS="" \grep "$@" || return $?
+    }
+
+    __rvm_which()
+    {
+      if command which --skip-alias --skip-functions which >/dev/null 2>&1
+      then command which --skip-alias --skip-functions "$@"
+      elif command whence whence >/dev/null 2>&1
+      then command whence -p "$@"
+      elif command which which >/dev/null 2>&1
+      then command which "$@"
+      elif which which >/dev/null 2>&1
+      then which "$@"
+      else return 1
+      fi
     }
 
     for gnu_util in "${gnu_utils[@]}"
@@ -219,7 +257,28 @@ case "$(uname)" in
     ;;
 esac
 
-unset gnu_tools_path gnu_util gnu_utils
+unset gnu_tools_path gnu_prefix gnu_util gnu_utils gnu_missing
+
+# Drop in replacement to support Solaris 10
+# (/sbin and /usr/sbin are not in PATH be default)
+__rvm_mount()
+{
+  case "$(uname)" in
+    (SunOS)
+      case "$(uname -r)" in
+        (5.10)
+          /sbin/mount
+          ;;
+        (*)
+          mount
+          ;;
+      esac
+      ;;
+    (*)
+      mount
+      ;;
+  esac
+}
 
 ## duplication marker 32fosjfjsznkjneuera48jae
 __rvm_curl_output_control()
