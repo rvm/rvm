@@ -1,22 +1,5 @@
 #!/usr/bin/env bash
 
-if [[ -z "${rvm_tar_command:-}" ]]
-then
-  # check for the right tar to use
-  if builtin command -v gtar >/dev/null
-  then rvm_tar_command=gtar
-  else rvm_tar_command=tar
-  fi
-fi
-
-if
-  [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
-  # pre-gnu
-  $rvm_tar_command --help 2>&1 | GREP_OPTIONS="" \grep -- --no-same-owner >/dev/null
-then
-  rvm_tar_options="${rvm_tar_options:-}${rvm_tar_options:+ }--no-same-owner"
-fi
-
 # Functions RVM is built on
 # __rvm_string_match <value> <string|glob>
 if
@@ -160,7 +143,7 @@ __rvm_sed_i()
   fi
 }
 
-# Drop in cd which _desotn't_ respect cdpath
+# Drop in cd which _doesnt't_ respect cdpath
 __rvm_cd()
 {
     typeset old_cdpath ret
@@ -172,7 +155,7 @@ __rvm_cd()
     return $ret
 }
 
-gnu_utils=( awk find sed make tail date )
+gnu_utils=( awk find sed make tail date tar )
 
 case "$(uname)" in
   (SunOS)
@@ -220,7 +203,7 @@ case "$(uname)" in
       (( ${#gnu_missing[@]} ))
     then
       rvm_error "ERROR: Missing GNU tools: ${gnu_missing[@]}. Make sure they are installed in '$gnu_tools_path/' before using RVM!"
-      exit 1
+      exit 200
     fi
     ;;
   (*)
@@ -247,8 +230,39 @@ esac
 
 unset gnu_tools_path gnu_prefix gnu_util gnu_utils gnu_missing
 
+if
+  [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
+  # pre-gnu
+  __rvm_tar --help 2>&1 | __rvm_grep -- --no-same-owner >/dev/null
+then
+  rvm_tar_options="${rvm_tar_options:-}${rvm_tar_options:+ }--no-same-owner"
+fi
+
+__rvm_ant()
+{
+  case "$(uname)" in
+    (SunOS)
+      case "$(uname -r)" in
+        (5.10)
+          /usr/sfw/bin/ant
+          ;;
+      esac
+      ;;
+    (*)
+      if
+        __rvm_which ant >/dev/null 2>&1
+      then
+        __rvm_which ant
+      else
+        rvm_error "ERROR: Missing Apache Ant. Make sure it is installed and in PATH before installing JRuby"
+        exit 200
+      fi
+      ;;
+  esac
+}
+
 # Drop in replacement to support Solaris 10
-# (/sbin and /usr/sbin are not in PATH be default)
+# (/sbin and /usr/sbin are not in PATH by default)
 __rvm_mount()
 {
   case "$(uname)" in
@@ -290,7 +304,7 @@ __rvm_curl_output_control()
 # -S is automatically added to -s
 __rvm_curl()
 (
-  __rvm_which curl >/dev/null ||
+  __rvm_which curl >/dev/null 2>&1 ||
   {
     rvm_error "RVM requires 'curl'. Install 'curl' first and try again."
     return 200
