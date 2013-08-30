@@ -431,15 +431,32 @@ external_import_validate_binary()
   typeset -a missing_libs
   export _libdir
   _libdir="$( __rvm_ruby_config_get libdir "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" )"
+
+  case "${rvm_ruby_string}" in
+    (*jruby*)
+      case $(uname) in
+        (Darwin)
+          external_libdir="lib/native/Darwin"
+          ;;
+        (*)
+          external_libdir="lib/native/$(uname -p)-$(uname)"
+          ;;
+      esac
+      ;;
+    (*)
+      external_libdir=""
+      ;;
+  esac
+
   missing_libs=( $(
     case $(uname) in
       (Linux|SunOS)
-        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}" -name '*.so' |
+        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}/${external_libdir}" -name '*.so' |
           xargs env LD_LIBRARY_PATH="${_libdir}" ldd 2>/dev/null |
           __rvm_awk '/not found/{print $1}' | sort -u
         ;;
       (Darwin)
-        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}" -name "*.bundle" |
+        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}/${external_libdir}" -name "*.bundle" |
           xargs env LD_LIBRARY_PATH="${_libdir}" otool -L 2>&1 |
           __rvm_awk -F"[ :]" '{print $1}' |
           __rvm_sed 's#@executable_path#'"${rvm_rubies_path}/${rvm_ruby_string}"'/bin#' |
