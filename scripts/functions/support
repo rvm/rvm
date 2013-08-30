@@ -155,7 +155,7 @@ __rvm_cd()
     return $ret
 }
 
-gnu_utils=( awk date find sed tail tar )
+gnu_utils=( awk cp date find sed tail tar )
 
 case "$(uname)" in
   (SunOS)
@@ -283,25 +283,10 @@ case "$(uname)" in
   (SunOS)
     case "$(uname -r)" in
       (5.10)
-        __rvm_ant()
-          {
-            /usr/sfw/bin/ant
-          }
-
-        __rvm_make()
-          {
-            /opt/csw/bin/gmake
-          }
-
-        __rvm_mount()
-          {
-            /sbin/mount
-          }
-
-        __rvm_patch()
-          {
-            /opt/csw/bin/gpatch
-          }
+        __rvm_ant()   { /usr/sfw/bin/ant    "$@" || return $?; }
+        __rvm_make()  { /opt/csw/bin/gmake  "$@" || return $?; }
+        __rvm_mount() { /sbin/mount         "$@" || return $?; }
+        __rvm_patch() { /opt/csw/bin/gpatch "$@" || return $?; }
         ;;
       (*)
         for other_util in "${other_utils[@]}"
@@ -343,7 +328,25 @@ __rvm_curl_output_control()
 # -S is automatically added to -s
 __rvm_curl()
 (
-  __rvm_which curl >/dev/null 2>&1 ||
+  case "$(uname)" in
+    (SunOS)
+      case "$(uname -r)" in
+        (5.10)
+          if __rvm_which curl >/dev/null 2>&1
+          then curl_path=""
+          else curl_path=/opt/csw/bin/
+          fi
+          ;;
+        (*)
+          curl_path=""
+          ;;
+      esac
+      ;;
+    (*)
+      curl_path=""
+      ;;
+  esac
+  __rvm_which ${curl_path}curl >/dev/null 2>&1 ||
   {
     rvm_error "RVM requires 'curl'. Install 'curl' first and try again."
     return 200
@@ -359,7 +362,7 @@ __rvm_curl()
   __rvm_curl_output_control
 
   unset curl
-  __rvm_debug_command \curl "${__flags[@]}" "$@" || return $?
+  __rvm_debug_command ${curl_path}curl "${__flags[@]}" "$@" || return $?
 )
 
 is_a_function()
