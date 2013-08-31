@@ -155,26 +155,21 @@ __rvm_cd()
     return $ret
 }
 
+source "$install_source_path/scripts/functions/utility_system"
+#echo "TYPE, VERSION: ${_system_name}, ${_system_version}"
+
 gnu_utils=( awk cp date find sed tail tar )
 
-case "$(uname)" in
-  (SunOS)
-    case "$(uname -v)" in
-      (*joyent*)
-        gnu_tools_path=/opt/local/bin
-        gnu_prefix=""
+case "${_system_name}" in
+  (Solaris)
+    case "${_system_version}" in
+      (10)
+        gnu_tools_path=/opt/csw/bin
+        gnu_prefix="g"
         ;;
-      (*)
-        case "$(uname -r)" in
-          (5.10)
-            gnu_tools_path=/opt/csw/bin
-            gnu_prefix="g"
-            ;;
-          (5.11)
-            gnu_tools_path=/usr/gnu/bin
-            gnu_prefix=""
-            ;;
-        esac
+      (11)
+        gnu_tools_path=/usr/gnu/bin
+        gnu_prefix=""
         ;;
     esac
 
@@ -185,14 +180,12 @@ case "$(uname)" in
     else gnu_missing+=( ${gnu_prefix}grep )
     fi
 
-    if [[ "$(uname -v)" =~ joyent ]]
-    then __rvm_which() { /usr/bin/which "$@" || return $?; }
-    elif [[ -x $gnu_tools_path/${gnu_prefix}which ]]
+    if [[ -x $gnu_tools_path/${gnu_prefix}which ]]
     then eval "__rvm_which() { $gnu_tools_path/${gnu_prefix}which \"\$@\" || return \$?; }"
     else gnu_missing+=( ${gnu_prefix}which )
     fi
 
-    if [[ "$(uname -v)" == "11.1" || "$(uname -v)" =~ oi ]]
+    if [[ "${_system_version}" == "11" ]]
     then __rvm_readlink() { /usr/bin/readlink "$@" || return $?; }
     elif [[ -x $gnu_tools_path/${gnu_prefix}readlink ]]
     then eval "__rvm_readlink() { $gnu_tools_path/${gnu_prefix}readlink \"\$@\" || return \$?; }"
@@ -236,6 +229,7 @@ case "$(uname)" in
     done
     ;;
 esac
+
 export -f __rvm_date # needed for --trace to not report it missing early
 
 unset gnu_tools_path gnu_prefix gnu_util gnu_utils gnu_missing
@@ -251,19 +245,18 @@ fi
 # but have non-standard paths in Solaris 10
 other_utils=( ant make mount patch )
 
-case "$(uname)-$(uname -r)" in
-  (SunOS-5.10)
-    __rvm_ant()   { /usr/sfw/bin/ant    "$@" || return $?; }
-    __rvm_make()  { /opt/csw/bin/gmake  "$@" || return $?; }
-    __rvm_mount() { /sbin/mount         "$@" || return $?; }
-    __rvm_patch() { /opt/csw/bin/gpatch "$@" || return $?; }
-    ;;
-  (*)
-    for other_util in "${other_utils[@]}"
-    do eval "__rvm_$other_util() { \\$other_util \"\$@\" || return \$?; }"
-    done
-    ;;
-esac
+if
+  [[ "${_system_type}" == "SunOS" && "${_system_version}" == "10" ]]
+then
+  __rvm_ant()   { /usr/sfw/bin/ant    "$@" || return $?; }
+  __rvm_make()  { /opt/csw/bin/gmake  "$@" || return $?; }
+  __rvm_mount() { /sbin/mount         "$@" || return $?; }
+  __rvm_patch() { /opt/csw/bin/gpatch "$@" || return $?; }
+else
+  for other_util in "${other_utils[@]}"
+  do eval "__rvm_$other_util() { \\$other_util \"\$@\" || return \$?; }"
+  done
+fi
 
 unset other_util other_utils
 
