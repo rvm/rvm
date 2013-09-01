@@ -24,19 +24,15 @@ add_raw_token()
 }
 
 rvm_gemset_separator="${rvm_gemset_separator:-"@"}"
-ruby=$(
-  builtin command -v ruby | GREP_OPTIONS="" \grep -v $rvm_path/bin/ruby
-)
+ruby_string="$( builtin command -v ruby )"
 if
-  [[ -n "$ruby" && -n "$(echo "$ruby" | awk '/rvm/{print}')" ]]
+  [[ "$ruby_string" =~ rvm && "$ruby_string" != "$rvm_path/bin/ruby" ]]
 then
   unset format
   while
-    [[ $# -gt 0 ]]
+    (( $# ))
   do
-    token="$1"
-    shift
-    case "$token" in
+    case "$1" in
       i|interpreter)   add "interpreter"  ;;
       v|version)       add "version"      ;;
       p|patchlevel)    add "patchlevel"   ;;
@@ -46,8 +42,9 @@ then
       u|unicode)       add "unicode"      ;;
       s|system)                           ;; #skip when in ruby
       -d|--no-default) no_default=1       ;;
-      *)               add_raw_token "$token" ;;
+      *)               add_raw_token "$1" ;;
     esac
+    shift
   done
 
   if
@@ -58,7 +55,11 @@ then
       add "$default"
     done
   fi
-  ruby_string="${ruby%%*(/)bin*(/)port}"
+  # TODO this should be as simple as: ruby_string="${ruby_string%%*(/)bin*(/)ruby}"
+  ruby_string="${ruby_string%/ruby}"
+  ruby_string="${ruby_string%%/}"
+  ruby_string="${ruby_string%/bin}"
+  ruby_string="${ruby_string%%/}"
   ruby_string="${ruby_string##*/}"
   if
     [[ -n "$no_default" && -n "${format:-""}" ]]
@@ -117,9 +118,9 @@ then
       (macruby)  unicode="⌘" ;;
       (maglev)   unicode="㎖" ;;
       (ironruby) unicode="♭" ;;
-      (system)   unicode="➆" ;;
-      (goruby)   unicode="⛳";;
-      (topaz)    unicode="🐍";;
+      (system)   unicode="➆" ;; # TODO: ruby 1.8.7 is not default, we need something else here
+      (goruby)   unicode="⛳" ;; # TODO: what is this? can we use something more fonts support?
+      (topaz)    unicode="🐍" ;; # TODO: what is this? can we use something more fonts support?
       (ruby)
         case ${version:-""} in
           (1.8.6)  unicode="➇❻" ;;
@@ -145,10 +146,9 @@ else
   while
     (( $# ))
   do
-    token="$1"
-    shift
-    case "$token" in
+    case "$1" in
       s|system) echo "system" ;;
     esac
+    shift
   done
 fi
