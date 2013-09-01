@@ -155,7 +155,7 @@ __rvm_cd()
     return $ret
 }
 
-gnu_utils=( awk find sed make tail date tar )
+gnu_utils=( awk cp date find sed tail tar )
 
 case "$(uname)" in
   (SunOS)
@@ -179,6 +179,7 @@ case "$(uname)" in
     esac
 
     gnu_missing=()
+
     if [[ -x $gnu_tools_path/${gnu_prefix}grep ]]
     then eval "__rvm_grep() { GREP_OPTIONS=\"\" $gnu_tools_path/${gnu_prefix}grep \"\$@\" || return \$?; }"
     else gnu_missing+=( ${gnu_prefix}grep )
@@ -189,6 +190,13 @@ case "$(uname)" in
     elif [[ -x $gnu_tools_path/${gnu_prefix}which ]]
     then eval "__rvm_which() { $gnu_tools_path/${gnu_prefix}which \"\$@\" || return \$?; }"
     else gnu_missing+=( ${gnu_prefix}which )
+    fi
+
+    if [[ "$(uname -v)" == "11.1" || "$(uname -v)" =~ oi ]]
+    then __rvm_readlink() { /usr/bin/readlink "$@" || return $?; }
+    elif [[ -x $gnu_tools_path/${gnu_prefix}readlink ]]
+    then eval "__rvm_readlink() { $gnu_tools_path/${gnu_prefix}readlink \"\$@\" || return \$?; }"
+    else gnu_missing+=( ${gnu_prefix}readlink )
     fi
 
     for gnu_util in "${gnu_utils[@]}"
@@ -207,7 +215,8 @@ case "$(uname)" in
     fi
     ;;
   (*)
-    __rvm_grep() { GREP_OPTIONS="" \grep "$@" || return $?; }
+    __rvm_grep()     { GREP_OPTIONS="" \grep "$@" || return $?; }
+    __rvm_readlink() { \readlink "$@" || return $?; }
 
     if command which --skip-alias --skip-functions which >/dev/null 2>&1
     then __rvm_which() { command which --skip-alias --skip-functions "$@" || return $?; }
@@ -233,55 +242,30 @@ unset gnu_tools_path gnu_prefix gnu_util gnu_utils gnu_missing
 
 if
   [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
-  # pre-gnu
   __rvm_tar --help 2>&1 | __rvm_grep -- --no-same-owner >/dev/null
 then
   rvm_tar_options="${rvm_tar_options:-}${rvm_tar_options:+ }--no-same-owner"
 fi
 
-__rvm_ant()
-{
-  case "$(uname)" in
-    (SunOS)
-      case "$(uname -r)" in
-        (5.10)
-          /usr/sfw/bin/ant
-          ;;
-      esac
-      ;;
-    (*)
-      if
-        __rvm_which ant >/dev/null 2>&1
-      then
-        __rvm_which ant
-      else
-        rvm_error "ERROR: Missing Apache Ant. Make sure it is installed and in PATH before installing JRuby"
-        exit 200
-      fi
-      ;;
-  esac
-}
+# Utils that are not needed for RVM installation
+# but have non-standard paths in Solaris 10
+other_utils=( ant make mount patch )
 
-# Drop in replacement to support Solaris 10
-# (/sbin and /usr/sbin are not in PATH by default)
-__rvm_mount()
-{
-  case "$(uname)" in
-    (SunOS)
-      case "$(uname -r)" in
-        (5.10)
-          /sbin/mount
-          ;;
-        (*)
-          mount
-          ;;
-      esac
-      ;;
-    (*)
-      mount
-      ;;
-  esac
-}
+case "$(uname)-$(uname -r)" in
+  (SunOS-5.10)
+    __rvm_ant()   { /usr/sfw/bin/ant    "$@" || return $?; }
+    __rvm_make()  { /opt/csw/bin/gmake  "$@" || return $?; }
+    __rvm_mount() { /sbin/mount         "$@" || return $?; }
+    __rvm_patch() { /opt/csw/bin/gpatch "$@" || return $?; }
+    ;;
+  (*)
+    for other_util in "${other_utils[@]}"
+    do eval "__rvm_$other_util() { \\$other_util \"\$@\" || return \$?; }"
+    done
+    ;;
+esac
+
+unset other_util other_utils
 
 ## duplication marker 32fosjfjsznkjneuera48jae
 __rvm_curl_output_control()
@@ -305,7 +289,16 @@ __rvm_curl_output_control()
 # -S is automatically added to -s
 __rvm_curl()
 (
-  __rvm_which curl >/dev/null 2>&1 ||
+  typeset curl_path
+  if
+    __system_and_version_is SunOS 5.10 &&
+    ! __rvm_which curl >/dev/null 2>&1
+  then
+    curl_path=/opt/csw/bin/
+  else
+    curl_path=""
+  fi
+  __rvm_which ${curl_path}curl >/dev/null 2>&1 ||
   {
     rvm_error "RVM requires 'curl'. Install 'curl' first and try again."
     return 200
@@ -321,7 +314,7 @@ __rvm_curl()
   __rvm_curl_output_control
 
   unset curl
-  __rvm_debug_command \curl "${__flags[@]}" "$@" || return $?
+  __rvm_debug_command ${curl_path}curl "${__flags[@]}" "$@" || return $?
 )
 
 is_a_function()
