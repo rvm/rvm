@@ -59,6 +59,12 @@ __rvm_parse_args_find_known_flags()
   eval "${_args_array_name}+=( \"\${_new_args[@]}\" )"
 }
 
+__rvm_parse_args_error_finding_project_file()
+{
+  rvm_error_message="Could not determine which Ruby to use; $rvm_token should contain .rvmrc or .versions.conf or .ruby-version or .rbfu-version or .rbenv-version, or an appropriate line in Gemfile."
+  rvm_action="error"
+}
+
 __rvm_parse_args()
 {
   typeset _string
@@ -294,15 +300,10 @@ __rvm_parse_args()
             rvm_token="${next_token}"
             next_token="${1:-}"
             (( $# == 0 )) || shift
-            if
-               __rvm_project_dir_check "$rvm_token"
-            then
-              export rvm_in_flag="$rvm_token"
-              __rvm_rvmrc_tools try_to_read_ruby $rvm_token
-            else
-              rvm_error_message="Could not determine which Ruby to use; $rvm_token should contain .rvmrc or .versions.conf or .ruby-version or .rbfu-version or .rbenv-version, or an appropriate line in Gemfile."
-              rvm_action="error"
-            fi
+            export rvm_in_flag="$rvm_token"
+            __rvm_project_dir_check "$rvm_token" &&
+            __rvm_rvmrc_tools try_to_read_ruby $rvm_token ||
+            __rvm_parse_args_error_finding_project_file
             ;;
 
           *,*)
@@ -398,9 +399,11 @@ __rvm_parse_args()
               rvm_ruby_strings="$rvm_token"
               rvm_action="${rvm_action:-use}"
             elif
+              [[ -d  "$rvm_token" ]] ||
               __rvm_project_dir_check "$rvm_token"
             then
-              __rvm_rvmrc_tools try_to_read_ruby $rvm_token
+              __rvm_rvmrc_tools try_to_read_ruby $rvm_token ||
+              __rvm_parse_args_error_finding_project_file
             else
               rvm_action="error"
               rvm_error_message="Unrecognized command line argument: '$rvm_token'"
@@ -739,9 +742,11 @@ __rvm_parse_args()
 
       *)
         if
+          [[ -d  "$rvm_token" ]] ||
           __rvm_project_dir_check "$rvm_token"
         then
-          __rvm_rvmrc_tools try_to_read_ruby "$rvm_token"
+          __rvm_rvmrc_tools try_to_read_ruby "$rvm_token" ||
+          __rvm_parse_args_error_finding_project_file
         else
           rvm_action="error"
           rvm_error_message="Unrecognized command line argument(s): '$rvm_token $@'"
