@@ -7,29 +7,29 @@ source "$rvm_scripts_path/functions/manage/base_fetch"
 #TODO: Lookup default patches on rvm_ruby_string heirarchy.
 __rvm_current_patch_names()
 {
+  typeset -a expanded_names
   typeset _variable patch_level_separator level name expanded_name
   _variable="${1:-}"
   # Need variable for ${x%...}
   patch_level_separator="%"
   for name in "${rvm_patch_names[@]}" default ${_system_name}
   do
-    rvm_debug "Trying patch '$name'."
     [[ -n "${name:-}" ]] || continue
 
     if __rvm_string_match "${name}" "*${patch_level_separator}*"
     then level="${name##*${patch_level_separator}}"
     else level=1
     fi
+
     name="${name%${patch_level_separator}*}"
-    rvm_debug "Patch name '$name'."
-    while
-      read -r expanded_name
+    __rvm_read_lines expanded_names <( __rvm_expand_patch_name "$name" "$level" )
+
+    rvm_debug "Patch name '$name', expanded_name(s) '${expanded_names[*]}'."
+
+    for expanded_name in "${expanded_names[@]}"
     do
-      rvm_debug "Patch expanded_name '$expanded_name'."
       [[ -z "${expanded_name}" ]] || eval "${_variable}+=( \"\${expanded_name}\" )"
-    done < <(
-      __rvm_expand_patch_name "$name" "$level"
-    )
+    done
   done
 }
 
@@ -505,12 +505,14 @@ __rvm_reinstall_ruby()
 
 __rvm_gemset_pristine_all()
 {
+  typeset -a destination_gemsets
   typeset destination_gemset
-  while read -r destination_gemset
-  do __rvm_gemset_pristine "$destination_gemset"
-  done < <(
+  __rvm_read_lines destination_gemsets <(
     "$rvm_scripts_path/list" gemsets strings | __rvm_grep -E "^$1(@.*)?$"
   )
+  for destination_gemset in "${destination_gemsets[@]}"
+  do __rvm_gemset_pristine "$destination_gemset"
+  done
 }
 
 __rvm_remove_gemsets()
