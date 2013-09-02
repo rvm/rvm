@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/pkg"
+
 requirements_synology_lib_installed()
 {
-  ipkg list_installed | __rvm_grep "^$1" >/dev/null 2>&1 || return $?
+  ipkg list_installed | __rvm_grep "^$1 - " >/dev/null 2>&1 || return $?
 }
 
 requirements_synology_lib_available()
 {
-  ipkg list | __rvm_grep "^$1" >/dev/null 2>&1 || return $?
+  ipkg list | __rvm_grep "^$1 - " >/dev/null 2>&1 || return $?
 }
 
 requirements_synology_libs_install()
@@ -15,30 +17,55 @@ requirements_synology_libs_install()
   __rvm_try_sudo ipkg add -z "$@" || return $?
 }
 
+requirements_synology_install_custom()
+{
+  requirements_rvm_pkg_libs_install "$@" || return $?
+}
+
+requirements_synology_check_binaries()
+{
+  typeset -a __missing_binaries
+  __missing_binaries=()
+  while
+    (( $# ))
+  do
+    __rvm_which $1 >/dev/null || __missing_binaries+=( $1 )
+    shift
+  done
+  if
+    (( ${#__missing_binaries[@]} ))
+  then
+    rvm_error "Missing required binaries: ${__missing_binaries[*]} - make sure those are installed to continue."
+    return ${#__missing_binaries[@]}
+  fi
+  true
+}
+
 requirements_synology_define()
 {
   case "$1" in
     (rvm)
-      requirements_check bash curl
+      true
       ;;
     (jruby*head)
-      requirements_check jdk apache-ant git
+      requirements_synology_check_binaries java ant git || return $?
       ;;
     (jruby*)
-      requirements_check jdk
+      requirements_synology_check_binaries java || return $?
       ;;
     (ir*)
-      requirements_check mono
+      requirements_synology_check_binaries mono || return $?
       ;;
     (opal)
-      requirements_check node
+      requirements_synology_check_binaries node || return $?
       ;;
     (*-head)
-      requirements_check gcc autoconf automake libtool bison readline libyaml openssl git
-      __rvm_update_configure_opt_dir "$1" "/usr/local"
+      requirements_check git
+      requirements_synology_define "${1%-head}"
       ;;
     (*)
-      requirements_check gcc autoconf automake libtool bison readline libyaml openssl
+      requirements_check gcc autoconf automake libtool bison readline openssl
+      requirements_rvm_pkg_lib_installed_custom yaml
       __rvm_update_configure_opt_dir "$1" "/usr/local"
       ;;
   esac
