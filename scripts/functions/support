@@ -155,26 +155,20 @@ __rvm_cd()
     return $ret
 }
 
+#source "$install_source_path/scripts/functions/utility_system"
+
 gnu_utils=( awk cp date find sed tail tar xargs )
 
-case "$(uname)" in
-  (SunOS)
-    case "$(uname -v)" in
-      (*joyent*)
-        gnu_tools_path=/opt/local/bin
-        gnu_prefix=""
+case "${_system_name}" in
+  (Solaris)
+    case "${_system_version}" in
+      (10)
+        gnu_tools_path=/opt/csw/bin
+        gnu_prefix="g"
         ;;
-      (*)
-        case "$(uname -r)" in
-          (5.10)
-            gnu_tools_path=/opt/csw/bin
-            gnu_prefix="g"
-            ;;
-          (5.11)
-            gnu_tools_path=/usr/gnu/bin
-            gnu_prefix=""
-            ;;
-        esac
+      (11)
+        gnu_tools_path=/usr/gnu/bin
+        gnu_prefix=""
         ;;
     esac
 
@@ -185,14 +179,14 @@ case "$(uname)" in
     else gnu_missing+=( ${gnu_prefix}grep )
     fi
 
-    if [[ "$(uname -v)" =~ ^joyent ]]
+    if [[ "${_system_name}" == "SmartOS" ]]
     then __rvm_which() { \which "$@" || return $?; }
     elif [[ -x $gnu_tools_path/${gnu_prefix}which ]]
     then eval "__rvm_which() { $gnu_tools_path/${gnu_prefix}which \"\$@\" || return \$?; }"
     else gnu_missing+=( ${gnu_prefix}which )
     fi
 
-    if [[ "$(uname -v)" =~ ^oi || "$(uname -v)" == "11.1" ]]
+    if [[ "${_system_name}" == "OpenIndiana" || "${_system_version}" == "11" ]]
     then __rvm_stat() { \stat "$@" || return $?; }
     elif [[ -x $gnu_tools_path/${gnu_prefix}stat ]]
     then eval "__rvm_stat() { $gnu_tools_path/${gnu_prefix}stat \"\$@\" || return \$?; }"
@@ -211,7 +205,7 @@ case "$(uname)" in
       (( ${#gnu_missing[@]} ))
     then
       rvm_error "ERROR: Missing GNU tools: ${gnu_missing[@]}. Make sure they are installed in '$gnu_tools_path/' before using RVM!"
-      if [[ "$(uname)-$(uname -r)" == "SunOS-5.10" ]]
+      if [[ "${_system_name} ${_system_version}" == "Solaris 10" ]]
       then rvm_error "You might want to look at OpenCSW project to install the above mentioned tools (http://opencsw.org/about)"
       fi
       exit 200
@@ -238,9 +232,8 @@ case "$(uname)" in
     done
     ;;
 esac
-export -f __rvm_date >/dev/null # needed for --trace to not report it missing early
-
 unset gnu_tools_path gnu_prefix gnu_util gnu_utils gnu_missing
+export -f __rvm_date >/dev/null # needed for --trace to not report it missing early
 
 if
   [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
@@ -253,24 +246,22 @@ fi
 # but have non-standard paths in Solaris 10
 other_utils=( ant automake autoreconf libtoolize make mount patch readlink )
 
-case "$(uname)-$(uname -r)" in
-  (SunOS-5.10)
-    __rvm_ant()        { /usr/sfw/bin/ant        "$@" || return $?; }
-    __rvm_automake()   { /opt/csw/bin/automake   "$@" || return $?; }
-    __rvm_autoreconf() { /opt/csw/bin/autoreconf "$@" || return $?; }
-    __rvm_libtoolize() { /opt/csw/bin/libtoolize "$@" || return $?; }
-    __rvm_make()       { /opt/csw/bin/gmake      "$@" || return $?; }
-    __rvm_mount()      { /sbin/mount             "$@" || return $?; }
-    __rvm_patch()      { /opt/csw/bin/gpatch     "$@" || return $?; }
-    __rvm_readlink()   { /opt/csw/bin/greadlink  "$@" || return $?; }
-    ;;
-  (*)
-    for other_util in "${other_utils[@]}"
-    do eval "__rvm_$other_util() { \\$other_util \"\$@\" || return \$?; }"
-    done
-    ;;
-esac
-
+if
+  [[ "${_system_name} ${_system_version}" == "Solaris 10" ]]
+then
+  __rvm_ant()        { /usr/sfw/bin/ant        "$@" || return $?; }
+  __rvm_automake()   { /opt/csw/bin/automake   "$@" || return $?; }
+  __rvm_autoreconf() { /opt/csw/bin/autoreconf "$@" || return $?; }
+  __rvm_libtoolize() { /opt/csw/bin/libtoolize "$@" || return $?; }
+  __rvm_make()       { /opt/csw/bin/gmake      "$@" || return $?; }
+  __rvm_mount()      { /sbin/mount             "$@" || return $?; }
+  __rvm_patch()      { /opt/csw/bin/gpatch     "$@" || return $?; }
+  __rvm_readlink()   { /opt/csw/bin/greadlink  "$@" || return $?; }
+else
+  for other_util in "${other_utils[@]}"
+  do eval "__rvm_$other_util() { \\$other_util \"\$@\" || return \$?; }"
+  done
+fi
 unset other_util other_utils
 
 ## duplication marker 32fosjfjsznkjneuera48jae
@@ -297,7 +288,7 @@ __rvm_curl()
 (
   typeset curl_path
   if
-    __system_and_version_is SunOS 5.10 &&
+    [[ "${_system_name} ${_system_version}" == "Solaris 10" ]] &&
     ! __rvm_which curl >/dev/null 2>&1
   then
     curl_path=/opt/csw/bin/
