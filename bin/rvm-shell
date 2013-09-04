@@ -2,7 +2,8 @@
 
 export HOME="${HOME%%+(\/)}" # Remove trailing slashes if they exist on HOME
 
-if (( ${rvm_ignore_rvmrc:=0} == 0 ))
+if
+  (( ${rvm_ignore_rvmrc:=0} == 0 ))
 then
   for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
   do
@@ -35,39 +36,22 @@ then
   fi
 fi
 
-true ${rvm_scripts_path:="$rvm_path/scripts"}
-
-__rvm_shell_lookup_script()
-{
-  local relative_scripts_dir directory
-  if [[ -L $0 ]]
-  then relative_scripts_dir="$(dirname -- "$(dirname -- "$( __rvm_readlink "$0")" )" )/scripts" #"
-  else relative_scripts_dir="$(dirname -- "$(dirname -- "$0")")/scripts" #"
-  fi
-
-  for directory in "$rvm_scripts_path" "$HOME/.rvm/scripts" "/usr/local/rvm/scripts" "$relative_scripts_dir"
-  do
-    if [[ -d "$directory" && -s "$directory/rvm" ]]
-    then
-      echo "$directory/rvm"
-      return
-    fi
-  done
-}
-
 case $0 in
   (*-rvm-env) selected_shell=${0%-rvm-env} ;;
   (*)         selected_shell=bash          ;;
 esac
 selected_shell="$(basename "${selected_shell}")"
 
-if [[ -n "$1" && ! -f "$1" && -n "$(echo "$1" | GREP_OPTIONS="" \grep -v '^-')" ]]
+if
+  [[ -n "$1" && ! -f "$1" && -n "$(echo "$1" | GREP_OPTIONS="" \grep -v '^-')" ]]
 then
   rvm_shell_ruby_string="$1"
   shift
-elif [[ "$1" == "--path" && "$2" =~ /* ]]
+elif
+  [[ "$1" == "--path" ]] && [[ -d "$2" || "$2" =~ /* ]]
 then
-  if [[ -d "$2" ]]
+  if
+    [[ -d "$2" ]]
   then
     cd $2
   else
@@ -76,19 +60,23 @@ then
   shift 2
 fi
 
-rvm_shell_rvm_path="$(__rvm_shell_lookup_script)"
-if [[ -n "$rvm_shell_rvm_path" ]]
+true ${rvm_scripts_path:="$rvm_path/scripts"}
+export rvm_scripts_path
+if
+  [[ -n "$rvm_scripts_path" && -f "$rvm_scripts_path/rvm" ]]
 then
-  source "$rvm_shell_rvm_path"
+  source "$rvm_scripts_path/rvm"
   # Setup as expected.
-  if [[ -n "$rvm_shell_ruby_string" ]]
+  if
+    [[ -n "$rvm_shell_ruby_string" ]]
   then
     unset GEM_HOME # disable GEM_HOME mismatch check when using ruby
-    if ! rvm "$rvm_shell_ruby_string"
-    then
+    __rvm_use "$rvm_shell_ruby_string" ||
+    {
+      __status=$?
       echo "Error: RVM was unable to use '$rvm_shell_ruby_string'" 1>&2
-      exit 1
-    fi
+      exit ${__status}
+    }
   else
     __rvm_conditionally_do_with_env __rvm_rvmrc_tools load . >/dev/null 2>&1
   fi

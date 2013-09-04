@@ -156,9 +156,8 @@ __rvm_cd()
 }
 
 source "$install_source_path/scripts/functions/utility_system"
-#echo "TYPE, VERSION: ${_system_name}, ${_system_version}"
 
-gnu_utils=( awk cp date find sed tail tar )
+gnu_utils=( awk cp date find sed tail tar xargs )
 
 case "${_system_name}" in
   (Solaris)
@@ -180,17 +179,27 @@ case "${_system_name}" in
     else gnu_missing+=( ${gnu_prefix}grep )
     fi
 
-    if [[ -x $gnu_tools_path/${gnu_prefix}which ]]
+    if [[ "${_system_name}" == "SmartOS" ]]
+    then __rvm_which() { \which "$@" || return $?; }
+    elif [[ -x $gnu_tools_path/${gnu_prefix}which ]]
     then eval "__rvm_which() { $gnu_tools_path/${gnu_prefix}which \"\$@\" || return \$?; }"
     else gnu_missing+=( ${gnu_prefix}which )
     fi
 
-    if [[ "${_system_version}" == "11" ]]
-    then __rvm_readlink() { /usr/bin/readlink "$@" || return $?; }
-    elif [[ -x $gnu_tools_path/${gnu_prefix}readlink ]]
-    then eval "__rvm_readlink() { $gnu_tools_path/${gnu_prefix}readlink \"\$@\" || return \$?; }"
-    else gnu_missing+=( ${gnu_prefix}readlink )
+    if [[ "${_system_name}" == "OpenIndiana" || "$_system_version" == "11" ]]
+    then __rvm_stat() { \stat "$@" || return $?; }
+    elif [[ -x $gnu_tools_path/${gnu_prefix}stat ]]
+    then eval "__rvm_stat() { $gnu_tools_path/${gnu_prefix}stat \"\$@\" || return \$?; }"
+    else gnu_missing+=( ${gnu_prefix}stat )
     fi
+
+    for gnu_util in "${gnu_utils[@]}"
+    do
+      if [[ -x $gnu_tools_path/$gnu_prefix$gnu_util ]]
+      then eval "__rvm_$gnu_util() { $gnu_tools_path/$gnu_prefix$gnu_util \"\$@\" || return \$?; }"
+      else gnu_missing+=( $gnu_prefix$gnu_util )
+      fi
+    done
 
     for gnu_util in "${gnu_utils[@]}"
     do
@@ -204,12 +213,14 @@ case "${_system_name}" in
       (( ${#gnu_missing[@]} ))
     then
       rvm_error "ERROR: Missing GNU tools: ${gnu_missing[@]}. Make sure they are installed in '$gnu_tools_path/' before using RVM!"
+      if [[ "$(uname)-$(uname -r)" == "SunOS-5.10" ]]
+      then rvm_error "You might want to look at OpenCSW project to install the above mentioned tools (http://opencsw.org/about)"
+      fi
       exit 200
     fi
     ;;
   (*)
     __rvm_grep()     { GREP_OPTIONS="" \grep "$@" || return $?; }
-    __rvm_readlink() { \readlink "$@" || return $?; }
 
     if command which --skip-alias --skip-functions which >/dev/null 2>&1
     then __rvm_which() { command which --skip-alias --skip-functions "$@" || return $?; }
@@ -229,10 +240,8 @@ case "${_system_name}" in
     done
     ;;
 esac
-
-export -f __rvm_date # needed for --trace to not report it missing early
-
 unset gnu_tools_path gnu_prefix gnu_util gnu_utils gnu_missing
+export -f __rvm_date >/dev/null # needed for --trace to not report it missing early
 
 if
   [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
@@ -243,21 +252,24 @@ fi
 
 # Utils that are not needed for RVM installation
 # but have non-standard paths in Solaris 10
-other_utils=( ant make mount patch )
+other_utils=( ant automake autoreconf libtoolize make mount patch readlink )
 
 if
   [[ "${_system_name} ${_system_version}" == "Solaris 10" ]]
 then
-  __rvm_ant()   { /usr/sfw/bin/ant    "$@" || return $?; }
-  __rvm_make()  { /opt/csw/bin/gmake  "$@" || return $?; }
-  __rvm_mount() { /sbin/mount         "$@" || return $?; }
-  __rvm_patch() { /opt/csw/bin/gpatch "$@" || return $?; }
+  __rvm_ant()        { /usr/sfw/bin/ant        "$@" || return $?; }
+  __rvm_automake()   { /opt/csw/bin/automake   "$@" || return $?; }
+  __rvm_autoreconf() { /opt/csw/bin/autoreconf "$@" || return $?; }
+  __rvm_libtoolize() { /opt/csw/bin/libtoolize "$@" || return $?; }
+  __rvm_make()       { /opt/csw/bin/gmake      "$@" || return $?; }
+  __rvm_mount()      { /sbin/mount             "$@" || return $?; }
+  __rvm_patch()      { /opt/csw/bin/gpatch     "$@" || return $?; }
+  __rvm_readlink()   { /opt/csw/bin/greadlink  "$@" || return $?; }
 else
   for other_util in "${other_utils[@]}"
   do eval "__rvm_$other_util() { \\$other_util \"\$@\" || return \$?; }"
   done
 fi
-
 unset other_util other_utils
 
 ## duplication marker 32fosjfjsznkjneuera48jae
