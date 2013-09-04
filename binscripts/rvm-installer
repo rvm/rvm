@@ -31,7 +31,7 @@ elif
 then
   rvm_tar_command="${rvm_tar_command:-tar}"
 else
-  case "$(uname)" in
+  case "${_system_name}" in
     (OpenBSD)
       log "Trying to install GNU version of tar, might require sudo password"
       if (( UID ))
@@ -40,22 +40,28 @@ else
       fi
       rvm_tar_command=gtar
       ;;
-    (Darwin|FreeBSD|DragonFly) # it's not possible to autodetect on OSX, the help/man does not mention all flags
+    (OSX|FreeBSD|DragonFly) # it's not possible to autodetect on OSX, the help/man does not mention all flags
       rvm_tar_command=tar
       ;;
-    (SunOS)
-      case "$(uname -r)" in
-        (5.10)
+    (Solaris)
+      case "${_system_version}" in
+        (10)
           log "Trying to install GNU version of tar, might require sudo password"
           if (( UID ))
           then
-            pkginfo -q CSWpkgutil || sudo pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
+            if \which sudo >/dev/null 2>&1
+            then sudo_10=sudo
+            elif \which /opt/csw/bin/sudo >/dev/null 2>&1
+            then sudo_10=/opt/csw/bin/sudo
+            else fail "sudo is required but not found. You may install sudo from OpenCSW repository (http://opencsw.org/about)"
+            fi
+            pkginfo -q CSWpkgutil || $sudo_10 pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
             sudo /opt/csw/bin/pkgutil -iy CSWgtar -t http://mirror.opencsw.org/opencsw/unstable
           else
             pkginfo -q CSWpkgutil || pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
             /opt/csw/bin/pkgutil -iy CSWgtar -t http://mirror.opencsw.org/opencsw/unstable
           fi
-          rvm_tar_command=gtar
+          rvm_tar_command=/opt/csw/bin/gtar
           ;;
         (*)
           rvm_tar_command=tar

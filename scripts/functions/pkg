@@ -112,8 +112,6 @@ install_package()
 
     if
       [[ "${rvm_skip_autoreconf_flag:-0}" == 0 ]] &&
-      __rvm_which autoreconf >/dev/null 2>&1 &&
-      __rvm_which libtoolize >/dev/null 2>&1 &&
       [[ -f configure.ac || -f configure.in ]]
     then
       if
@@ -128,7 +126,7 @@ install_package()
         fi
       fi
       __rvm_log_command "$package/autoreconf" "Prepare $package in $rvm_src_path/$package-$version." \
-        autoreconf "${rvm_autoconf_flags[@]}"
+        __rvm_autoreconf "${rvm_autoconf_flags[@]}"
     fi
 
     [[ -n "${rvm_configure_env[*]}" ]] || rvm_configure_env=() # zsh can assume empty var => ( '' )
@@ -176,6 +174,7 @@ package_installed()
 
   [[ -f "${__search_path}/include/$1" ]] || return $?
 
+  # __rvm_detect_system() does not support CYGWIN MINGW!
   case "$(uname)" in
     (Darwin)  __extension="dylib" ;;
     (CYGWIN*) __extension="dll" ;;
@@ -186,8 +185,8 @@ package_installed()
 
   [[ -n "${__lib_file}" ]] || return $?
 
-  case "$(uname)" in
-    (Darwin) lipo -info "${__lib_file}" | __rvm_grep "$(uname -m)" >/dev/null || return $? ;;
+  case "${_system_type}" in
+    (Darwin) lipo -info "${__lib_file}" | __rvm_grep "${_system_arch}" >/dev/null || return $? ;;
   esac
 }
 
@@ -230,7 +229,7 @@ install_openssl()
   openssl_use_asm=( "no-asm" )
   __rvm_db "${package}_version" "version"
   if
-    [[ "Darwin" == "$(uname)" ]]
+    [[ "Darwin" == "${_system_type}" ]]
   then
     configure=( "./Configure" )
     if
@@ -328,7 +327,7 @@ install_libxml2()
 {
   package="libxml2" ; version="2.7.3" ; archive_format="tar.gz"
   if
-    [[ "Darwin" == "$(uname)" ]]
+    [[ "Darwin" == "${_system_type}" ]]
   then
     configure=(
       ./configure --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)
@@ -343,7 +342,7 @@ install_libxslt()
   package="libxslt" ; version="1.1.26" ; archive_format="tar.gz"
   configure_flags=( --with-libxml-prefix="$rvm_usr_path" )
   if
-    [[ "SunOS" == "$(uname)" ]]
+    [[ "SunOS" == "${_system_type}" ]]
   then
     patches="$rvm_patches_path/$package-$version/solaris.patch"
   fi
@@ -409,7 +408,7 @@ install_llvm()
 install_epel()
 {
   mv="${_system_version%%.*}"
-  if [[ "${_system_name}" == "centos" ]] && [[ -f /etc/yum.repos.d/epel.repo ]] ; then
+  if [[ "${_system_name}" == "CentOS" ]] && [[ -f /etc/yum.repos.d/epel.repo ]] ; then
     __rvm_db "epel${mv}_key" "epel_key"
     __rvm_db "epel${mv}_rpm" "epel_rpm"
     "${rvm_scripts_path}/fetch" "${epel_key}"
