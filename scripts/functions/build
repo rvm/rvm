@@ -280,34 +280,21 @@ __rvm_mono_env()
 # Returns all mri compatible (partly) ruby for use
 # with things like rbx etc which require a ruby be installed.
 __rvm_mri_rubies()
-{
-  typeset versions _ruby
-  versions="${1:-"ruby-1.9|ruby-2"}"
+(
   # find on bsd does not have -not, we need to use \!
-  for _ruby in $( __rvm_find $rvm_rubies_path/ -maxdepth 1 -mindepth 1 -type d \! -type l )
-  do
-    printf "%b" "${_ruby##*/}\n"
-  done | __rvm_grep -E "$versions"
-}
+  typeset versions="${1:-"ruby-1.9|ruby-2"}"
+  __rvm_cd "$rvm_rubies_path" &&
+  __rvm_find . -maxdepth 1 -mindepth 1 -type d \! -type l |
+  __rvm_awk -F/ "/$versions/"' {if (system("[[ -x \""$0"/bin/ruby\" ]]")==0) print $2}' ||
+  return $?
+)
 
 # Returns the first mri compatible (partly) ruby for use
 # with things like rbx etc which require a ruby be installed.
 __rvm_mri_ruby()
 {
-  typeset versions
-  versions="${1:-"ruby-1.9|ruby-2"}"
-  _mri_rubies=( $( __rvm_mri_rubies "$versions" ) )
-  _current_ruby=$(__rvm_env_string)
-  if [[ " ${_mri_rubies[*]} " =~ " ${_current_ruby} " ]]
-  then
-    printf "%b" "${_current_ruby}\n"
-  else
-    for _ruby in ${_mri_rubies[@]}
-    do
-      printf "%b" "${_ruby}\n"
-    done | sort | head -n 1
-  fi
-  return 0
+  __rvm_mri_rubies "${1:-"ruby-1.9|ruby-2"}" | sort |
+  __rvm_awk 'BEGIN{ selected=$0 } /'"$(__rvm_env_string)"'/{ selected=$0 } END {print $0}'
 }
 
 __rvm_ensure_has_mri_ruby()
