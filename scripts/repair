@@ -46,19 +46,26 @@ repair_gemsets()
 
 repair_wrappers()
 {
+  typeset -a wrapper_ruby_names failed_wrappers
   typeset wrapper_ruby_name
 
   rvm_log "Regenerating all wrappers..."
+  __rvm_read_lines wrapper_ruby_names <("$rvm_scripts_path/list" gemsets strings)
 
-  while read -r wrapper_ruby_name
+  for wrapper_ruby_name in "${wrapper_ruby_names[@]}"
   do
-    rvm_log "Regenerating wrappers for $wrapper_ruby_name"
-    __rvm_run "wrappers.regenerate" "\"$rvm_scripts_path/wrapper\" '$wrapper_ruby_name'"
+    __rvm_log_command \
+      "wrappers.regenerate.$wrapper_ruby_name" \
+      "Regenerating wrappers for $wrapper_ruby_name" \
+      "$rvm_scripts_path/wrapper" "$wrapper_ruby_name" ||
+    failed_wrappers+=( "$wrapper_ruby_name" )
+  done
 
-  done < <("$rvm_scripts_path/list" gemsets strings)
-
-  rvm_log "Wrappers regenerated"
-  return 0
+  if (( ${#failed_wrappers[@]} ))
+  then rvm_error "Wrappers regeneration failed for: ${failed_wrappers[*]}"
+  else rvm_log "Wrappers regenerated"
+  fi
+  return ${#failed_wrappers[@]}
 }
 
 # Removes stale symlinks in $rvm_bin_path, likely
@@ -73,7 +80,7 @@ repair_symlinks()
     for executable_name in $(__rvm_find \. -type l)
     do
       if [[ -e "$executable_name" || \
-        "$(readlink "$executable_name")" != "$rvm_wrappers_path/"* ]]
+        "$(__rvm_readlink "$executable_name")" != "$rvm_wrappers_path/"* ]]
       then
         continue
       fi

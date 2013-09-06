@@ -2,7 +2,7 @@
 
 __rvm_add_user_to_group()
 {
-  case "$(uname)" in
+  case "${_system_type}" in
     "OpenBSD")
       usermod -G "$1" "$2"
       ;;
@@ -38,7 +38,7 @@ __rvm_is_user_in_group()
 
 __rvm_list_all_users()
 {
-  case "$(uname)" in
+  case "${_system_type}" in
     "Darwin")
       dscl . -search /Users PrimaryGroupID 20 | __rvm_grep PrimaryGroupID | cut -f 1
       ;;
@@ -50,7 +50,7 @@ __rvm_list_all_users()
 
 __rvm_group_exists()
 {
-  case "$(uname)" in
+  case "${_system_type}" in
     (Darwin)
       dscl . -read "/Groups/$1" 1>/dev/null 2>&1 || return $?
       ;;
@@ -69,13 +69,20 @@ __rvm_create_group()
   then __group_params+=( -g "$2" )
   fi
 
-  case "$(uname)" in
-    (Linux|SunOS|OpenBSD)
+  case "${_system_type}" in
+    (Linux|Sunos)
       groupadd "${__group_params[@]}" "$1"
       ;;
-    (FreeBSD|DragonFly)
-      pw groupadd "${__group_params[@]}" "$1" -q
-      ;;
+    (BSD)
+      case "${_system_name}" in
+        (OpenBSD)
+          groupadd "${__group_params[@]}" "$1"
+          ;;
+        (FreeBSD|DragonFly)
+          pw groupadd "${__group_params[@]}" "$1" -q
+          ;;
+        esac
+        ;;
     (Darwin)
       typeset _new_group_id
       if

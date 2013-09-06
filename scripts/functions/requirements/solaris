@@ -1,76 +1,148 @@
 #!/usr/bin/env bash
 
+requirements_solaris_define()
+{
+  if
+  	is_a_function requirements_solaris_${_system_version}_define
+  then
+  	requirements_solaris_${_system_version}_define "$@" || return $?
+  else
+  	rvm_error "Solaris ${_system_version} is not supported"
+  	return 40
+  fi
+}
+
 requirements_solaris_lib_installed()
 {
-  pkg info "$1" >/dev/null  2>&1 || return $?
+  pkg info "$1" > /dev/null 2>&1 || return $?
 }
 
 requirements_solaris_custom_lib_installed()
 {
-  pkginfo | __rvm_grep "${1/_dev/-dev}" >/dev/null || return $?
+  pkginfo -q "$1" || return $?
 }
 
 requirements_solaris_libs_install()
 {
-  __rvm_try_sudo pkg install "$@" || return $?
-}
-
-requirements_solaris_update_system()
-{
-  __rvm_try_sudo pkg refresh && __rvm_try_sudo pkg update ||
+  __rvm_try_sudo pkg install "$@" ||
   {
     typeset ret=$?
     case $ret in
-      (4) return 0 ;; # means nothing to install
+      (4) return 0 ;; # means the package does not need updates
     esac
     return $ret
   }
 }
 
-requirements_solaris_install_libyaml_dev()
+requirements_solaris_update_system()
 {
-  requirements_solaris_custom_lib_installed libyaml_dev ||
-  {
-    # Install OpenCSW repo
-    [[ -x /opt/csw/bin/pkgutil && -f /etc/opt/csw/pkgutil.conf ]] ||
-    __rvm_try_sudo pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now 'CSWpkgutil' > /dev/null 2>&1 || return $?
-    # Install libyaml from unstable branch
-    __rvm_try_sudo /opt/csw/bin/pkgutil -i -y libyaml_dev -t http://mirror.opencsw.org/opencsw/unstable > /dev/null 2>&1 || return $?
-  }
+  case "${_system_version}" in
+    (10)
+      return 0
+      ;;
+    (*)
+      __rvm_try_sudo pkg refresh && __rvm_try_sudo pkg update ||
+      {
+        typeset ret=$?
+        case $ret in
+          (4) return 0 ;; # means nothing to install
+        esac
+        return $ret
+      }
+      ;;
+  esac
 }
 
 requirements_solaris_check_custom()
 {
-  [[ " ${packages_custom[*]} " =~ " $1 " ]] ||
-  requirements_solaris_custom_lib_installed "$1" || packages_custom+=( "$1" )
+  for lib in "$@"
+  do
+    [[ " ${packages_custom[*]} " =~ " $lib " ]] ||
+    requirements_solaris_custom_lib_installed "$lib" || packages_custom+=( "$lib" )
+  done
+  unset lib
 }
 
-requirements_solaris_define()
+requirements_solaris_check_opencsw_enabled()
+{
+  requirements_solaris_custom_lib_installed CSWpkgutil || return $?
+}
+
+requirements_solaris_enable_opencsw()
+{
+  __rvm_try_sudo pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil > /dev/null 2>&1 || return $?
+}
+
+requirements_solaris_install_custom()
+{
+  requirements_solaris_check_opencsw_enabled || requirements_solaris_enable_opencsw
+  __rvm_try_sudo /opt/csw/bin/pkgutil -iy "$@" -t http://mirror.opencsw.org/opencsw/unstable || return $?
+}
+
+requirements_solaris_10_define()
+{
+  case "$1" in
+    (rvm)
+      requirements_solaris_check_custom CSWbash CSWgit CSWgpatch CSWmd5deep CSWwhich
+      ;;
+    (jruby-head*)
+      requirements_solaris_check_custom git
+      ;;
+    (jruby*)
+      # JDK is alreay installed on Solaris 10
+      true
+      ;;
+    (ir*)
+      # No support
+      true
+      ;;
+    (opal)
+      # No support
+      true
+      ;;
+    (*-head)
+      requirements_solaris_check_custom CSWgpatch CSWgcc4core CSWgmake CSWcoreutils CSWpkgconfig CSWautoconf CSWautomake CSWlibtool CSWlibyaml-dev CSWlibreadline-dev CSWlibncurses-dev CSWlibssl-dev CSWcurl CSWgit
+      __rvm_update_configure_opt_dir "$1" "/opt/csw"
+      ;;
+    (*)
+      requirements_solaris_check_custom CSWgpatch CSWgcc4core CSWgmake CSWcoreutils CSWpkgconfig CSWautoconf CSWautomake CSWlibtool CSWlibyaml-dev CSWlibreadline-dev CSWlibncurses-dev CSWlibssl-dev CSWcurl
+      __rvm_update_configure_opt_dir "$1" "/opt/csw"
+      ;;
+  esac
+}
+
+requirements_solaris_11_define()
 {
   case "$1" in
     (rvm)
       requirements_check bash curl git text/gnu-patch
       ;;
     (jruby-head*)
-      requirements_check jdk apache-ant git
+      requirements_check jdk ant git
       ;;
     (jruby*)
+      # This will fail with the message
+      ## To indicate that you agree to and accept the terms of the licenses of the packages listed above, use the --accept option.
+      ## To display all of the related licenses, use the --licenses option.
+      # Need to handle this somehow
       requirements_check jdk
       ;;
     (ir*)
-      requirements_check mono
+      # No support
+      true
       ;;
     (opal)
-      requirements_check node-devel
+      # No support
+      true
       ;;
     (*-head)
-      requirements_check text/gnu-patch developer/gcc-45 system/header system/library/math/header-math file/gnu-coreutils git
-      requirements_solaris_check_custom libyaml_dev
+      requirements_check text/gnu-patch developer/gcc-45 system/header developer/build/autoconf developer/build/automake developer/build/libtool system/library/math/header-math file/gnu-coreutils git
+      requirements_solaris_check_custom CSWlibyaml-dev
       __rvm_update_configure_opt_dir "$1" "/opt/csw"
       ;;
     (*)
-      requirements_check text/gnu-patch developer/gcc-45 system/header system/library/math file/gnu-coreutils
-      requirements_solaris_check_custom libyaml_dev
+      requirements_check text/gnu-patch developer/gcc-45 system/header developer/build/autoconf developer/build/automake developer/build/libtool system/library/math file/gnu-coreutils
+      requirements_solaris_check_custom CSWlibyaml-dev
       __rvm_update_configure_opt_dir "$1" "/opt/csw"
       ;;
   esac

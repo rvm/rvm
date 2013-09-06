@@ -2,12 +2,73 @@
 
 requirements_openindiana_lib_installed()
 {
-  pkg info "$1" > /dev/null || return $?
+  pkg info "$1" > /dev/null 2>&1 || return $?
+}
+
+requirements_openindiana_custom_lib_installed()
+{
+  pkginfo -q "$1" || return $?
 }
 
 requirements_openindiana_libs_install()
 {
-  __rvm_try_sudo pkg install "$@" || return $?
+  __rvm_try_sudo pkg install "$@" ||
+  {
+    typeset ret=$?
+    case $ret in
+      (4) return 0 ;; # means the package does not need updates
+    esac
+    return $ret
+  }
+}
+
+requirements_openindiana_update_system()
+{
+  __rvm_try_sudo pkg refresh && __rvm_try_sudo pkg update ||
+  {
+    typeset ret=$?
+    case $ret in
+      (4) return 0 ;; # means nothing to install
+    esac
+    return $ret
+  }
+}
+
+requirements_openindiana_check_custom()
+{
+  for lib in "$@"
+  do
+    [[ " ${packages_custom[*]} " =~ " $lib " ]] ||
+    requirements_openindiana_custom_lib_installed "$lib" || packages_custom+=( "$lib" )
+  done
+  unset lib
+}
+
+requirements_openindiana_check_opencsw_enabled()
+{
+  requirements_openindiana_custom_lib_installed CSWpkgutil || return $?
+}
+
+requirements_openindiana_enable_opencsw()
+{
+  __rvm_try_sudo pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil > /dev/null 2>&1 || return $?
+}
+
+requirements_openindiana_install_custom()
+{
+  requirements_openindiana_check_opencsw_enabled || requirements_openindiana_enable_opencsw
+  __rvm_try_sudo /opt/csw/bin/pkgutil -iy "$@" -t http://mirror.opencsw.org/opencsw/unstable || return $?
+}
+
+requirements_openindiana_after()
+{
+  # https://www.illumos.org/issues/782
+  if ! __rvm_which automake >/dev/null 2>&1 && __rvm_which /usr/bin/automake-1.10 >/dev/null 2>&1
+  then ln -s /usr/bin/automake-1.10 "${rvm_bin_path}"/automake
+  fi
+  if ! __rvm_which aclocal >/dev/null 2>&1 && __rvm_which /usr/bin/aclocal-1.10 >/dev/null 2>&1
+  then ln -s /usr/bin/aclocal-1.10 "${rvm_bin_path}"/aclocal
+  fi
 }
 
 requirements_openindiana_define()
@@ -29,10 +90,14 @@ requirements_openindiana_define()
       requirements_check runtime/javascript/nodejs
       ;;
     (*-head)
-      requirements_check text/gnu-patch runtime/gcc system/header system/library/math/header-math file/gnu-coreutils git
+      requirements_check text/gnu-patch developer/gcc/gcc-43 system/header developer/build/autoconf developer/build/automake-110 developer/build/libtool system/library/math/header-math file/gnu-coreutils git
+      requirements_openindiana_check_custom CSWlibyaml-dev
+      __rvm_update_configure_opt_dir "$1" "/opt/csw"
       ;;
     (*)
-      requirements_check text/gnu-patch runtime/gcc system/header system/library/math/header-math file/gnu-coreutils
+      requirements_check text/gnu-patch developer/gcc/gcc-43 system/header developer/build/autoconf developer/build/automake-110 developer/build/libtool system/library/math/header-math file/gnu-coreutils
+      requirements_openindiana_check_custom CSWlibyaml-dev
+      __rvm_update_configure_opt_dir "$1" "/opt/csw"
       ;;
   esac
 }

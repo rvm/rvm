@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# __rvm_detect_system() does not support AIX
 sys=$( uname -s )
 if [[ "${sys}" == AIX ]] ; then
     name_opt=-name
@@ -53,10 +54,10 @@ snapshot_save()
   mkdir -p "$snapshot_temp_path"
 
   rvm_log "Backing up a list of aliases"
-  \cp "$rvm_path/config/alias" "$snapshot_temp_path/"
+  __rvm_cp "$rvm_path/config/alias" "$snapshot_temp_path/"
 
   rvm_log "Backing up your user preferences"
-  \cp "$rvm_user_path/db" "$snapshot_temp_path/"
+  __rvm_cp "$rvm_user_path/db" "$snapshot_temp_path/"
 
   rvm_log "Backing up your installed packages"
   __rvm_sed -e 's/-//' -e 's/^lib//' < "$rvm_path/config/pkg" | __rvm_awk -F= '{print $1}' | sort | uniq > "$snapshot_temp_path/pkg"
@@ -79,7 +80,7 @@ snapshot_save()
 
       mkdir -p "./$snapshot_gemset/"
 
-      [[ -d "$GEM_HOME/cache/" ]] && \cp -R "$GEM_HOME/cache/" "./$snapshot_gemset/"
+      [[ -d "$GEM_HOME/cache/" ]] && __rvm_cp -R "$GEM_HOME/cache/" "./$snapshot_gemset/"
 
     done
   )
@@ -128,7 +129,7 @@ snapshot_save()
   (
     __rvm_cd "$snapshot_temp_path"
     __rvm_rm_rf "$destination_path/$1.tar.gz"
-    $rvm_tar_command czf "$destination_path/$1.tar.gz" .
+    $__rvm_tar czf "$destination_path/$1.tar.gz" .
     result="$?"
     __error_on_result "$result" "Error creating archive $destination_path/$1.tar.gz" && return "$result"
   )
@@ -168,13 +169,13 @@ snapshot_load()
   rvm_log "Extracting snapshot"
   (
     __rvm_cd "$snapshot_temp_path"
-    $rvm_tar_command xzf "$snapshot_archive"
+    $__rvm_tar xzf "$snapshot_archive"
     result="$?"
     __error_on_result "$result" "Error extracting the archive '$snapshot_archive'" && return "$result"
   )
 
   rvm_log "Restoring user settings"
-  \cp -f "$snapshot_temp_path/db" "$rvm_user_path/db"
+  __rvm_cp -f "$snapshot_temp_path/db" "$rvm_user_path/db"
 
   rvm_log "Installing rvm-managed packages"
   for snapshot_package in $(\cat "$snapshot_temp_path/pkg")
@@ -215,7 +216,7 @@ snapshot_load()
 
       mkdir -p "$GEM_HOME/cache/"
 
-      \cp -Rf "$snapshot_gemset/" "$GEM_HOME/cache/"
+      __rvm_cp -Rf "$snapshot_gemset/" "$GEM_HOME/cache/"
       result="$?"
 
       __error_on_result "$result" \

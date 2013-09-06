@@ -6,7 +6,7 @@ __rvm_setup_compile_environment()
   typeset -a __types
   __types=(
     setup movable_early requirements movable osx_compiler architectures gcc47plus bison smartos
-    sunos openbsd auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
+    openindiana sunos openbsd auto_conf_make flags_docs flags_tcltk flags_shared_static flags_threads
   )
   for __type in "${__types[@]}"
   do
@@ -31,12 +31,12 @@ __rvm_setup_compile_environment_setup()
 __rvm_setup_compile_environment_movable_early()
 {
   (( ${rvm_movable_flag:-0} > 0 ))  || return 0
-  case "${_system_name}" in
-    (*bsd)
+  case "${_system_type}" in
+    (BSD)
       rvm_error "It is not yet supported to build movable rubies on *BSD systems."
       return 3
       ;;
-    (osx)
+    (Darwin)
       case "$1" in
         ruby-2*|ruby-head*) true ;;
         (*)
@@ -94,8 +94,8 @@ __rvm_setup_compile_environment_requirements()
 __rvm_setup_compile_environment_movable()
 {
   (( ${rvm_movable_flag:-0} > 0 ))  || return 0
-  case "${_system_name}" in
-    (osx)
+  case "${_system_type}" in
+    (Darwin)
       rvm_configure_flags+=(
         --enable-load-relative --with-static-linked-ext
         --with-out-ext=dl/win32,fiddle/win32,tk/tkutil,win32ole,-test-/win32/dln,-test-/win32/fd_setsize
@@ -277,7 +277,7 @@ You should install the latest version from: http://connect.apple.com" ||
 
 __rvm_setup_compile_environment_osx_compiler()
 {
-  [[ "Darwin" == "$(uname)" ]] || return 0
+  [[ "Darwin" == "${_system_type}" ]] || return 0
 
   if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
   then rvm_force_autoconf_flag=1
@@ -382,9 +382,9 @@ __rvm_setup_compile_environment_architectures()
   rvm_debug "rvm_architectures(${#rvm_architectures[@]}):${rvm_architectures[*]}."
   (( ${#rvm_architectures[@]} > 0 )) || return 0
   if
-    is_a_function __rvm_setup_compile_environment_architectures_${_system_name}
+    is_a_function __rvm_setup_compile_environment_architectures_${_system_name_lowercase}
   then
-    __rvm_setup_compile_environment_architectures_${_system_name} "$@" || return $?
+    __rvm_setup_compile_environment_architectures_${_system_name_lowercase} "$@" || return $?
   else
     __rvm_setup_compile_environment_architectures_other "$@" || return $?
   fi
@@ -401,37 +401,56 @@ __rvm_setup_compile_environment_gcc47plus()
 
 __rvm_setup_compile_environment_smartos()
 {
-  [[ "$(uname -v)" =~ ^joyent ]] || return 0
-  __rvm_update_configure_opt_dir "$1" "/opt/local" # TODO do we needed the next line?
-  __rvm_update_configure_env CCFLAGS="-I/opt/local/include"
-  __rvm_add_to_path prepend "/opt/local/gnu/bin"
+  [[ "${_system_version}" =~ ^joyent ]] || return 0
 
-  # work around a make error.. see https://bugs.ruby-lang.org/issues/8268
   if __rvm_string_match "$1" "ruby-2.0.*"; then
     __rvm_update_configure_env CFLAGS="-R -fPIC"
-    rvm_configure_env+=( rb_cv_have_signbit=no )
   fi
+  if __rvm_string_match "$1" "ruby-2.0.0-p0"; then
+      # work around a make error.. see https://bugs.ruby-lang.org/issues/8268
+      # patch included in p195.
+      rvm_configure_env+=( rb_cv_have_signbit=no )
+  fi
+  return 0
+}
+
+__rvm_setup_compile_environment_openindiana()
+{
+  [[ "${_system_version}" =~ ^oi ]] || return 0
+  __rvm_update_configure_env CC="/usr/gcc/4.3/bin/gcc"
   return 0
 }
 
 __rvm_setup_compile_environment_sunos()
 {
-  [[ "$(uname -s)" == "SunOS" ]] || return 0
+  [[ "${_system_type}" == "SunOS" ]] || return 0
   case "$1" in
     ruby-1.9*|ruby-2*)
       # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
       rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
       ;;
   esac
-  if __rvm_string_match "$1" "ruby-2.0.*"
-  then rvm_configure_env+=( bash )
-  fi
+  # Commented for now as it breaks configure script call
+  # with prepended environment variables
+  # if __rvm_string_match "$1" "ruby-2.0.*"
+  # then rvm_configure_env+=( bash )
+  # fi
+  case "${_system_version}" in
+    (10)
+      __rvm_update_configure_env AR="/opt/csw/bin/gar"
+      __rvm_update_configure_env MAKE="/opt/csw/bin/gmake"
+      __rvm_add_to_path prepend "/opt/csw/bin"
+      ;;
+    (11)
+      __rvm_add_to_path prepend "/usr/gnu/bin"
+      ;;
+  esac
   return 0
 }
 
 __rvm_setup_compile_environment_openbsd()
 {
-  [[ "$(uname)" == "OpenBSD"     ]] || return 0
+  [[ "${_system_name}" == "OpenBSD" ]] || return 0
   # https://github.com/wayneeseguin/rvm/issues/1581
   rvm_configure_env+=( sh )
   case "$1" in
@@ -444,9 +463,9 @@ __rvm_setup_compile_environment_openbsd()
 
 __rvm_setup_compile_environment_auto_conf_make()
 {
-  case "$(uname)" in
-    (FreeBSD|OpenBSD|DragonFly) true     ;; # continue
-    (*)               return 0 ;; # break
+  case "${_system_type}" in
+    (BSD) true     ;; # continue
+    (*)                         return 0 ;; # break
   esac
   if
     [[  -z "${AUTOCONF_VERSION:-}" ]]
@@ -487,7 +506,7 @@ __rvm_setup_compile_environment_flags_docs()
 
 __rvm_setup_compile_environment_flags_tcltk()
 {
-  [[ "Darwin" == "$(uname)" ]] || return 0
+  [[ "Darwin" == "${_system_type}" ]] || return 0
 
   case "$1" in
     (ruby*|ree*)
@@ -504,7 +523,7 @@ __rvm_setup_compile_environment_flags_tcltk()
 __rvm_setup_compile_environment_flags_static_darwin()
 {
   if
-    __rvm_system_name_is osx
+    [[ "${_system_type}" == "Darwin" ]]
   then
     __rvm_update_configure_env CFLAGS="-fPIC" LDFLAGS="-fPIC" "$@"
     rvm_configure_flags+=( --with-arch=x86_64 )
@@ -557,7 +576,7 @@ __rvm_setup_compile_environment_flags_shared_static()
 
 __rvm_detect_max_threads()
 {
-  case "$(uname)" in
+  case "${_system_name}" in
     (Darwin|FreeBSD|DragonFly)
       if
         __rvm_which sysctl >/dev/null
@@ -590,7 +609,7 @@ __rvm_setup_compile_environment_flags_threads()
       rvm_make_flags+=( -j1 )
       ;;
     (*)
-        if [[ "$(uname)" == "FreeBSD" || "$(uname)" == "DragonFly" ]] ; then rvm_make_flags+=( -B ) ; fi
+        if [[ "${_system_name}" == "FreeBSD" || "${_system_name}" == "DragonFly" ]] ; then rvm_make_flags+=( -B ) ; fi
       [[ " ${rvm_make_flags[*]}" =~ " -j" ]] || rvm_make_flags+=( -j$(__rvm_detect_max_threads) )
       ;;
   esac

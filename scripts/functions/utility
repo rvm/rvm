@@ -92,7 +92,7 @@ __rvm_remove_from_path()
   if
     [[ "$PATH" =~ "//" ]]
   then
-    if [[ `uname -s` = "Darwin" ]]
+    if [[ "${_system_type}" = "Darwin" ]]
     then PATH="$(sed -E 's#/+#/#g' <<<$PATH)"
     else PATH="$(sed -r 's#/+#/#g' <<<$PATH)"
     fi
@@ -294,7 +294,7 @@ file_exists_at_url()
     [[ -n "${1:-}" ]]
   then
     unset curl
-    \curl --silent --insecure --location --list-only \
+    __rvm_curl --silent --insecure --location --list-only \
       --max-time ${rvm_max_time_flag:-3} --head "$1" 2>&1 |
       __rvm_grep -E 'HTTP/[0-9\.]+ 200 OK' >/dev/null 2>&1 ||
     {
@@ -316,7 +316,8 @@ you can increase the timeout by setting it in ~/.rvmrc => rvm_max_time_flag=10"
 __rvm_try_sudo()
 (
   typeset -a command_to_run
-  command_to_run=( "$@" )
+  typeset sudo_path
+  command_to_run=( /usr/bin/env PATH="$PATH:/sbin:/usr/sbin:/usr/local/sbin" "$@" )
   (( UID == 0 )) ||
   case "$rvm_autolibs_flag_number" in
     (0)
@@ -333,11 +334,19 @@ __rvm_try_sudo()
       ;;
     (*)
       if
-        __rvm_which sudo >/dev/null
+        [[ "${_system_name} ${_system_version}" == "Solaris 10" ]] &&
+        ! __rvm_which sudo >/dev/null 2>&1
       then
-        command_to_run=( sudo -p "%p password required for '${command_to_run[*]}': " "${command_to_run[@]}" )
+        sudo_path=/opt/csw/bin/
       else
-        rvm_requiremnts_fail error "Running '$*' would require sudo, but 'sudo' is not available!"
+        sudo_path=""
+      fi
+      if
+        __rvm_which ${sudo_path}sudo >/dev/null 2>&1
+      then
+        command_to_run=( ${sudo_path}sudo -p "%p password required for '${command_to_run[*]}': " "${command_to_run[@]}" )
+      else
+        rvm_requiremnts_fail error "Running '$*' would require sudo, but 'sudo' is not found in PATH!"
         return 1
       fi
       ;;
