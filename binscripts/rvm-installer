@@ -43,6 +43,30 @@ else
     (Darwin|FreeBSD|DragonFly) # it's not possible to autodetect on OSX, the help/man does not mention all flags
       rvm_tar_command=tar
       ;;
+    (SunOS)
+      case "$(uname -r)" in
+        (5.10)
+          log "Trying to install GNU version of tar, might require sudo password"
+          if (( UID ))
+          then
+            if \which sudo >/dev/null 2>&1
+            then sudo_10=sudo
+            elif \which /opt/csw/bin/sudo >/dev/null 2>&1
+            then sudo_10=/opt/csw/bin/sudo
+            else fail "sudo is required but not found. You may install sudo from OpenCSW repository (http://opencsw.org/about)"
+            fi
+            pkginfo -q CSWpkgutil || $sudo_10 pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
+            sudo /opt/csw/bin/pkgutil -iy CSWgtar -t http://mirror.opencsw.org/opencsw/unstable
+          else
+            pkginfo -q CSWpkgutil || pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
+            /opt/csw/bin/pkgutil -iy CSWgtar -t http://mirror.opencsw.org/opencsw/unstable
+          fi
+          rvm_tar_command=/opt/csw/bin/gtar
+          ;;
+        (*)
+          rvm_tar_command=tar
+          ;;
+      esac
   esac
   builtin command -v ${rvm_tar_command:-gtar} >/dev/null ||
   fail "Could not find GNU compatible version of 'tar' command, make sure it's available first before continuing installation."
@@ -132,7 +156,14 @@ __rvm_curl()
 
 rvm_error()  { printf "ERROR: %b\n" "$*"; }
 __rvm_which(){   which "$@" || return $?; true; }
-__rvm_debug_command(){ "$@" || return $?; true; }
+__rvm_debug_command()
+{
+  if (( ${rvm_debug_flag:-0} ))
+  then printf "Running($#): $*"
+  fi
+  "$@" || return $?
+  true
+}
 rvm_is_a_shell_function()
 {
   [[ -t 0 && -t 1 ]] || return $?
@@ -161,7 +192,8 @@ install_release()
     rvm-${_version}.tgz ||
   get_and_unpack \
     https://bitbucket.org/mpapis/rvm/get/${_version}.tar.gz \
-    rvm-${_version}.tgz
+    rvm-${_version}.tgz ||
+  return $?
 }
 
 install_head()
@@ -193,13 +225,15 @@ install_head()
         ${_repo}-rvm-${_branch//\//_}.tgz ||
       get_and_unpack \
         https://bitbucket.org/mpapis/rvm/get/${_branch}.tar.gz \
-        ${_repo}-rvm-${_branch//\//_}.tgz
+        ${_repo}-rvm-${_branch//\//_}.tgz ||
+      return $?
       ;;
     (*)
       log "Downloading RVM from ${_repo} branch ${_branch}"
       get_and_unpack \
         https://github.com/${_repo}/rvm/archive/${_branch}.tar.gz \
-        ${_repo}-rvm-${_branch//\//_}.tgz
+        ${_repo}-rvm-${_branch//\//_}.tgz ||
+      return $?
       ;;
   esac
 }
@@ -269,7 +303,7 @@ Could not download '${_url}'.
   }
 
   rm -rf ${rvm_src_path}/rvm/*
-  $rvm_tar_command xzf ${rvm_archives_path}/${_file} ${rvm_tar_options:-} --strip-components 1 ||
+  __rvm_debug_command $rvm_tar_command xzf ${rvm_archives_path}/${_file} ${rvm_tar_options:-} --strip-components 1 ||
   {
     _return=$?
     log "Could not extract RVM sources."
@@ -331,9 +365,9 @@ fi
 
 # duplication marker kkdfkgnjfndgjkndfjkgnkfjdgn
 case "$rvm_path" in
-  (/usr/local/rvm)  rvm_user_install_flag=0 ;;
-  ($HOME/*|/$USER*) rvm_user_install_flag=1 ;;
-  (*)               rvm_user_install_flag=0 ;;
+  (/usr/local/rvm)         rvm_user_install_flag=0 ;;
+  ($HOME/*|/${USER// /_}*) rvm_user_install_flag=1 ;;
+  (*)                      rvm_user_install_flag=0 ;;
 esac
 
 install_rubies=()

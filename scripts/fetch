@@ -120,28 +120,52 @@ reinstall Curl or consult with your distribution manual and contact support."
   }
 }
 
-function check_fallback_url()
-{
-  file_exists_at_url "$1" && url="$1" || return $?
-}
-
 if
   (( download > 0 ))
 then
   download_the_url ||
   {
-    typeset result=$?
-    rvm_warn "Searching for a fallback for: ${url}"
+    typeset __fallback result=$?
+    typeset -a __fallbacks
+    __fallbacks=()
     if
-      check_fallback_url "${url/http:/ftp:}"  ||
-      check_fallback_url "${url/https:/ftp:}" ||
-      check_fallback_url "${url/http:\/\//http://www.mirrorservice.org/sites/}"  ||
-      check_fallback_url "${url/https:\/\//http://www.mirrorservice.org/sites/}"
+      [[ "${url}" =~ "http://www.dnsbalance.ring.gr.jp" ]]
     then
-      rvm_log "Using fallback: ${url}"
-      download_the_url 1 ||
-        rvm_fail "Failed download" $?
+      __fallbacks+=(
+        "${url/http:\/\/www.dnsbalance.ring.gr.jp\/pub\/lang/http://ftp.ruby-lang.org/pub}"
+        "${url/http:\/\/www.dnsbalance.ring.gr.jp\/pub\/lang/http://www.mirrorservice.org/sites/ftp.ruby-lang.org/pub}"
+      )
+    elif
+      [[ "${url}" =~ "http://" ]]
+    then
+      __fallbacks+=( "${url/http:/ftp:}"  "${url/http:\/\//http://www.mirrorservice.org/sites/}"  )
+    elif
+      [[ "${url}" =~ "https://" ]]
+    then
+      __fallbacks+=( "${url/https:/ftp:}" "${url/https:\/\//http://www.mirrorservice.org/sites/}" )
     else
+      rvm_fail "
+No fallback URL can be calculated for ${url}, open a ticket with full output here:
+
+    https://github.com/wayneeseguin/rvm/issues
+
+" $result
+    fi
+    for __fallback in "${__fallbacks[@]}"
+    do
+      rvm_warn "Checking fallback: ${__fallback}"
+      if
+        file_exists_at_url "${__fallback}"
+      then
+        url="${__fallback}"
+        download_the_url 1 || rvm_fail "Failed download" $?
+        result=0
+        break
+      fi
+    done
+    if
+      (( result ))
+    then
       rvm_fail "\
 No fallback URL could be found, try increasing timeout with:
 
