@@ -4,7 +4,7 @@ Read java system properties
 
 ## Usage
 
-Download [ReadProperties.class](https://github.com/mpapis/java_read_properties/releases/download/1.0.0/ReadProperties.class) or:
+Download [ReadProperties.class](https://github.com/mpapis/java_read_properties/releases/download/1.0.0/ReadProperties.class)(right click - save as) or:
 
     wget https://github.com/mpapis/java_read_properties/releases/download/1.0.0/ReadProperties.class
 
