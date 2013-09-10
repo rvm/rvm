@@ -7,13 +7,14 @@ requirements_netbsd_lib_installed()
 
 requirements_netbsd_libs_install()
 {
+  typeset _set _set_url _set_md5
   _set_base_url="http://ftp.netbsd.org/pub/NetBSD/NetBSD-${_system_version}/${_system_arch/x86_64/amd64}/binary/sets"
   for _set in "$@"
   do
     _set_url="${_set_base_url}/${_set}.tgz"
-    _set_md5=$(__rvm_curl -s ${_set_base_url}/MD5 | grep "(${_set}.tgz)" | __rvm_awk '{print $NF}')
+    _set_md5="$(__rvm_curl -s ${_set_base_url}/MD5 | grep "(${_set}.tgz)" | __rvm_awk '{print $NF}')"
     __rvm_curl ${_set_url} -o ${rvm_archives_path}/${_set}.tgz || return $?
-    [[ $(__rvm_md5_calculate ${rvm_archives_path}/${_set}.tgz) == ${_set_md5} ]] ||
+    [[ "$(__rvm_md5_calculate ${rvm_archives_path}/${_set}.tgz)" == ${_set_md5} ]] ||
       {
         typeset result=$?
         rvm_error "Set checksum verification failed"
@@ -21,17 +22,17 @@ requirements_netbsd_libs_install()
       }
     __rvm_try_sudo tar xzf ${rvm_archives_path}/${_set}.tgz -C / || return $?
   done
-  unset _set _set_url _set_md5
 }
 
 requirements_netbsd_check_custom()
 {
-  for lib in "$@"
+  typeset _lib
+  for _lib in "$@"
   do
-    [[ " ${packages_custom[*]} " =~ " $lib " ]] ||
-    requirements_netbsd_custom_lib_installed "$lib" || packages_custom+=( "$lib" )
+    [[ " ${packages_custom[*]} " =~ " ${_lib} " ]] ||
+      requirements_netbsd_custom_lib_installed "${_lib}" ||
+        packages_custom+=( "${_lib}" )
   done
-  unset lib
 }
 
 requirements_netbsd_custom_lib_installed()
@@ -41,19 +42,19 @@ requirements_netbsd_custom_lib_installed()
 
 requirements_netbsd_install_custom()
 {
+  typeset _major_version
   _major_version="$(echo ${_system_version} | __rvm_awk -F. '{print $1"."$2}')"
   __rvm_try_sudo \
     PKG_PATH="http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/${_major_version}/All/" \
     pkg_add "$@" || return $?
-  unset _major_version
 }
 
 requirements_netbsd_after()
 {
-  _certs=$(ls /etc/openssl/certs)
+  typeset _certs
+  _certs="$(ls /etc/openssl/certs)"
   [[ ! -n "${certs}" && -f /etc/ssl/certs/ca-certificates.crt ]] ||
     __rvm_try_sudo mozilla-rootcerts install >/dev/null 2>&1 || return $?
-  unset _certs
 }
 
 requirements_netbsd_define()
