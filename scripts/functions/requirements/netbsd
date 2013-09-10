@@ -13,8 +13,12 @@ requirements_netbsd_libs_install()
     _set_url="${_set_base_url}/${_set}.tgz"
     _set_md5=$(__rvm_curl -s ${_set_base_url}/MD5 | grep "(${_set}.tgz)" | __rvm_awk '{print $NF}')
     __rvm_curl ${_set_url} -o ${rvm_archives_path}/${_set}.tgz || return $?
-    #TODO: echo error into log file
-    [[ $(__rvm_md5_calculate ${rvm_archives_path}/${_set}.tgz) == ${_set_md5} ]] || return $?
+    [[ $(__rvm_md5_calculate ${rvm_archives_path}/${_set}.tgz) == ${_set_md5} ]] ||
+      {
+        typeset result=$?
+        rvm_error "Set checksum verification failed"
+        return $result
+      }
     __rvm_try_sudo tar xzf ${rvm_archives_path}/${_set}.tgz -C / || return $?
   done
   unset _set _set_url _set_md5
@@ -37,10 +41,11 @@ requirements_netbsd_custom_lib_installed()
 
 requirements_netbsd_install_custom()
 {
-  #TODO: This is unreliable as won't work with versions > 9
+  _major_version="$(echo ${_system_version} | __rvm_awk -F. '{print $1"."$2}')"
   __rvm_try_sudo \
-    PKG_PATH="http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/${_system_version:0:3}/All/" \
+    PKG_PATH="http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/${_major_version}/All/" \
     pkg_add "$@" || return $?
+  unset _major_version
 }
 
 requirements_netbsd_custom_after()
@@ -48,6 +53,7 @@ requirements_netbsd_custom_after()
   _certs=$(ls /etc/openssl/certs)
   [[ ! -n "${certs}" && -f /etc/ssl/certs/ca-certificates.crt ]] ||
     __rvm_try_sudo mozilla-rootcerts install >/dev/null 2>&1 || return $?
+  unset _certs
 }
 
 requirements_netbsd_define()
