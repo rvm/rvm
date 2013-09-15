@@ -157,22 +157,43 @@ __rvm_requirements_run_custom_()
 {
   typeset __custom="$1"
   shift
-  if
-    is_a_function requirements_${__lib_type}_install_${__custom}
-  then
-    rvm_requiremnts_fail_or_run_action 2 \
-      "Skipping $* installation, make sure listed software is installed." \
-      __rvm_log_command install_custom "Installing required ${__custom//_/ } packages: $*" \
-      "requirements_${__lib_type}_install_${__custom}" "$@" || return $?
-  else
-    typeset __package
-    for __package in "$@"
-    do
+  typeset -a __missing_custom
+
+  while
+    (( $# ))
+  do
+    if
+      is_a_function requirements_${__lib_type}_install_${__package}
+    then
       rvm_requiremnts_fail_or_run_action 2 \
         "Skipping ${__package} installation, make sure ${__package} is installed." \
-        __rvm_log_command install_custom "Installing required ${__custom//_/ } package: ${__package}" \
+        __rvm_log_command install_${__custom}_${__package} \
+        "Installing required ${__custom//_/ } package: ${__package}" \
         "requirements_${__lib_type}_install_${__package}" || return $?
-    done
+    else
+      __rvm_add_once __missing_custom "${__package}"
+    fi
+  done
+
+  if
+    (( ${#__missing_custom[@]} ))
+  then
+    if
+      is_a_function requirements_${__lib_type}_install_${__custom}
+    then
+      rvm_requiremnts_fail_or_run_action 2 \
+        "Skipping ${__missing_custom[*]} installation, make sure listed software is installed." \
+        __rvm_log_command install_${__custom} \
+        "Installing required ${__custom//_/ } packages: ${__missing_custom[*]}" \
+        "requirements_${__lib_type}_install_${__custom}" "${__missing_custom[@]}" || return $?
+    else
+      rvm_requiremnts_fail_always 2 "\
+Can not find function 'requirements_${__lib_type}_install_${__custom}' to install missing ${__custom//_/ } packages:
+   ${__missing_custom[*]}
+report a bug here:
+   https://github.com/wayneeseguin/rvm/issues
+" || return $?
+    fi
   fi
 }
 
