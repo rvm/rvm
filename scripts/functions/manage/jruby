@@ -14,6 +14,41 @@ jruby_install_build_nailgun()
   __rvm_make "${rvm_make_flags[@]}"
 }
 
+jruby_install_upto17()
+{
+  __rvm_log_command "ant.jar" "$rvm_ruby_string - #ant jar" __rvm_ant jar || return $?
+
+  [[ -f "${rvm_src_path}/$rvm_ruby_string/bin/jruby" ]] ||
+  {
+    result=$?
+    rvm_error "JRuby reported it was installed successfully, but RVM could not find proper installation,
+please check why '${rvm_src_path}/$rvm_ruby_string/bin/jruby' was not created,
+maybe here '$rvm_log_path/$rvm_ruby_string/ant.jar.log',
+also make sure to report an error here 'https://github.com/jruby/jruby/issues'
+about not returning non zero status in case of errors."
+    return $result
+  }
+
+  if
+    (( ${#rvm_configure_flags[@]} ))
+  then
+    __rvm_log_command "ant.jar.flags" "$rvm_ruby_string - #ant jar ${rvm_configure_flags[*]}" \
+      __rvm_ant jar "${rvm_configure_flags[@]}" || return $?
+  fi
+
+  __rvm_log_command "ant.cext" "$rvm_ruby_string - #ant cext" __rvm_ant cext "${rvm_configure_flags[@]}" ||
+  rvm_warn "cext is known to fail please report here: https://jira.codehaus.org/browse/JRUBY"
+
+  __rvm_version_compare "$rvm_ruby_version" -ge "1.7.0" ||
+  __rvm_log_command "nailgun" "$rvm_ruby_string - #nailgun" jruby_install_build_nailgun ||
+  return $?
+}
+
+jruby_install_post17()
+{
+  __rvm_log_command "mvn" "$rvm_ruby_string - #mvn" mvn || return $?
+}
+
 jruby_install()
 {
   __rvm_compatibility_flag_configuration -Djruby.default.ruby.version=
@@ -40,33 +75,21 @@ jruby_install()
   __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
 
   __rvm_apply_patches
-  __rvm_log_command "ant.jar" "$rvm_ruby_string - #ant jar" __rvm_ant jar || return $?
 
-  [[ -f "${rvm_src_path}/$rvm_ruby_string/bin/jruby" ]] ||
-  {
-    result=$?
-    rvm_error "JRuby reported it was installed successfully, but RVM could not find proper installation,
-please check why '${rvm_src_path}/$rvm_ruby_string/bin/jruby' was not created,
-maybe here '$rvm_log_path/$rvm_ruby_string/ant.jar.log',
-also make sure to report an error here 'https://github.com/jruby/jruby/issues'
-about not returning non zero status in case of errors."
-    return $result
-  }
+  case ${rvm_ruby_string} in
+    (jruby-head*)
+      jruby_install_post17 || return $?
+      ;;
+    (*)
+      if __rvm_version_compare "$rvm_ruby_version" -lt "1.8"
+      then jruby_install_upto17 || return $?
+      else jruby_install_post17 || return $?
+      fi
+      ;;
+  esac
 
-  if
-    (( ${#rvm_configure_flags[@]} ))
-  then
-    __rvm_log_command "ant.jar.flags" "$rvm_ruby_string - #ant jar ${rvm_configure_flags[*]}" \
-      __rvm_ant jar "${rvm_configure_flags[@]}" || return $?
-  fi
-  __rvm_log_command "ant.cext" "$rvm_ruby_string - #ant cext" __rvm_ant cext "${rvm_configure_flags[@]}" ||
-    rvm_warn "cext is known to fail please report here: https://jira.codehaus.org/browse/JRUBY"
-
-  {
-    __rvm_version_compare "$rvm_ruby_version" -ge "1.7.0" ||
-    __rvm_log_command "nailgun" "$rvm_ruby_string - #nailgun" jruby_install_build_nailgun
-  } &&
   __rvm_rm_rf "$rvm_ruby_home" &&
+  __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string/.git" &&
   __rvm_log_command "install" "$rvm_ruby_string - #installing to $rvm_ruby_home" \
     __rvm_cp -Rf "${rvm_src_path}/$rvm_ruby_string" "$rvm_ruby_home" || return $?
 
@@ -91,9 +114,6 @@ about not returning non zero status in case of errors."
       ;;
   esac
 
-  # -server is "a lot slower for short-lived scripts like rake tasks, and takes longer to load"
-  #sed -e 's#^JAVA_VM=-client#JAVA_VM=-server#' $rvm_ruby_home/bin/jruby > $rvm_ruby_home/bin/jruby.new &&
-    #  \mv $rvm_ruby_home/bin/jruby.new $rvm_ruby_home/bin/jruby
   chmod +x "$rvm_ruby_home/bin/jruby"
 
   rvm_create_flag=1 __rvm_use
