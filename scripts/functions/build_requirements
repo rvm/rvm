@@ -2,12 +2,13 @@
 
 __rvm_requirements_run()
 {
-  typeset -a packages_installed packages_missing packages_to_install packages_flags packages_custom
+  typeset -a packages_installed packages_missing packages_to_install packages_flags
+  typeset -a packages_custom packages_custom_after
   typeset __type __lib_type __iterator
   __type=$1
   __lib_type=$1
   shift
-  for __iterator in load reset before define summary update custom install after
+  for __iterator in load reset before define summary update custom install custom_after after
   do
     __rvm_requirements_run_${__iterator} "$@" || return $?
   done
@@ -47,6 +48,7 @@ __rvm_requirements_run_reset()
   packages_to_install=()
   packages_flags=()
   packages_custom=()
+  packages_custom_after=()
 }
 
 __rvm_requirements_run_before()
@@ -117,13 +119,18 @@ __rvm_requirements_run_summary()
       true ||
       return $?
   }
+  (( ${#packages_custom_after[@]} == 0 )) ||
+  {
+    _list="${packages_custom_after[*]}"
+    rvm_debug "Custom after packages: ${_list// /, }."
+  }
 }
 
 __rvm_requirements_run_update()
 {
   if
     (( ${#packages_to_install[@]} > 0 )) ||
-    (( ${#packages_custom[@]} > 0 && ${rvm_autolibs_flag_number} > 2 ))
+    (( ${#packages_custom[@]}+${#packages_custom_after[@]} > 0 && ${rvm_autolibs_flag_number} > 2 ))
   then
     rvm_log "Installing requirements for ${rvm_autolibs_flag_runner}."
     if
@@ -144,26 +151,33 @@ __rvm_requirements_run_update()
   fi
 }
 
-__rvm_requirements_run_custom()
+__rvm_requirements_run_custom_()
 {
-  (( ${#packages_custom[@]} )) || return 0
+  typeset __custom="$1"
+  shift
   if
-    is_a_function requirements_${__lib_type}_install_custom
+    is_a_function requirements_${__lib_type}_install_${__custom}
   then
     rvm_requiremnts_fail_or_run_action 2 \
-      "Skipping ${packages_custom[*]} installation, make sure listed packages are installed." \
-      __rvm_log_command install_custom "Installing required custom packages: ${packages_custom[*]}" \
-      "requirements_${__lib_type}_install_custom" "${packages_custom[@]}" || return $?
+      "Skipping $* installation, make sure listed software is installed." \
+      __rvm_log_command install_custom "Installing required ${__custom//_/ } packages: $*" \
+      "requirements_${__lib_type}_install_${__custom}" "$@" || return $?
   else
     typeset __package
-    for __package in "${packages_custom[@]}"
+    for __package in "$@"
     do
       rvm_requiremnts_fail_or_run_action 2 \
         "Skipping ${__package} installation, make sure ${__package} is installed." \
-        __rvm_log_command install_custom "Installing required custom package: ${__package}" \
+        __rvm_log_command install_custom "Installing required ${__custom//_/ } package: ${__package}" \
         "requirements_${__lib_type}_install_${__package}" || return $?
     done
   fi
+}
+
+__rvm_requirements_run_custom()
+{
+  (( ${#packages_custom[@]} )) || return 0
+  __rvm_requirements_run_custom_ "custom" "${packages_custom[@]}" || return $?
 }
 
 __rvm_requirements_run_install()
@@ -190,6 +204,12 @@ __rvm_requirements_run_install()
       "requirements_${__lib_type}_libs_install" "${packages_to_install[@]}" ||
       return $?
   fi
+}
+
+__rvm_requirements_run_custom_after()
+{
+  (( ${#packages_custom_after[@]} )) || return 0
+  __rvm_requirements_run_custom_ "custom_after" "${packages_custom_after[@]}" || return $?
 }
 
 __rvm_requirements_run_after()
@@ -226,6 +246,15 @@ requirements_check_custom()
   for __package
   do
     __rvm_which "${__package}" >/dev/null || __rvm_add_once packages_custom "${__package}"
+  done
+}
+
+requirements_check_custom_after()
+{
+  typeset __package
+  for __package
+  do
+    __rvm_which "${__package}" >/dev/null || __rvm_add_once packages_custom_after "${__package}"
   done
 }
 
