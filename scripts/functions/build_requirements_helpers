@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+
+requirements_check()
+{
+  typeset _package_name _list
+  if
+    is_a_function "requirements_${__lib_type}_lib_installed_all_missing"
+  then
+    __rvm_filter_installed_package_from_missing "requirements_${__lib_type}_lib_installed_all_missing" "$@"
+  else
+    for _package_name in "$@"
+    do __rvm_filter_installed_package_check "requirements_${__lib_type}_lib_installed" "${_package_name}"
+    done
+  fi
+}
+
+requirements_check_custom()
+{
+  typeset __package __binary
+  for __package
+  do
+    __binary="${__package%%=*}"
+    __package="${__package#*=}"
+    __rvm_which "${__binary}" >/dev/null || __rvm_add_once packages_custom "${__package}"
+  done
+}
+
+requirements_check_custom_after()
+{
+  typeset __package __binary
+  for __package
+  do
+    __binary="${__package%%=*}"
+    __package="${__package#*=}"
+    __rvm_which "${__binary}" >/dev/null || __rvm_add_once packages_custom_after "${__package}"
+  done
+}
+
+__rvm_filter_installed_package_from_missing()
+{
+  packages_missing=( $( "$@" ) )
+  shift # remove callback function name
+
+  typeset __package
+  for __package
+  do
+    [[ " ${packages_missing[*]} " =~ " ${__package} " ]] || __rvm_add_once packages_installed "${__package}"
+  done
+  case "$rvm_autolibs_flag_number" in
+    (0|1|2) # just ignore
+      true
+      ;;
+    (*) # 2+
+      packages_to_install=( "${packages_missing[@]}" )
+      packages_missing=()
+      ;;
+  esac
+}
+
+__rvm_filter_installed_package_check()
+{
+  if
+    "$1" "$2"
+  then
+    __rvm_add_once packages_installed "$2"
+  else
+    case "$rvm_autolibs_flag_number" in
+      (0|1|2) __rvm_add_once packages_missing    "$2" ;; # just ignore
+      (*)     __rvm_add_once packages_to_install "$2" ;; # 2+
+    esac
+  fi
+}
+
+requirements_fallback_lib_available()
+{
+  for __package
+  do
+    if
+      requirements_${__lib_type}_lib_available "${__package}"
+    then
+      __rvm_add_once __available_dependencies "${__package}"
+    fi
+  done
+  __rvm_add_once __available_dependencies "$1"
+}
+
+requirements_fallback_lib_installed()
+{
+  for __package
+  do
+    if
+      requirements_${__lib_type}_lib_installed "${__package}"
+    then
+      requirements_check "${__package}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+requirements_check_fallback()
+{
+  typeset -a __available_dependencies
+  __available_dependencies=()
+  typeset __package
+  requirements_fallback_lib_available "$@"
+  requirements_fallback_lib_installed "${__available_dependencies[@]}" || requirements_check "$1"
+}
+
+requirements_detect_installed()
+{
+  typeset -a __available_dependencies
+  __available_dependencies=()
+  typeset __package
+  requirements_fallback_lib_available "$@"
+  requirements_fallback_lib_installed "${__available_dependencies[@]}" || return $?
+}
+
+requirements_version_minimal()
+{
+  if [[ " ${packages_to_install[*]} " =~ " $1 " ]]
+  then return 0
+  fi
+  typeset latest_version="$(
+    requirements_${__lib_type}_version_list $1 | __rvm_version_sort | __rvm_tail -n 1
+  )"
+  if
+    [[ -z "${latest_version}" ]] ||
+    __rvm_version_compare ${latest_version} -lt $2
+  then
+    __rvm_add_once packages_to_install "$1"
+  fi
+}
+
+rvm_requiremnts_fail()
+{
+  rvm_$1 "$2
+RVM autolibs is now configured with mode '2' => 'check and stop if missing',
+please run \`rvm autolibs enable\` to let RVM do its job or run and read \`rvm autolibs [help]\`
+or visit https://rvm.io/rvm/autolibs for more information."
+}
+
+rvm_requiremnts_fail_or_run_action()
+{
+  case "${rvm_autolibs_flag_number}" in
+    (0) rvm_debug "$2" ;;
+    (1) rvm_warn  "$2" ;;
+    (2) rvm_requiremnts_fail_on "$1" "$2" || return $? ;;
+    (*)
+      shift 2
+      "$@" || return $?
+      ;;
+  esac
+  true # for osx
+}
+
+rvm_requiremnts_fail_always()
+{
+  case "${rvm_autolibs_flag_number}" in
+    (0) rvm_debug "$2" ;;
+    (1) rvm_warn  "$2" ;;
+    (*) rvm_requiremnts_fail_on "$1" "$2" || return $? ;;
+  esac
+  true # for osx
+}
+
+rvm_requiremnts_fail_on()
+{
+  if (( $1 > $rvm_autolibs_flag_number ))
+  then rvm_requiremnts_fail warn "$2"
+  else
+    rvm_requiremnts_fail error "$2"
+    return 1
+  fi
+}
+
+# is_head_or_disable_binary $rvm_ruby_string
+is_head_or_disable_binary()
+{
+  case "$1" in
+    (*-head*)
+      true
+      ;;
+    (*)
+      if (( ${rvm_binary_flag:-0} == 0 && ${rvm_disable_binary_flag:-0} == 1 ))
+      then return 1
+      fi
+      ;;
+  esac
+  true # for OSX
+}
+
+# is_jruby_post17 $rvm_ruby_string [$rvm_ruby_version]
+is_jruby_post17()
+{
+  typeset __jversion
+  if [[ -n "${2:-}" ]]
+  then __jversion="$2"
+  else
+    __jversion="${1#jruby-}"
+    __jversion="${__jversion%%-*}"
+  fi
+  case "$1" in
+    (jruby-head*)
+      true
+      ;;
+    (*)
+      if __rvm_version_compare "${__jversion}" -lt "1.8"
+      then return 1
+      fi
+      ;;
+  esac
+  true # for OSX
+}
+
+requirements_install_maven()
+{
+  typeset maven_version maven_file maven_url
+  maven_version="$(__rvm_db "maven_version")"
+  maven_file="apache-maven-${maven_version}-bin.tar.gz"
+  maven_url="http://www.apache.org/dist/maven/maven-${maven_version%%.*}/${maven_version}/binaries/${maven_file}"
+
+  mkdir -p "${rvm_path}/java/" &&
+  "${rvm_scripts_path}/fetch" "${maven_url}" &&
+  __rvm_package_extract "${rvm_archives_path}/${maven_file}" "${rvm_path}/java/"
+  ln -s "${rvm_path}/java/apache-maven-${maven_version}/bin"/mvn "${rvm_bin_path}"/mvn ||
+  return $?
+}
