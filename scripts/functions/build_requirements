@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/build_requirements_helpers"
+
 __rvm_requirements_run()
 {
-  typeset -a packages_installed packages_missing packages_to_install packages_flags packages_custom
+  typeset -a packages_installed packages_missing packages_to_install packages_flags
+  typeset -a packages_custom packages_custom_after
   typeset __type __lib_type __iterator
   __type=$1
   __lib_type=$1
   shift
-  for __iterator in load reset before define summary update custom install after
+  for __iterator in load reset before define summary update custom install custom_after after
   do
     __rvm_requirements_run_${__iterator} "$@" || return $?
   done
@@ -47,6 +50,7 @@ __rvm_requirements_run_reset()
   packages_to_install=()
   packages_flags=()
   packages_custom=()
+  packages_custom_after=()
 }
 
 __rvm_requirements_run_before()
@@ -117,13 +121,18 @@ __rvm_requirements_run_summary()
       true ||
       return $?
   }
+  (( ${#packages_custom_after[@]} == 0 )) ||
+  {
+    _list="${packages_custom_after[*]}"
+    rvm_debug "Custom after packages: ${_list// /, }."
+  }
 }
 
 __rvm_requirements_run_update()
 {
   if
     (( ${#packages_to_install[@]} > 0 )) ||
-    (( ${#packages_custom[@]} > 0 && ${rvm_autolibs_flag_number} > 2 ))
+    (( ${#packages_custom[@]}+${#packages_custom_after[@]} > 0 && ${rvm_autolibs_flag_number} > 2 ))
   then
     rvm_log "Installing requirements for ${rvm_autolibs_flag_runner}."
     if
@@ -144,26 +153,66 @@ __rvm_requirements_run_update()
   fi
 }
 
+__rvm_requirements_run_custom_()
+{
+  typeset __package __custom
+  typeset -a __missing_custom
+  __missing_custom=()
+  __custom="$1"
+  shift
+
+  while
+    (( $# ))
+  do
+    __package="$1"
+    if
+      is_a_function requirements_${__lib_type}_install_${__package}
+    then
+      rvm_requiremnts_fail_or_run_action 2 \
+        "Skipping ${__package} installation, make sure ${__package} is installed." \
+        __rvm_log_command install_${__custom}_${__package} \
+        "Installing required ${__custom//_/ } package: ${__package}" \
+        "requirements_${__lib_type}_install_${__package}" || return $?
+    elif
+      is_a_function requirements_install_${__package}
+    then
+      rvm_requiremnts_fail_or_run_action 2 \
+        "Skipping ${__package} installation, make sure ${__package} is installed." \
+        __rvm_log_command install_${__custom}_${__package} \
+        "Installing required ${__custom//_/ } package: ${__package}" \
+        "requirements_install_${__package}" || return $?
+    else
+      __rvm_add_once __missing_custom "${__package}"
+    fi
+    shift
+  done
+
+  if
+    (( ${#__missing_custom[@]} ))
+  then
+    if
+      is_a_function requirements_${__lib_type}_install_${__custom}
+    then
+      rvm_requiremnts_fail_or_run_action 2 \
+        "Skipping ${__missing_custom[*]} installation, make sure listed software is installed." \
+        __rvm_log_command install_${__custom} \
+        "Installing required ${__custom//_/ } packages: ${__missing_custom[*]}" \
+        "requirements_${__lib_type}_install_${__custom}" "${__missing_custom[@]}" || return $?
+    else
+      rvm_requiremnts_fail_always 2 "\
+Can not find function 'requirements_${__lib_type}_install_${__custom}' to install missing ${__custom//_/ } packages:
+   ${__missing_custom[*]}
+report a bug here:
+   https://github.com/wayneeseguin/rvm/issues
+" || return $?
+    fi
+  fi
+}
+
 __rvm_requirements_run_custom()
 {
   (( ${#packages_custom[@]} )) || return 0
-  if
-    is_a_function requirements_${__lib_type}_install_custom
-  then
-    rvm_requiremnts_fail_or_run_action 2 \
-      "Skipping ${packages_custom[*]} installation, make sure listed packages are installed." \
-      __rvm_log_command install_custom "Installing required custom packages: ${packages_custom[*]}" \
-      "requirements_${__lib_type}_install_custom" "${packages_custom[@]}" || return $?
-  else
-    typeset __package
-    for __package in "${packages_custom[@]}"
-    do
-      rvm_requiremnts_fail_or_run_action 2 \
-        "Skipping ${__package} installation, make sure ${__package} is installed." \
-        __rvm_log_command install_custom "Installing required custom package: ${__package}" \
-        "requirements_${__lib_type}_install_${__package}" || return $?
-    done
-  fi
+  __rvm_requirements_run_custom_ "custom" "${packages_custom[@]}" || return $?
 }
 
 __rvm_requirements_run_install()
@@ -192,6 +241,12 @@ __rvm_requirements_run_install()
   fi
 }
 
+__rvm_requirements_run_custom_after()
+{
+  (( ${#packages_custom_after[@]} )) || return 0
+  __rvm_requirements_run_custom_ "custom_after" "${packages_custom_after[@]}" || return $?
+}
+
 __rvm_requirements_run_after()
 {
   if
@@ -204,165 +259,4 @@ __rvm_requirements_run_after()
     requirements_${__type}_after "$@" || return $?
   fi
   true # for osx
-}
-
-requirements_check()
-{
-  typeset _package_name _list
-  if
-    is_a_function "requirements_${__lib_type}_lib_installed_all_missing"
-  then
-    __rvm_filter_installed_package_from_missing "requirements_${__lib_type}_lib_installed_all_missing" "$@"
-  else
-    for _package_name in "$@"
-    do __rvm_filter_installed_package_check "requirements_${__lib_type}_lib_installed" "${_package_name}"
-    done
-  fi
-}
-
-requirements_check_custom()
-{
-  typeset __package
-  for __package
-  do
-    __rvm_which "${__package}" >/dev/null || __rvm_add_once packages_custom "${__package}"
-  done
-}
-
-__rvm_filter_installed_package_from_missing()
-{
-  packages_missing=( $( "$@" ) )
-  shift # remove callback function name
-
-  typeset __package
-  for __package
-  do
-    [[ " ${packages_missing[*]} " =~ " ${__package} " ]] || __rvm_add_once packages_installed "${__package}"
-  done
-  case "$rvm_autolibs_flag_number" in
-    (0|1|2) # just ignore
-      true
-      ;;
-    (*) # 2+
-      packages_to_install=( "${packages_missing[@]}" )
-      packages_missing=()
-      ;;
-  esac
-}
-
-__rvm_filter_installed_package_check()
-{
-  if
-    "$1" "$2"
-  then
-    __rvm_add_once packages_installed "$2"
-  else
-    case "$rvm_autolibs_flag_number" in
-      (0|1|2) __rvm_add_once packages_missing    "$2" ;; # just ignore
-      (*)     __rvm_add_once packages_to_install "$2" ;; # 2+
-    esac
-  fi
-}
-
-requirements_fallback_lib_available()
-{
-  for __package
-  do
-    if
-      requirements_${__lib_type}_lib_available "${__package}"
-    then
-      __rvm_add_once __available_dependencies "${__package}"
-    fi
-  done
-  __rvm_add_once __available_dependencies "$1"
-}
-
-requirements_fallback_lib_installed()
-{
-  for __package
-  do
-    if
-      requirements_${__lib_type}_lib_installed "${__package}"
-    then
-      requirements_check "${__package}"
-      return 0
-    fi
-  done
-  return 1
-}
-
-requirements_check_fallback()
-{
-  typeset -a __available_dependencies
-  __available_dependencies=()
-  typeset __package
-  requirements_fallback_lib_available "$@"
-  requirements_fallback_lib_installed "${__available_dependencies[@]}" || requirements_check "$1"
-}
-
-requirements_detect_installed()
-{
-  typeset -a __available_dependencies
-  __available_dependencies=()
-  typeset __package
-  requirements_fallback_lib_available "$@"
-  requirements_fallback_lib_installed "${__available_dependencies[@]}" || return $?
-}
-
-requirements_version_minimal()
-{
-  if [[ " ${packages_to_install[*]} " =~ " $1 " ]]
-  then return 0
-  fi
-  typeset latest_version="$(
-    requirements_${__lib_type}_version_list $1 | __rvm_version_sort | __rvm_tail -n 1
-  )"
-  if
-    [[ -z "${latest_version}" ]] ||
-    __rvm_version_compare ${latest_version} -lt $2
-  then
-    __rvm_add_once packages_to_install "$1"
-  fi
-}
-
-rvm_requiremnts_fail()
-{
-  rvm_$1 "$2
-RVM autolibs is now configured with mode '2' => 'check and stop if missing',
-please run \`rvm autolibs enable\` to let RVM do its job or run and read \`rvm autolibs [help]\`
-or visit https://rvm.io/rvm/autolibs for more information."
-}
-
-rvm_requiremnts_fail_or_run_action()
-{
-  case "${rvm_autolibs_flag_number}" in
-    (0) rvm_debug "$2" ;;
-    (1) rvm_warn  "$2" ;;
-    (2) rvm_requiremnts_fail_on "$1" "$2" || return $? ;;
-    (*)
-      shift 2
-      "$@" || return $?
-      ;;
-  esac
-  true # for osx
-}
-
-rvm_requiremnts_fail_always()
-{
-  case "${rvm_autolibs_flag_number}" in
-    (0) rvm_debug "$2" ;;
-    (1) rvm_warn  "$2" ;;
-    (*) rvm_requiremnts_fail_on "$1" "$2" || return $? ;;
-  esac
-  true # for osx
-}
-
-rvm_requiremnts_fail_on()
-{
-  if (( $1 > $rvm_autolibs_flag_number ))
-  then rvm_requiremnts_fail warn "$2"
-  else
-    rvm_requiremnts_fail error "$2"
-    return 1
-  fi
 }
