@@ -1,5 +1,5 @@
 
-∴ rvm info [ruby_string[,ruby_string[,...] [section,[section[,...]
+    $ rvm info [ruby_string[,ruby_string[,...] [section,[section[,...]
 
 where sections are one of:
 
@@ -11,13 +11,13 @@ By default, with no parameters, rvm info will output all sections except debug.
 
 To display system rvm debug information:
 
-  ∴ rvm debug
+    $ rvm debug
 
 which will display all sections including debug for the current or specified interpreters.
 
 Example:
 
-  ∴ rvm info 1.9.2-head,1.8.7 homes,binaries,environment
+    $ rvm info 1.9.2-head,1.8.7 homes,binaries,environment
 
   ruby-1.9.2-head:
 

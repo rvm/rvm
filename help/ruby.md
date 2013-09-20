@@ -2,10 +2,10 @@
 
 Given:
 
-∴ cat test.rb
+    $ cat test.rb
   puts "patchlevel: #{RUBY_PATCHLEVEL}, release_date: #{RUBY_RELEASE_DATE}, ruby_version: #{RUBY_VERSION}, ruby_platform: #{RUBY_PLATFORM}"
 
-∴ rvm list
+    $ rvm list
 
   ruby:
 
@@ -28,7 +28,7 @@ Given:
 
 We can run the ruby program 'test.rb' against all versions of ruby installed by RVM very simply:
 
-∴ rvm all do ruby test.rb
+    $ rvm all do ruby test.rb
 
     jruby-1.3.1: jruby 1.3.1 (ruby 1.8.6p287) (2009-06-15 2fd6c3d) (Java HotSpot(TM) 64-Bit Server VM 1.6.0_15) [x86_64-java]
 
@@ -80,5 +80,5 @@ We can run the ruby program 'test.rb' against all versions of ruby installed by 
 
 You can also restrict the above to a subset of named top level selections:
 
-  ∴ rvm 1.9.1,1.8.7,jruby do ruby test.rb
+    $ rvm 1.9.1,1.8.7,jruby do ruby test.rb
     ...

@@ -1,5 +1,5 @@
 
-∴ rvm uninstall [ruby-string[,ruby-string[,...]]]
+    $ rvm uninstall [ruby-string[,ruby-string[,...]]]
 
 Uninstall one or many ruby versions, but leave their sources.
 
