@@ -2,11 +2,11 @@ Rake
 
   RVM allows you to run rake tasks across multiple ruby versions, for example:
 
-    ∴ rvm all do rake spec
+    $ rvm all do rake spec
 
   or:
 
-    ∴ rvm 1.8.6,1.9.1 do rake spec
+    $ rvm 1.8.6,1.9.1 do rake spec
 
 JSON Summary
 

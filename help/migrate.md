@@ -1,5 +1,5 @@
 
-∴ rvm migrate from to
+    $ rvm migrate from to
 
 Efficiently moves the gems from one ruby to another.
 Like 'rvm gemset copy' but removes the gems from the source
@@ -11,6 +11,6 @@ Examples:
 To migrate all gemsets from rc2 of 1.9.2 to the first release, p0,
 you would run:
 
-  ∴ rvm migrate 1.9.2-rc2 1.9.2-p0
+    $ rvm migrate 1.9.2-rc2 1.9.2-p0
 
 append `--force` to answer yes to all questions.

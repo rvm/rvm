@@ -1,4 +1,4 @@
-∴ rvm tools {identifier,path-identifier,strings,mirror,rvm-env}
+    $ rvm tools {identifier,path-identifier,strings,mirror,rvm-env}
 
 Provides generic tools related to rvm environments for gaining information
 about your current environment.  Primarily used for scripting rvm.
@@ -7,21 +7,21 @@ Examples:
 
 To get the expanded Ruby string for the current environment, you would run:
 
-  ∴ rvm tools identifier
+    $ rvm tools identifier
 
 To get the identifier for a folder (taking into account .rvmrc files and the like),
 run this instead:
 
-  ∴ rvm tools path-identifier ~/path/to/directory
+    $ rvm tools path-identifier ~/path/to/directory
 
 Lastly, you can expand example Ruby strings.  E.g., to get the current ree version,
 run:
 
-  ∴ rvm tools strings ree
+    $ rvm tools strings ree
 
 In case of network/firewall problems, it is easy to define alternate download URLs:
 
-  ∴ rvm tools mirror
+    $ rvm tools mirror
 
 
 It is possible to use a "shebang" (#!/usr/...) line to select the interpreter
@@ -30,7 +30,7 @@ on recent Linux kernels (2.6.27.9 and above).
 
 First, you need to define the shebang wrapper:
 
-  ∴ rvm tools rvm-env ruby bash zsh
+    $ rvm tools rvm-env ruby bash zsh
 
 This will define:
 
