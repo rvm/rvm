@@ -101,7 +101,7 @@ setup ()
 
   typeset __owner="$(stat -c "%U" "${RAILS_ROOT}")"
   if
-    [[ "$USER" == "${__owner}" ]]
+    [[ "${USER:=$(whoami)}" == "${__owner}" ]]
   then
     true # it's all fine we run as owner of the app
   elif
@@ -109,7 +109,7 @@ setup ()
   then
     prefix_command_with_su_fix_quoting "${CMD[@]}"
   else
-    echo "ERROR: running not as owner of '$RAILS_ROOT' and not as root, prefix with 'sudo' and try again!"
+    echo "ERROR: running not as owner(${__owner}) of '$RAILS_ROOT' and not as root($USER), prefix with 'sudo' and try again!"
     return 2
   fi
 }
