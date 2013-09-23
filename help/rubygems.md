@@ -1,4 +1,4 @@
-∴ rvm rubygems [x.y.z|latest-x.y|latest|current|master|head]
+    $ rvm rubygems [x.y.z|latest-x.y|latest|current|master|head]
 
 Installs a specific rubygems version in the current ruby. If
 'current' is specified, the most current rubygems known to RVM

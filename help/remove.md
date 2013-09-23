@@ -1,5 +1,5 @@
 
-∴ rvm remove [all|old [date]|ruby-string[,ruby-string[,...]]]
+    $ rvm remove [all|old [date]|ruby-string[,ruby-string[,...]]]
 
 Remove one or more rubies and their sources.
 

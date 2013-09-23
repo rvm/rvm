@@ -1,5 +1,5 @@
 
-∴ rvm snapshot {load,save} filename
+    $ rvm snapshot {load,save} filename
 
 Saves or creates a snapshot of the given rvm install. This includes:
 
