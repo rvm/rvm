@@ -8,7 +8,7 @@
 # Short-Description: Start the unicorns at boot
 # Description: Enable at boot time.
 ### END INIT INFO
- 
+
 # This is /etc/init.d/unicorn_init (without .sh)
 # init.d script for single or multiple unicorn installations. Expects at least one .conf
 # file in /etc/unicorn
@@ -33,27 +33,27 @@
 # If you specify a particular config, it will only operate on that one
 #
 # /etc/init.d/unicorn start my_app
- 
+
 __sig()
 {
   typeset __pid
   [[ -s "$2" ]]       &&
   __pid="$(cat "$2")" &&
   [[ -n "${__pid}" ]] &&
-  kill -$1 "${__pid}" >/dev/null ||
+  kill -$1 "${__pid}" >/dev/null 2>&1 ||
   return $?
 }
- 
+
 sig()
 {
   __sig "$1" "$PID" || return $?
 }
- 
+
 oldsig()
 {
   __sig "$1" "$OLD_PID" || return $?
 }
- 
+
 run()
 {
   echo -n "$1 - "
@@ -68,19 +68,19 @@ run()
     return $result
   fi
 }
- 
+
 setup ()
 {
   echo "$RAILS_ROOT: "
   cd $RAILS_ROOT || return $?
- 
+
   export PID=$RAILS_ROOT/tmp/pids/unicorn.pid
   export OLD_PID="$PID.oldbin"
   export RAILS_ENV=production
- 
+
   CMD=( "$UNICORN" -c "${RAILS_ROOT}/config/unicorn.rb" -D )
 }
- 
+
 cmd_start()
 {
   if sig 0
@@ -88,7 +88,7 @@ cmd_start()
   else run "Starting" ${CMD[@]} || return $?
   fi
 }
- 
+
 wait_pid_kill()
 {
   typeset __count=$1
@@ -101,7 +101,7 @@ wait_pid_kill()
   done
   sig 0 || return $?
 }
- 
+
 cmd_stop()
 {
   run "Stopping" sig QUIT
@@ -114,12 +114,12 @@ cmd_stop()
     fi
   fi
 }
- 
+
 cmd_restart()
 {
   cmd_stop && cmd_start || return $?
 }
- 
+
 cmd_reload()
 {
   run "Reloading" sig USR2 &&
@@ -129,14 +129,14 @@ cmd_reload()
   cmd_restart ||
   return $?
 }
- 
+
 cmd_rotate()
 {
   run "Rotate" sig USR1  ||
   cmd_start ||
   return $?
 }
- 
+
 cmd()
 {
   setup || return $?
@@ -153,7 +153,7 @@ cmd()
       ;;
   esac
 }
- 
+
 # either run the start/stop/reload/etc command for every config under /etc/unicorn
 # or just do it for a specific one
 # $1 contains the start/stop/etc command
@@ -173,5 +173,5 @@ start_stop ()
     done
    fi
 }
- 
+
 start_stop "$@"
