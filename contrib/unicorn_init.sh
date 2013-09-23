@@ -75,6 +75,19 @@ run()
   fi
 }
 
+prefix_command_with_su_fix_quoting()
+{
+  typeset -a __temp
+  __temp=()
+  while
+    (( $# ))
+  do
+    __temp+=( "'$1'" )
+    shift
+  done
+  CMD=( su - "${__owner}" -c "${__temp[*]}" )
+}
+
 setup ()
 {
   echo "$RAILS_ROOT: "
@@ -85,6 +98,20 @@ setup ()
   export RAILS_ENV=production
 
   CMD=( "$UNICORN" -c "${RAILS_ROOT}/config/unicorn.rb" -D )
+
+  typeset __owner="$(stat -c "%U" "${RAILS_ROOT}")"
+  if
+    [[ "$USER" == "${__owner}" ]]
+  then
+    true # it's all fine we run as owner of the app
+  elif
+    (( UID == 0 ))
+  then
+    prefix_command_with_su_fix_quoting "${CMD[@]}"
+  else
+    echo "ERROR: running not as owner of '$RAILS_ROOT' and not as root, prefix with 'sudo' and try again!"
+    return 2
+  fi
 }
 
 cmd_start()
