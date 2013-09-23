@@ -9,18 +9,24 @@
 # Description: Enable at boot time.
 ### END INIT INFO
 
-# This is /etc/init.d/unicorn_init (without .sh)
-# init.d script for single or multiple unicorn installations. Expects at least one .conf
-# file in /etc/unicorn
+# This is /etc/init.d/unicorn init.d script for single or multiple unicorn installations.
+# Expects at least one .conf file in /etc/unicorn/
 #
 ## A sample /etc/unicorn/my_app.conf
 ##
 ## RAILS_ENV=production
 ## RAILS_ROOT=/var/apps/www/my_app/current
-## UNICORN="/usr/local/rvm/bin/<WRAPPED_NAME>" #see rvm wrapper above
+## UNICORN="/usr/local/rvm/wrappers/my_app/unicorn_rails"
 #
 # This configures a unicorn master for your app at /var/apps/www/my_app/current running in
 # production mode. It will read config/unicorn.rb for further set up.
+#
+## To get the UNICORN script run:
+##
+## rvm alias create my_app 2.0.0
+## rvm wrapper 2.0.0 --no-links unicorn_rails
+#
+# This way it will allow changing the alias when new ruby is used without changing anything else.
 #
 # You should ensure different ports or sockets are set in each config/unicorn.rb if
 # you are running more than one master concurrently.
