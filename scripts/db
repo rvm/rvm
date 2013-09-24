@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 source "${rvm_scripts_path:-$rvm_path/scripts}/functions/support"
+source "${rvm_scripts_path:-$rvm_path/scripts}/functions/db"
 
 usage()
 {
@@ -11,51 +12,15 @@ ERROR:
 
 Usage:
 
-    db database_file {{key}} {{value}} # set
-    db database_file {{key}}           # get
-    db database_file {{key}} unset     # unset
+    __rvm_db_ {{database_file}} {{key}} {{value}} # set
+    __rvm_db_ {{database_file}} {{key}}           # get
+    __rvm_db_ {{database_file}} {{key}} unset     # unset
 
 " >&2
   exit 1
 }
 
-database_file="${1:-}"
-if [[ -n "$database_file" ]]
-then shift
-else usage "Database file not given."
-fi
+[[ -n "$1" ]] || usage "Database file not given."
+[[ -n "$2" ]] || usage "Key not given"
 
-key="${1:-}"
-if [[ -n "$key" ]]
-then shift
-else usage "Key not given"
-fi
-
-value="$*"
-escaped_key="$( __rvm_sed -e 's#\\#\\#g' -e 's#/#\\/#g' -e 's#\.#\.#g' <<< "$key" )"
-
-[[ -f "$database_file" ]] ||
-{
-  directory=$(dirname "$database_file")
-  [[ -d "$directory" ]] || mkdir -p "$directory"
-  touch "$database_file"
-}
-
-db_remove()
-{
-  __rvm_sed -e "s#^$escaped_key=.*\$##"  -e '/^$/d' "$database_file" > "$database_file.new"
-  \mv -f "$database_file.new" "$database_file"
-}
-
-case "$value" in
-  (unset|delete)
-    db_remove
-    ;;
-  ("") # get
-    __rvm_awk -F= '/^'"$escaped_key"'=/{print}' "$database_file" | __rvm_sed -e "s#^$escaped_key=##" -e '/^$/d'
-    ;;
-  (*) # set
-    db_remove
-    printf "%b=%b\n" "$escaped_key" "$value" >> "$database_file"
-    ;;
-esac
+__rvm_db_ "$@"
