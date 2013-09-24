@@ -85,7 +85,7 @@ prefix_command_with_su_fix_quoting()
     __temp+=( "'$1'" )
     shift
   done
-  CMD=( su - "${__owner}" -c "${__temp[*]}" )
+  CMD=( su - "${__owner}" -c "cd '$RAILS_ROOT' && ${__temp[*]}" )
 }
 
 setup ()
@@ -118,7 +118,7 @@ cmd_start()
 {
   if sig 0
   then echo "Already started"
-  else run "Starting" ${CMD[@]} || return $?
+  else run "Starting" "${CMD[@]}" || return $?
   fi
 }
 
