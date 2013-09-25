@@ -27,13 +27,12 @@ rubinius_install()
   make_sure_its_enough_ram_for_rbx || return $?
 
   rvm_log "$rvm_ruby_string installing #dependencies "
-  __rvm_ensure_has_mri_ruby "ruby-1.9|ruby-2" ||
+  __rvm_ensure_has_mri_ruby "ruby-2" ||
   {
-    rvm_log "No MRI 1.9/2.0 ruby found, cannot build rbx."
+    rvm_log "No MRI 2.0 ruby found, cannot build rbx."
     return 1
   }
-  export ruby="$(__rvm_mri_ruby "ruby-1.9|ruby-2")"
-  rvm_debug "Using $ruby for RBX installation"
+  export ruby="$(__rvm_mri_ruby "ruby-2")"
 
   typeset rvm_configure_args
   typeset -a rvm_ruby_configure
@@ -133,22 +132,45 @@ rubinius_install()
   # Explicitly disabled
   (( ${rvm_llvm_flag:=1} )) || rvm_configure_flags+=( --disable-llvm )
 
+  if
+    [[ -f "Gemfile" ]]
+  then
+    ruby="${ruby}@rubinius"
+    (
+      rvm_create_flag=1
+      rvm_verbose_flag=0
+      __rvm_select "$ruby"
+    )
+  fi
+  rvm_log "Using $ruby for $rvm_ruby_string installation"
+  if
+    [[ -f "Gemfile" ]]
+  then
+    [[ -x "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/bundle" ]] ||
+    {
+      __rvm_log_command "install_bundler" "$rvm_ruby_string - #install bundler" \
+        gem install bundle ||
+        return $?
+      __rvm_log_command "wrap_bundler" "$rvm_ruby_string - #wrap bundle" \
+        rvm wrapper "$ruby" --no-links bundle ||
+        return $?
+    }
+    __rvm_log_command "bundle" "$rvm_ruby_string - #bundle install" \
+      "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/bundle" install ||
+      return $?
+  fi
   __rvm_log_command "configure" "$rvm_ruby_string - #configuring" \
     env "${rvm_configure_env[@]}" $rvm_wrappers_path/$ruby/ruby ./configure "${rvm_configure_flags[@]}" ||
-  {
-    result=$?
-    rvm_error "There has been an error while running 'configure'.  \nHalting the installation."
-    return $result
-  }
+    return $?
 
   if [[ -n "${rvm_configure_args:-}" ]]
-  then
-    rvm_ruby_make="CONFIGURE_ARGS=${rvm_configure_args## } "
+  then rvm_ruby_make="CONFIGURE_ARGS=${rvm_configure_args## } "
   fi
 
   __rvm_every_nth_dot 20 \
     __rvm_log_command rake "$rvm_ruby_string - #compiling" \
-      "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/rake" install --trace || return $?
+    "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/rake" install --trace ||
+    return $?
   [[ -d "$rvm_ruby_home" && -f "$rvm_ruby_home/bin/rbx" ]] ||
   {
     result=$?
