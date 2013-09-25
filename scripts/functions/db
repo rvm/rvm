@@ -10,10 +10,10 @@ __rvm_db()
   variable="${2:-}"
 
   if [[ -f "$rvm_user_path/db" ]]
-  then value="$( "$rvm_scripts_path/db" "$rvm_user_path/db"   "$key" )"
+  then value="$( __rvm_db_ "$rvm_user_path/db"   "$key" )"
   fi
   if [[ -z "$value" && -f "$rvm_path/config/db" ]]
-  then value="$( "$rvm_scripts_path/db" "$rvm_path/config/db" "$key" )"
+  then value="$( __rvm_db_ "$rvm_path/config/db" "$key" )"
   fi
   if
     [[ -n "$value" ]]
@@ -24,4 +24,55 @@ __rvm_db()
     fi
   fi
   true # for OSX
+}
+
+__rvm_db_remove()
+{
+  if
+    [[ -f "$1" ]]
+  then
+    __rvm_sed -e "s#^$2=.*\$##"  -e '/^$/d' "$1" > "$1.new"
+    \mv -f "$1.new" "$1"
+  fi
+}
+
+__rvm_db_add()
+{
+  [[ -f "$1" ]] ||
+  {
+    typeset __dir="${1%/*}"
+    [[ -d "${__dir}" ]] || mkdir -p "${__dir}"
+  }
+  printf "%b=%b\n" "$2" "$3" >> "$1"
+}
+
+__rvm_db_get()
+{
+  if [[ -f "$1" ]]
+  then __rvm_awk -F= '/^'"$2"'=/{print}' "$1" | __rvm_sed -e "s#^$2=##" -e '/^$/d'
+  else echo -n ""
+  fi
+}
+
+__rvm_db_()
+{
+  typeset __db __key __value
+  __db="$1"
+  __key="$( __rvm_sed -e 's#\\#\\#g' -e 's#/#\\/#g' -e 's#\.#\.#g' <<< "$2" )"
+  shift 2
+  __value="$*"
+  case "${__value}" in
+    (unset|delete)
+      __rvm_db_remove "${__db}" "${__key}"
+      ;;
+    ("")
+      __rvm_db_get    "${__db}" "${__key}"
+      ;;
+    (*)
+      if [[ -f "${__db}" ]]
+      then __rvm_db_remove "${__db}" "${__key}"
+      fi
+      __rvm_db_add    "${__db}" "${__key}" "${__value}"
+      ;;
+  esac
 }
