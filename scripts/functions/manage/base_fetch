@@ -172,8 +172,16 @@ __rvm_fetch_ruby_head_git()
       esac
 
       # Clone if repository does not yet exist locally
-      if [[ ! -d "${rvm_repos_path}/${rvm_ruby_interpreter}/.git" ]]
+      if
+        [[ -d "${rvm_repos_path}/${rvm_ruby_interpreter}/.git" ]]
       then
+        (
+          __rvm_cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
+          typeset current_url
+          current_url="$(git remote -v | __rvm_awk '$1=="origin" && $3=="(fetch)" {print $2}')"
+          [[ "$current_url" == "$rvm_ruby_repo_url" ]] || git remote set-url origin "$rvm_ruby_repo_url"
+        )
+      else
         __rvm_rm_rf "${rvm_repos_path}/${rvm_ruby_interpreter}"
 
         rvm_ruby_repo_http_url="${rvm_ruby_repo_url//git:/https:}"
@@ -189,13 +197,6 @@ __rvm_fetch_ruby_head_git()
         __rvm_log_command "git.clone.http" "Cloning from $rvm_ruby_repo_http_url, this may take a while depending on your connection..." \
           git clone "${git_clone_options[@]}" "$rvm_ruby_repo_http_url" "${rvm_repos_path}/${rvm_ruby_interpreter}" ||
         return $?
-      else
-        (
-          __rvm_cd "${rvm_repos_path}/${rvm_ruby_interpreter}"
-          typeset current_url
-          current_url="$(git remote -v | __rvm_awk '$1=="origin" && $3=="(fetch)" {print $2}')"
-          [[ "$current_url" == "$rvm_ruby_repo_url" ]] || git remote set-url origin "$rvm_ruby_repo_url"
-        )
       fi
 
       # Use the selected branch.
@@ -206,8 +207,12 @@ __rvm_fetch_ruby_head_git()
         branch=$(git symbolic-ref -q HEAD 2>/dev/null)
         branch=${branch##refs/heads/}
 
-        git reset --hard HEAD # Ensure we are in a good state.
-        git fetch "${remote}" # Download the latest updates locally.
+        # Ensure we are in a good state.
+        git reset --hard HEAD
+        # just in case fix the fetch for the remote, new git restricts it to master
+        git config "remote.${remote}.fetch" "+refs/heads/*:refs/remotes/${remote}/*"
+        # Download the latest updates locally.
+        git fetch "${remote}"
         if
           [[ "$branch" == "${rvm_ruby_repo_branch}" ]]
         then
@@ -221,26 +226,22 @@ __rvm_fetch_ruby_head_git()
               ;;
             (*)
               # Desired branch does not exist locally.
-              if
-                git checkout -f -t "${remote}/${rvm_ruby_repo_branch}"
-              then
-                true
-              else
+              git checkout -f -b "${rvm_ruby_repo_branch}" -t "${remote}/${rvm_ruby_repo_branch}" ||
+              {
                 result=$?
                 rvm_error "Branch $remote/$rvm_ruby_repo_branch not found."
                 return $result
-              fi
+              }
               ;;
           esac
         fi
         [[ -z "${rvm_ruby_tag:-}" ]] || git checkout -f -q ${rvm_ruby_tag#t} || return $?
-      )
-      result=$?
-      if (( result > 0 ))
-      then
+      ) ||
+      {
+        result=$?
         rvm_error "There has been an error while checking out branch ${rvm_ruby_repo_branch}.  \nHalting the installation."
         return $result
-      fi
+      }
       __rvm_fetch_from_git_revision_or_sha || return $?
 }
 
