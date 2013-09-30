@@ -22,10 +22,8 @@ Use \`--force\` to compile rbx anyway.
   }
 }
 
-rubinius_install()
+rubinius_install_detect_required_ruby()
 {
-  make_sure_its_enough_ram_for_rbx || return $?
-
   export ruby
   case "${rvm_ruby_version}" in
     (2.0.0)
@@ -50,6 +48,13 @@ rubinius_install()
     return 1
   }
   ruby="$(__rvm_mri_ruby "$ruby")"
+}
+
+rubinius_install()
+{
+  make_sure_its_enough_ram_for_rbx || return $?
+
+  rubinius_install_detect_required_ruby || return $?
 
   typeset rvm_configure_args
   typeset -a rvm_ruby_configure
@@ -89,14 +94,12 @@ rubinius_install()
     # Install from tarball url.
     rvm_log "$rvm_ruby_string #downloading ($rvm_ruby_package_file), this may take a while depending on your connection..."
 
-    "$rvm_scripts_path/fetch" "$rvm_ruby_url"
-    result=$?
-
-    if (( result > 0 ))
-    then
+    "$rvm_scripts_path/fetch" "$rvm_ruby_url" ||
+    {
+      result=$?
       rvm_error "There has been an error while trying to fetch the source. Halting the installation."
       return $result
-    fi
+    }
 
     __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string/" &&
     __rvm_log_command "extract" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string" \
@@ -127,14 +130,12 @@ rubinius_install()
 
   chmod +x ./configure
 
-  __rvm_apply_patches
-  result=$?
-
-  if (( result > 0 ))
-  then
+  __rvm_apply_patches ||
+  {
+    result=$?
     rvm_error "There has been an error while trying to apply patches to rubinius.  \nHalting the installation."
     return $result
-  fi
+  }
   (( ${#rvm_configure_flags[@]} )) || rvm_configure_flags=( --skip-system )
   rvm_configure_flags=( --prefix="$rvm_ruby_home"  "${rvm_configure_flags[@]}" )
 
