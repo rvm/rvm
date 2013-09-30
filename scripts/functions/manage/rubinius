@@ -50,6 +50,29 @@ rubinius_install_detect_required_ruby()
   ruby="$(__rvm_mri_ruby "$ruby")"
 }
 
+rubinius_install_fix_repo_branch()
+{
+  if
+    {
+      [[ -n "${rvm_ruby_package_file:-}" &&
+         -f "${rvm_archives_path}/${rvm_ruby_package_file}" &&
+         -s "${rvm_archives_path}/${rvm_ruby_package_file}" ]]
+    } ||
+    {
+      [[ -n "${rvm_ruby_url:-}" ]] &&
+      file_exists_at_url "${rvm_ruby_url}"
+    }
+  then
+    rvm_head_flag=0
+  else
+    rvm_head_flag=1
+    if [[ "${rvm_ruby_version}" == 'head' ]]
+    then true ${rvm_ruby_repo_branch:="master"}
+    else true ${rvm_ruby_repo_branch:="${rvm_ruby_version}"}
+    fi
+  fi
+}
+
 rubinius_install()
 {
   make_sure_its_enough_ram_for_rbx || return $?
@@ -66,27 +89,7 @@ rubinius_install()
   __rvm_remove_rvm_from_path
   __rvm_conditionally_add_bin_path
 
-  if
-    {
-      [[ -n "${rvm_ruby_package_file:-}" &&
-         -f "${rvm_archives_path}/${rvm_ruby_package_file}" &&
-         -s "${rvm_archives_path}/${rvm_ruby_package_file}" ]]
-    } ||
-    {
-      [[ -n "${rvm_ruby_url:-}" ]] &&
-      file_exists_at_url "${rvm_ruby_url}"
-    }
-  then
-    rvm_head_flag=0
-  else
-    rvm_head_flag=1
-    if [[ "${rvm_ruby_version}" == 'head' ]]
-    then
-      true ${rvm_ruby_repo_branch:="master"}
-    else
-      true ${rvm_ruby_repo_branch:="${rvm_ruby_version}"}
-    fi
-  fi
+  rubinius_install_fix_repo_branch
 
   __rvm_fetch_ruby || return $?
 
