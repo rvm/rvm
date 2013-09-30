@@ -55,23 +55,20 @@ __rvm_rubygems_create_link()
 
   typeset ruby_lib_gem_path
   rubygems_detect_ruby_lib_gem_path "${1:-ruby}" || return 0
-
-  # Add ruby's gem path to ruby's lib direcotry.
-  \mkdir -p "$(dirname $ruby_lib_gem_path)"
-
   if
+    [[ ! -e "$ruby_lib_gem_path" ]]
+  then
+    # does not exist, create link only
+    \mkdir -p "${ruby_lib_gem_path%/*}"
+    ln -fs "$rvm_ruby_global_gems_path" "$ruby_lib_gem_path"
+  elif
     [[ -d "$ruby_lib_gem_path" && ! -L "$ruby_lib_gem_path" ]]
   then
-    if
-      [[ "$rvm_ruby_gem_home" != "$rvm_ruby_global_gems_path" ]]
-    then
-      __rvm_cp -f "$ruby_lib_gem_path"/* "$rvm_ruby_global_gems_path"/ 2>/dev/null
-    fi
-    \mv -f "$ruby_lib_gem_path"/* "$rvm_ruby_gem_home"/ 2>/dev/null
+    # exist and is a dir, move data and link
+    \mv -f "$ruby_lib_gem_path"/* "$rvm_ruby_global_gems_path"/ 2>/dev/null
+    __rvm_rm_rf "$ruby_lib_gem_path"
+    ln -fs "$rvm_ruby_global_gems_path" "$ruby_lib_gem_path"
   fi
-  __rvm_rm_rf "$ruby_lib_gem_path"
-
-  ln -fs "$rvm_ruby_gem_home" "$ruby_lib_gem_path"
 }
 
 # Import the initial gemsets, unless skipped.
