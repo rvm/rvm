@@ -22,14 +22,25 @@ Use \`--force\` to compile rbx anyway.
   }
 }
 
-rubinius_install()
+rubinius_install_detect_required_ruby()
 {
-  make_sure_its_enough_ram_for_rbx || return $?
-
   export ruby
-  case "$rvm_ruby_repo_branch" in
-    (1.8.7|1.9.3) ruby="ruby-1.9|ruby-2.0" ;;
-    (*)           ruby="ruby-2"            ;;
+  case "${rvm_ruby_version}" in
+    (2.0.0)
+      case "${rvm_ruby_patch_level}" in
+        (rc1) ruby="ruby-1.9" ;;
+        (*)   ruby="ruby-2.0" ;;
+      esac
+      ;;
+    (head)
+      case "$rvm_ruby_repo_branch" in
+        (1.8.7|1.9.3) ruby="ruby-1.9|ruby-2.0" ;;
+        (*)           ruby="ruby-2.0"          ;;
+      esac
+      ;;
+    (*)
+      ruby="ruby-2.0"
+      ;;
   esac
   __rvm_ensure_has_mri_ruby "$ruby" ||
   {
@@ -37,17 +48,10 @@ rubinius_install()
     return 1
   }
   ruby="$(__rvm_mri_ruby "$ruby")"
+}
 
-  typeset rvm_configure_args
-  typeset -a rvm_ruby_configure
-  unset CFLAGS LDFLAGS ARCHFLAGS # Important.
-  unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC RBXOPT
-  export PATH
-
-  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
-  __rvm_remove_rvm_from_path
-  __rvm_conditionally_add_bin_path
-
+rubinius_install_fix_repo_branch()
+{
   if
     {
       [[ -n "${rvm_ruby_package_file:-}" &&
@@ -63,65 +67,42 @@ rubinius_install()
   else
     rvm_head_flag=1
     if [[ "${rvm_ruby_version}" == 'head' ]]
-    then
-      true ${rvm_ruby_repo_branch:="master"}
-    else
-      true ${rvm_ruby_repo_branch:="${rvm_ruby_version}"}
+    then true ${rvm_ruby_repo_branch:="master"}
+    else true ${rvm_ruby_repo_branch:="${rvm_ruby_version}"}
     fi
   fi
+}
 
-  if
-    (( rvm_head_flag == 0 ))
-  then
-    # Install from tarball url.
-    rvm_log "$rvm_ruby_string #downloading ($rvm_ruby_package_file), this may take a while depending on your connection..."
+rubinius_install()
+{
+  make_sure_its_enough_ram_for_rbx || return $?
 
-    "$rvm_scripts_path/fetch" "$rvm_ruby_url"
-    result=$?
+  rubinius_install_detect_required_ruby || return $?
 
-    if (( result > 0 ))
-    then
-      rvm_error "There has been an error while trying to fetch the source. Halting the installation."
-      return $result
-    fi
+  typeset rvm_configure_args
+  typeset -a rvm_ruby_configure
+  unset CFLAGS LDFLAGS ARCHFLAGS # Important.
+  unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC RBXOPT
+  export PATH
 
-    __rvm_rm_rf "${rvm_src_path}/$rvm_ruby_string/" &&
-    __rvm_log_command "extract" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string" \
-      __rvm_package_extract "${rvm_archives_path}/$rvm_ruby_package_file" "${rvm_src_path}/$rvm_ruby_string/" ||
-    case $? in
-      199)
-        rvm_error "\nUnrecognized archive format '$archive_format'"
-        return 199
-        ;;
-      *)
-        rvm_error "There has been an error while trying to extract the source. Halting the installation."
-        return 1
-        ;;
-    esac
-  else
-    # Install from repository
-    __rvm_db "rubinius_repo_url" "rvm_ruby_repo_url"
-    rvm_ruby_url="${rvm_ruby_repo_url}"
-    __rvm_fetch_ruby ||
-    {
-      result=$?
-      rvm_error "There has been an error while fetching the rbx git repo.  \nHalting the installation."
-      return $result
-    }
-  fi
+  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
+  __rvm_remove_rvm_from_path
+  __rvm_conditionally_add_bin_path
+
+  rubinius_install_fix_repo_branch
+
+  __rvm_fetch_ruby || return $?
 
   __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
 
   chmod +x ./configure
 
-  __rvm_apply_patches
-  result=$?
-
-  if (( result > 0 ))
-  then
+  __rvm_apply_patches ||
+  {
+    result=$?
     rvm_error "There has been an error while trying to apply patches to rubinius.  \nHalting the installation."
     return $result
-  fi
+  }
   (( ${#rvm_configure_flags[@]} )) || rvm_configure_flags=( --skip-system )
   rvm_configure_flags=( --prefix="$rvm_ruby_home"  "${rvm_configure_flags[@]}" )
 
