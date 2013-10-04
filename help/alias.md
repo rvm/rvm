@@ -45,7 +45,8 @@ Managing Generic Ruby Versions
   You can use aliases to set a specific ruby patchlevel for a generic ruby
   version. You may want to specify the gemset as well to scope this change
   to a certain project. This is useful if you have upgraded RVM and can no
-  longer switch to the requested ruby.
+  longer switch to the requested ruby. For example, if your project specifies
+  `ruby-1.9.3@my-project` you can do this:
 
     $ cd my-project
     ruby-1.9.3-p448 is not installed.
