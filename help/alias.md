@@ -40,6 +40,19 @@ You can also list all current aliases
     lisp => maglev-head
     python => rbx-head
 
+Managing Generic Ruby Versions
+
+  You can use aliases to set a specific ruby patchlevel for a generic ruby
+  version. You may want to specify the gemset as well to scope this change
+  to a certain project. This is useful if you have upgraded RVM and can no
+  longer switch to the requested ruby.
+
+    $ cd my-project
+    ruby-1.9.3-p448 is not installed.
+    To install do: 'rvm install ruby-1.9.3-p448'
+    $ rvm alias ruby-1.9.3@my-project ruby-1.9.3-p422@my-project
+    $ cd ../my-project
+
 Documentation:
 
   https://rvm.io/rubies/alias/
