@@ -44,6 +44,11 @@ __rvm_select_rbx_nightly()
 
 __rvm_select_rbx_compatibility_branch()
 {
+  case "${rvm_ruby_version}" in
+    (2.0pre)      rvm_ruby_repo_branch="master"              ;;
+    (2.0.testing) rvm_ruby_repo_branch="${rvm_ruby_version}" ;;
+  esac
+
   if
     [[ ${rvm_19_flag:-0} == 1 ]]
   then
@@ -203,18 +208,8 @@ __rvm_select()
     rbx|rubinius)
       __rvm_select_rbx_nightly || return $?
 
-      rvm_archive_extension="tar.gz"
       rvm_ruby_interpreter="rbx"
-      rvm_ruby_version=${rvm_ruby_version:-$(__rvm_db "rbx_version")}
-      rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
-      rbx_url=${rbx_url:-$(__rvm_db "rbx_url")}
-
-      case "${rvm_ruby_version}" in
-        (2.0pre)
-          rvm_ruby_repo_branch="master" ;;
-        (2.0.testing)
-          rvm_ruby_repo_branch="${rvm_ruby_version}" ;;
-      esac
+      rvm_ruby_string="${rvm_ruby_string//rubinius/rbx}"
 
       __rvm_select_rbx_compatibility_branch
 
@@ -224,20 +219,20 @@ __rvm_select()
         [[ "${rvm_ruby_version}" != "head" ]]
       then
         if
-          [[ -n "${rvm_ruby_patch_level:-}" ]]
+          __rvm_version_compare "${rvm_ruby_version}" -ge "2.0.0"
         then
           rbx_url="$( __rvm_db "rbx_2.0.0_url" )"
-          rvm_archive_extension="zip"
-          rvm_ruby_url="${rbx_url}"
-          rvm_ruby_package_file="release-${rvm_ruby_version}-${rvm_ruby_patch_level}.${rvm_archive_extension}"
-          rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_file"
+          rvm_archive_extension="tar.bz2"
+          rvm_ruby_package_file="rubinius-${rvm_ruby_version}"
+          rvm_ruby_url="${rbx_url}/${rvm_ruby_package_file}.${rvm_archive_extension}"
         else
-          rvm_ruby_patch_level=""
-          rvm_ruby_url="${rbx_url}"
-          rvm_ruby_package_file="rubinius-${rvm_ruby_version}.${rvm_archive_extension}"
-          rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_file"
+          rbx_url=${rbx_url:-$(__rvm_db "rbx_url")}
+          rvm_archive_extension="tar.gz"
+          rvm_ruby_package_file="rubinius-${rvm_ruby_version}"
+          rvm_ruby_url="${rbx_url}/$rvm_ruby_package_file.${rvm_archive_extension}"
         fi
       else
+        rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
         rvm_head_flag=1
         rvm_ruby_patch_level=""
         rvm_ruby_version="head"
@@ -245,8 +240,7 @@ __rvm_select()
       fi
 
       if [[ -n "${rvm_rbx_opt:-}" ]]
-      then
-        export RBXOPT="${RBXOPT:=${rvm_rbx_opt}}"
+      then export RBXOPT="${RBXOPT:=${rvm_rbx_opt}}"
       fi
       ;;
 
@@ -962,7 +956,11 @@ __rvm_ruby_string()
         rvm_head_flag=1
         ;;
 
-      (opal|ruby|rbx|jruby|macruby|ree|kiji|rubinius|maglev|ironruby|goruby|mruby|tcs|jamesgolick|topaz)
+      (rubinius)
+        rvm_ruby_interpreter="rbx"
+        ;;
+
+      (opal|ruby|rbx|jruby|macruby|ree|kiji|maglev|ironruby|goruby|mruby|tcs|jamesgolick|topaz)
         rvm_ruby_interpreter="$string"
         ;;
 
