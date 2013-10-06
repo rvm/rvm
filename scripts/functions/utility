@@ -323,8 +323,7 @@ you can increase the timeout by setting it in ~/.rvmrc => rvm_max_time_flag=10"
 __rvm_try_sudo()
 (
   typeset -a command_to_run
-  typeset sudo_path
-  command_to_run=( /usr/bin/env PATH="$PATH:/sbin:/usr/sbin:/usr/local/sbin" "$@" )
+  typeset sudo_path sbin_path missing_paths
   (( UID == 0 )) ||
   case "$rvm_autolibs_flag_number" in
     (0)
@@ -351,6 +350,17 @@ __rvm_try_sudo()
       if
         __rvm_which ${sudo_path}sudo >/dev/null 2>&1
       then
+        missing_paths=""
+        command_to_run=( "$@" )
+        for sbin_path in /sbin /usr/sbin /usr/local/sbin
+        do
+          if [[ -d "${sbin_path}" ]] && [[ ! ":$PATH:" =~ ":${sbin_path}:" ]]
+          then missing_paths+=":${sbin_path}"
+          fi
+        done
+        if [[ -n "${missing_paths}" ]]
+        then command_to_run=( /usr/bin/env PATH="${PATH}${missing_paths}" "${command_to_run[@]}" )
+        fi
         command_to_run=( ${sudo_path}sudo -p "%p password required for '${command_to_run[*]}': " "${command_to_run[@]}" )
       else
         rvm_requiremnts_fail error "Running '$*' would require sudo, but 'sudo' is not found in PATH!"
