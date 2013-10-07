@@ -73,6 +73,19 @@ rubinius_install_fix_repo_branch()
   fi
 }
 
+rubinius_install_ensure_wrapper()
+{
+  typeset __binary=$1
+  shift
+  [[ -x "$rvm_wrappers_path/$ruby/${__binary}" ]] ||
+  {
+    if (( $# ))
+    then __rvm_log_command "install_${__binary}" "$rvm_ruby_string - #install ${__binary}" "$@" || return $?
+    fi
+    rvm wrapper "$ruby" --no-links ${__binary} || return $?
+  }
+}
+
 rubinius_install()
 {
   make_sure_its_enough_ram_for_rbx || return $?
@@ -127,18 +140,13 @@ rubinius_install()
     )
   fi
   rvm_log "Using $ruby for $rvm_ruby_string installation"
+  rubinius_install_ensure_wrapper ruby
+  rubinius_install_ensure_wrapper gem
+  rubinius_install_ensure_wrapper rake "$rvm_wrappers_path/$ruby/gem" install rake
   if
     [[ -f "Gemfile" ]]
   then
-    [[ -x "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/bundle" ]] ||
-    {
-      __rvm_log_command "install_bundler" "$rvm_ruby_string - #install bundler" \
-        "$rvm_wrappers_path/$ruby/gem" install bundle ||
-        return $?
-      __rvm_log_command "wrap_bundler" "$rvm_ruby_string - #wrap bundle" \
-        rvm wrapper "$ruby" --no-links bundle ||
-        return $?
-    }
+    rubinius_install_ensure_wrapper bundle "$rvm_wrappers_path/$ruby/gem" install bundle
     __rvm_log_command "bundle" "$rvm_ruby_string - #bundle install" \
       "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/bundle" install ||
       return $?
