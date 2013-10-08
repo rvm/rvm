@@ -846,10 +846,15 @@ gemset_pristine()
     while
       read _gem _version _platforms
     do
-      printf "%b" "${_gem}-${_version} "
-      if ! gem pristine ${_gem} --version ${_version} >/dev/null
-      then  _failed+=( "${_gem} --version ${_version}" )
-      fi
+      ruby -rrubygems -e "
+spec = Gem::Specification.find_by_name('${_gem}','${_version}');
+exit spec.extensions.count+spec.executables.count
+" 2>/dev/null ||
+      {
+        printf "%b" "${_gem}-${_version} "
+        gem pristine "${_gem}" --version "${_version}" >/dev/null ||
+          _failed+=(  "${_gem} --version ${_version}" )
+      }
     done < <(
       GEM_PATH="$GEM_HOME" __rvm_list_gems
     )
