@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/osx-ssl-certs"
+
 make_sure_its_enough_ram_for_rbx()
 {
   typeset rvm_rbx_required_ram
@@ -73,6 +75,19 @@ rubinius_install_fix_repo_branch()
   fi
 }
 
+rubinius_install_ensure_wrapper()
+{
+  typeset __binary=$1
+  shift
+  [[ -x "$rvm_wrappers_path/$ruby/${__binary}" ]] ||
+  {
+    if (( $# ))
+    then __rvm_log_command "install_${__binary}" "$rvm_ruby_string - #install ${__binary}" "$@" || return $?
+    fi
+    "${rvm_scripts_path:-${rvm_path}/scripts}"/wrapper "$ruby" --no-links ${__binary} || return $?
+  }
+}
+
 rubinius_install()
 {
   make_sure_its_enough_ram_for_rbx || return $?
@@ -84,6 +99,7 @@ rubinius_install()
   unset CFLAGS LDFLAGS ARCHFLAGS # Important.
   unset GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC RBXOPT
   export PATH
+  rvm_ruby_make=""
 
   __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
   __rvm_remove_rvm_from_path
@@ -126,21 +142,22 @@ rubinius_install()
     )
   fi
   rvm_log "Using $ruby for $rvm_ruby_string installation"
+  rubinius_install_ensure_wrapper ruby
+  __rvm_osx_ssl_certs_ensure_for_ruby "$rvm_wrappers_path/$ruby/ruby"
+  rubinius_install_ensure_wrapper gem
+  rubinius_install_ensure_wrapper rake "$rvm_wrappers_path/$ruby/gem" install rake
   if
     [[ -f "Gemfile" ]]
   then
-    [[ -x "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/bundle" ]] ||
-    {
-      __rvm_log_command "install_bundler" "$rvm_ruby_string - #install bundler" \
-        gem install bundle ||
-        return $?
-      __rvm_log_command "wrap_bundler" "$rvm_ruby_string - #wrap bundle" \
-        rvm wrapper "$ruby" --no-links bundle ||
-        return $?
-    }
+    rubinius_install_ensure_wrapper bundle "$rvm_wrappers_path/$ruby/gem" install bundle
     __rvm_log_command "bundle" "$rvm_ruby_string - #bundle install" \
       "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/bundle" install ||
       return $?
+  fi
+  if
+    [[ -f "$HOME/.gem/credentials" && -w "$HOME/.gem/credentials" ]]
+  then
+    chmod 600 "$HOME/.gem/credentials"
   fi
   __rvm_log_command "configure" "$rvm_ruby_string - #configuring" \
     env "${rvm_configure_env[@]}" $rvm_wrappers_path/$ruby/ruby ./configure "${rvm_configure_flags[@]}" ||
