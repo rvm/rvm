@@ -286,6 +286,8 @@ __rvm_install_source()
     __rvm_post_install ||
     return $?
 
+  __rvm_fetch_ruby_cleanup
+
   rvm_log "Install of $rvm_ruby_string - #complete "
 }
 
@@ -508,22 +510,36 @@ __rvm_gemset_pristine_all()
   done
 }
 
+__rvm_remove_gemsets__()
+{
+  typeset gemset
+  typeset -a gemsets
+  __rvm_read_lines gemsets <(
+    __rvm_find -L "${rvm_gems_path:-"$rvm_path/gems"}" -maxdepth 1 \
+      "${name_opt}" "${rvm_ruby_string}" -o \
+      "${name_opt}" "${rvm_ruby_string}@*"
+  )
+  for gemset in "${gemsets[@]}"
+  do
+    printf "Removing $gemset - "
+    __rvm_rm_rf "$gemset" && printf "ok\n" ||
+    {
+      typeset __res=$?
+      echo "failed\n"
+      return ${__res}
+    }
+  done
+}
+
 __rvm_remove_gemsets()
 {
-  typeset gemset gemsets
   if
     (( ${rvm_gems_flag:=0} == 1 ))
   then
-    rvm_log "Removing $rvm_ruby_string gemsets..."
-
-    gemsets=( $(__rvm_find -L "${rvm_gems_path:-"$rvm_path/gems"}" -maxdepth 1 "${name_opt}" "${rvm_ruby_string}*" -type d))
-    for gemset in "${gemsets[@]}"
-    do
-      if [[ -d "$gemset" ]]
-      then __rvm_rm_rf "$gemset"
-      fi
-    done
+    __rvm_log_command remove_gemsets "Removing $rvm_ruby_string gemsets" __rvm_remove_gemsets__ ||
+      return $?
   fi
+  true # for OSX
 }
 
 __rvm_remove_wrappers()
@@ -627,7 +643,6 @@ __rvm_post_install()
         then
           __rvm_cp -f "$rvm_ruby_gem_home/bin/$binary" "$rvm_ruby_home/bin/$binary"
         fi
-        __rvm_inject_gem_env "$rvm_ruby_home/bin/$binary"
         __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
         chmod +x "$rvm_ruby_home/bin/$binary"
       fi
@@ -640,47 +655,13 @@ __rvm_post_install()
 
 __rvm_inject_ruby_shebang()
 {
-  typeset actual_file
-  __rvm_actual_file $1
+  typeset actual_file="$1"
+  __rvm_readlink_deep actual_file
   if
     [[ -f "$actual_file" ]]
   then
     __rvm_sed_i "${actual_file}" -e '1,1s=.*=#!'"/usr/bin/env ruby="
     [[ -x "$actual_file" ]] || chmod +x "$actual_file"
-  fi
-}
-
-__rvm_inject_gem_env()
-{
-  typeset actual_file string
-  __rvm_actual_file $1
-  if
-    [[ -s "$actual_file" ]]
-  then
-    if
-      [[ -n "$(head -n 1 "$actual_file" | __rvm_awk '/[j]*ruby/{print}')" ]]
-    then
-      string="ENV['GEM_HOME']=ENV['GEM_HOME'] || '$rvm_ruby_gem_home'\nENV['GEM_PATH']=ENV['GEM_PATH'] || '$rvm_ruby_gem_path'\nENV['PATH']='$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:' + ENV['PATH']\n"
-    elif
-      [[ -n "$(head -n 1 "$actual_file" | __rvm_awk '/bash/{print}')" ]]
-    then
-      string="GEM_HOME=\${GEM_HOME:-'$rvm_ruby_gem_home'}\nGEM_PATH=\${GEM_PATH:-'$rvm_ruby_gem_home:$rvm_ruby_global_gems_path'}\nPATH=$rvm_ruby_gem_home/bin:$rvm_ruby_global_gems_path/bin:$rvm_ruby_home/bin:\$PATH\n"
-    fi
-    if
-      [[ -n "$string" ]]
-    then
-      __rvm_awk "NR==2 {print \"$string\"} {print}" "$actual_file" > "$actual_file.new"
-      \mv -f $actual_file.new $actual_file
-      [[ -x "$actual_file" ]] || chmod +x "$actual_file"
-    fi
-  fi
-}
-
-__rvm_actual_file()
-{
-  if [[ -L "$1" ]]                  # If the file is a symlink,
-  then actual_file="$(__rvm_readlink $1)" # read the link target so we can preserve it.
-  else actual_file="$1"
   fi
 }
 

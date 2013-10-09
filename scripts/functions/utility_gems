@@ -38,9 +38,6 @@ rubygems_detect_ruby_lib_gem_path_fallback()
 rubygems_detect_ruby_lib_gem_path()
 {
   typeset ruby_path="$( __rvm_which "${1:-ruby}" )"
-  while [[ -L "$ruby_path" ]]
-  do ruby_path="$( __rvm_readlink "$ruby_path" )"
-  done
 
   ruby_lib_gem_path="$( "$ruby_path" -rrubygems -e 'puts Gem.default_dir' 2>/dev/null )"
 
@@ -51,24 +48,26 @@ rubygems_detect_ruby_lib_gem_path()
 
 __rvm_rubygems_create_link()
 {
-  \mkdir -p "$rvm_ruby_gem_home" "$rvm_ruby_global_gems_path"
-
   typeset ruby_lib_gem_path
-  rubygems_detect_ruby_lib_gem_path "${1:-ruby}" || return 0
-  if
-    [[ ! -e "$ruby_lib_gem_path" ]]
-  then
-    # does not exist, create link only
-    \mkdir -p "${ruby_lib_gem_path%/*}"
-    ln -fs "$rvm_ruby_global_gems_path" "$ruby_lib_gem_path"
-  elif
-    [[ -d "$ruby_lib_gem_path" && ! -L "$ruby_lib_gem_path" ]]
-  then
-    # exist and is a dir, move data and link
-    \mv -f "$ruby_lib_gem_path"/* "$rvm_ruby_global_gems_path"/ 2>/dev/null
-    __rvm_rm_rf "$ruby_lib_gem_path"
-    ln -fs "$rvm_ruby_global_gems_path" "$ruby_lib_gem_path"
+
+  \mkdir -p "$rvm_ruby_gem_home"
+
+  rubygems_detect_ruby_lib_gem_path "${1:-ruby}" ||
+    return 0
+
+  if [[ -L "$ruby_lib_gem_path" ]]
+  then rm -rf "$ruby_lib_gem_path"
   fi
+
+  if [[ -e "$rvm_ruby_global_gems_path" && ! -L "$rvm_ruby_global_gems_path" ]]
+  then rm -rf "$rvm_ruby_global_gems_path"
+  fi
+
+  [[ -d "$ruby_lib_gem_path" ]] ||
+    \mkdir -p "$ruby_lib_gem_path"
+
+  [[ -L "$rvm_ruby_global_gems_path" ]] ||
+    ln -fs "$ruby_lib_gem_path" "$rvm_ruby_global_gems_path"
 }
 
 # Import the initial gemsets, unless skipped.
