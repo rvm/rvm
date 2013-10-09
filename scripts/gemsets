@@ -847,9 +847,8 @@ gemset_pristine()
       read _gem _version _platforms
     do
       printf "%b" "${_gem}-${_version} "
-      if ! gem pristine ${_gem} --version ${_version} >/dev/null
-      then  _failed+=( "${_gem} --version ${_version}" )
-      fi
+      gem pristine "${_gem}" --version "${_version}" >/dev/null ||
+        _failed+=(  "${_gem} --version ${_version}" )
     done < <(
       GEM_PATH="$GEM_HOME" __rvm_list_gems
     )
@@ -870,6 +869,11 @@ gemset_pristine()
 # Transform the list of gems one version per line
 __rvm_list_gems()
 {
+  ruby -rrubygems -e '
+    Gem::Specification.each{|gem|
+      puts "#{gem.name} #{gem.version}" unless gem.executables.empty? and gem.extensions.empty?
+    }
+  ' 2>/dev/null ||
   gem list |
     __rvm_sed '/\*\*\*/ d ; /^$/ d; s/ (/,/; s/, /,/g; s/)//;' |
     __rvm_awk -F ',' '{for(i=2;i<=NF;i++) print $1" "$i }'
