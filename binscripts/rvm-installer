@@ -88,27 +88,51 @@ Usage
 
 Options
 
-  [[--]version] <latest|latest-minor|latest-x|latest-x.y|x.y.z> - Install RVM version
-  [--]branch    <name> - Install RVM head, from named branch
-  --trace              - used to debug the installer script
+  [--]domain <domain>
+
+    The domain name from which RVM is retrieved. The script currently supports
+    bitbucket.org, github.com and github enterprise sites. The default is
+    github.com.
+
+  [--]repo <repository>
+
+    The name of the repository from which RVM is retrieved. The default is
+    wayneeseguin/rvm.
+
+  [[--]version] <version>
+
+    The version or tag to install. Valid values are:
+
+      latest         - The latest tagged version.
+      latest-minor   - The latest minor version of the current major version.
+      latest-<x>     - The latest minor version of version x.
+      latest-<x>.<y> - The latest patch version of version x.y.
+      <x>.<y>.<z>    - Major version x, minor version y and patch z.
+
+  [--]branch <name>
+
+    The name of the branch from which RVM is installed. The default is master.
+
+    For backwards compatibility, the branch may also be provided in one of the
+    following formats:
+
+      <user>/         - A bitbucket or github the user (e.g., wayneeseguin).
+      <user>/<branch> - A bitbucket or github the user and branch (e.g., mpapis/master).
+      [/]<branch>     - A branch (e.g., stable)
+
+    Note that when using one of the above formats, the repo is assumed to be rvm.
+    Additionally, if not provided the user is assumed to be wayneeseguin and the
+    branch is assumed to be master, though a user or branch must be given.
+
+  --trace
+
+    Provides debug logging for the installation script.
 
 Actions
 
-  master - Install RVM master branch from wayneeseguin rvm repo (Default).
-  stable - Install RVM stable branch from wayneeseguin rvm repo.
-  help   - Display CLI help (this output)
-
-Branches:
-
-  branch <branch>
-  branch /<branch>
-  branch <repo>/
-  branch <repo>/<branch>
-
-  Defaults:
-
-    branch: master
-    repo:   wayneeseguin
+  master - Installs RVM from the master branch at wayneeseguin/rvm on github.
+  stable - Installs RVM from the stable branch a wayneeseguin/rvm on github.
+  help   - Displays this output.
 
 "
 }
@@ -170,72 +194,61 @@ rvm_is_a_shell_function()
   return ${rvm_is_not_a_shell_function:-0}
 }
 
-#Searches for highest available version for the given pattern
-# fetch_version 1.10. -> 1.10.3
-# fetch_version 1. -> 1.11.0
-# fetch_version "" -> 2.0.1
+# Searches the tags for the highest available version matching a given pattern.
+# fetch_version github.com wayneeseguin/rvm 1.10. -> 1.10.3
+# fetch_version github.com wayneeseguin/rvm 1.10. -> 1.10.3
+# fetch_version github.com wayneeseguin/rvm 1. -> 1.11.0
+# fetch_version github.com wayneeseguin/rvm "" -> 2.0.1
 fetch_version()
 {
-  __rvm_curl -s https://api.github.com/repos/wayneeseguin/rvm/tags |
+  typeset _domain _repo _url
+  _domain=$1
+  _repo=$2
+  if [[ ${_domain} =~ ^github.com$ ]]
+  then
+    _url=https://api.${_domain}/repos/${_repo}/tags
+  elif [[ ${_domain} =~ ^bitbucket.org$ ]]
+  then
+    _url=https://${_domain}/api/v1.0/repositories/${_repo}/branches-tags
+  else
+    _url=https://${_domain}/api/v3/repos/${_repo}/tags
+  fi
+  __rvm_curl -s ${_url} |
     sed -n '/"name": / {s/^.*".*": "\(.*\)".*$/\1/; p;}' |
     sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n |
-    GREP_OPTIONS="" \grep "^${1:-}" | tail -n 1
+    GREP_OPTIONS="" \grep "^${3:-}" | tail -n 1
 }
 
 install_release()
 {
-  typeset _version
-  _version=$1
-  log "Downloading RVM version ${_version}"
-  get_and_unpack \
-    https://github.com/wayneeseguin/rvm/archive/${_version}.tar.gz \
-    rvm-${_version}.tgz ||
-  get_and_unpack \
-    https://bitbucket.org/mpapis/rvm/get/${_version}.tar.gz \
-    rvm-${_version}.tgz ||
-  return $?
+  typeset _domain _repo _url _version
+  _domain=$1
+  _repo=$2
+  _version=$3
+  log "Downloading RVM..."
+  if [[ ${_domain} =~ ^bitbucket.org$ ]]
+  then
+    _url=https://${_domain}/${_repo}/get/${_version}.tar.gz
+  else
+    _url=https://${_domain}/${_repo}/archive/${_version}.tar.gz
+  fi
+  get_and_unpack ${_url} rvm-${_version}.tgz || return $?
 }
 
 install_head()
 {
-  typeset _repo _branch
-  case "$1" in
-    (/*)
-      _repo=wayneeseguin
-      _branch=${1#/}
-      ;;
-    (*/)
-      _repo=${1%/}
-      _branch=master
-      ;;
-    (*/*)
-      _repo=${1%%/*}
-      _branch=${1#*/}
-      ;;
-    (*)
-      _repo=wayneeseguin
-      _branch=$1
-      ;;
-  esac
-  case "${_repo}" in
-    (mpapis|wayneeseguin)
-      log "Downloading RVM from ${_repo} branch ${_branch}"
-      get_and_unpack \
-        https://github.com/${_repo}/rvm/archive/${_branch}.tar.gz \
-        ${_repo}-rvm-${_branch//\//_}.tgz ||
-      get_and_unpack \
-        https://bitbucket.org/mpapis/rvm/get/${_branch}.tar.gz \
-        ${_repo}-rvm-${_branch//\//_}.tgz ||
-      return $?
-      ;;
-    (*)
-      log "Downloading RVM from ${_repo} branch ${_branch}"
-      get_and_unpack \
-        https://github.com/${_repo}/rvm/archive/${_branch}.tar.gz \
-        ${_repo}-rvm-${_branch//\//_}.tgz ||
-      return $?
-      ;;
-  esac
+  typeset _domain _repo _branch _url
+  _domain=$1
+  _repo=$2
+  _branch=$3
+  if [[ ${_domain} =~ ^bitbucket.org$ ]]
+  then
+    _url=https://${_domain}/${_repo}/get/${_branch}.tar.gz
+  else
+    _url=https://${_domain}/${_repo}/archive/${_branch}.tar.gz
+  fi
+  log "Downloading RVM..."
+  get_and_unpack ${_url} rvm-${_branch//\//_}.tgz || return $?
 }
 
 # duplication marker dfkjdjngdfjngjcszncv
@@ -256,7 +269,7 @@ get_and_unpack()
   typeset _url _file _patern _return
   _url=$1
   _file=$2
-
+  log "Downloading ${_url} to ${_file}"
   __rvm_curl ${_url} -o ${rvm_archives_path}/${_file} ||
   {
     _return=$?
@@ -407,11 +420,45 @@ do
       fi
       ;;
 
-    --branch|branch) # Install RVM from a given branch
+    --domain|domain)
       if [[ -n "${1:-}" ]]
       then
-        version="head"
-        branch="$1"
+        domain="$1"
+        shift
+      else
+        fail "--domain must be followed by a domain."
+      fi
+      ;;
+
+    --repo|repo)
+      if [[ -n "${1:-}" ]]
+      then
+        repo="$1"
+        shift
+      else
+        fail "--repo must be followed by a repository."
+      fi
+      ;;
+
+    --branch|branch)
+      if [[ -n "${1:-}" ]]
+      then
+        case "$1" in
+          (/*)
+            branch=${1#/}
+            ;;
+          (*/)
+            repo=${1%/}/rvm
+            branch=master
+            ;;
+          (*/*)
+            repo=${1%%/*}/rvm
+            branch=${1#*/}
+            ;;
+          (*)
+            branch=$1
+            ;;
+        esac
         shift
       else
         fail "--branch must be followed by a branchname."
@@ -472,7 +519,6 @@ do
 
     head)
       version="head"
-      branch="master"
       ;;
 
     stable|master)
@@ -560,6 +606,9 @@ then
 fi
 
 true "${version:=head}"
+true "${domain:=github.com}"
+true "${repo:=wayneeseguin/rvm}"
+true "${branch:=master}"
 
 if [[ "$rvm_path" != /* ]]
 then
@@ -583,28 +632,28 @@ done
 case "${version}" in
   (head)
     echo "${branch}" > "$rvm_path/RELEASE"
-    install_head ${branch:-master} || exit $?
+    install_head ${domain} ${repo} ${branch:-master} || exit $?
     ;;
 
   (latest)
     echo "${version}" > "$rvm_path/RELEASE"
-    install_release $(fetch_version "") || exit $?
+    install_release ${domain} ${repo} $(fetch_version ${domain} ${repo}) || exit $?
     ;;
 
   (latest-minor)
     echo "${version}" > "$rvm_path/RELEASE"
     version="$(\cat "$rvm_path/VERSION")"
-    install_release $(fetch_version "${version%.*}") || exit $?
+    install_release ${domain} ${repo} $(fetch_version ${domain} ${repo} ${version%.*}) || exit $?
     ;;
 
   (latest-*)
     echo "${version}" > "$rvm_path/RELEASE"
-    install_release $(fetch_version "${version#latest-}") || exit $?
+    install_release ${domain} ${repo} $(fetch_version ${domain} ${repo} ${version#latest-}) || exit $?
     ;;
 
   (+([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
     echo "version" > "$rvm_path/RELEASE"
-    install_release ${version} || exit $?
+    install_release ${domain} ${repo} ${version} || exit $?
     ;;
 
   (*)
