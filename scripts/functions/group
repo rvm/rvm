@@ -4,24 +4,24 @@ __rvm_add_user_to_group()
 {
   case "${_system_type}" in
     "OpenBSD")
-      usermod -G "$1" "$2"
+      __rvm_try_sudo usermod -G "$1" "$2"
       ;;
     "FreeBSD"|"DragonFly")
-      pw usermod "$2" -G "$1"
+      __rvm_try_sudo pw usermod "$2" -G "$1"
       ;;
     "Linux")
       if [[ -f "/etc/SuSE-release" ]] ; then
-        groupmod -A "$2" "$1"
+        __rvm_try_sudo groupmod -A "$2" "$1"
       else
-        /usr/sbin/usermod -a -G "$1" "$2"
+        __rvm_try_sudo /usr/sbin/usermod -a -G "$1" "$2"
       fi
     ;;
     "Darwin")
-      dscl . -append "/Groups/$1" GroupMembership "$2"
+      __rvm_try_sudo dscl . -append "/Groups/$1" GroupMembership "$2"
       ;;
     "SunOS")
       groups="$(id -G "$2") \"$1\""
-      usermod -G "${1// /, }" "$2"
+      __rvm_try_sudo usermod -G "${1// /, }" "$2"
       ;;
   esac
 }
@@ -71,15 +71,15 @@ __rvm_create_group()
 
   case "${_system_type}" in
     (Linux|Sunos)
-      env PATH="$PATH:/sbin:/usr/sbin" groupadd "${__group_params[@]}" "$1"
+      __rvm_try_sudo groupadd "${__group_params[@]}" "$1"
       ;;
     (BSD)
       case "${_system_name}" in
         (OpenBSD)
-          groupadd "${__group_params[@]}" "$1"
+          __rvm_try_sudo groupadd "${__group_params[@]}" "$1"
           ;;
         (FreeBSD|DragonFly)
-          pw groupadd "${__group_params[@]}" "$1" -q
+          __rvm_try_sudo pw groupadd "${__group_params[@]}" "$1" -q
           ;;
         esac
         ;;
@@ -103,7 +103,7 @@ __rvm_create_group()
       fi
       # Create the group, isn't OSX "fun"?! :)
       # Thanks for the assist frogor of ##osx-server on freenode! Appreciate the assist!
-      dscl . -create "/Groups/$1" gid "${_new_group_id}"
+      __rvm_try_sudo dscl . -create "/Groups/$1" gid "${_new_group_id}"
       ;;
   esac
 }
