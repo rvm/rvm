@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+DEFAULT_SOURCES=(github.com/wayneeseguin/rvm bitbucket.org/mpapis/rvm)
+
 BASH_MIN_VERSION="3.2.25"
 if
   [[ -n "${BASH_VERSION:-}" &&
@@ -88,27 +90,76 @@ Usage
 
 Options
 
-  [[--]version] <latest|latest-minor|latest-x|latest-x.y|x.y.z> - Install RVM version
-  [--]branch    <name> - Install RVM head, from named branch
-  --trace              - used to debug the installer script
+  [[--]version] <version>
 
+    The version or tag to install. Valid values are:
+
+      latest         - The latest tagged version.
+      latest-minor   - The latest minor version of the current major version.
+      latest-<x>     - The latest minor version of version x.
+      latest-<x>.<y> - The latest patch version of version x.y.
+      <x>.<y>.<z>    - Major version x, minor version y and patch z.
+
+  [--]branch <branch>
+
+    The name of the branch from which RVM is installed. This option can be used
+    with the following formats for <branch>:
+
+      <account>/
+
+        If account is wayneeseguin or mpapis, installs from one of the following:
+
+          https://github.com/wayneeseguin/rvm/archive/master.tar.gz
+          https://bitbucket.org/mpapis/rvm/get/master.tar.gz
+
+       Otherwise, installs from:
+
+         https://github.com/<account>/rvm/archive/master.tar.gz
+
+      <account>/<branch>
+
+        If account is wayneeseguin or mpapis, installs from one of the following:
+
+          https://github.com/wayneeseguin/rvm/archive/<branch>.tar.gz
+          https://bitbucket.org/mpapis/rvm/get/<branch>.tar.gz
+
+        Otherwise, installs from:
+
+          https://github.com/<account>/rvm/archive/<branch>.tar.gz
+
+      [/]<branch>
+
+        Installs the branch from one of the following:
+
+          https://github.com/wayneeseguin/rvm/archive/<branch>.tar.gz
+          https://bitbucket.org/mpapis/rvm/get/<branch>.tar.gz
+
+      [--]source <source>
+
+        Defines the repository from which RVM is retrieved and installed in the format:
+
+          <domain>/<account>/<repo>
+
+        Where:
+
+          <domain>  - Is bitbucket.org, github.com or a github enterprise site serving
+                      an RVM repository.
+          <account> - Is the user account in which the RVM repository resides.
+          <repo>    - Is the name of the RVM repository.
+
+        Note that when using the [--]source option, one should only use the [/]branch format
+        with the [--]branch option. Failure to do so will result in undefined behavior.
+
+      --trace
+
+        Provides debug logging for the installation script.
 Actions
 
-  master - Install RVM master branch from wayneeseguin rvm repo (Default).
-  stable - Install RVM stable branch from wayneeseguin rvm repo.
-  help   - Display CLI help (this output)
-
-Branches:
-
-  branch <branch>
-  branch /<branch>
-  branch <repo>/
-  branch <repo>/<branch>
-
-  Defaults:
-
-    branch: master
-    repo:   wayneeseguin
+  master - Installs RVM from the master branch at wayneeseguin/rvm on github or mpapis/rvm
+           on bitbucket.org.
+  stable - Installs RVM from the stable branch a wayneeseguin/rvm on github or mpapis/rvm
+           on bitbucket.org.
+  help   - Displays this output.
 
 "
 }
@@ -170,72 +221,94 @@ rvm_is_a_shell_function()
   return ${rvm_is_not_a_shell_function:-0}
 }
 
-#Searches for highest available version for the given pattern
-# fetch_version 1.10. -> 1.10.3
-# fetch_version 1. -> 1.11.0
-# fetch_version "" -> 2.0.1
+# Searches the tags for the highest available version matching a given pattern.
+# fetch_version (github.com/wayneeseguin/rvm bitbucket.org/mpapis/rvm) 1.10. -> 1.10.3
+# fetch_version (github.com/wayneeseguin/rvm bitbucket.org/mpapis/rvm) 1.10. -> 1.10.3
+# fetch_version (github.com/wayneeseguin/rvm bitbucket.org/mpapis/rvm) 1.    -> 1.11.0
+# fetch_version (github.com/wayneeseguin/rvm bitbucket.org/mpapis/rvm) ""    -> 2.0.1
 fetch_version()
 {
-  __rvm_curl -s https://api.github.com/repos/wayneeseguin/rvm/tags |
+  typeset _account _domain _pattern _repo _sources _values _version
+  _sources=(${!1})
+  _pattern=$2
+  for _source in "${_sources[@]}"
+  do
+    IFS='/' read -r _domain _account _repo <<< "${_source}"
+    _version=$(fetch_versions ${_domain} ${_account} ${_repo} |
+      GREP_OPTIONS="" \grep "^${_pattern:-}" |
+      tail -n 1)
+    if [[ -n ${_version} ]]
+    then
+      echo ${_version} && return
+    fi
+  done
+  return $?
+}
+
+# Returns a sorted list of all version tags from a repository
+fetch_versions()
+{
+  typeset _account _domain _repo _url
+  _domain=$1
+  _account=$2
+  _repo=$3
+  case ${_domain} in
+    bitbucket.org)
+      _url=https://${_domain}/api/1.0/repositories/${_account}/${_repo}/branches-tags
+      ;;
+    github.com)
+      _url=https://api.${_domain}/repos/${_account}/${_repo}/tags
+      ;;
+
+    *)
+      _url=https://${_domain}/api/v3/repos/${_account}/${_repo}/tags
+      ;;
+  esac
+  __rvm_curl -s ${_url} | 
     \awk -v RS=',' -v FS='"' '$2=="name"{print $4}' |
-    sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n |
-    GREP_OPTIONS="" \grep "^${1:-}" | tail -n 1
+    sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n
 }
 
 install_release()
 {
-  typeset _version
-  _version=$1
+  typeset _source _sources _url _version
+  _sources=(${!1})
+  _version=$2
   log "Downloading RVM version ${_version}"
-  get_and_unpack \
-    https://github.com/wayneeseguin/rvm/archive/${_version}.tar.gz \
-    rvm-${_version}.tgz ||
-  get_and_unpack \
-    https://bitbucket.org/mpapis/rvm/get/${_version}.tar.gz \
-    rvm-${_version}.tgz ||
+  for _source in "${_sources[@]}"
+  do
+    case ${_source} in
+      bitbucket.org*)
+        _url=https://${_source}/get/${_version}.tar.gz
+        ;;
+      *)
+        _url=https://${_source}/archive/${_version}.tar.gz
+        ;;
+    esac
+    get_and_unpack ${_url} rvm-${_version}.tgz && return
+  done
   return $?
 }
 
 install_head()
 {
-  typeset _repo _branch
-  case "$1" in
-    (/*)
-      _repo=wayneeseguin
-      _branch=${1#/}
-      ;;
-    (*/)
-      _repo=${1%/}
-      _branch=master
-      ;;
-    (*/*)
-      _repo=${1%%/*}
-      _branch=${1#*/}
-      ;;
-    (*)
-      _repo=wayneeseguin
-      _branch=$1
-      ;;
-  esac
-  case "${_repo}" in
-    (mpapis|wayneeseguin)
-      log "Downloading RVM from ${_repo} branch ${_branch}"
-      get_and_unpack \
-        https://github.com/${_repo}/rvm/archive/${_branch}.tar.gz \
-        ${_repo}-rvm-${_branch//\//_}.tgz ||
-      get_and_unpack \
-        https://bitbucket.org/mpapis/rvm/get/${_branch}.tar.gz \
-        ${_repo}-rvm-${_branch//\//_}.tgz ||
-      return $?
-      ;;
-    (*)
-      log "Downloading RVM from ${_repo} branch ${_branch}"
-      get_and_unpack \
-        https://github.com/${_repo}/rvm/archive/${_branch}.tar.gz \
-        ${_repo}-rvm-${_branch//\//_}.tgz ||
-      return $?
-      ;;
-  esac
+  typeset _branch _source _sources _url
+  _sources=(${!1})
+  _branch=$2
+  log "Downloading RVM branch ${_branch}"
+  for _source in "${_sources[@]}"
+  do
+    case ${_source} in
+      bitbucket.org*)
+        _url=https://${_source}/get/${_branch}.tar.gz
+        ;;
+      *)
+        _url=https://${_source}/archive/${_branch}.tar.gz
+        ;;
+    esac
+    get_and_unpack ${_url} rvm-${_branch//\//_}.tgz && return
+  done
+  return $?
 }
 
 # duplication marker dfkjdjngdfjngjcszncv
@@ -257,6 +330,7 @@ get_and_unpack()
   _url=$1
   _file=$2
 
+  log "Downloading ${_url} to ${_file}."
   __rvm_curl ${_url} -o ${rvm_archives_path}/${_file} ||
   {
     _return=$?
@@ -410,11 +484,46 @@ do
     --branch|branch) # Install RVM from a given branch
       if [[ -n "${1:-}" ]]
       then
-        version="head"
-        branch="$1"
+        case "$1" in
+          (/*)
+            branch=${1#/}
+            ;;
+          (*/)
+            branch=master
+            if [[ "${1%/}" -ne wayneeseguin ]] && [[ "${1%/}" -ne mpapis ]]
+            then
+              sources=(github.com/${1%/}/rvm)
+            fi
+            ;;
+          (*/*)
+            branch=${1#*/}
+            if [[ "${1%%/*}" -ne wayneeseguin ]] && [[ "${1%%/*}" -ne mpapis ]]
+            then
+              sources=(github.com/${1%%/*}/rvm)
+            fi
+            ;;
+          (*)
+            branch="$1"
+            ;;
+        esac
         shift
       else
         fail "--branch must be followed by a branchname."
+      fi
+      ;;
+
+    --source|source)
+      if [[ -n "${1:-}" ]]
+      then
+        if [[ "$1" = */*/* ]]
+        then
+          sources=($1)
+          shift
+        else
+          fail "--source must be in the format <domain>/<account>/<repo>."
+        fi
+      else
+        fail "--source must be followed by a source."
       fi
       ;;
 
@@ -560,6 +669,12 @@ then
 fi
 
 true "${version:=head}"
+true "${branch:=master}"
+
+if [[ -z "${sources[@]}" ]]
+then
+  sources=("${DEFAULT_SOURCES[@]}")
+fi 
 
 if [[ "$rvm_path" != /* ]]
 then
@@ -583,28 +698,28 @@ done
 case "${version}" in
   (head)
     echo "${branch}" > "$rvm_path/RELEASE"
-    install_head ${branch:-master} || exit $?
+    install_head sources[@] ${branch:-master} || exit $?
     ;;
 
   (latest)
     echo "${version}" > "$rvm_path/RELEASE"
-    install_release $(fetch_version "") || exit $?
+    install_release sources[@] $(fetch_version sources[@]) || exit $?
     ;;
 
   (latest-minor)
     echo "${version}" > "$rvm_path/RELEASE"
     version="$(\cat "$rvm_path/VERSION")"
-    install_release $(fetch_version "${version%.*}") || exit $?
+    install_release sources[@] $(fetch_version sources[@] ${version%.*}) || exit $?
     ;;
 
   (latest-*)
     echo "${version}" > "$rvm_path/RELEASE"
-    install_release $(fetch_version "${version#latest-}") || exit $?
+    install_release sources[@] $(fetch_version sources[@] ${version#latest-}) || exit $?
     ;;
 
   (+([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
     echo "version" > "$rvm_path/RELEASE"
-    install_release ${version} || exit $?
+    install_release sources[@] ${version} || exit $?
     ;;
 
   (*)
