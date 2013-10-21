@@ -742,6 +742,9 @@ check_file_rights()
 permissions_warning()
 {
   rvm_warn "    $1, prefix the command with 'rvmsudo' to fix it, if the situation persist report a bug."
+  if [[ -n "${2:-}" ]]
+  then return $2
+  fi
 }
 
 install_fix_rights()
@@ -896,28 +899,25 @@ setup_etc_bashrc()
     [[ ! -f "${system_bashrc_file}" ]]
   then
     print_etc_bashrc_change > "${system_bashrc_file}" 2>/dev/null ||
-    {
-      permissions_warning "could not create '${system_bashrc_file}'"
-      return
-    }
+      permissions_warning "could not create '${system_bashrc_file}'" $? ||
+      return $?
   elif
     ! __rvm_grep "PATH=.*${rvm_bin_path}" "${system_bashrc_file}" >/dev/null
   then
-    new_content_path="$( mktemp )"
-    [[ -f "${new_content_path}" ]] || \rm -f "${new_content_path}"
+    new_content_path="$( mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX )"
+    [[ ! -f "${new_content_path}" ]] || \rm -f "${new_content_path}"
     {
       print_etc_bashrc_change # prepend
       \cat "${system_bashrc_file}" | __rvm_grep -v "|| export PATH=\"\${PATH}:\""
     } > "${new_content_path}" &&
     \mv "${new_content_path}" "${system_bashrc_file}" 2>/dev/null ||
-    {
-      permissions_warning "could not update '${system_bashrc_file}'"
-      return
-    }
+      permissions_warning "could not update '${system_bashrc_file}'" $? ||
+      return $?
   fi
   check_file_rights $system_bashrc_file a+r ||
     chmod a+r $system_bashrc_file ||
-      permissions_warning "File '$system_bashrc_file' is not readable for all users, this might cause problems in loading RVM"
+    permissions_warning "File '$system_bashrc_file' is not readable for all users, this might cause problems in loading RVM" $? ||
+    return $?
 }
 
 setup_etc_rvmrc()
