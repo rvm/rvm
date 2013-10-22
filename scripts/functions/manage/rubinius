@@ -52,6 +52,28 @@ rubinius_install_detect_required_ruby()
   ruby="$(__rvm_mri_ruby "$ruby")"
 }
 
+rubinius_install_fix_repo_branch_version_exist()
+{
+  typeset __found __ext __patern
+  __ext=".${rvm_archive_extension}"
+  __patern="${2//\./\.}.*\.${rvm_archive_extension//\./\.}\$"
+  __found="$(
+    __rvm_curl -s $1/index.txt "rubinius-$1" |
+    __rvm_awk -F"${__ext}" "/${__patern}/"'{print $1}' |
+    \sort | \tail -n 1
+  )"
+  if
+    [[ -n "${__found}" ]]
+  then
+    rvm_ruby_version="${__found#rubinius-}"
+    rvm_ruby_package_file="${__found}"
+    rvm_ruby_url="$1/${__found}.${rvm_archive_extension}"
+    return 0
+  else
+    return 1
+  fi
+}
+
 rubinius_install_fix_repo_branch()
 {
   if
@@ -63,6 +85,10 @@ rubinius_install_fix_repo_branch()
     {
       [[ -n "${rvm_ruby_url:-}" ]] &&
       file_exists_at_url "${rvm_ruby_url}"
+    } ||
+    {
+      [[ -n "${rbx_url:-}" && -n "${rvm_ruby_version:-}" ]] &&
+      rubinius_install_fix_repo_branch_version_exist "${rbx_url}" "${rvm_ruby_version}"
     }
   then
     rvm_head_flag=0
