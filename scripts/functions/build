@@ -113,22 +113,36 @@ __rvm_run_compiler()
     typeset compiler="$1"
     shift
     if [[ -n "${ZSH_VERSION:-}" ]]
-    then ${=compiler} "$@" || return $?
-    else ${compiler}  "$@" || return $?
+    then ${=compiler} "$@" 2>&1 || return $?
+    else ${compiler}  "$@" 2>&1 || return $?
     fi
   else
     return 1
   fi
 }
 
-__rvm_compiler_is() [[ "$( __rvm_run_compiler "$1" "$2" )" =~ "$3" ]]
+__rvm_compiler_is()
+{
+  __rvm_run_compiler "$1" "$2" | __rvm_grep -i "$3" >/dev/null
+}
+
+__rvm_compiler_version_is()
+{
+  typeset compiler __check
+  __check="$1"
+  compiler="${2:-$( __rvm_found_compiler )}" &&
+  __rvm_compiler_is "$compiler" "--version" "${__check}" ||
+  return $?
+}
 
 __rvm_compiler_is_llvm()
 {
-  typeset compiler
-  compiler="${1:-$( __rvm_found_compiler )}" &&
-  __rvm_compiler_is "$compiler" "--version" llvm ||
-  return $?
+  __rvm_compiler_version_is "llvm" "${1:-}" || return $?
+}
+
+__rvm_compiler_is_clang()
+{
+  __rvm_compiler_version_is "clang" "${1:-}" || return $?
 }
 
 __rvm_compiler_version_or_higher()
