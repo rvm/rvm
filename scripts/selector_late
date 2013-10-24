@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+__rvm_select_late()
+{
+  if
+    is_a_function __rvm_select_late_${rvm_ruby_interpreter}
+  then
+    __rvm_select_late_${rvm_ruby_interpreter}
+  fi
+}
+
+__rvm_select_late_rbx_partial()
+{
+  typeset __found __ext __patern
+  __ext=".${rvm_archive_extension}"
+  __patern="${2//\./\.}.*\.${rvm_archive_extension//\./\.}\$"
+  __found="$(
+    __rvm_curl -s $1/index.txt "rubinius-$1" |
+    __rvm_awk -F"${__ext}" "/${__patern}/"'{print $1}' |
+    \sort | \tail -n 1
+  )"
+  if
+    [[ -n "${__found}" ]]
+  then
+    rvm_ruby_version="${__found#rubinius-}"
+    rvm_ruby_string="rbx-${rvm_ruby_version}"
+    rvm_ruby_package_file="${__found}"
+    rvm_ruby_url="$1/${__found}.${rvm_archive_extension}"
+    return 0
+  else
+    return 1
+  fi
+}
+
+__rvm_select_late_rbx()
+{
+  if
+    {
+      [[ -n "${rvm_ruby_package_file:-}" &&
+         -f "${rvm_archives_path}/${rvm_ruby_package_file}" &&
+         -s "${rvm_archives_path}/${rvm_ruby_package_file}" ]]
+    } ||
+    {
+      [[ -n "${rvm_ruby_url:-}" ]] &&
+      file_exists_at_url "${rvm_ruby_url}"
+    } ||
+    {
+      [[ -n "${rbx_url:-}" && -n "${rvm_ruby_version:-}" ]] &&
+      __rvm_select_late_rbx_partial "${rbx_url}" "${rvm_ruby_version}"
+    }
+  then
+    rvm_head_flag=0
+  else
+    rvm_head_flag=1
+    if [[ "${rvm_ruby_version}" == 'head' ]]
+    then true ${rvm_ruby_repo_branch:="master"}
+    else true ${rvm_ruby_repo_branch:="${rvm_ruby_version}"}
+    fi
+  fi
+}

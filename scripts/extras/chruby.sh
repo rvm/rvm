@@ -9,9 +9,9 @@ function mrvm()
     [[ -z "$rvm_path" ]]
   then
     typeset reset_rvm_path=true
-    if [[ -n "${BASH_SOURCE:-$0}" && -f "${BASH_SOURCE:-$0}" ]]
+    if [[ -n "${BASH_SOURCE:-$_}" && -f "${BASH_SOURCE:-$_}" ]]
     then
-      export rvm_path="${BASH_SOURCE:-$0}"
+      export rvm_path="${BASH_SOURCE:-$_}"
       rvm_path="$( \cd "${rvm_path%/scripts/extras/chruby.sh}">/dev/null; pwd )"
     elif [[ -x "$HOME/.rvm/bin/rvm" ]]
     then export rvm_path="$HOME/.rvm"
