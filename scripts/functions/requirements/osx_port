@@ -62,14 +62,14 @@ requirements_osx_port_libs_default()
     (*-head) __rvm_which git >/dev/null || port_libs+=( git )
       ;;
   esac
-  # install gcc-4.2 only if not yet available
-  if
-    __rvm_compiler_is_llvm
-  then
-    case "$1" in
-      (ruby-1*) port_libs+=( apple-gcc42 ) ;;
-    esac
-  fi
+  __rvm_selected_compiler >/dev/null ||
+  case "$1" in
+    (ruby-1*|ree*)
+      if __rvm_compiler_is_llvm # install gcc-4.2 only if not yet available
+      then port_libs+=( apple-gcc42 )
+      fi
+      ;;
+  esac
   port_libs+=(
     libiconv libyaml libffi readline libksba openssl curl-ca-bundle sqlite3 zlib gdbm
   )
@@ -141,6 +141,12 @@ requirements_osx_port_after()
   port_root="/opt/local"                           # fallback to default
 
   __rvm_update_configure_opt_dir "$1" "${port_root}" || return $?
+
+  __rvm_selected_compiler >/dev/null ||
+  case "${port_libs[*]}" in
+    (apple-gcc42) export CC=gcc-apple-4.2 ;;
+  esac
+
   unset port_libs
 
   __rvm_add_to_path prepend "${port_root}/bin"
