@@ -70,9 +70,9 @@ please install SMF and switch autolibs to it (make sure to follow any displayed 
   esac
 }
 
-__rvm_setup_compile_environment_system_early_osx()
+# Cleanup broken devtools setup
+__rvm_setup_compile_environment_system_early_osx_fix_devtools()
 {
-  # Cleanup broken devtools setup
   typeset __xcode_dir_path
   if
     [[ -r "/usr/share/xcode-select/xcode_dir_path" ]] &&
@@ -81,6 +81,36 @@ __rvm_setup_compile_environment_system_early_osx()
   then
     rm -f "/usr/share/xcode-select/xcode_dir_path"
   fi
+}
+
+# Install CLT on 10.9 if not yet installed
+__rvm_setup_compile_environment_system_early_osx_install_clt()
+{
+  typeset __developer_update
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.9 &&
+    __developer_update="$(
+      __rvm_try_sudo softwareupdate -l 2>/dev/null |
+      awk -F'*' '/Developer/{print last_line} {last_line=$2}'
+    )" &&
+    [[ -n "${__developer_update}" ]]
+  then
+    # remove white-space from the name
+    __developer_update="${__developer_update##+( )}"
+    __developer_update="${__developer_update%%+( )}"
+    # trick the update to think user clicked install
+    __rvm_try_sudo touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+    # run the update
+    __rvm_try_sudo softwareupdate -i "${__developer_update}" -v ||
+    return $?
+  fi
+}
+
+__rvm_setup_compile_environment_system_early_osx()
+{
+  __rvm_setup_compile_environment_system_early_osx_fix_devtools &&
+  __rvm_setup_compile_environment_system_early_osx_install_clt ||
+  return $?
 }
 
 __rvm_setup_compile_environment_system_early()
