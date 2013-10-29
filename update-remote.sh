@@ -13,7 +13,7 @@ do
     else echo "$name=$value" >> config/$type
     fi
   done
-  sort config/$type > config/$type.new
+  LANG=C sort -n config/$type > config/$type.new
   mv -f config/$type.new config/$type
   rm config/$type.bak
 done
