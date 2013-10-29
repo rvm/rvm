@@ -9,7 +9,7 @@ do
   do
     echo "Processing: $type - $name"
     if \grep "^$name=" config/$type >/dev/null
-    then sed -i'' 's#^'"$name"'=.*$#'"$name=$value"'#' config/$type
+    then sed -i'' -e 's#^'"$name"'=.*$#'"$name=$value"'#' config/$type
     else echo "$name=$value" >> config/$type
     fi
   done
