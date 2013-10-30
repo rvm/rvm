@@ -9,10 +9,11 @@ do
   do
     echo "Processing: $type - $name"
     if \grep "^$name=" config/$type >/dev/null
-    then sed -i'' 's#^'"$name"'=.*$#'"$name=$value"'#' config/$type
+    then sed -i.bak -e 's#^'"$name"'=.*$#'"$name=$value"'#' config/$type
     else echo "$name=$value" >> config/$type
     fi
   done
-  sort config/$type > config/$type.new
+  LANG=C sort -n config/$type > config/$type.new
   mv -f config/$type.new config/$type
+  rm config/$type.bak
 done
