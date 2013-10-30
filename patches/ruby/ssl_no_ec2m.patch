@@ -1,0 +1,68 @@
+--- trunk/ext/openssl/ossl_pkey_ec.c  2013/07/05 22:16:09 41807
++++ trunk/ext/openssl/ossl_pkey_ec.c  2013/07/05 22:46:42 41808
+@@ -762,8 +762,10 @@
+                 method = EC_GFp_mont_method();
+             } else if (id == s_GFp_nist) {
+                 method = EC_GFp_nist_method();
++#if !defined(OPENSSL_NO_EC2M)
+             } else if (id == s_GF2m_simple) {
+                 method = EC_GF2m_simple_method();
++#endif
+             }
+
+             if (method) {
+@@ -817,8 +819,10 @@
+
+             if (id == s_GFp) {
+                 new_curve = EC_GROUP_new_curve_GFp;
++#if !defined(OPENSSL_NO_EC2M)
+             } else if (id == s_GF2m) {
+                 new_curve = EC_GROUP_new_curve_GF2m;
++#endif
+             } else {
+                 ossl_raise(rb_eArgError, "unknown symbol, must be :GFp or :GF2m");
+             }
+--- trunk/test/openssl/test_pkey_ec.rb  2013/07/05 22:16:09 41807
++++ trunk/test/openssl/test_pkey_ec.rb  2013/07/05 22:46:42 41808
+@@ -7,28 +7,28 @@
+     @data1 = 'foo'
+     @data2 = 'bar' * 1000 # data too long for DSA sig
+
+-    @group1 = OpenSSL::PKey::EC::Group.new('secp112r1')
+-    @group2 = OpenSSL::PKey::EC::Group.new('sect163k1')
+-    @group3 = OpenSSL::PKey::EC::Group.new('prime256v1')
+-
+-    @key1 = OpenSSL::PKey::EC.new
+-    @key1.group = @group1
+-    @key1.generate_key
++    @groups = []
++    @keys = []
+
+-    @key2 = OpenSSL::PKey::EC.new(@group2.curve_name)
+-    @key2.generate_key
++    OpenSSL::PKey::EC.builtin_curves.each do |curve, comment|
++      group = OpenSSL::PKey::EC::Group.new(curve)
+
+-    @key3 = OpenSSL::PKey::EC.new(@group3)
+-    @key3.generate_key
++      key = OpenSSL::PKey::EC.new(group)
++      key.generate_key
+
+-    @groups = [@group1, @group2, @group3]
+-    @keys = [@key1, @key2, @key3]
++      @groups << group
++      @keys << key
++    end
+   end
+
+   def compare_keys(k1, k2)
+     assert_equal(k1.to_pem, k2.to_pem)
+   end
+
++  def test_builtin_curves
++    assert(!OpenSSL::PKey::EC.builtin_curves.empty?)
++  end
++
+   def test_curve_names
+     @groups.each_with_index do |group, idx|
+       key = @keys[idx]
