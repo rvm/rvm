@@ -1,0 +1,342 @@
+#!/usr/bin/env bash
+
+# Cleanup broken devtools setup
+__rvm_setup_compile_environment_system_early_osx_fix_devtools()
+{
+  typeset __xcode_dir_path
+  if
+    [[ -r "/usr/share/xcode-select/xcode_dir_path" ]] &&
+    __xcode_dir_path="$( cat /usr/share/xcode-select/xcode_dir_path 2>/dev/null )" &&
+    [[ -n "${__xcode_dir_path}" && ! -d "${__xcode_dir_path}" ]]
+  then
+    rm -f "/usr/share/xcode-select/xcode_dir_path"
+  fi
+}
+
+# Install CLT on 10.9 if not yet installed
+__rvm_setup_compile_environment_system_early_osx_install_clt()
+{
+  typeset __developer_update
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.9 &&
+    __developer_update="$(
+      __rvm_try_sudo softwareupdate -l 2>/dev/null |
+      awk -F'*' '/Developer/{print last_line} {last_line=$2}'
+    )" &&
+    [[ -n "${__developer_update}" ]]
+  then
+    # remove white-space from the name
+    __developer_update="${__developer_update##+( )}"
+    __developer_update="${__developer_update%%+( )}"
+    # trick the update to think user clicked install
+    __rvm_try_sudo touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+    # run the update
+    __rvm_try_sudo softwareupdate -i "${__developer_update}" -v ||
+    return $?
+  fi
+}
+
+__rvm_setup_compile_environment_system_early_OSX()
+{
+  __rvm_setup_compile_environment_system_early_osx_fix_devtools &&
+  __rvm_setup_compile_environment_system_early_osx_install_clt ||
+  return $?
+}
+
+__rvm_setup_compile_environment_system_SmartOS()
+{
+  [[ "${_system_version}" =~ ^joyent ]] || return 0
+
+  if __rvm_string_match "$1" "ruby-2.0.*"; then
+    __rvm_update_configure_env CFLAGS="-R -fPIC"
+  fi
+  if __rvm_string_match "$1" "ruby-2.0.0-p0"; then
+      # work around a make error.. see https://bugs.ruby-lang.org/issues/8268
+      # patch included in p195.
+      rvm_configure_env+=( rb_cv_have_signbit=no )
+  fi
+  return 0
+}
+
+__rvm_setup_compile_environment_system_OpenIndiana()
+{
+  [[ "${_system_version}" =~ ^oi ]] || return 0
+  __rvm_update_configure_env CC="/usr/gcc/4.3/bin/gcc"
+  return 0
+}
+
+__rvm_setup_compile_environment_system_SunOS()
+{
+  case "$1" in
+    ruby-1.9*|ruby-2*)
+      # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
+      rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
+      ;;
+  esac
+  # Commented for now as it breaks configure script call
+  # with prepended environment variables
+  # if __rvm_string_match "$1" "ruby-2.0.*"
+  # then rvm_configure_env+=( bash )
+  # fi
+  case "${_system_version}" in
+    (10)
+      __rvm_update_configure_env AR="/opt/csw/bin/gar"
+      __rvm_update_configure_env MAKE="/opt/csw/bin/gmake"
+      __rvm_add_to_path prepend "/opt/csw/bin"
+      ;;
+    (11)
+      __rvm_add_to_path prepend "/usr/gnu/bin"
+      ;;
+  esac
+  return 0
+}
+
+__rvm_setup_compile_environment_system_OpenBSD()
+{
+  # https://github.com/wayneeseguin/rvm/issues/1581
+  rvm_configure_env+=( sh )
+  case "$1" in
+    ruby-1.9*|ruby-2*)
+      # Temporary solution for this bug http://bugs.ruby-lang.org/issues/5384
+      rvm_configure_flags+=( ac_cv_func_dl_iterate_phdr=no )
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_system_BSD()
+{
+  if
+    [[  -z "${AUTOCONF_VERSION:-}" ]]
+  then
+    export AUTOCONF_VERSION
+    AUTOCONF_VERSION="$(
+      ls -1 /usr/local/bin/autoreconf-* | __rvm_awk -F- '{print $NF}' |
+        __rvm_version_sort | __rvm_tail -n 1
+    )"
+  fi
+  if
+    [[  -z "${AUTOMAKE_VERSION:-}" ]]
+  then
+    export AUTOMAKE_VERSION
+    # FreeBSD might have automake-wrapper
+    AUTOMAKE_VERSION="$(
+      ls -1 /usr/local/bin/automake-1* | __rvm_awk -F- '{print $NF}' |
+        __rvm_version_sort | __rvm_tail -n 1
+    )"
+  fi
+}
+
+# MRI-2.0.0+ && osx-10.7+ - clang in newer Xcode/command line tools works properly
+__ruby_clang_ok()
+{
+  case "$1" in
+    (ruby-2*|ruby-head*)
+      __rvm_version_compare "${_system_version}" -ge 10.7 || return 1
+      ;;
+    (ruby*|ree*)
+      return 1
+      ;;
+  esac
+  true
+}
+
+__rvm_setup_compile_environment_osx_compiler_selected()
+{
+  case "${rvm_autolibs_flag_number}" in
+    (0) rvm_debug "User selected compiler: $initially_selected_compiler"
+      ;;
+    (1) rvm_warn  "Warning: found user selected compiler '$initially_selected_compiler', this will suppress RVM auto detection mechanisms."
+      ;;
+    (*) rvm_error "Warning: found user selected compiler '$initially_selected_compiler', this will suppress RVM auto detection mechanisms."
+      ;;
+  esac
+}
+
+__rvm_setup_compile_environment_osx_compiler_find_gcc42()
+{
+  if
+    [[ -x /usr/local/bin/gcc-4.2 ]] # HomeBrew
+  then
+    export CC=/usr/local/bin/gcc-4.2
+  elif
+    [[ -x /opt/local/bin/gcc-apple-4.2 ]] # MacPorts
+  then
+    export CC=/opt/local/bin/gcc-apple-4.2
+  elif
+    __rvm_which gcc-apple-4.2 > /dev/null # MacPorts via PATH
+  then
+    export CC=gcc-apple-4.2
+  elif
+    __rvm_which gcc-4.2 > /dev/null # Any gcc-4.2
+  then
+    export CC=gcc-4.2
+  elif
+    [[ -x /usr/bin/gcc-4.2 ]] # OSX-GCC-Installer / Xcode - might be LLVM
+  then
+    export CC=/usr/bin/gcc-4.2
+  else
+    return 1
+  fi
+  true # for osx
+}
+
+__rvm_setup_compile_environment_osx_compiler_find_clang()
+{
+  if
+    __rvm_compiler_is_llvm
+  then
+    if
+      __rvm_which clang > /dev/null # Any clang
+    then
+      export CC=clang
+    elif
+      [[ -x /usr/bin/clang ]]
+    then
+      export CC=/usr/bin/clang
+    else
+      return 1
+    fi
+  fi
+  true # for osx
+}
+
+__rvm_setup_compile_environment_osx_compiler_find()
+{
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.9
+  then
+    if
+      __rvm_setup_compile_environment_osx_compiler_clang_installed &&
+      __rvm_setup_compile_environment_osx_compiler_clang_latest
+    then
+      export CC=/usr/bin/clang
+    else
+      __rvm_setup_compile_environment_osx_compiler_find_clang ||
+      return $?
+    fi
+    return 0
+  fi
+  case "$1" in
+    (ruby-2.0*)
+      if
+        __rvm_setup_compile_environment_osx_compiler_clang_installed &&
+        __rvm_setup_compile_environment_osx_compiler_clang_latest
+      then
+        export CC=/usr/bin/clang
+      else
+        __rvm_setup_compile_environment_osx_compiler_find_gcc42 ||
+        __rvm_setup_compile_environment_osx_compiler_find_clang ||
+        return $?
+      fi
+      ;;
+    (ruby-2*|ruby-head*)
+      if
+        __rvm_setup_compile_environment_osx_compiler_clang_installed &&
+        __rvm_setup_compile_environment_osx_compiler_clang_latest
+      then
+        export CC=/usr/bin/clang
+      else
+        __rvm_setup_compile_environment_osx_compiler_find_clang ||
+        return $?
+      fi
+      ;;
+    (ruby*|ree*)
+      __rvm_setup_compile_environment_osx_compiler_find_gcc42 ||
+      __rvm_setup_compile_environment_osx_compiler_find_clang ||
+      return $?
+      ;;
+  esac
+  true # for osx
+}
+
+__rvm_setup_compile_environment_osx_compiler_clang_installed() [[ -x /usr/bin/clang ]]
+
+__rvm_setup_compile_environment_osx_compiler_clang_latest()
+{
+  typeset __clang_version
+  __clang_version="$( /usr/bin/clang --version | __rvm_grep -oE "clang-[0-9]+\.[0-9]+\.[0-9]+" )" || return $?
+  [[ -n "${__clang_version}" ]] || return $?
+  __clang_version="${__clang_version#clang-}"
+  __rvm_version_compare "${__clang_version:-0}" -ge "425.0.24" || return $?
+  true # for osx
+}
+
+__rvm_setup_compile_environment_osx_compiler_clang()
+{
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.7
+  then
+    __rvm_setup_compile_environment_osx_compiler_clang_installed ||
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Can not find 'Command Line Tools for Xcode',
+You should install the latest version from: http://connect.apple.com" \
+      true || return $?
+
+    __rvm_setup_compile_environment_osx_compiler_clang_latest ||
+    rvm_requiremnts_fail_or_run_action 2 \
+      "Found older 'Command Line Tools for Xcode',
+You should install the latest version from: http://connect.apple.com" \
+      true || return $?
+  else
+    rvm_requiremnts_fail_or_run_action 2 \
+      "You are using 'clang' which is known to be buggy on older OSX (like: ${_system_version}).
+Make sure 'gcc-4.2' is available and try again." \
+      true || return $?
+  fi
+}
+
+__rvm_setup_compile_environment_osx_compiler_missing()
+{
+  if
+    __rvm_version_compare "${_system_version}" -ge 10.7
+  then
+    rvm_requiremnts_fail_always 2 \
+      "Can not find 'Command Line Tools for Xcode',
+You should install the latest version from: http://connect.apple.com" ||
+      return $?
+  else
+    rvm_requiremnts_fail_always 2 \
+      "Can not find 'Xcode',
+You should install the latest version from: http://connect.apple.com" ||
+      return $?
+  fi
+}
+
+__rvm_setup_compile_environment_osx_compiler()
+{
+  if __rvm_array_contains "*debug*" "${rvm_patch_names[@]}"
+  then rvm_force_autoconf_flag=1
+  fi
+  if   [[ -n "${initially_selected_compiler:-}" ]]
+  then __rvm_setup_compile_environment_osx_compiler_selected "$@"
+  elif [[ -n "${CC:-}" ]]
+  then rvm_debug "Automatically selected compiler: $CC"
+  else __rvm_setup_compile_environment_osx_compiler_find     "$@"
+  fi
+  if __rvm_compiler_is_clang
+  then __rvm_setup_compile_environment_osx_compiler_clang    "$@"
+  elif [[ "$( __rvm_found_compiler )" == "" ]]
+  then __rvm_setup_compile_environment_osx_compiler_missing  "$@"
+  fi
+}
+
+__rvm_setup_compile_environment_flags_tcltk()
+{
+  case "$1" in
+    (ruby*|ree*)
+      [[ " ${rvm_configure_flags[*]} " =~ " --with-tcl "    ]] ||
+      [[ " ${rvm_configure_flags[*]} " =~ " --with-tk "     ]] ||
+      [[ " ${rvm_configure_flags[*]} " =~ " --without-tcl " ]] ||
+      [[ " ${rvm_configure_flags[*]} " =~ " --without-tk "  ]] ||
+      rvm_configure_flags+=( --without-tcl --without-tk )
+      ;;
+  esac
+  true # OSX --trace FIX
+}
+
+__rvm_setup_compile_environment_system_OSX()
+{
+  __rvm_setup_compile_environment_flags_tcltk  || return $?
+  __rvm_setup_compile_environment_osx_compiler || return $?
+  true # OSX --trace FIX
+}
