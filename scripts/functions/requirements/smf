@@ -92,12 +92,20 @@ requirements_smf_install_extension_sets()
   done
 }
 
-requirements_smf_update_system()
+requirements_smf_update_system_ensure_etc_openssl()
 {
   [[ -d "/etc/openssl" ]] || __rvm_try_sudo mkdir -p "/etc/openssl" || return $?
-  __rvm_log_command sm_get_head "Updating SMF" \
-    __smf_try_sudo sm get head ||
-    return $?
+  [[ -w "/etc/openssl" ]] ||
+  {
+    __rvm_try_sudo chmod -R 755   "/etc/openssl" &&
+    __rvm_try_sudo chown -R $USER "/etc/openssl"
+  } || return $?
+}
+
+requirements_smf_update_system()
+{
+  requirements_smf_update_system_ensure_etc_openssl || return $?
+  __rvm_log_command sm_get_head "Updating SMF" __smf_try_sudo sm get head || return $?
   if
     [[ "${#required_extension_sets[@]}" -gt 0 ]]
   then
