@@ -31,7 +31,7 @@ distinguish externally compiled rubies.
 
 RVM also supports downloading compiled rubies.
 
-You can specify full url to the binaries:
+You can specify the full url to the binaries:
 
     rvm mount -r https://rvm.io/binaries/ubuntu/12.04/x86_64/ruby-1.9.3-p194.tar.bz2
 
@@ -55,12 +55,12 @@ RVM automatically detects current platform and displays rubies available for it:
 
 ## Preparing your own build of ruby
 
-When using custom system it is also possible to build your own ruby:
+When using a custom system it is also possible to build your own ruby:
 
     rvm prepare 1.9.3 --install
 
-It will generate `ruby-1.9.3-p194.tar.bz2` in current directory,
-it can be either used directly as file, or hosted on https server.
+It will generate `ruby-1.9.3-p194.tar.bz2` in the current directory,
+it can be either used directly as file, or hosted on a https server.
 
 You can also tell RVM to upload to scp server:
 
