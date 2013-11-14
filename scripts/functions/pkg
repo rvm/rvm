@@ -117,13 +117,10 @@ install_package()
       if
         (( ${#rvm_autoconf_flags[@]} == 0 ))
       then
-        if
-          uname -s | __rvm_grep -iE 'cygwin|mingw' >/dev/null
-        then
-          rvm_autoconf_flags=( -ivf )  # no symlinks on windows :(
-        else
-          rvm_autoconf_flags=( -is --force )
-        fi
+        case "${_system_type}" in
+          (Windows) rvm_autoconf_flags=( -ivf )        ;; # no symlinks on windows :(
+          (*)       rvm_autoconf_flags=( -is --force ) ;;
+        esac
       fi
       __rvm_log_command "$package/autoreconf" "Prepare $package in $rvm_src_path/$package-$version." \
         __rvm_autoreconf "${rvm_autoconf_flags[@]}"
@@ -175,11 +172,10 @@ package_installed()
   [[ -f "${__search_path}/include/$1" ]] || return $?
 
   # __rvm_detect_system() does not support CYGWIN MINGW!
-  case "$(uname)" in
+  case "${_system_type}" in
     (Darwin)  __extension="dylib" ;;
-    (CYGWIN*) __extension="dll" ;;
-    (MINGW*)  __extension="dll" ;;
-    (*)       __extension="so" ;;
+    (Windows) __extension="dll"   ;;
+    (*)       __extension="so"    ;;
   esac
   __lib_file=$( __rvm_find "${__search_path}" -name "$2.${__extension}" | head -n 1 )
 
@@ -330,7 +326,7 @@ install_libxml2()
     [[ "Darwin" == "${_system_type}" ]]
   then
     configure=(
-      ./configure --build=i686-apple-darwin$(uname -r) --host=i686-apple-darwin$(uname -r)
+      ./configure --build=i686-apple-darwin$(command uname -r) --host=i686-apple-darwin$(command uname -r)
     )
   fi
   install_package
