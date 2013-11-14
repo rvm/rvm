@@ -92,11 +92,20 @@ requirements_smf_install_extension_sets()
   done
 }
 
+requirements_smf_update_system_ensure_etc_openssl()
+{
+  [[ -d "/etc/openssl" ]] || __rvm_try_sudo mkdir -p "/etc/openssl" || return $?
+  [[ -w "/etc/openssl" ]] ||
+  {
+    __rvm_try_sudo chmod -R 755   "/etc/openssl" &&
+    __rvm_try_sudo chown -R $USER "/etc/openssl"
+  } || return $?
+}
+
 requirements_smf_update_system()
 {
-  __rvm_log_command sm_get_head "Updating SMF" \
-    __smf_try_sudo sm get head ||
-    return $?
+  requirements_smf_update_system_ensure_etc_openssl || return $?
+  __rvm_log_command sm_get_head "Updating SMF" __smf_try_sudo sm get head || return $?
   if
     [[ "${#required_extension_sets[@]}" -gt 0 ]]
   then
@@ -138,10 +147,18 @@ requirements_smf_define()
       requirements_smf_define default
       ;;
     (*)
-      # TODO: ruby up to 1.9.3 requires openssl 0.9.8 on OSX
       required_extension_sets+=( databases gnu libraries tools )
-      requirements_check pkg-config libtool libyaml zlib ncurses readline openssl sqlite3 gdbm
-      [[ "${_system_name}" == "OSX" ]] || requirements_check ncursesw
+      if
+        [[ "${_system_name}" == "OSX" ]]
+      then
+        # TODO: ruby up to 1.9.3 requires openssl 0.9.8 on OSX
+        if __rvm_version_compare "${_system_version}" -ge 10.9
+        then requirements_check pkg-config libyaml zlib openssl sqlite3 gdbm
+        else requirements_check pkg-config libtool libyaml zlib ncurses readline openssl sqlite3 gdbm
+        fi
+      else
+        requirements_check pkg-config libtool libyaml zlib ncurses ncursesw readline openssl sqlite3 gdbm
+      fi
       ;;
   esac
 }
