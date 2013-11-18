@@ -19,6 +19,23 @@ __rvm_fix_permissions_fix_rights()
   esac
 }
 
+__rvm_fix_permissions_fix_directories()
+{
+  typeset -a __broken_dirs
+  typeset __broken_dir
+
+  while
+    __rvm_read_lines __broken_dirs <(
+      find "${rvm_path}" -type d -not -perm -111 2>/dev/null || true
+    ) &&
+    (( ${#__broken_dirs[@]} ))
+  do
+    for __broken_dir in "${__broken_dirs[@]}"
+    do chmod +x "${__broken_dir}" || return $?
+    done
+  done
+}
+
 __rvm_fix_permissions_fix()
 {
   rvm_log "Fixing user/group for '${__user}' - this might take few long minutes..."
@@ -55,8 +72,10 @@ __rvm_fix_permissions_select()
 __rvm_fix_permissions()
 {
   typeset __user="${1:-}"
-  __rvm_fix_permissions_select
-  __rvm_fix_permissions_fix
+  __rvm_fix_permissions_select &&
+  __rvm_fix_permissions_fix    &&
+  __rvm_fix_permissions_fix_directories ||
+  return $?
 }
 
 __rvm_fix_permissions "${args[@]}"
