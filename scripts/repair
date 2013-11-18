@@ -129,25 +129,22 @@ repair_archives()
 
   rvm_log "Repairing archives..."
 
-  archives=($(__rvm_cd "${rvm_archives_path}" ; __rvm_find . -maxdepth 1 -mindepth 1 -type f))
+  __rvm_read_lines archives <(
+    __rvm_cd "${rvm_archives_path}"
+    __rvm_find . -maxdepth 1 -mindepth 1 -type f
+  )
 
   for archive_file in "${archives[@]//.\/}"
   do
-    [[ -f "${rvm_archives_path}/$archive_file" ]] || continue
-
-    stored_md5sum="$("$rvm_scripts_path/db" "$rvm_path/config/md5" "$archive_file" | head -n1)"
-    if [[ -z "$stored_md5sum" ]]
+    if
+      __rvm_checksum_read "$archive_file" &&
+      __rvm_checksum_any
     then
-      stored_md5sum="$("$rvm_scripts_path/db" "$rvm_user_path/md5" "$archive_file" | head -n1)"
-    fi
-
-    if [[ -n "$stored_md5sum" ]]
-    then
-      if ! "$rvm_scripts_path/md5" "${rvm_archives_path}/$archive_file" "$stored_md5sum"
-      then
+      __rvm_checksum_validate_file "${rvm_archives_path}/$archive_file" ||
+      {
         rvm_log "Removing archive for '$archive_file' - Incorrect md5 checksum."
         __rvm_rm_rf "${rvm_archives_path}/$archive_file"
-      fi
+      }
     fi
   done
 
