@@ -1,10 +1,33 @@
 #!/usr/bin/env bash
 
+__rvm_ruby_string_fuzzy_remote_for()
+{
+  typeset new_ruby_string
+  new_ruby_string="$(
+    __list_remote_$1_for $( __rvm_system_path_for ${2:-$1} ) |
+    __rvm_awk -F/ '{x=$NF; gsub(".tar.*","",x); gsub("jruby-bin","jruby",x); print x}' |
+    __rvm_grep "${rvm_ruby_string/rbx/rubinius}" |
+    sort | __rvm_tail -n 1
+  )"
+  rvm_ruby_string="${new_ruby_string:-$rvm_ruby_string}"
+}
+
+__rvm_ruby_string_fuzzy_remote()
+{
+  case "${rvm_ruby_string}" in
+    (jruby*)         __rvm_ruby_string_fuzzy_remote_for jruby ;;
+    (rbx*|rubinius*) __rvm_ruby_string_fuzzy_remote_for rbx   ;;
+    (ruby*)          __rvm_ruby_string_fuzzy_remote_for ruby rubies ;;
+    (*)
+      rvm_error "Do not know how to find binary for ${rvm_ruby_string}"
+      return 1
+      ;;
+  esac
+  true
+}
+
 __rvm_ruby_string_fuzzy()
 {
-  if [[ -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
-  then return 0
-  fi
   typeset new_ruby_string
   new_ruby_string="$(
     "${rvm_scripts_path:-$rvm_path/scripts}/list" strings |
@@ -16,6 +39,16 @@ __rvm_ruby_string_fuzzy()
 
 __rvm_ruby_string_parse()
 {
+  if
+    (( ${rvm_fuzzy_flag:-0} == 1 )) &&
+    [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
+  then
+    if (( ${rvm_remote_flag:-0} == 1 ))
+    then __rvm_ruby_string_fuzzy_remote || return $?
+    else __rvm_ruby_string_fuzzy        || return $?
+    fi
+  fi
+
   typeset ruby_string gemset_name expanded_alias_name repo_url branch_name ruby_name
 
   # Stash the ruby string.
