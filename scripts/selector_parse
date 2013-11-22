@@ -37,18 +37,8 @@ __rvm_ruby_string_fuzzy()
   rvm_ruby_string="${new_ruby_string:-$rvm_ruby_string}"
 }
 
-__rvm_ruby_string_parse()
+__rvm_ruby_string_parse_()
 {
-  if
-    (( ${rvm_fuzzy_flag:-0} == 1 )) &&
-    [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
-  then
-    if (( ${rvm_remote_flag:-0} == 1 ))
-    then __rvm_ruby_string_fuzzy_remote || return $?
-    else __rvm_ruby_string_fuzzy        || return $?
-    fi
-  fi
-
   typeset ruby_string gemset_name expanded_alias_name repo_url branch_name ruby_name
 
   # Stash the ruby string.
@@ -141,86 +131,41 @@ __rvm_ruby_string_parse()
         rvm_ruby_patch_level="$string"
         ;;
 
-      ([[:digit:]].[[:digit:]]*|[[:digit:]][[:digit:]].[[:digit:]]*)
-        #TODO: use normal code for rbx!
-        if
-          [[ "${rvm_ruby_interpreter}" == "rbx" || "${rvm_ruby_interpreter}" == "runinius" ]]
-        then
-          if
-            [[ -z "${rvm_ruby_version}" ]]
-          then
-            rvm_ruby_version="${string}"
-          elif
-            [[ -z "${rvm_ruby_patch_level}" ]]
-          then
-            rvm_ruby_patch_level="${string}"
-          else
-            rvm_error "Unknown ruby interpreter string component: '$string'."
-            return 1
-          fi
-        else
-          case "$string" in
-            (1.8) rvm_ruby_version="$string.7" ;;
-            (1.9) rvm_ruby_version="$string.3" ;;
-            (2.0) rvm_ruby_version="$string.0" ;;
-
-            (0.+([[:digit:]])|0.+([[:digit:]]).+([[:digit:]])|1.+([[:digit:]]).+([[:digit:]])|2.+([[:digit:]]).+([[:digit:]])|1.+([[:digit:]]).+([[:digit:]]).+([[:digit:]])|1.+([[:digit:]]))
-              rvm_ruby_version="$string"
-              ;;
-
-            (1.+([[:digit:]]).+([[:digit:]]).+([[:alnum:]]))
-              case "${rvm_ruby_interpreter:-""}" in
-                (jruby)
-                  rvm_ruby_version="$string"
-                  ;;
-                (*)
-                  rvm_error "Unknown ruby interpreter version: '$string'."
-                  return 1
-                  ;;
-              esac
-              ;;
-
-            (*)
-              rvm_error "Unknown ruby interpreter version: '$string'."
-              return 1
-              ;;
-          esac
-          rvm_ruby_revision=""
-          rvm_ruby_tag=""
-        fi
-        ;;
-
-      (p[[:digit:]]*)
-        rvm_ruby_patch_level="$string"
+      (+([[:digit:]]).+([[:digit:]]).[[:digit:]]*)
+        rvm_ruby_version="${string}"
+        rvm_ruby_revision=""
+        rvm_ruby_tag=""
         ;;
 
       ([[:digit:]][[:digit:]]*)
-
         case "${rvm_ruby_interpreter:-""}" in
-          (ree)
+          (ree|kiji)
             rvm_ruby_patch_level="$string"
             rvm_ruby_revision=""
             ;;
-
-          (kiji)
-            rvm_ruby_patch_level="$string"
-            rvm_ruby_revision=""
-            ;;
-
-          (rbx)
-            rvm_ruby_patch_level="$string"
-            ;;
-
           (maglev)
             rvm_ruby_version="$string"
             rvm_ruby_revision=""
             rvm_ruby_patch_level=""
             ;;
-
           (*)
-            rvm_ruby_revision="r$string"
+            rvm_ruby_version="${string}"
+            rvm_ruby_revision=""
+            rvm_ruby_tag=""
+            __check_latest=1
             ;;
         esac
+        ;;
+
+      ([[:digit:]]*)
+        rvm_ruby_version="${string}"
+        rvm_ruby_revision=""
+        rvm_ruby_tag=""
+        __check_latest=1
+        ;;
+
+      (p[[:digit:]]*)
+        rvm_ruby_patch_level="$string"
         ;;
 
       (r[[:digit:]]*)
@@ -269,10 +214,69 @@ __rvm_ruby_string_parse()
         ;;
 
       (*)
-        rvm_error "Unknown ruby interpreter string component: '$string'."
-        return 1
+        rvm_ruby_string="${ruby_string:-}"
+        __check_latest=1
+        return 0
         ;;
     esac
   done
   true # OSX --trace FIX
+}
+
+__rvm_ruby_string_latest()
+{
+  typeset check_ruby_string new_ruby_string
+  check_ruby_string=""
+  if [[ -n "${rvm_ruby_interpreter}" ]]
+  then check_ruby_string+="${rvm_ruby_interpreter}-"
+  fi
+  if [[ -n "${rvm_ruby_version}" ]]
+  then check_ruby_string+="${rvm_ruby_version//\./\.}.*"
+  fi
+  if [[ -z "${check_ruby_string}" ]]
+  then check_ruby_string="$orig_rvm_ruby_string"
+  fi
+  new_ruby_string="$(
+    \cat "$rvm_path/config/known_strings" |
+    __rvm_grep "${check_ruby_string}" |
+    sort | __rvm_tail -n 1
+  )"
+  if
+    [[ -n "${new_ruby_string}" ]]
+  then
+    rvm_ruby_string="${new_ruby_string}"
+  else
+    rvm_error "Unknown ruby string (do not know how to handle): $orig_rvm_ruby_string."
+    return 1
+  fi
+}
+
+__rvm_ruby_string_parse()
+{
+  typeset orig_rvm_ruby_string __check_latest
+  orig_rvm_ruby_string="${rvm_ruby_string}"
+  __check_latest=0
+  if
+    (( ${rvm_fuzzy_flag:-0} == 1 )) &&
+    [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
+  then
+    if
+      (( ${rvm_remote_flag:-0} == 1 ))
+    then
+      __rvm_ruby_string_fuzzy_remote ||
+      __rvm_ruby_string_fuzzy        ||
+      return $?
+    else
+      __rvm_ruby_string_fuzzy        ||
+      return $?
+    fi
+  fi
+  __rvm_ruby_string_parse_ || return $?
+  if
+    (( __check_latest )) || [[ -z "${rvm_ruby_interpreter}" ]]
+  then
+    __rvm_ruby_string_latest &&
+    __rvm_ruby_string_parse_ ||
+    return $?
+  fi
 }
