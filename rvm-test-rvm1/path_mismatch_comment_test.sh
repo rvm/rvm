@@ -58,10 +58,14 @@ cd ..
 : simulate 'rvm reload'
 cd
 rvm use 1.9.3@veve
+# env[GEM_HOME]=/@veve$/
+# env[PATH]=/@veve/
+rvm_previous_environment="$(__rvm_env_string)"
 rvm_promptless=1 __rvm_project_rvmrc
 # match!=/is not at first place/
 # match!=/is not available/
 # env[GEM_HOME]=/@veve$/
+# env[PATH]=/@veve/
 
 rvm rvmrc reset $d/.rvmrc
 rm -rf $d
