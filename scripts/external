@@ -82,12 +82,30 @@ external_mount_uniq()
   fi
 }
 
-external_mount_link_default_binaries()
+external_mount_link_default_binaries_detect_link()
 {
-  typeset _binary _binary_prefix _binary_suffix _binary_long
-  typeset -a _binaries
-  _binaries=( erb gem irb rake ri rdoc ruby testrb )
+  rvm_debug "ruby_path:${ruby_path}"
+  if
+    [[ "${ruby_path##*/}" == "ruby" && -L "${ruby_path}" ]]
+  then
+    _binary_long="$( \readlink "${ruby_path}" )"
+    case "${_binary_long}" in
+      (/*)
+        ruby_path="${_binary_long}"
+        ;;
+      (*/*)
+        ruby_path="$( cd "${ruby_path}" ; cd "${_binary_long%/*}" ; pwd )${_binary_long##*/}"
+        ;;
+      (*)
+        ruby_path="${ruby_path%ruby}${_binary_long}"
+        ;;
+    esac
+    rvm_debug "linked ruby_path:${ruby_path}"
+  fi
+}
 
+external_mount_link_default_binaries_detect_prefix_suffix()
+{
   _binary="${ruby_path##*/}"
   case "${_binary}" in
     (ruby)
@@ -103,27 +121,45 @@ external_mount_link_default_binaries()
       _binary_suffix="${_binary#ruby}"
       ;;
   esac
+  rvm_debug "_binary_prefix:${_binary_prefix}: _binary_suffix:${_binary_suffix}:"
+}
 
-  mkdir -p "$rvm_rubies_path/$rvm_ruby_string/bin"
-
+external_mount_link_default_binaries_create_links()
+{
   for _binary in "${_binaries[@]}"
   do
     _binary_long="${_binary_prefix}${_binary}${_binary_suffix}"
+    # link short
     if
-      [[ -f "${prefix_path}/bin/${_binary_long}" ]]
+      [[ -e "${prefix_path}/bin/${_binary}" ]]
     then
-      ln -s \
-        "${prefix_path}/bin/${_binary_long}" \
-        "$rvm_rubies_path/$rvm_ruby_string/bin/${_binary}"
-      if
-        [[ "${_binary_long}" != "${_binary}" && "${_binary}" == "ruby" ]]
-      then
-        ln -s \
-          "${prefix_path}/bin/${_binary_long}" \
-          "$rvm_rubies_path/$rvm_ruby_string/bin/${_binary_long}"
-      fi
+      ln -s "${prefix_path}/bin/${_binary}" "${_target_path}/${_binary}"
+    fi
+    # link long
+    if
+      [[ -e "${prefix_path}/bin/${_binary_long}" && "${_binary_long}" != "${_binary}" ]]
+    then
+      ln -s "${prefix_path}/bin/${_binary_long}" "${_target_path}/${_binary_long}"
+      # link short - long if there was no short
+      [[ -e "${_target_path}/${_binary}" ]] ||
+        ln -s "${prefix_path}/bin/${_binary_long}" "${_target_path}/${_binary}"
     fi
   done
+}
+
+external_mount_link_default_binaries()
+{
+  typeset _binary _binary_prefix _binary_suffix _binary_long _target_path
+  typeset -a _binaries
+  _binaries=( erb gem irb rake ri rdoc ruby testrb )
+
+  external_mount_link_default_binaries_detect_link
+  external_mount_link_default_binaries_detect_prefix_suffix
+
+  _target_path="$rvm_rubies_path/$rvm_ruby_string/bin"
+  mkdir -p "${_target_path}"
+
+  external_mount_link_default_binaries_create_links
 }
 
 external_mount_link_default_gemset()
