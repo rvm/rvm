@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-__rvm_run_script()
-{
-  "$rvm_scripts_path/${1:-"$rvm_action"}" "${rvm_ruby_args[@]}"
-}
-
 __rvm_parse_args_find_known_flags()
 {
   typeset _args_array_name _temp_var
@@ -736,12 +731,7 @@ __rvm_parse_args()
 
           --trace)
             export rvm_trace_flag=1
-            set -o xtrace
-            [[ -n "${ZSH_VERSION:-""}" ]] ||
-            {
-              set -o errtrace
-              export PS4="+ \$(__rvm_date \"+%s.%N\" 2>/dev/null) \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
-            }
+            __rvm_cli_enable_trace
             ;;
 
           --)
@@ -792,76 +782,6 @@ __rvm_parse_args()
   fi
 }
 
-__rvm_fix_selected_ruby()
-{
-  typeset __ret=0
-  if (( $# ))
-  then "$@" || __ret=$?
-  fi
-  [[ -d "$GEM_HOME" && -d "$MY_RUBY_HOME" ]] ||
-  {
-    if [[ -d ${MY_RUBY_HOME%/*}/defaul ]]
-    then __rvm_use default
-    else __rvm_use system
-    fi
-  }
-}
-
-__rvm_path_match_gem_home_check_warning()
-{
-  rvm_warn "\
-Warning! PATH is not properly set up, '$GEM_HOME/bin' $1,
-         usually this is caused by shell initialization files - check them for 'PATH=...' entries,
-         it might also help to re-add RVM to your dotfiles: 'rvm get stable --auto-dotfiles',
-         to fix temporarily in this shell session run: 'rvm use ${GEM_HOME##*/}'."
-}
-
-__rvm_path_match_gem_home_check()
-{
-  (( ${rvm_silence_path_mismatch_check_flag:-0} == 0 )) || return 0
-  [[ -n "${GEM_HOME:-}" ]] || return 0
-  case "$PATH:" in
-    ($GEM_HOME/bin:*) true ;; # all fine here
-    (*:$GEM_HOME/bin:*)
-      __rvm_path_match_gem_home_check_warning "is not at first place"
-      ;;
-    (*)
-      __rvm_path_match_gem_home_check_warning "is not available"
-      ;;
-  esac
-}
-
-__rvm_use_ruby_warnings()
-{
-  if [[ "${rvm_ruby_string}" == "system" ]]
-  then return 0
-  fi
-  typeset __executable __gem_version
-
-  for __executable in ruby gem irb
-  do
-    [[ -x "$MY_RUBY_HOME/bin/${__executable}" ]] ||
-      rvm_warn "Warning! Executable '${__executable}' missing, \
-something went wrong with this ruby installation!"
-  done
-
-  if
-    [[ "${rvm_ruby_interpreter}" == "ruby" ]] &&
-    {
-      __rvm_version_compare "${rvm_ruby_version}" -ge 2.0.0 ||
-      [[ "${rvm_ruby_version}" == "head" ]]
-    } &&
-    __rvm_which gem >/dev/null &&
-    __gem_version="$(gem --version)" &&
-    [[ -n "${__gem_version}" ]] &&
-    __rvm_version_compare "${__gem_version}" -lt "2.0.0"
-  then
-    rvm_warn "Warning! You have just used ruby 2.0.0 or newer, \
-which is not fully compatible with rubygems 1.8.x or older,
-         consider upgrading rubygems with: 'rvm rubygems latest'."
-  fi
-}
-
 rvm()
 {
   if
@@ -875,39 +795,7 @@ rvm()
   export -a rvm_ruby_args >/dev/null 2>/dev/null
   rvm_ruby_args=()
 
-  if
-    (( ${rvm_ignore_rvmrc:=0} == 0 ))
-  then
-    [[ -n "${rvm_stored_umask:-}" ]] || export rvm_stored_umask=$(umask)
-    rvm_rvmrc_files=("/etc/rvmrc" "$HOME/.rvmrc")
-    if
-      [[ -n "${rvm_prefix:-}" ]] &&
-      [[ ! "$HOME/.rvmrc" -ef "${rvm_prefix}/.rvmrc" ]]
-    then
-      rvm_rvmrc_files+=( "${rvm_prefix}/.rvmrc" )
-    fi
-    for rvmrc in "${rvm_rvmrc_files[@]}"
-    do
-      if
-        [[ -f "$rvmrc" ]]
-      then
-        if
-          __rvm_grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
-        then
-          printf "%b" "
-Error:
-        $rvmrc is for rvm settings only.
-        rvm CLI may NOT be called from within $rvmrc.
-        Skipping the loading of $rvmrc"
-          return 1
-        else
-          source "$rvmrc"
-        fi
-      fi
-    done
-    unset rvm_rvmrc_files
-  fi
-
+  __rvm_cli_load_rvmrc         || return $?
   __rvm_cli_version_check "$@" || return $?
   __rvm_path_match_gem_home_check
   __rvm_initialize
@@ -916,17 +804,10 @@ Error:
   next_token="$1"
   (( $# == 0 )) || shift
   __rvm_parse_args "$@"
-  (( rvm_trace_flag == 0 )) ||
-  {
-    export PS4
-    if [[ -n "$ZSH_VERSION" ]]
-    then PS4="%F{red}%x:%I %F{green}%N:%i%F{white} %_"
-    else PS4="+ \$(__rvm_date \"+%s.%N\" 2>/dev/null) \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
-    fi
-    set -x
-  }
   result=$?
-: rvm_ruby_args:${#rvm_ruby_args[@]}:${rvm_ruby_args[*]}:
+
+  __rvm_cli_enable_trace
+  : rvm_ruby_args:${#rvm_ruby_args[@]}:${rvm_ruby_args[*]}:
 
   (( result )) ||
   case "${rvm_action:=help}" in
@@ -1207,21 +1088,7 @@ To reinstall use:
   typeset __local_rvm_trace_flag
   __local_rvm_trace_flag=${rvm_trace_flag:-0}
 
-  if
-    [[ ${rvm_reload_flag:-0} -eq 1 ]]
-  then
-    if
-      [[ -s "$rvm_scripts_path/rvm" ]]
-     then
-      __rvm_project_rvmrc_lock=0
-      source "$rvm_scripts_path/rvm"
-    else
-      echo "rvm not found in $rvm_path, please install and run 'rvm reload'"
-      __rvm_teardown
-    fi
-  else
-    __rvm_teardown
-  fi
+  __rvm_cli_autoreload
 
   if (( __local_rvm_trace_flag > 0 ))
   then
