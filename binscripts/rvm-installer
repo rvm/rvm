@@ -1,85 +1,92 @@
 #!/usr/bin/env bash
 
-DEFAULT_SOURCES=(github.com/wayneeseguin/rvm bitbucket.org/mpapis/rvm)
-
-BASH_MIN_VERSION="3.2.25"
-if
-  [[ -n "${BASH_VERSION:-}" &&
-    "$(\printf "%b" "${BASH_VERSION:-}\n${BASH_MIN_VERSION}\n" | LC_ALL=C \sort -n -t"." | \head -n1)" != "${BASH_MIN_VERSION}"
-  ]]
-then
-  echo "BASH ${BASH_MIN_VERSION} required (you have $BASH_VERSION)"
-  exit 1
-fi
-
-export HOME PS4
-export rvm_trace_flag rvm_debug_flag rvm_user_install_flag rvm_ignore_rvmrc rvm_prefix rvm_path
-
 shopt -s extglob
-PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
 set -o errtrace
 set -o errexit
+
+rvm_install_initialize()
+{
+  DEFAULT_SOURCES=(github.com/wayneeseguin/rvm bitbucket.org/mpapis/rvm)
+
+  BASH_MIN_VERSION="3.2.25"
+  if
+    [[ -n "${BASH_VERSION:-}" &&
+      "$(\printf "%b" "${BASH_VERSION:-}\n${BASH_MIN_VERSION}\n" | LC_ALL=C \sort -n -t"." | \head -n1)" != "${BASH_MIN_VERSION}"
+    ]]
+  then
+    echo "BASH ${BASH_MIN_VERSION} required (you have $BASH_VERSION)"
+    exit 1
+  fi
+
+  export HOME PS4
+  export rvm_trace_flag rvm_debug_flag rvm_user_install_flag rvm_ignore_rvmrc rvm_prefix rvm_path
+
+  PS4="+ \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+}
 
 log()  { printf "%b\n" "$*"; }
 debug(){ [[ ${rvm_debug_flag:-0} -eq 0 ]] || printf "Running($#): $*"; }
 fail() { log "\nERROR: $*\n" ; exit 1 ; }
 
-\which which >/dev/null 2>&1 || fail "Could not find 'which' command, make sure it's available first before continuing installation."
-if
-  [[ -z "${rvm_tar_command:-}" ]] && builtin command -v gtar >/dev/null
-then
-  rvm_tar_command=gtar
-elif
-  ${rvm_tar_command:-tar} --help 2>&1 | GREP_OPTIONS="" \grep -- --strip-components >/dev/null
-then
-  rvm_tar_command="${rvm_tar_command:-tar}"
-else
-  case "$(uname)" in
-    (OpenBSD)
-      log "Trying to install GNU version of tar, might require sudo password"
-      if (( UID ))
-      then sudo pkg_add -z gtar-1
-      else pkg_add -z gtar-1
-      fi
-      rvm_tar_command=gtar
-      ;;
-    (Darwin|FreeBSD|DragonFly) # it's not possible to autodetect on OSX, the help/man does not mention all flags
-      rvm_tar_command=tar
-      ;;
-    (SunOS)
-      case "$(uname -r)" in
-        (5.10)
-          log "Trying to install GNU version of tar, might require sudo password"
-          if (( UID ))
-          then
-            if \which sudo >/dev/null 2>&1
-            then sudo_10=sudo
-            elif \which /opt/csw/bin/sudo >/dev/null 2>&1
-            then sudo_10=/opt/csw/bin/sudo
-            else fail "sudo is required but not found. You may install sudo from OpenCSW repository (http://opencsw.org/about)"
+rvm_install_commands_setup()
+{
+  \which which >/dev/null 2>&1 || fail "Could not find 'which' command, make sure it's available first before continuing installation."
+  if
+    [[ -z "${rvm_tar_command:-}" ]] && builtin command -v gtar >/dev/null
+  then
+    rvm_tar_command=gtar
+  elif
+    ${rvm_tar_command:-tar} --help 2>&1 | GREP_OPTIONS="" \grep -- --strip-components >/dev/null
+  then
+    rvm_tar_command="${rvm_tar_command:-tar}"
+  else
+    case "$(uname)" in
+      (OpenBSD)
+        log "Trying to install GNU version of tar, might require sudo password"
+        if (( UID ))
+        then sudo pkg_add -z gtar-1
+        else pkg_add -z gtar-1
+        fi
+        rvm_tar_command=gtar
+        ;;
+      (Darwin|FreeBSD|DragonFly) # it's not possible to autodetect on OSX, the help/man does not mention all flags
+        rvm_tar_command=tar
+        ;;
+      (SunOS)
+        case "$(uname -r)" in
+          (5.10)
+            log "Trying to install GNU version of tar, might require sudo password"
+            if (( UID ))
+            then
+              if \which sudo >/dev/null 2>&1
+              then sudo_10=sudo
+              elif \which /opt/csw/bin/sudo >/dev/null 2>&1
+              then sudo_10=/opt/csw/bin/sudo
+              else fail "sudo is required but not found. You may install sudo from OpenCSW repository (http://opencsw.org/about)"
+              fi
+              pkginfo -q CSWpkgutil || $sudo_10 pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
+              sudo /opt/csw/bin/pkgutil -iy CSWgtar -t http://mirror.opencsw.org/opencsw/unstable
+            else
+              pkginfo -q CSWpkgutil || pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
+              /opt/csw/bin/pkgutil -iy CSWgtar -t http://mirror.opencsw.org/opencsw/unstable
             fi
-            pkginfo -q CSWpkgutil || $sudo_10 pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
-            sudo /opt/csw/bin/pkgutil -iy CSWgtar -t http://mirror.opencsw.org/opencsw/unstable
-          else
-            pkginfo -q CSWpkgutil || pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil
-            /opt/csw/bin/pkgutil -iy CSWgtar -t http://mirror.opencsw.org/opencsw/unstable
-          fi
-          rvm_tar_command=/opt/csw/bin/gtar
-          ;;
-        (*)
-          rvm_tar_command=tar
-          ;;
-      esac
-  esac
-  builtin command -v ${rvm_tar_command:-gtar} >/dev/null ||
-  fail "Could not find GNU compatible version of 'tar' command, make sure it's available first before continuing installation."
-fi
-if
-  [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
-  $rvm_tar_command --help 2>&1 | GREP_OPTIONS="" \grep -- --no-same-owner >/dev/null
-then
-  rvm_tar_options="${rvm_tar_options:-}${rvm_tar_options:+ }--no-same-owner"
-fi
+            rvm_tar_command=/opt/csw/bin/gtar
+            ;;
+          (*)
+            rvm_tar_command=tar
+            ;;
+        esac
+    esac
+    builtin command -v ${rvm_tar_command:-gtar} >/dev/null ||
+    fail "Could not find GNU compatible version of 'tar' command, make sure it's available first before continuing installation."
+  fi
+  if
+    [[ ! " ${rvm_tar_options:-} " =~ " --no-same-owner "  ]] &&
+    $rvm_tar_command --help 2>&1 | GREP_OPTIONS="" \grep -- --no-same-owner >/dev/null
+  then
+    rvm_tar_options="${rvm_tar_options:-}${rvm_tar_options:+ }--no-same-owner"
+  fi
+}
 
 usage()
 {
@@ -258,14 +265,14 @@ fetch_versions()
   _account=$2
   _repo=$3
   case ${_domain} in
-    bitbucket.org)
+    (bitbucket.org)
       _url=https://${_domain}/api/1.0/repositories/${_account}/${_repo}/branches-tags
       ;;
-    github.com)
+    (github.com)
       _url=https://api.${_domain}/repos/${_account}/${_repo}/tags
       ;;
 
-    *)
+    (*)
       _url=https://${_domain}/api/v3/repos/${_account}/${_repo}/tags
       ;;
   esac
@@ -283,10 +290,10 @@ install_release()
   for _source in "${_sources[@]}"
   do
     case ${_source} in
-      bitbucket.org*)
+      (bitbucket.org*)
         _url=https://${_source}/get/${_version}.tar.gz
         ;;
-      *)
+      (*)
         _url=https://${_source}/archive/${_version}.tar.gz
         ;;
     esac
@@ -304,10 +311,10 @@ install_head()
   for _source in "${_sources[@]}"
   do
     case ${_source} in
-      bitbucket.org*)
+      (bitbucket.org*)
         _url=https://${_source}/get/${_branch}.tar.gz
         ;;
-      *)
+      (*)
         _url=https://${_source}/archive/${_branch}.tar.gz
         ;;
     esac
@@ -320,13 +327,13 @@ install_head()
 # Drop in cd which _doesn't_ respect cdpath
 __rvm_cd()
 {
-    typeset old_cdpath ret
-    ret=0
-    old_cdpath="${CDPATH}"
-    CDPATH="."
-    chpwd_functions="" builtin cd "$@" || ret=$?
-    CDPATH="${old_cdpath}"
-    return $ret
+  typeset old_cdpath ret
+  ret=0
+  old_cdpath="${CDPATH}"
+  CDPATH="."
+  chpwd_functions="" builtin cd "$@" || ret=$?
+  CDPATH="${old_cdpath}"
+  return $ret
 }
 
 get_and_unpack()
@@ -390,249 +397,278 @@ Could not download '${_url}'.
   }
 }
 
-# Tracing, if asked for.
-if [[ "$*" =~ --trace ]] || (( ${rvm_trace_flag:-0} > 0 ))
-then
-  set -o xtrace
-  rvm_trace_flag=1
-fi
-
-# Variable initialization, remove trailing slashes if they exist on HOME
-true \
-  ${rvm_trace_flag:=0} ${rvm_debug_flag:=0}\
-  ${rvm_ignore_rvmrc:=0} HOME="${HOME%%+(\/)}"
-
-
-if (( rvm_ignore_rvmrc == 0 ))
-then
-  for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
-  do
-    if [[ -s "$rvmrc" ]]
-    then
-      if GREP_OPTIONS="" \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
-      then
-        printf "%b" "
-Error: $rvmrc is for rvm settings only.
-rvm CLI may NOT be called from within $rvmrc.
-Skipping the loading of $rvmrc
-"
-        exit 1
-      else
-        source "$rvmrc"
-      fi
-    fi
-  done
-fi
-
-if [[ -z "${rvm_path:-}" ]]
-then
-  if (( UID == 0 ))
+rvm_install_default_settings()
+{
+  # Tracing, if asked for.
+  if
+    [[ "$*" =~ --trace ]] || (( ${rvm_trace_flag:-0} > 0 ))
   then
-    rvm_user_install_flag=0
-    rvm_prefix="/usr/local"
-    rvm_path="${rvm_prefix}/rvm"
-  else
-    rvm_user_install_flag=1
-    rvm_prefix="$HOME"
-    rvm_path="${rvm_prefix}/.rvm"
+    set -o xtrace
+    rvm_trace_flag=1
   fi
-fi
-if [[ -z "${rvm_prefix}" ]]
-then rvm_prefix=$( dirname $rvm_path )
-fi
 
-# duplication marker kkdfkgnjfndgjkndfjkgnkfjdgn
-case "$rvm_path" in
-  (/usr/local/rvm)         rvm_user_install_flag=0 ;;
-  ($HOME/*|/${USER// /_}*) rvm_user_install_flag=1 ;;
-  (*)                      rvm_user_install_flag=0 ;;
-esac
+  # Variable initialization, remove trailing slashes if they exist on HOME
+  true \
+    ${rvm_trace_flag:=0} ${rvm_debug_flag:=0}\
+    ${rvm_ignore_rvmrc:=0} HOME="${HOME%%+(\/)}"
 
-install_rubies=()
-install_gems=()
-flags=()
-forwarded_flags=()
-# Parse CLI arguments.
-while (( $# > 0 ))
-do
-  token="$1"
-  shift
-  case "$token" in
-
-    --trace)
-      set -o xtrace
-      rvm_trace_flag=1
-      flags+=( "$token" )
-      forwarded_flags+=( "$token" )
-      ;;
-
-    --debug|--quiet-curl)
-      flags+=( "$token" )
-      forwarded_flags+=( "$token" )
-      token=${token#--}
-      token=${token//-/_}
-      export "rvm_${token}_flag"=1
-      printf "%b" "Turning on ${token/_/ } mode.\n"
-      ;;
-
-    --path)
-      if [[ -n "${1:-}" ]]
+  if
+    (( rvm_ignore_rvmrc == 0 ))
+  then
+    for rvmrc in /etc/rvmrc "$HOME/.rvmrc"
+    do
+      if
+        [[ -s "$rvmrc" ]]
       then
-        rvm_path="$1"
-        shift
-      else
-        fail "--path must be followed by a path."
-      fi
-      ;;
-
-    --branch|branch) # Install RVM from a given branch
-      if [[ -n "${1:-}" ]]
-      then
-        case "$1" in
-          (/*)
-            branch=${1#/}
-            ;;
-          (*/)
-            branch=master
-            if [[ "${1%/}" -ne wayneeseguin ]] && [[ "${1%/}" -ne mpapis ]]
-            then sources=(github.com/${1%/}/rvm)
-            fi
-            ;;
-          (*/*)
-            branch=${1#*/}
-            if [[ "${1%%/*}" -ne wayneeseguin ]] && [[ "${1%%/*}" -ne mpapis ]]
-            then sources=(github.com/${1%%/*}/rvm)
-            fi
-            ;;
-          (*)
-            branch="$1"
-            ;;
-        esac
-        shift
-      else
-        fail "--branch must be followed by a branchname."
-      fi
-      ;;
-
-    --source|source)
-      if [[ -n "${1:-}" ]]
-      then
-        if [[ "$1" = */*/* ]]
+        if
+          GREP_OPTIONS="" \grep '^\s*rvm .*$' "$rvmrc" >/dev/null 2>&1
         then
-          sources=($1)
+          printf "%b" "
+  Error: $rvmrc is for rvm settings only.
+  rvm CLI may NOT be called from within $rvmrc.
+  Skipping the loading of $rvmrc
+  "
+          exit 1
+        else
+          source "$rvmrc"
+        fi
+      fi
+    done
+  fi
+
+  if
+    [[ -z "${rvm_path:-}" ]]
+  then
+    if
+      (( UID == 0 ))
+    then
+      rvm_user_install_flag=0
+      rvm_prefix="/usr/local"
+      rvm_path="${rvm_prefix}/rvm"
+    else
+      rvm_user_install_flag=1
+      rvm_prefix="$HOME"
+      rvm_path="${rvm_prefix}/.rvm"
+    fi
+  fi
+  if [[ -z "${rvm_prefix}" ]]
+  then rvm_prefix=$( dirname $rvm_path )
+  fi
+
+  # duplication marker kkdfkgnjfndgjkndfjkgnkfjdgn
+  case "$rvm_path" in
+    (/usr/local/rvm)         rvm_user_install_flag=0 ;;
+    ($HOME/*|/${USER// /_}*) rvm_user_install_flag=1 ;;
+    (*)                      rvm_user_install_flag=0 ;;
+  esac
+}
+
+rvm_install_parse_params()
+{
+  install_rubies=()
+  install_gems=()
+  flags=()
+  forwarded_flags=()
+  while
+    (( $# > 0 ))
+  do
+    token="$1"
+    shift
+    case "$token" in
+
+      (--trace)
+        set -o xtrace
+        rvm_trace_flag=1
+        flags+=( "$token" )
+        forwarded_flags+=( "$token" )
+        ;;
+
+      (--debug|--quiet-curl)
+        flags+=( "$token" )
+        forwarded_flags+=( "$token" )
+        token=${token#--}
+        token=${token//-/_}
+        export "rvm_${token}_flag"=1
+        printf "%b" "Turning on ${token/_/ } mode.\n"
+        ;;
+
+      (--path)
+        if [[ -n "${1:-}" ]]
+        then
+          rvm_path="$1"
           shift
         else
-          fail "--source must be in the format <domain>/<account>/<repo>."
+          fail "--path must be followed by a path."
         fi
-      else
-        fail "--source must be followed by a source."
-      fi
-      ;;
+        ;;
 
-    --user-install|--ignore-dotfiles)
-      token=${token#--}
-      token=${token//-/_}
-      export "rvm_${token}_flag"=1
-      printf "%b" "Turning on ${token/_/ } mode.\n"
-      ;;
+      (--branch|branch) # Install RVM from a given branch
+        if [[ -n "${1:-}" ]]
+        then
+          case "$1" in
+            (/*)
+              branch=${1#/}
+              ;;
+            (*/)
+              branch=master
+              if [[ "${1%/}" -ne wayneeseguin ]] && [[ "${1%/}" -ne mpapis ]]
+              then sources=(github.com/${1%/}/rvm)
+              fi
+              ;;
+            (*/*)
+              branch=${1#*/}
+              if [[ "${1%%/*}" -ne wayneeseguin ]] && [[ "${1%%/*}" -ne mpapis ]]
+              then sources=(github.com/${1%%/*}/rvm)
+              fi
+              ;;
+            (*)
+              branch="$1"
+              ;;
+          esac
+          shift
+        else
+          fail "--branch must be followed by a branchname."
+        fi
+        ;;
 
-    --auto-dotfiles)
-      flags+=( "$token" )
-      export "rvm_auto_dotfiles_flag"=1
-      printf "%b" "Turning on auto dotfiles mode.\n"
-      ;;
+      (--source|source)
+        if [[ -n "${1:-}" ]]
+        then
+          if [[ "$1" = */*/* ]]
+          then
+            sources=($1)
+            shift
+          else
+            fail "--source must be in the format <domain>/<account>/<repo>."
+          fi
+        else
+          fail "--source must be followed by a source."
+        fi
+        ;;
 
-    --auto)
-      export "rvm_auto_dotfiles_flag"=1
-      printf "%b" "Warning, --auto is deprecated in favor of --auto-dotfiles.\n"
-      ;;
+      (--user-install|--ignore-dotfiles)
+        token=${token#--}
+        token=${token//-/_}
+        export "rvm_${token}_flag"=1
+        printf "%b" "Turning on ${token/_/ } mode.\n"
+        ;;
 
-    --verify-downloads)
-      if [[ -n "${1:-}" ]]
-      then
-        export rvm_verify_downloads_flag="$1"
-        forwarded_flags+=( "$token" "$1" )
+      (--auto-dotfiles)
+        flags+=( "$token" )
+        export "rvm_auto_dotfiles_flag"=1
+        printf "%b" "Turning on auto dotfiles mode.\n"
+        ;;
+
+      (--auto)
+        export "rvm_auto_dotfiles_flag"=1
+        printf "%b" "Warning, --auto is deprecated in favor of --auto-dotfiles.\n"
+        ;;
+
+      (--verify-downloads)
+        if [[ -n "${1:-}" ]]
+        then
+          export rvm_verify_downloads_flag="$1"
+          forwarded_flags+=( "$token" "$1" )
+          shift
+        else
+          fail "--verify-downloads must be followed by level(0|1|2)."
+        fi
+        ;;
+
+      (--autolibs=*)
+        flags+=( "$token" )
+        export rvm_autolibs_flag="${token#--autolibs=}"
+        forwarded_flags+=( "$token" )
+        ;;
+
+      (--with-gems=*)
+        flags+=( "$token" )
+        export rvm_with_gems="${token#--with-gems=}"
+        printf "%b" "Installing RVM with gems: ${rvm_with_gems}.\n"
+        ;;
+
+      (--without-gems=*)
+        flags+=( "$token" )
+        export rvm_without_gems="${token#--without-gems=}"
+        printf "%b" "Installing RVM without gems: ${rvm_without_gems}.\n"
+        ;;
+
+      (--version|version)
+        version="$1"
         shift
-      else
-        fail "--verify-downloads must be followed by level(0|1|2)."
-      fi
-      ;;
+        ;;
 
-    --autolibs=*)
-      flags+=( "$token" )
-      export rvm_autolibs_flag="${token#--autolibs=}"
-      forwarded_flags+=( "$token" )
-      ;;
+      (head)
+        version="head"
+        branch="master"
+        ;;
 
-    --with-gems=*)
-      flags+=( "$token" )
-      export rvm_with_gems="${token#--with-gems=}"
-      printf "%b" "Installing RVM with gems: ${rvm_with_gems}.\n"
-      ;;
+      (stable|master)
+        version="head"
+        branch="$token"
+        ;;
 
-    --without-gems=*)
-      flags+=( "$token" )
-      export rvm_without_gems="${token#--without-gems=}"
-      printf "%b" "Installing RVM without gems: ${rvm_without_gems}.\n"
-      ;;
+      (latest|latest-*|+([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
+        version="$token"
+        ;;
 
-    --version|version)
-      version="$1"
-      shift
-      ;;
+      (--ruby)
+        install_rubies+=( ruby )
+        ;;
 
-    head)
-      version="head"
-      branch="master"
-      ;;
+      (--ruby=*)
+        token=${token#--ruby=}
+        install_rubies+=( ${token//,/ } )
+        ;;
 
-    stable|master)
-      version="head"
-      branch="$token"
-      ;;
+      (--rails)
+        install_gems+=( rails )
+        ;;
 
-    latest|latest-*|+([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
-      version="$token"
-      ;;
+      (--gems=*)
+        token=${token#--gems=}
+        install_gems+=( ${token//,/ } )
+        ;;
 
-    --ruby)
-      install_rubies+=( ruby )
-      ;;
+      (--add-to-rvm-group)
+        export rvm_add_users_to_rvm_group="$1"
+        shift
+        ;;
 
-    --ruby=*)
-      token=${token#--ruby=}
-      install_rubies+=( ${token//,/ } )
-      ;;
+      (help|usage)
+        usage
+        exit 0
+        ;;
 
-    --rails)
-      install_gems+=( rails )
-      ;;
+      (*)
+        usage
+        exit 1
+        ;;
 
-    --gems=*)
-      token=${token#--gems=}
-      install_gems+=( ${token//,/ } )
-      ;;
+    esac
+  done
 
-    (--add-to-rvm-group)
-      export rvm_add_users_to_rvm_group="$1"
-      shift
-      ;;
+  if (( ${#install_gems[@]} > 0 && ${#install_rubies[@]} == 0 ))
+  then install_rubies=( ruby )
+  fi
 
-    help|usage)
-      usage
-      exit 0
-      ;;
-  *)
-    usage
-    exit 1
-    ;;
+  true "${version:=head}"
+  true "${branch:=master}"
 
-  esac
-done
+  if [[ -z "${sources[@]}" ]]
+  then sources=("${DEFAULT_SOURCES[@]}")
+  fi
 
-case "$rvm_path" in
-  *[[:space:]]*)
-    printf "%b" "
+  rvm_src_path="$rvm_path/src"
+  rvm_archives_path="$rvm_path/archives"
+  rvm_releases_url="https://rvm.io/releases"
+}
+
+rvm_install_validate_rvm_path()
+{
+  case "$rvm_path" in
+    (*[[:space:]]*)
+      printf "%b" "
 It looks you are one of the happy *space* users(in home dir name),
 RVM is not yet fully ready for it, use this trick to fix it:
 
@@ -643,10 +679,10 @@ RVM is not yet fully ready for it, use this trick to fix it:
 and start installing again.
 
 "
-    exit 2
-  ;;
-  /usr/share/ruby-rvm)
-    printf "%b" "
+      exit 2
+    ;;
+    (/usr/share/ruby-rvm)
+      printf "%b" "
 It looks you are one of the happy Ubuntu users,
 RVM packaged by Ubuntu is old and broken,
 follow this link for details how to fix:
@@ -654,81 +690,68 @@ follow this link for details how to fix:
   http://stackoverflow.com/a/9056395/497756
 
 "
-    [[ "${rvm_uses_broken_ubuntu_path:-no}" == "yes" ]] || exit 3
-  ;;
-esac
-
-if (( ${#install_gems[@]} > 0 && ${#install_rubies[@]} == 0 ))
-then install_rubies=( ruby )
-fi
-
-if (( ${#install_rubies[@]} > 0 ))
-then echo "Please read and follow further instructions."
-fi
-
-true "${version:=head}"
-true "${branch:=master}"
-
-if [[ -z "${sources[@]}" ]]
-then sources=("${DEFAULT_SOURCES[@]}")
-fi
-
-if [[ "$rvm_path" != /* ]]
-then fail "The rvm install path must be fully qualified. Tried $rvm_path"
-fi
-
-rvm_src_path="$rvm_path/src"
-rvm_archives_path="$rvm_path/archives"
-rvm_releases_url="https://rvm.io/releases"
-
-for dir in "$rvm_src_path" "$rvm_archives_path"
-do
-  [[ -d "$dir" ]] || mkdir -p "$dir"
-done
-
-# Perform the actual installation, first we obtain the source using whichever
-# means was specified, if any. Defaults to head.
-case "${version}" in
-  (head)
-    echo "${branch}" > "$rvm_path/RELEASE"
-    install_head sources[@] ${branch:-master} || exit $?
+      [[ "${rvm_uses_broken_ubuntu_path:-no}" == "yes" ]] || exit 3
     ;;
+  esac
 
-  (latest)
-    echo "${version}" > "$rvm_path/RELEASE"
-    install_release sources[@] $(fetch_version sources[@]) || exit $?
-    ;;
+  if [[ "$rvm_path" != /* ]]
+  then fail "The rvm install path must be fully qualified. Tried $rvm_path"
+  fi
+}
 
-  (latest-minor)
-    echo "${version}" > "$rvm_path/RELEASE"
-    version="$(\cat "$rvm_path/VERSION")"
-    install_release sources[@] $(fetch_version sources[@] ${version%.*}) || exit $?
-    ;;
+rvm_install_select_and_get_version()
+{
+  for dir in "$rvm_src_path" "$rvm_archives_path"
+  do
+    [[ -d "$dir" ]] || mkdir -p "$dir"
+  done
 
-  (latest-*)
-    echo "${version}" > "$rvm_path/RELEASE"
-    install_release sources[@] $(fetch_version sources[@] ${version#latest-}) || exit $?
-    ;;
+  case "${version}" in
+    (head)
+      echo "${branch}" > "$rvm_path/RELEASE"
+      install_head sources[@] ${branch:-master} || exit $?
+      ;;
 
-  (+([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
-    echo "version" > "$rvm_path/RELEASE"
-    install_release sources[@] ${version} || exit $?
-    ;;
+    (latest)
+      echo "${version}" > "$rvm_path/RELEASE"
+      install_release sources[@] $(fetch_version sources[@]) || exit $?
+      ;;
 
-  (*)
-    fail "Something went wrong, unrecognized version '$version'"
-    ;;
-esac
+    (latest-minor)
+      echo "${version}" > "$rvm_path/RELEASE"
+      version="$(\cat "$rvm_path/VERSION")"
+      install_release sources[@] $(fetch_version sources[@] ${version%.*}) || exit $?
+      ;;
 
-# required flag - path to install
-flags+=( --path "$rvm_path" )
+    (latest-*)
+      echo "${version}" > "$rvm_path/RELEASE"
+      install_release sources[@] $(fetch_version sources[@] ${version#latest-}) || exit $?
+      ;;
 
-chmod +x ./scripts/install
-./scripts/install "${flags[@]}"
+    (+([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
+      echo "version" > "$rvm_path/RELEASE"
+      install_release sources[@] ${version} || exit $?
+      ;;
 
-if (( ${#install_rubies[@]} > 0 ))
-then
-  (
+    (*)
+      fail "Something went wrong, unrecognized version '$version'"
+      ;;
+  esac
+}
+
+rvm_install_main()
+{
+  # required flag - path to install
+  flags+=( --path "$rvm_path" )
+  chmod +x ./scripts/install
+  ./scripts/install "${flags[@]}"
+}
+
+rvm_install_ruby_and_gems()
+(
+  if
+    (( ${#install_rubies[@]} > 0 ))
+  then
     source ${rvm_scripts_path:-${rvm_path}/scripts}/rvm
     source ${rvm_scripts_path:-${rvm_path}/scripts}/version
     __rvm_version
@@ -759,5 +782,19 @@ then
   * To start using rails you need to run \`rails new <project_dir>\`.
 "
     fi
-  )
-fi
+  fi
+)
+
+rvm_install()
+{
+  rvm_install_initialize
+  rvm_install_commands_setup
+  rvm_install_default_settings
+  rvm_install_parse_params "$@"
+  rvm_install_validate_rvm_path
+  rvm_install_select_and_get_version
+  rvm_install_main
+  rvm_install_ruby_and_gems
+}
+
+rvm_install "$@"
