@@ -175,73 +175,73 @@ __rvm_setup_utils_functions()
 
 __rvm_setup_utils_functions_Solaris()
 {
-    case "${_system_version}" in
-      (10)
-        gnu_tools_path=/opt/csw/bin
-        gnu_prefix="g"
-        ;;
-      (11)
-        gnu_tools_path=/usr/gnu/bin
-        gnu_prefix=""
-        ;;
-    esac
+  case "${_system_version}" in
+    (10)
+      gnu_tools_path=/opt/csw/bin
+      gnu_prefix="g"
+      ;;
+    (11)
+      gnu_tools_path=/usr/gnu/bin
+      gnu_prefix=""
+      ;;
+  esac
 
-    if [[ -x $gnu_tools_path/${gnu_prefix}grep ]]
-    then eval "__rvm_grep() { GREP_OPTIONS=\"\" $gnu_tools_path/${gnu_prefix}grep \"\$@\" || return \$?; }"
-    else gnu_missing+=( ${gnu_prefix}grep )
+  if [[ -x $gnu_tools_path/${gnu_prefix}grep ]]
+  then eval "__rvm_grep() { GREP_OPTIONS=\"\" $gnu_tools_path/${gnu_prefix}grep \"\$@\" || return \$?; }"
+  else gnu_missing+=( ${gnu_prefix}grep )
+  fi
+
+  if [[ "${_system_name}" == "OpenIndiana" || "${_system_version}" == "11" ]]
+  then __rvm_stat() { \stat "$@" || return $?; }
+  elif [[ -x $gnu_tools_path/${gnu_prefix}stat ]]
+  then eval "__rvm_stat() { $gnu_tools_path/${gnu_prefix}stat \"\$@\" || return \$?; }"
+  else gnu_missing+=( ${gnu_prefix}stat )
+  fi
+
+  if [[ "${_system_name}" == "SmartOS" ]]
+  then __rvm_which() { \which "$@" || return $?; }
+  elif [[ -x $gnu_tools_path/${gnu_prefix}which ]]
+  then eval "__rvm_which() { $gnu_tools_path/${gnu_prefix}which \"\$@\" || return \$?; }"
+  else gnu_missing+=( ${gnu_prefix}which )
+  fi
+
+  for gnu_util in "${gnu_utils[@]}"
+  do
+    if [[ -x $gnu_tools_path/$gnu_prefix$gnu_util ]]
+    then eval "__rvm_$gnu_util() { $gnu_tools_path/$gnu_prefix$gnu_util \"\$@\" || return \$?; }"
+    else gnu_missing+=( $gnu_prefix$gnu_util )
     fi
+  done
 
-    if [[ "${_system_name}" == "OpenIndiana" || "${_system_version}" == "11" ]]
-    then __rvm_stat() { \stat "$@" || return $?; }
-    elif [[ -x $gnu_tools_path/${gnu_prefix}stat ]]
-    then eval "__rvm_stat() { $gnu_tools_path/${gnu_prefix}stat \"\$@\" || return \$?; }"
-    else gnu_missing+=( ${gnu_prefix}stat )
+  if
+    (( ${#gnu_missing[@]} ))
+  then
+    rvm_error "ERROR: Missing GNU tools: ${gnu_missing[@]}. Make sure they are installed in '$gnu_tools_path/' before using RVM!"
+    if [[ "${_system_name} ${_system_version}" == "Solaris 10" ]]
+    then rvm_error "You might want to look at OpenCSW project to install the above mentioned tools (http://opencsw.org/about)"
     fi
-
-    if [[ "${_system_name}" == "SmartOS" ]]
-    then __rvm_which() { \which "$@" || return $?; }
-    elif [[ -x $gnu_tools_path/${gnu_prefix}which ]]
-    then eval "__rvm_which() { $gnu_tools_path/${gnu_prefix}which \"\$@\" || return \$?; }"
-    else gnu_missing+=( ${gnu_prefix}which )
-    fi
-
-    for gnu_util in "${gnu_utils[@]}"
-    do
-      if [[ -x $gnu_tools_path/$gnu_prefix$gnu_util ]]
-      then eval "__rvm_$gnu_util() { $gnu_tools_path/$gnu_prefix$gnu_util \"\$@\" || return \$?; }"
-      else gnu_missing+=( $gnu_prefix$gnu_util )
-      fi
-    done
-
-    if
-      (( ${#gnu_missing[@]} ))
-    then
-      rvm_error "ERROR: Missing GNU tools: ${gnu_missing[@]}. Make sure they are installed in '$gnu_tools_path/' before using RVM!"
-      if [[ "${_system_name} ${_system_version}" == "Solaris 10" ]]
-      then rvm_error "You might want to look at OpenCSW project to install the above mentioned tools (http://opencsw.org/about)"
-      fi
-      exit 200
-    fi
+    exit 200
+  fi
 }
 __rvm_setup_utils_functions_Other()
 {
-    __rvm_grep() { GREP_OPTIONS="" \grep "$@" || return $?; }
-    __rvm_stat() { \stat "$@" || return $?; }
+  __rvm_grep() { GREP_OPTIONS="" \grep "$@" || return $?; }
+  __rvm_stat() { \stat "$@" || return $?; }
 
-    if command which --skip-alias --skip-functions which >/dev/null 2>&1
-    then __rvm_which() { command which --skip-alias --skip-functions "$@" || return $?; }
-    elif command which whence >/dev/null 2>&1 && command whence whence >/dev/null 2>&1
-    then __rvm_which() { command whence -p "$@" || return $?; }
-    elif command which which >/dev/null 2>&1
-    then __rvm_which() { command which "$@" || return $?; }
-    elif which which >/dev/null 2>&1
-    then __rvm_which() { which "$@" || return $?; }
-    else rvm_fail "ERROR: Missing proper 'which' command. Make sure it is installed before using RVM!" 1
-    fi
+  if command which --skip-alias --skip-functions which >/dev/null 2>&1
+  then __rvm_which() { command which --skip-alias --skip-functions "$@" || return $?; }
+  elif command which whence >/dev/null 2>&1 && command whence whence >/dev/null 2>&1
+  then __rvm_which() { command whence -p "$@" || return $?; }
+  elif command which which >/dev/null 2>&1
+  then __rvm_which() { command which "$@" || return $?; }
+  elif which which >/dev/null 2>&1
+  then __rvm_which() { which "$@" || return $?; }
+  else rvm_fail "ERROR: Missing proper 'which' command. Make sure it is installed before using RVM!" 1
+  fi
 
-    for gnu_util in "${gnu_utils[@]}"
-    do eval "__rvm_$gnu_util() { \\$gnu_util \"\$@\" || return \$?; }"
-    done
+  for gnu_util in "${gnu_utils[@]}"
+  do eval "__rvm_$gnu_util() { \\$gnu_util \"\$@\" || return \$?; }"
+  done
 }
 
 __rvm_setup_utils_functions
