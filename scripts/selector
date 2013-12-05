@@ -195,7 +195,28 @@ __rvm_select_interpreter_rbx()
 
 __rvm_select_interpreter_rubinius()
 {
-  __rvm_select_interpreter_rbx
+  __rvm_select_interpreter_rbx || return $?
+}
+
+__rvm_select_interpreter_jruby()
+{
+  rvm_ruby_patch_level=""
+  rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
+  rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
+  if (( ${rvm_head_flag:=0} == 1 ))
+  then
+    (( ${rvm_remote_flag:-0} == 1 )) || rvm_disable_binary_flag=1
+    rvm_ruby_version="head"
+  else
+    if (( ${rvm_18_flag:-0} || ${rvm_19_flag:-0} || ${rvm_20_flag:-0} || ${#rvm_patch_names[@]} ))
+    then rvm_disable_binary_flag=1
+    fi
+    rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "jruby_version")"}"
+    rvm_ruby_tag="${rvm_ruby_tag:-${rvm_ruby_version}}"
+  fi
+
+  alias jruby_ng="jruby --ng"
+  alias jruby_ng_server="jruby --ng-server"
 }
 
 __rvm_select_interpreter_maglev()
@@ -368,8 +389,24 @@ __rvm_select_interpreter_ruby()
 
 __rvm_select_interpreter_ext()
 {
-  if [[ -z "${rvm_ruby_name:-${detected_rvm_ruby_name:-}}" ]]
-  then rvm_error "External ruby name was not specified!"
+  if
+    [[ -z "${rvm_ruby_name:-${detected_rvm_ruby_name:-}}" ]]
+  then
+    rvm_error "External ruby name was not specified!"
+    return 1
+  fi
+}
+
+__rvm_select_interpreter_current()
+{
+  ruby_binary="$(builtin command -v ruby)"
+  if
+    (( $? == 0)) &&
+    __rvm_string_match "$ruby_binary" "*rvm*"
+  then
+    rvm_ruby_string="$(dirname "$ruby_binary" | __rvm_xargs dirname | __rvm_xargs basename)"
+  else
+    rvm_ruby_interpreter="system"
   fi
 }
 
@@ -426,19 +463,19 @@ __rvm_select_interpreter_variables()
 
   rvm_ruby_interpreter="${rvm_ruby_interpreter:-missing}"
 
-  if is_a_function __rvm_select_interpreter_${rvm_ruby_interpreter}
-  then __rvm_select_interpreter_${rvm_ruby_interpreter} || return $?
-  else
-    if
-      [[ -n "${MY_RUBY_HOME:-""}" ]]
-    then
-      __rvm_select $(basename $MY_RUBY_HOME)
-    elif
-      [[ -z "${rvm_ruby_string:-""}" ]]
-    then
-      rvm_error "Ruby implementation '$rvm_ruby_interpreter' is not known."
-      return 1
-    fi
+  if
+    is_a_function __rvm_select_interpreter_${rvm_ruby_interpreter}
+  then
+    __rvm_select_interpreter_${rvm_ruby_interpreter} || return $?
+  elif
+    [[ -n "${MY_RUBY_HOME:-""}" ]]
+  then
+    __rvm_select $(basename $MY_RUBY_HOME) || return $?
+  elif
+    [[ -z "${rvm_ruby_string:-""}" ]]
+  then
+    rvm_error "Ruby implementation '$rvm_ruby_interpreter' is not known."
+    return 1
   fi
 }
 
