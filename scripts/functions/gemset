@@ -32,3 +32,59 @@ __rvm_current_gemcache_dir()
   fi
   return 0
 }
+
+gemset_create()
+{
+  typeset gem_home gemset gemsets prefix
+
+  [[ -z "$rvm_ruby_string" ]] || __rvm_select
+
+  prefix=$(echo $rvm_ruby_gem_home | __rvm_sed 's/'${rvm_gemset_separator:-"@"}'.*$//')
+
+  for gemset in "$@"
+  do
+    if
+      [[ "$(__rvm_env_string)" == "system" ]]
+    then
+      rvm_error "Can not create gemset when using system ruby.  Try 'rvm use <some ruby>' first."
+      return 1
+    elif
+      [[ "$gemset" == *"${rvm_gemset_separator:-"@"}"* ]]
+    then
+      rvm_error "Can not create gemset '$gemset', it contains a \"${rvm_gemset_separator:-"@"}\"."
+      return 2
+    elif
+      [[ -z "$gemset" || "$gemset" == *"${rvm_gemset_separator:-"@"}" ]]
+    then
+      rvm_error "Can not create gemset '$gemset', Missing name. "
+      return 3
+    fi
+
+    gem_home="${prefix}${rvm_gemset_separator:-"@"}${gemset}"
+    [[ -d "$gem_home/bin" ]] || mkdir -p "$gem_home/bin"
+
+    : rvm_gems_cache_path:${rvm_gems_cache_path:=${rvm_gems_path:-"$rvm_path/gems"}/cache}
+    # When the globalcache is enabled, we need to ensure we setup the cache directory correctly.
+    if
+      __rvm_using_gemset_globalcache
+    then
+      if [[ -d "$gem_home/cache" && ! -L "$gem_home/cache" ]]
+      then \mv "$gem_home/cache"/*.gem "$rvm_gems_cache_path/" 2>/dev/null
+      fi
+      __rvm_rm_rf "$gem_home/cache"
+      ln -fs "$rvm_gems_cache_path" "$gem_home/cache"
+    fi
+    if
+      (
+        rvm_create_flag=1
+        rvm_verbose_flag=0
+        __rvm_select "$(__rvm_env_string)${rvm_gemset_separator:-"@"}${gemset}"
+      )
+    then
+      rvm_log "gemset created $gemset\t=> $gem_home"
+    else
+      rvm_error "Can not create environment file for '$gemset', Could not use ruby. "
+      return 4
+    fi
+  done
+}
