@@ -39,7 +39,7 @@ gemset_create()
 
   [[ -z "$rvm_ruby_string" ]] || __rvm_select
 
-  prefix=$(echo $rvm_ruby_gem_home | __rvm_sed 's/'${rvm_gemset_separator:-"@"}'.*$//')
+  prefix="${rvm_ruby_gem_home%%${rvm_gemset_separator:-"@"}*}"
 
   for gemset in "$@"
   do
@@ -54,13 +54,13 @@ gemset_create()
       rvm_error "Can not create gemset '$gemset', it contains a \"${rvm_gemset_separator:-"@"}\"."
       return 2
     elif
-      [[ -z "$gemset" || "$gemset" == *"${rvm_gemset_separator:-"@"}" ]]
+      [[ "$gemset" == *"${rvm_gemset_separator:-"@"}" ]]
     then
       rvm_error "Can not create gemset '$gemset', Missing name. "
       return 3
     fi
 
-    gem_home="${prefix}${rvm_gemset_separator:-"@"}${gemset}"
+    gem_home="${prefix}${gemset:+${rvm_gemset_separator:-"@"}}${gemset}"
     [[ -d "$gem_home/bin" ]] || mkdir -p "$gem_home/bin"
 
     : rvm_gems_cache_path:${rvm_gems_cache_path:=${rvm_gems_path:-"$rvm_path/gems"}/cache}
@@ -73,18 +73,15 @@ gemset_create()
       fi
       __rvm_rm_rf "$gem_home/cache"
       ln -fs "$rvm_gems_cache_path" "$gem_home/cache"
-    fi
-    if
-      (
-        rvm_create_flag=1
-        rvm_verbose_flag=0
-        __rvm_select "$(__rvm_env_string)${rvm_gemset_separator:-"@"}${gemset}"
-      )
-    then
-      rvm_log "gemset created $gemset\t=> $gem_home"
     else
-      rvm_error "Can not create environment file for '$gemset', Could not use ruby. "
-      return 4
+      mkdir -p "$gem_home/cache"
     fi
+    __rvm_ensure_has_environment_files "$gem_home"
+    rvm_log "gemset created ${gemset:-default}\t=> $gem_home"
   done
+}
+
+__rvm_initial_gemsets_create()
+{
+  gemset_create "" "global"
 }
