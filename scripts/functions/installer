@@ -1223,47 +1223,49 @@ record_ruby_configs()
 
 update_gemsets_install_rvm()
 {
-  typeset _iterator installed found missing _current_path
+  typeset _iterator _gem installed found missing _current_path
   typeset -a paths missing
 
-  if
-    [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 &&
-      ! " ${rvm_without_gems:-} " =~ " rvm "
-    ]]
-  then
-    # rvm /gems
-    paths=($(
-      __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | __rvm_sed 's/^\.\///'
-    ))
+  [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 ]] || return 0
 
-    for _iterator in "${paths[@]}"
-    do
-      # skip unless this ruby is installed
-      installed="${_iterator%@global}"
-      installed="${installed/\/gems\//\/rubies\//}/bin/ruby"
-      installed=${installed//\\/}
-      [[ -x "$installed" ]] || continue
+  # rvm /gems
+  paths=($(
+    __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | __rvm_sed 's/^\.\///'
+  ))
 
-      _current_path="${_iterator%%+(\/)}/gems"
-      # rvm /gems @global /gems
-      found=($(
-        [[ ! -d "${_current_path}" ]] ||
-        __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" 'rvm-*' | __rvm_sed 's/^\.\///'
-      ))
-      (( ${#found[@]} > 0 )) || missing+=( "$_iterator" )
-    done
-
-    if
-      (( ${#missing[@]} > 0 ))
-    then
-      printf "%b" "    Installing rvm gem in ${#missing[@]} gemsets "
-      for _iterator in "${missing[@]}"
+  for _gem in rvm gem-wrappers
+  do
+    [[ " ${rvm_without_gems:-} " =~ " ${_gem} " ]] ||
+    {
+      for _iterator in "${paths[@]}"
       do
-        rvm "${_iterator##*/}" do gem install rvm | __rvm_awk '{printf "."}'
+        # skip unless this ruby is installed
+        installed="${_iterator%@global}"
+        installed="${installed/\/gems\//\/rubies\//}/bin/ruby"
+        installed=${installed//\\/}
+        [[ -x "$installed" ]] || continue
+
+        _current_path="${_iterator%%+(\/)}/gems"
+        # rvm /gems @global /gems
+        found=($(
+          [[ ! -d "${_current_path}" ]] ||
+          __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" ${_gem}-'*' | __rvm_sed 's/^\.\///'
+        ))
+        (( ${#found[@]} > 0 )) || missing+=( "$_iterator" )
       done
-      printf "\n"
-    fi
-  fi
+
+      if
+        (( ${#missing[@]} > 0 ))
+      then
+        printf "%b" "    Installing ${_gem} gem in ${#missing[@]} gemsets "
+        for _iterator in "${missing[@]}"
+        do
+          rvm "${_iterator##*/}" do gem install ${_gem} | __rvm_awk '{printf "."}'
+        done
+        printf "\n"
+      fi
+    }
+  done
 }
 
 configure_autolibs()
