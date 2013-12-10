@@ -77,9 +77,12 @@ gemset_create()
       mkdir -p "$gem_home/cache"
     fi
     __rvm_ensure_has_environment_files "$gem_home"
-    rvm_gemset_name=${gemset:-default} __rvm_gemsets_initial
-    __rvm_with "$rvm_ruby_string${gemset:+@}${gemset}" gem wrappers regenerate 2>/dev/null || true
-    rvm_log "gemset created ${gemset:-default}\t=> $gem_home"
+    rvm_log "$rvm_ruby_string - #gemset created $gem_home"
+    if
+      (( ${rvm_skip_gemsets_flag:-0} == 0 ))
+    then
+      __rvm_with "$rvm_ruby_string${gemset:+@}${gemset}" gemset_initial ${gemset:-default}
+    fi
   done
 }
 
@@ -210,8 +213,6 @@ gemset_initial()
 
   true ${rvm_gemsets_path:="$rvm_path/gemsets"}
 
-  rvm_log "Importing initial gemsets for $(__rvm_env_string)."
-
   [[ -d "$rvm_gems_path/${rvm_ruby_string}/cache" ]] ||
     mkdir -p "$rvm_gems_path/${rvm_ruby_string}/cache" 2>/dev/null
 
@@ -220,33 +221,25 @@ gemset_initial()
   for _iterator in "${paths[@]}"
   do
     if
-      [[ -n "${rvm_gemset_name:-}" ]]
+      [[ -f "${_iterator}/$1.gems" ]]
     then
       if
-        [[ -s "${_iterator}/${rvm_gemset_name}.gems" ]]
+        [[ -s "${_iterator}/$1.gems" ]]
       then
-        ( gemset_import "${_iterator}/${rvm_gemset_name}.gems" )
-        break # stop right here
+        __rvm_log_command "gemsets.initial.$1" \
+          "$rvm_ruby_string - #importing gemset ${_iterator}/$1.gems" \
+          gemset_import "${_iterator}/$1.gems"
+      else
+        rvm_warn "$rvm_ruby_string - #empty gemset defintion ${_iterator}/$1.gems"
       fi
+      break # stop right here
     else
-      if [[ -s "${_iterator}/default.gems" ]]
-      then ( gemset_import "${_iterator}/default.gems"  )
-      fi
-      if
-        [[ -s "${_iterator}/global.gems" ]]
-      then
-        (
-          rvm_create_flag=1
-          rvm_ruby_gem_home="${rvm_ruby_gem_home//@*/}@global"
-          gemset_import "${_iterator}/global.gems"
-        )
-      fi
-      if [[ -s "${_iterator}/default.gems" || -s "${_iterator}/global.gems" ]]
-      then break # stop right here
-      fi
+      rvm_debug "gemset definition does not exist ${_iterator}/$1.gems"
     fi
   done
-  rvm_log "Installation of gems for $(__rvm_env_string) is complete."
+  __rvm_log_command "gemsets.wrappers.$1" \
+    "$rvm_ruby_string - #generating wrappers for $1" \
+    gem wrappers regenerate 2>/dev/null || true
 }
 
 __rvm_rubygems_create_link()
@@ -279,19 +272,4 @@ __rvm_initial_gemsets_create()
 {
   __rvm_rubygems_create_link "$1"
   gemset_create "global" ""
-}
-
-# Import the initial gemsets, unless skipped.
-__rvm_gemsets_initial()
-{
-  if
-    (( ${rvm_skip_gemsets_flag:-0} == 0 ))
-  then
-    __rvm_log_command "gemsets.initial" \
-      "$rvm_ruby_string - #importing default gemsets, this may take time" \
-      __rvm_with "$rvm_ruby_string" gemset_initial
-  else
-    mkdir -p "$rvm_gems_path/$rvm_ruby_string/bin" "$rvm_gems_path/$rvm_ruby_string@global/bin"
-    rvm_log "Skipped importing default gemsets"
-  fi
 }
