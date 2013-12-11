@@ -89,8 +89,21 @@ __rvm_log_command()
   __rvm_log_dotted "${_log}" "$message" "${_command[@]}" ||
   {
     typeset result=$?
-    rvm_error "Error running '${_command[*]}',
-please read ${_log}"
+    typeset __show_lines="${rvm_show_log_lines_on_error:-15}"
+    rvm_error "Error running '${_command[*]}',"
+    case "${__show_lines}" in
+      (0)
+        rvm_error "please read ${_log}"
+        ;;
+      (all)
+        rvm_error "content of log ${_log}"
+        cat "${_log}"
+        ;;
+      (*)
+        rvm_error "showing last ${__show_lines} lines of ${_log}"
+        tail -n "${__show_lines}" "${_log}"
+        ;;
+    esac
     return ${result}
   }
 }
@@ -122,12 +135,11 @@ __rvm_ask_for()
 __rvm_dotted()
 {
   typeset flush __show_nth_dot
-  __show_nth_dot=${rvm_show_every_nth_dot:-1}
+  __show_nth_dot=${rvm_show_every_nth_dot:-9}
   unset rvm_show_every_nth_dot
 
-  if (( __show_nth_dot == 1 ))
-  then __show_nth_dot=""
-  else __show_nth_dot="if (NR%${__show_nth_dot}==1)"
+  if (( $# ))
+  then printf "%b" "${rvm_notify_clr:-}$*${rvm_reset_clr:-}"
   fi
 
   if __rvm_awk '{fflush;}' <<<EO 2>/dev/null
@@ -135,10 +147,20 @@ __rvm_dotted()
   else flush=flush
   fi
 
-  if (( $# ))
-  then __rvm_awk 'BEGIN{printf "'"${rvm_notify_clr:-}$*${rvm_reset_clr:-}"'";} {'"$__show_nth_dot"' printf "."; '$flush'} END{print ""}'
-  else __rvm_awk '{printf "."; '$flush';} END{if (NR>0) print ""}'
-  fi
+  # the nasty '${flush}' inside is for compatibility,
+  # old awk does not allow running function from variable
+  awk -v go_back="$( tput cub1 2>/dev/null || true)" -v __show_nth_dot="${__show_nth_dot}" \
+'
+  BEGIN{ spin[0]="|"go_back; spin[1]="/"go_back; spin[2]="-"go_back; spin[3]="\\"go_back }
+  {
+    if ((NR-1)%(__show_nth_dot+1)==__show_nth_dot)
+      printf ".";
+    else
+      if (go_back!="") printf spin[(NR-1)%4];
+    '${flush}'
+  }
+  END{print "."}
+  '
 }
 
 __rvm_log_dotted()
