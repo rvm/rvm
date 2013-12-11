@@ -54,7 +54,7 @@ __rvm_apply_patches()
 
   if
     [[ -n "${rvm_ruby_name:-${detected_rvm_ruby_name:-}}" ]] &&
-    [[ "${rvm_configure_flags[*]}${patches[*]}" != "" ]]
+    [[ "${rvm_configure_flags[*]}${patches[*]}" == "" ]]
   then
     rvm_error "\
 Warning: Installing named ruby without patches, you might need to consider adding extra flags/patches like:
@@ -98,7 +98,7 @@ __rvm_apply_patch_prepare()
       mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX
     )"
     rvm_log "Fetching patch ${_full_patch_path}"
-    __rvm_curl --create-dirs -C - -o "${_local_patch_path}" "${_full_patch_path}"
+    __rvm_curl --create-dirs -sS -C - -o "${_local_patch_path}" "${_full_patch_path}"
   else
     _local_patch_path="${_full_patch_path}"
   fi
@@ -145,38 +145,40 @@ __rvm_install_source()
 
   (( rvm_ruby_selected_flag )) || __rvm_select
 
+  if [[ -n "${DYLD_LIBRARY_PATH:-}" ]]
+  then rvm_error "Warning: DYLD_LIBRARY_PATH environment variable is set, this might interact with the compilation and ruby."
+  fi
+
   rvm_log "Installing Ruby from source to: $rvm_ruby_home, this may take a while depending on your cpu(s)..."
   __rvm_cd "${rvm_src_path}"
 
-  if __rvm_fetch_ruby
-  then true
-  else
+  __rvm_fetch_ruby ||
+  {
     result=$?
     rvm_error "There has been an error fetching the ruby interpreter. Halting the installation."
     return $result
-  fi
+  }
 
-  if __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
-  then true
-  else
+  __rvm_cd "${rvm_src_path}/$rvm_ruby_string" ||
+  {
     result=$?
     rvm_error "Source directory is missing.  \nDid the download or extraction fail?  \nHalting the installation."
     return $result
-  fi
+  }
 
-  if [[ -d "${rvm_path}/usr" ]]
+  if
+    [[ -d "${rvm_path}/usr" ]]
   then
     __rvm_add_to_path prepend "${rvm_path}/usr/bin"
     builtin hash -r
   fi
 
-  if __rvm_apply_patches
-  then true
-  else
+  __rvm_apply_patches ||
+  {
     result="$?"
     rvm_error "There has been an error applying the specified patches. Halting the installation."
     return $result
-  fi
+  }
 
   if
     (( ${rvm_force_autoconf_flag:-0} == 1 )) || {
@@ -194,13 +196,12 @@ __rvm_install_source()
   if
     [[ -n "${rvm_ruby_configure:-""}" ]]
   then
-    if __rvm_log_command "configure" "$rvm_ruby_string - #configuring" "$rvm_ruby_configure"
-    then true
-    else
+    __rvm_log_command "configure" "$rvm_ruby_string - #configuring" "$rvm_ruby_configure" ||
+    {
       result=$?
       rvm_error "There has been an error while configuring. Halting the installation."
       return $result
-    fi
+    }
   elif
     [[ -s ./configure ]]
   then
@@ -232,25 +233,23 @@ __rvm_install_source()
       __rvm_post_configure_${rvm_ruby_interpreter}
   fi
 
-  if __rvm_log_command "make" "$rvm_ruby_string - #compiling" ${rvm_ruby_make:-__rvm_make} "${rvm_make_flags[@]}"
-  then true
-  else
+  __rvm_log_command "make" "$rvm_ruby_string - #compiling" ${rvm_ruby_make:-__rvm_make} "${rvm_make_flags[@]}" ||
+  {
     result=$?
     rvm_error "There has been an error while running make. Halting the installation."
     return $result
-  fi
+  }
 
   __rvm_rm_rf "$PWD/.ext/rdoc" # WTF?
 
   rvm_ruby_make_install=${rvm_ruby_make_install:-"__rvm_make install"}
 
-  if __rvm_run "install" "$rvm_ruby_make_install" "$rvm_ruby_string - #installing"
-  then true
-  else
+  __rvm_run "install" "$rvm_ruby_make_install" "$rvm_ruby_string - #installing" ||
+  {
     result=$?
     rvm_error "There has been an error while running make install. Halting the installation."
     return $result
-  fi
+  }
 
   if [[ -s "${rvm_src_path}/$rvm_ruby_string/patches.list" ]]
   then __rvm_cp -f "${rvm_src_path}/$rvm_ruby_string/patches.list" "$rvm_ruby_home/patches.list"
@@ -380,10 +379,7 @@ https://rvm.io/rubies/named/
   else (( $? == 2 )) || return 1 # 2 => continue with compilation
   fi
 
-  if __rvm_check_for_compiler
-  then true # sok
-  else return $?
-  fi
+  __rvm_check_for_compiler || return $?
 
   case "${rvm_ruby_interpreter}" in
     opal|macruby|ree|jruby|maglev|goruby|rubinius|ironruby|ruby|mruby|topaz)

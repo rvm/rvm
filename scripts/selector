@@ -113,21 +113,333 @@ __rvm_select_macruby_nightly()
   rvm_debug "selected macruby $rvm_ruby_string => $rvm_ruby_url"
 }
 
-# __rvm_select implementation version patch_level
-__rvm_select()
+__rvm_select_interpreter_macruby()
 {
-  true ${rvm_gemset_name:=}
-  typeset _original_env_string
-  _original_env_string=${rvm_env_string}
+  if
+    [[ "Darwin" == "${_system_type}" ]]
+  then
+    rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+    if
+      (( ${rvm_head_flag:=0} == 1 ))
+    then
+      rvm_ruby_version=""
+      rvm_ruby_tag=""
+      rvm_ruby_revision="head"
+      __rvm_db "macruby_repo_url" "rvm_ruby_repo_url"
+      rvm_ruby_url="$rvm_ruby_repo_url"
+      rvm_disable_binary_flag=1
+    elif
+      [[ "${rvm_ruby_version:-}" == *"nightly"* ]]
+    then
+      __rvm_select_macruby_nightly
+    elif
+      [[ -n "${rvm_ruby_version:-}" ]]
+    then
+      __rvm_db "macruby_${rvm_ruby_version}_url" "rvm_ruby_url"
+      [[ -n "${rvm_ruby_url:-}" ]] || __rvm_db "macruby_url" "rvm_ruby_url"
+      rvm_ruby_package_name="MacRuby%20${rvm_ruby_version}.zip"
+      rvm_ruby_package_file="$rvm_ruby_package_name"
+      rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_name"
+    else
+      __rvm_db "macruby_version" "rvm_ruby_version"
+      __rvm_db "macruby_url" "rvm_ruby_url"
+      rvm_ruby_package_name="MacRuby%20${rvm_ruby_version}.zip"
+      rvm_ruby_package_file="$rvm_ruby_package_name"
+      rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_name"
+    fi
+    rvm_ruby_patch_level=""
+  else
+    rvm_error "MacRuby can only be installed on a Darwin OS."
+  fi
+}
 
-  # Set Variable Defaults
+__rvm_select_interpreter_rbx()
+{
+  __rvm_select_rbx_nightly || return $?
+
+  rvm_ruby_interpreter="rbx"
+  rvm_ruby_string="${rvm_ruby_string//rubinius/rbx}"
+
+  __rvm_select_rbx_compatibility_branch
+
+  if
+    (( ${rvm_head_flag:=1} == 0 )) &&
+    [[ -z "${rvm_ruby_repo_branch:-}" ]] &&
+    [[ "${rvm_ruby_version}" != "head" ]]
+  then
+    if
+      __rvm_version_compare "${rvm_ruby_version}" -ge "2.0.0"
+    then
+      rbx_url="$( __rvm_db "rbx_2.0.0_url" )"
+      rvm_archive_extension="tar.bz2"
+      rvm_ruby_package_file="rubinius-${rvm_ruby_version}"
+      rvm_ruby_url="${rbx_url}/${rvm_ruby_package_file}.${rvm_archive_extension}"
+    else
+      rbx_url=${rbx_url:-$(__rvm_db "rbx_url")}
+      rvm_archive_extension="tar.gz"
+      rvm_ruby_package_file="rubinius-${rvm_ruby_version}"
+      rvm_ruby_url="${rbx_url}/$rvm_ruby_package_file.${rvm_archive_extension}"
+    fi
+  else
+    rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
+    rvm_head_flag=1
+    rvm_ruby_patch_level=""
+    rvm_ruby_version="head"
+    rvm_disable_binary_flag=1
+  fi
+
+  if [[ -n "${rvm_rbx_opt:-}" ]]
+  then export RBXOPT="${RBXOPT:=${rvm_rbx_opt}}"
+  fi
+}
+
+__rvm_select_interpreter_rubinius()
+{
+  __rvm_select_interpreter_rbx || return $?
+}
+
+__rvm_select_interpreter_jruby()
+{
+  rvm_ruby_patch_level=""
+  rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
+  rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
+  if (( ${rvm_head_flag:=0} == 1 ))
+  then
+    (( ${rvm_remote_flag:-0} == 1 )) || rvm_disable_binary_flag=1
+    rvm_ruby_version="head"
+  else
+    if (( ${rvm_18_flag:-0} || ${rvm_19_flag:-0} || ${rvm_20_flag:-0} || ${#rvm_patch_names[@]} ))
+    then rvm_disable_binary_flag=1
+    fi
+    rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "jruby_version")"}"
+    rvm_ruby_tag="${rvm_ruby_tag:-${rvm_ruby_version}}"
+  fi
+
+  alias jruby_ng="jruby --ng"
+  alias jruby_ng_server="jruby --ng-server"
+}
+
+__rvm_select_interpreter_maglev()
+{
+  rvm_ruby_patch_level=""
+  maglev_url="$(__rvm_db "maglev_url")"
+
+  system="${_system_type}"
+  if [[ "$MACHTYPE" == x86_64-apple-darwin* ]]
+  then arch="i386" # x86_64-apple-darwin supports both i386 and x86_64 maglev implements only i386
+  else arch="${_system_arch}"
+  fi
+
+  if
+    (( ${rvm_head_flag:=0} == 1 )) || [[ "$rvm_ruby_version" == "head" ]]
+  then
+    rvm_head_flag=1
+    rvm_ruby_version="head"
+    rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
+    rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
+    rvm_gemstone_version=$(
+      __rvm_curl -s https://raw.github.com/MagLev/maglev/master/version.txt |
+        __rvm_grep "^GEMSTONE" | cut -f2 -d-
+    )
+    rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
+    rvm_disable_binary_flag=1
+  else
+    rvm_ruby_package_file="MagLev-${rvm_ruby_version}" # removed from 1.0: .${system}-${arch}
+    rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "maglev_version")"}"
+    rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+    rvm_ruby_url="${rvm_ruby_url:-"$maglev_url/${rvm_ruby_package_file}.${rvm_archive_extension}"}"
+    rvm_gemstone_version=$(
+      __rvm_curl -s https://raw.github.com/MagLev/maglev/MagLev-${rvm_ruby_version}/version.txt |
+        __rvm_grep "^GEMSTONE" | cut -f2 -d-
+    )
+    rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
+  fi
+
+  export MAGLEV_HOME="$rvm_ruby_home"
+  export GEMSTONE_GLOBAL_DIR=$MAGLEV_HOME
+
+  rvm_gemstone_url="$maglev_url/${rvm_gemstone_package_file}.${rvm_archive_extension}"
+}
+
+__rvm_select_interpreter_ironruby()
+{
+  rvm_ruby_patch_level=""
+  if
+    (( ${rvm_head_flag:=0} == 1 ))
+  then
+    rvm_ruby_version="head"
+    rvm_ruby_package_name="${rvm_ruby_string}"
+    rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "ironruby_repo_url")}"
+    rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "ironruby_repo_url")}"
+    rvm_disable_binary_flag=1
+  else
+    rvm_archive_extension="zip"
+    rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "ironruby_version")"}
+    rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+    rvm_ruby_package_file="${rvm_ruby_interpreter}-${rvm_ruby_version}.${rvm_archive_extension}"
+    rvm_ruby_url="$(__rvm_db "ironruby_${rvm_ruby_version}_url")"
+  fi
+  export rvm_ruby_version rvm_ruby_string rvm_ruby_package_name rvm_ruby_repo_url rvm_ruby_url rvm_archive_extension
+}
+
+__rvm_select_interpreter_ree()
+{
+  rvm_ruby_interpreter=ree
+  rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "ree_version")"}
+
+  case "$rvm_ruby_version" in
+    1.8.*) true ;; # all good!
+    *) rvm_error "Unknown Ruby Enterprise Edition version: $rvm_ruby_version" ;;
+  esac
+
+  if [[ -n "${rvm_ruby_patch_level:-0}" ]]
+  then rvm_ruby_patch_level="${rvm_ruby_patch_level#p}"
+  fi
+
+  rvm_ruby_package_file="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
+  rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_${rvm_ruby_patch_level}_url")"
+  rvm_ruby_url="${rvm_ruby_url:-$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")}"
+  rvm_ruby_url="${rvm_ruby_url}/$rvm_ruby_package_file.tar.gz"
+}
+
+__rvm_select_interpreter_common()
+{
+  rvm_ruby_interpreter="${1}"
+  rvm_ruby_version="head"
+  rvm_ruby_patch_level=""
+  export rvm_head_flag=1
+  rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "${1}_repo_url")}"
+  rvm_ruby_url=$rvm_ruby_repo_url
+  rvm_ruby_configure=""
+  rvm_ruby_make=""
+  rvm_ruby_make_install=""
+}
+
+__rvm_select_interpreter_opal()
+{
+  __rvm_select_interpreter_common "opal"
+}
+
+__rvm_select_interpreter_topaz()
+{
+  __rvm_select_interpreter_common "topaz"
+}
+
+__rvm_select_interpreter_kiji()
+{
+  __rvm_select_interpreter_common "kiji"
+  rvm_ruby_string="kiji-head"
+}
+
+__rvm_select_interpreter_goruby()
+{
+  __rvm_select_interpreter_common "goruby"
+  rvm_ruby_string="goruby"
+}
+
+__rvm_select_interpreter_mruby()
+{
+  __rvm_select_interpreter_common "mruby"
+  rvm_ruby_string="mruby-head"
+  rvm_disable_binary_flag=1
+  export rvm_skip_autoreconf_flag=1
+}
+
+__rvm_select_interpreter_tcs()
+{
+  __rvm_select_interpreter_common "tcs"
+  rvm_ruby_string="tcs"
+  rvm_disable_binary_flag=1
+}
+
+__rvm_select_interpreter_jamesgolick()
+{
+  __rvm_select_interpreter_common "jamesgolick"
+  rvm_ruby_string="jamesgolick"
+  rvm_ruby_repo_branch="${rvm_ruby_repo_branch:-"$(__rvm_db "jamesgolick_repo_branch")"}"
+  rvm_disable_binary_flag=1
+}
+
+__rvm_select_interpreter_ruby()
+{
+  if [[ -n "${rvm_ruby_patch_level}" ]]
+  then rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
+  else rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+  fi
+  rvm_ruby_package_file="${rvm_ruby_package_name}"
+  if
+    [[ -z "${rvm_ruby_version:-""}" ]] &&
+    (( ${rvm_head_flag:=0} == 0 ))
+  then
+    rvm_error "Ruby version was not specified!"
+  else
+    rvm_ruby_repo_url="${rvm_ruby_repo_url:-"$(__rvm_db "ruby_repo_url")"}"
+    if
+      (( ${rvm_head_flag:=0} == 0 ))
+    then
+      if __rvm_version_compare "${rvm_ruby_version}" -lt "1.8.5"
+      then rvm_archive_extension="tar.gz"
+      else rvm_archive_extension="tar.bz2"
+      fi
+    else
+      rvm_disable_binary_flag=1
+    fi
+  fi
+}
+
+__rvm_select_interpreter_ext()
+{
+  if
+    [[ -z "${rvm_ruby_name:-${detected_rvm_ruby_name:-}}" ]]
+  then
+    rvm_error "External ruby name was not specified!"
+    return 1
+  fi
+}
+
+__rvm_select_interpreter_current()
+{
+  ruby_binary="$(builtin command -v ruby)"
+  if
+    (( $? == 0)) &&
+    __rvm_string_match "$ruby_binary" "*rvm*"
+  then
+    rvm_ruby_string="$(dirname "$ruby_binary" | __rvm_xargs dirname | __rvm_xargs basename)"
+  else
+    rvm_ruby_interpreter="system"
+  fi
+}
+
+__rvm_select_interpreter_default()
+{
+  true # do nothing
+}
+
+__rvm_select_interpreter_system()
+{
+  true # do nothing
+}
+
+__rvm_select_interpreter_user()
+{
+  true # do nothing
+}
+
+__rvm_select_interpreter_missing()
+{
+  return 2
+}
+
+__rvm_select_set_variable_defaults()
+{
   export -a rvm_configure_flags rvm_patch_names rvm_ree_options rvm_make_flags
   export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
   export rvm_env_string rvm_action rvm_alias_expanded rvm_archive_extension rvm_bin_flag rvm_bin_path rvm_debug_flag rvm_default_flag rvm_delete_flag rvm_docs_type rvm_dump_environment_flag rvm_error_message rvm_expanding_aliases rvm_file_name rvm_gemdir_flag rvm_gemset_name rvm_gemstone_package_file rvm_gemstone_url rvm_head_flag rvm_hook rvm_install_on_use_flag rvm_llvm_flag rvm_loaded_flag rvm_niceness rvm_nightly_flag rvm_only_path_flag rvm_parse_break rvm_patch_original_pwd rvm_pretty_print_flag rvm_proxy rvm_quiet_flag rvm_reload_flag rvm_remove_flag rvm_ruby_alias rvm_ruby_args rvm_ruby_binary rvm_ruby_bits rvm_ruby_configure rvm_ruby_file rvm_ruby_gem_home rvm_ruby_gem_path rvm_ruby_global_gems_path rvm_ruby_home rvm_ruby_interpreter rvm_ruby_irbrc rvm_ruby_major_version rvm_ruby_make rvm_ruby_make_install rvm_ruby_minor_version rvm_ruby_mode rvm_ruby_name rvm_ruby_package_file rvm_ruby_package_name rvm_ruby_patch rvm_ruby_patch_level rvm_ruby_release_version rvm_ruby_repo_url rvm_ruby_revision rvm_ruby_selected_flag rvm_ruby_sha rvm_ruby_string rvm_ruby_strings rvm_ruby_tag rvm_ruby_url rvm_ruby_user_tag rvm_ruby_version rvm_script_name rvm_sdk rvm_silent_flag rvm_sticky_flag rvm_system_flag rvm_token rvm_trace_flag rvm_use_flag rvm_user_flag rvm_verbose_flag rvm_wrapper_name
+}
 
-  # First respect parameter
+__rvm_select_detect_ruby_string()
+{
   rvm_ruby_string="${1:-${rvm_ruby_string:-}}"
-  # Then try to detect
   if
     [[ -z "${rvm_ruby_string:-}" ]]
   then
@@ -139,373 +451,76 @@ __rvm_select()
     then rvm_ruby_name="$rvm_ruby_string-$rvm_ruby_name"
     fi
   fi
+}
 
-  __rvm_ruby_string || return $?
-
+__rvm_select_interpreter_variables()
+{
   rvm_archive_extension="tar.gz"
 
   if [[ -z "${rvm_ruby_interpreter:-}" ]]
   then rvm_ruby_interpreter="${rvm_ruby_string//-*/}"
   fi
 
-  case "${rvm_ruby_interpreter:-missing}" in
-    missing)
-      return 2
-      ;;
-    opal)
-      rvm_ruby_version="head"
-      rvm_ruby_revision="head"
-      rvm_ruby_interpreter="opal"
-      rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
-      rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
-      rvm_disable_binary_flag=1
-      ;;
-    topaz)
-      rvm_ruby_version="head"
-      rvm_ruby_revision="head"
-      rvm_ruby_interpreter="topaz"
-      rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "topaz_repo_url")}"
-      rvm_ruby_url="${rvm_ruby_url:-$(__rvm_db "topaz_url")}"
-      rvm_disable_binary_flag=1
-      ;;
-    macruby)
-      if
-        [[ "Darwin" == "${_system_type}" ]]
-      then
-        rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
-        if
-          (( ${rvm_head_flag:=0} == 1 ))
-        then
-          rvm_ruby_version=""
-          rvm_ruby_tag=""
-          rvm_ruby_revision="head"
-          __rvm_db "macruby_repo_url" "rvm_ruby_repo_url"
-          rvm_ruby_url="$rvm_ruby_repo_url"
-          rvm_disable_binary_flag=1
-        elif
-          [[ "${rvm_ruby_version:-}" == *"nightly"* ]]
-        then
-          __rvm_select_macruby_nightly
-        elif
-          [[ -n "${rvm_ruby_version:-}" ]]
-        then
-          __rvm_db "macruby_${rvm_ruby_version}_url" "rvm_ruby_url"
-          [[ -n "${rvm_ruby_url:-}" ]] || __rvm_db "macruby_url" "rvm_ruby_url"
-          rvm_ruby_package_name="MacRuby%20${rvm_ruby_version}.zip"
-          rvm_ruby_package_file="$rvm_ruby_package_name"
-          rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_name"
-        else
-          __rvm_db "macruby_version" "rvm_ruby_version"
-          __rvm_db "macruby_url" "rvm_ruby_url"
-          rvm_ruby_package_name="MacRuby%20${rvm_ruby_version}.zip"
-          rvm_ruby_package_file="$rvm_ruby_package_name"
-          rvm_ruby_url="$rvm_ruby_url/$rvm_ruby_package_name"
-        fi
-        rvm_ruby_patch_level=""
-      else
-        rvm_error "MacRuby can only be installed on a Darwin OS."
-      fi
-      ;;
+  rvm_ruby_interpreter="${rvm_ruby_interpreter:-missing}"
 
-    rbx|rubinius)
-      __rvm_select_rbx_nightly || return $?
-
-      rvm_ruby_interpreter="rbx"
-      rvm_ruby_string="${rvm_ruby_string//rubinius/rbx}"
-
-      __rvm_select_rbx_compatibility_branch
-
-      if
-        (( ${rvm_head_flag:=1} == 0 )) &&
-        [[ -z "${rvm_ruby_repo_branch:-}" ]] &&
-        [[ "${rvm_ruby_version}" != "head" ]]
-      then
-        if
-          __rvm_version_compare "${rvm_ruby_version}" -ge "2.0.0"
-        then
-          rbx_url="$( __rvm_db "rbx_2.0.0_url" )"
-          rvm_archive_extension="tar.bz2"
-          rvm_ruby_package_file="rubinius-${rvm_ruby_version}"
-          rvm_ruby_url="${rbx_url}/${rvm_ruby_package_file}.${rvm_archive_extension}"
-        else
-          rbx_url=${rbx_url:-$(__rvm_db "rbx_url")}
-          rvm_archive_extension="tar.gz"
-          rvm_ruby_package_file="rubinius-${rvm_ruby_version}"
-          rvm_ruby_url="${rbx_url}/$rvm_ruby_package_file.${rvm_archive_extension}"
-        fi
-      else
-        rvm_ruby_repo_url=${rvm_rbx_repo_url:-$(__rvm_db "rubinius_repo_url")}
-        rvm_head_flag=1
-        rvm_ruby_patch_level=""
-        rvm_ruby_version="head"
-        rvm_disable_binary_flag=1
-      fi
-
-      if [[ -n "${rvm_rbx_opt:-}" ]]
-      then export RBXOPT="${RBXOPT:=${rvm_rbx_opt}}"
-      fi
-      ;;
-
-    jruby)
-      rvm_ruby_patch_level=""
-      rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
-      rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "jruby_repo_url")}"
-      if (( ${rvm_head_flag:=0} == 1 ))
-      then
-        (( ${rvm_remote_flag:-0} == 1 )) || rvm_disable_binary_flag=1
-        rvm_ruby_version="head"
-      else
-        if (( ${rvm_18_flag:-0} || ${rvm_19_flag:-0} || ${rvm_20_flag:-0} || ${#rvm_patch_names[@]} ))
-        then rvm_disable_binary_flag=1
-        fi
-        rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "jruby_version")"}"
-        rvm_ruby_tag="${rvm_ruby_tag:-${rvm_ruby_version}}"
-      fi
-
-      alias jruby_ng="jruby --ng"
-      alias jruby_ng_server="jruby --ng-server"
-      ;;
-
-    maglev)
-      rvm_ruby_patch_level=""
-      maglev_url="$(__rvm_db "maglev_url")"
-
-      system="${_system_type}"
-      if [[ "$MACHTYPE" == x86_64-apple-darwin* ]]
-      then arch="i386" # x86_64-apple-darwin supports both i386 and x86_64 maglev implements only i386
-      else arch="${_system_arch}"
-      fi
-
-      if
-        (( ${rvm_head_flag:=0} == 1 )) || [[ "$rvm_ruby_version" == "head" ]]
-      then
-        rvm_head_flag=1
-        rvm_ruby_version="head"
-        rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
-        rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "maglev_repo_url")}"
-        rvm_gemstone_version=$(
-          __rvm_curl -s https://raw.github.com/MagLev/maglev/master/version.txt |
-            __rvm_grep "^GEMSTONE" | cut -f2 -d-
-        )
-        rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
-        rvm_disable_binary_flag=1
-      else
-        rvm_ruby_package_file="MagLev-${rvm_ruby_version}" # removed from 1.0: .${system}-${arch}
-        rvm_ruby_version="${rvm_ruby_version:-"$(__rvm_db "maglev_version")"}"
-        rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
-        rvm_ruby_url="${rvm_ruby_url:-"$maglev_url/${rvm_ruby_package_file}.${rvm_archive_extension}"}"
-        rvm_gemstone_version=$(
-          __rvm_curl -s https://raw.github.com/MagLev/maglev/MagLev-${rvm_ruby_version}/version.txt |
-            __rvm_grep "^GEMSTONE" | cut -f2 -d-
-        )
-        rvm_gemstone_package_file="GemStone-${rvm_gemstone_version}.${system}-${arch}"
-        export MAGLEV_HOME="$rvm_rubies_path/$rvm_ruby_string"
-      fi
-
-      rvm_gemstone_url="$maglev_url/${rvm_gemstone_package_file}.${rvm_archive_extension}"
-      ;;
-
-    ironruby)
-      rvm_ruby_patch_level=""
-      if
-        (( ${rvm_head_flag:=0} == 1 ))
-      then
-        rvm_ruby_version="head"
-        rvm_ruby_package_name="${rvm_ruby_string}"
-        rvm_ruby_repo_url="${rvm_ruby_repo_url:-$(__rvm_db "ironruby_repo_url")}"
-        rvm_ruby_url="${rvm_ruby_repo_url:-$(__rvm_db "ironruby_repo_url")}"
-        rvm_disable_binary_flag=1
-      else
-        rvm_archive_extension="zip"
-        rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "ironruby_version")"}
-        rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
-        rvm_ruby_package_file="${rvm_ruby_interpreter}-${rvm_ruby_version}.${rvm_archive_extension}"
-        rvm_ruby_url="$(__rvm_db "ironruby_${rvm_ruby_version}_url")"
-      fi
-      export rvm_ruby_version rvm_ruby_string rvm_ruby_package_name rvm_ruby_repo_url rvm_ruby_url rvm_archive_extension
-      ;;
-
-    ree)
-      rvm_ruby_interpreter=ree
-      rvm_ruby_version=${rvm_ruby_version:-"$(__rvm_db "ree_version")"}
-
-      case "$rvm_ruby_version" in
-        1.8.*) true ;; # all good!
-        *) rvm_error "Unknown Ruby Enterprise Edition version: $rvm_ruby_version" ;;
-      esac
-
-      if [[ -n "${rvm_ruby_patch_level:-0}" ]]
-      then rvm_ruby_patch_level="${rvm_ruby_patch_level#p}"
-      fi
-
-      rvm_ruby_package_file="ruby-enterprise-$rvm_ruby_version-$rvm_ruby_patch_level"
-      rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_${rvm_ruby_patch_level}_url")"
-      rvm_ruby_url="${rvm_ruby_url:-$(__rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_url")}"
-      rvm_ruby_url="${rvm_ruby_url}/$rvm_ruby_package_file.tar.gz"
-      ;;
-
-    kiji)
-      rvm_ruby_interpreter="kiji"
-      rvm_ruby_version="head"
-      rvm_head_flag=1
-      rvm_ruby_string="kiji-head"
-      rvm_ruby_patch_level=""
-      rvm_ruby_repo_url=${rvm_ruby_repo_url:-"$(__rvm_db "kiji_repo_url")"}
-      rvm_ruby_url=$rvm_ruby_repo_url
-      rvm_ruby_configure=""
-      rvm_ruby_make=""
-      rvm_ruby_make_install=""
-      ;;
-
-    goruby)
-      rvm_ruby_interpreter="goruby"
-      rvm_ruby_version="head"
-      rvm_ruby_string="goruby"
-      rvm_ruby_patch_level=""
-      rvm_ruby_repo_url=${rvm_ruby_repo_url:-"$(__rvm_db "goruby_repo_url")"}
-      rvm_ruby_url=$rvm_ruby_repo_url
-      rvm_ruby_configure=""
-      rvm_ruby_make=""
-      rvm_ruby_make_install=""
-      ;;
-
-    mruby)
-      rvm_ruby_interpreter="mruby"
-      rvm_ruby_version="head"
-      rvm_ruby_string="mruby-head"
-      rvm_ruby_patch_level=""
-      rvm_ruby_repo_url=${rvm_ruby_repo_url:-"$(__rvm_db "mruby_repo_url")"}
-      rvm_ruby_url=$rvm_ruby_repo_url
-      export rvm_head_flag=1
-      rvm_disable_binary_flag=1
-      export rvm_skip_autoreconf_flag=1
-      rvm_ruby_configure=""
-      rvm_ruby_make=""
-      rvm_ruby_make_install=""
-      ;;
-
-    tcs)
-      rvm_ruby_interpreter="tcs"
-      rvm_ruby_version="head"
-      rvm_ruby_string="tcs"
-      rvm_ruby_patch_level=""
-      rvm_ruby_repo_url=${rvm_tcs_repo_url:-"$(__rvm_db "tcs_repo_url")"}
-      rvm_ruby_url=$rvm_ruby_repo_url
-      rvm_ruby_repo_branch="${rvm_ruby_repo_branch:-"$(__rvm_db "tcs_repo_branch")"}"
-      export rvm_head_flag=1
-      rvm_disable_binary_flag=1
-      rvm_ruby_configure=""
-      rvm_ruby_make=""
-      rvm_ruby_make_install=""
-      ;;
-
-    jamesgolick)
-      rvm_ruby_interpreter="jamesgolick"
-      rvm_ruby_version="head"
-      rvm_ruby_string="jamesgolick"
-      rvm_ruby_patch_level=""
-      rvm_ruby_repo_url=${rvm_jamesgolick_repo_url:-"$(__rvm_db "jamesgolick_repo_url")"}
-      rvm_ruby_url=$rvm_ruby_repo_url
-      rvm_ruby_repo_branch="${rvm_ruby_repo_branch:-"$(__rvm_db "jamesgolick_repo_branch")"}"
-      export rvm_head_flag=1
-      rvm_disable_binary_flag=1
-      rvm_ruby_configure=""
-      rvm_ruby_make=""
-      rvm_ruby_make_install=""
-      ;;
-
-
-    ruby)
-      if [[ -n "${rvm_ruby_patch_level}" ]]
-      then rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
-      else rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
-      fi
-      rvm_ruby_package_file="${rvm_ruby_package_name}"
-      if
-        [[ -z "${rvm_ruby_version:-""}" ]] &&
-        (( ${rvm_head_flag:=0} == 0 ))
-      then
-        rvm_error "Ruby version was not specified!"
-      else
-        rvm_ruby_repo_url="${rvm_ruby_repo_url:-"$(__rvm_db "ruby_repo_url")"}"
-        if
-          (( ${rvm_head_flag:=0} == 0 ))
-        then
-          if __rvm_version_compare "${rvm_ruby_version}" -lt "1.8.5"
-          then rvm_archive_extension="tar.gz"
-          else rvm_archive_extension="tar.bz2"
-          fi
-        else
-          rvm_disable_binary_flag=1
-        fi
-      fi
-      ;;
-
-    ext)
-      if [[ -z "${rvm_ruby_name:-${detected_rvm_ruby_name:-}}" ]]
-      then rvm_error "External ruby name was not specified!"
-      fi
-      ;;
-
-    current)
-      ruby_binary="$(builtin command -v ruby)"
-      if
-        (( $? == 0)) &&
-        __rvm_string_match "$ruby_binary" "*rvm*"
-      then
-        rvm_ruby_string="$(dirname "$ruby_binary" | __rvm_xargs dirname | __rvm_xargs basename)"
-      else
-        rvm_ruby_interpreter="system"
-      fi
-      ;;
-
-    default|system|user)
-      true
-      ;;
-
-    *)
-      if
-        [[ -n "${MY_RUBY_HOME:-""}" ]]
-      then
-         __rvm_select $(basename $MY_RUBY_HOME)
-      elif
-        [[ -z "${rvm_ruby_string:-""}" ]]
-      then
-        rvm_error "Ruby implementation '$rvm_ruby_interpreter' is not known."
-        return 1
-      fi
-  esac
-
-  if [[ -n "$rvm_ruby_version" ]]
+  if
+    is_a_function __rvm_select_interpreter_${rvm_ruby_interpreter}
   then
-    case "$rvm_ruby_version" in
-      (+([0-9]).+([0-9]).+([0-9]))
-        rvm_ruby_release_version="${rvm_ruby_version/.*/}"
-        rvm_ruby_major_version=${rvm_ruby_version%.*}
-        rvm_ruby_major_version=${rvm_ruby_major_version#*.}
-        rvm_ruby_minor_version="${rvm_ruby_version//*.}"
-        ;;
-      (+([0-9]).+([0-9]))
-        rvm_ruby_release_version="${rvm_ruby_version/.*/}"
-        rvm_ruby_major_version="${rvm_ruby_version#*.}"
-        rvm_ruby_minor_version=""
-        ;;
-    esac
+    __rvm_select_interpreter_${rvm_ruby_interpreter} || return $?
+  elif
+    [[ -n "${MY_RUBY_HOME:-""}" ]]
+  then
+    __rvm_select $(basename $MY_RUBY_HOME) || return $?
+  elif
+    [[ -z "${rvm_ruby_string:-""}" ]]
+  then
+    rvm_error "Ruby implementation '$rvm_ruby_interpreter' is not known."
+    return 1
+  fi
+}
+
+__rvm_select_version_variables()
+{
+  case "$rvm_ruby_version" in
+    (+([0-9]).+([0-9]).+([0-9]))
+      rvm_ruby_release_version="${rvm_ruby_version/.*/}"
+      rvm_ruby_major_version=${rvm_ruby_version%.*}
+      rvm_ruby_major_version=${rvm_ruby_major_version#*.}
+      rvm_ruby_minor_version="${rvm_ruby_version//*.}"
+      ;;
+    (+([0-9]).+([0-9]))
+      rvm_ruby_release_version="${rvm_ruby_version/.*/}"
+      rvm_ruby_major_version="${rvm_ruby_version#*.}"
+      rvm_ruby_minor_version=""
+      ;;
+  esac
+}
+
+__rvm_select_default_variables()
+{
+  if [[ "${rvm_ruby_interpreter}" != ext ]]
+  then rvm_ruby_package_name="${rvm_ruby_package_name:-${rvm_ruby_string//-n*}}"
   fi
 
-  [[ "${rvm_ruby_interpreter}" == ext ]] ||
-    rvm_ruby_package_name="${rvm_ruby_package_name:-${rvm_ruby_string//-n*}}"
   rvm_ruby_home="$rvm_rubies_path/$rvm_ruby_string"
   rvm_ruby_binary="$rvm_ruby_home/bin/ruby"
   rvm_ruby_irbrc="$rvm_ruby_home/.irbrc"
+}
 
-  # TODO is this right place to do this ?
-  if
-    [[ "maglev" == "$rvm_ruby_interpreter" ]]
-  then
-    export MAGLEV_HOME="$rvm_ruby_home"
-    export GEMSTONE_GLOBAL_DIR=$MAGLEV_HOME
-  fi
+# __rvm_select implementation-version-patch_level
+__rvm_select()
+{
+  true ${rvm_gemset_name:=}
+  typeset _original_env_string
+  _original_env_string=${rvm_env_string}
+
+  __rvm_select_set_variable_defaults   &&
+  __rvm_select_detect_ruby_string "$1" &&
+  __rvm_ruby_string                    &&
+  __rvm_select_interpreter_variables   &&
+  __rvm_select_version_variables       &&
+  __rvm_select_default_variables       ||
+  return $?
 
   [[ "system" == "$rvm_ruby_interpreter" ]] ||
   {
