@@ -82,73 +82,51 @@ __rvm_become()
 
 __rvm_ensure_has_environment_files()
 {
-  typeset environment_id file_name directory identifier variable value variables
+  typeset file_name variable value environment_id __path __gem_home
 
-  environment_id="$(__rvm_env_string)"
-
-  file_name="${rvm_environments_path}/$environment_id"
-
-  if [[ ! -d "$rvm_environments_path" ]]
-  then
-    \mkdir -p "$rvm_environments_path"
+  __gem_home="${1:-"${rvm_ruby_gem_home}"}"
+  file_name="${__gem_home}/environment"
+  __path=""
+  if [[ "${__gem_home##*@}" != "global" ]]
+  then __path+="${__gem_home}/bin:"
   fi
+  __path+="${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin"
 
-  if [[ ! -s "$file_name" ]] || ! __rvm_grep 'rvm_env_string=' "$file_name" >/dev/null
-  then
-    \rm -f "$file_name"
-    printf "%b" \
-      "export PATH ; PATH=\"${rvm_ruby_gem_home}/bin:${rvm_ruby_global_gems_path}/bin:${rvm_ruby_home}/bin:${rvm_bin_path}:\$PATH\"\n" \
-      > "$file_name"
 
-    for variable in rvm_env_string rvm_path rvm_ruby_string rvm_gemset_name \
-      RUBY_VERSION GEM_HOME GEM_PATH MY_RUBY_HOME IRBRC MAGLEV_HOME RBXOPT
-    do
-      eval "export $variable"
-      eval "value=\${${variable}:-""}"
-      if [[ -n "$value" ]]
-      then
-        printf "export %b ; %b='%b'\n" "${variable}" "${variable}" "${value}" >> "$file_name"
-      else
-        printf "unset %b\n" "${variable}" >> "$file_name"
-      fi
-    done
-  fi
+  \rm -f "$file_name"
+  \mkdir -p "${__gem_home}/wrappers" "${rvm_environments_path}" "${rvm_wrappers_path}"
 
-  # Next, ensure we have default wrapper files. Also, prevent it from recursing.
-  if (( ${rvm_create_default_wrappers:=0} == 1 )) ||
-    [[ ! -f "$rvm_wrappers_path/$environment_id/ruby" ]]
-  then
-    # We need to generate wrappers for both the default gemset and the global gemset.
-    for identifier in "$environment_id" "${environment_id//@*/}@global"
-    do
-      rvm_create_default_wrappers=1
+  printf "%b" "export PATH=\"${__path}:\$PATH\"\n" > "$file_name"
 
-      directory="$rvm_wrappers_path/$identifier"
+  for variable in GEM_HOME GEM_PATH IRBRC MAGLEV_HOME RBXOPT
+  do
+    eval "value=\${${variable}:-""}"
+    if [[ -n "$value" ]]
+    then printf "export %b='%b'\n" "${variable}" "${value}" >> "$file_name"
+    else printf "unset %b\n"       "${variable}"            >> "$file_name"
+    fi
+  done
 
-      if [[ ! -L "$directory" && ! -d "$directory" ]]; then
-        \mkdir -p "$directory"
+  environment_id="${__gem_home##*/}"
+  [[ -L "${rvm_environments_path}/${environment_id}" ]] ||
+  {
+    if [[ -f "${rvm_environments_path}/${environment_id}" ]]
+    then rm -rf "${rvm_environments_path}/${environment_id}"
+    fi
+    ln -nfs "${__gem_home}/environment" "${rvm_environments_path}/${environment_id}"
+  }
 
-        "$rvm_scripts_path/wrapper" "$identifier" &> /dev/null
-      fi
-    done
-    rvm_create_default_wrappers=0
-  fi
+  ln -nfs "${__gem_home}/wrappers" "$rvm_wrappers_path/${environment_id}"
 
   return 0
-}
-
-# Write the bin/ wrapper script for currently selected ruby.
-# TODO: Adjust binscript to be able to handle all rubies,
-#       not just the standard interpreteres.
-__rvm_generate_wrappers()
-{
-  "$rvm_scripts_path/wrapper" "$rvm_ruby_string" --no-links --all
 }
 
 # Runs a command in a given env.
 __rvm_with()
 (
-  __rvm_use "$1"
+  typeset rvm_internal_use_flag=1
+  typeset rvm_use_flag=0
+  __rvm_use "$1" || return $?
   shift
   "$@" || return $?
 )

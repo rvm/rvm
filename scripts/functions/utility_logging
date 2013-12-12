@@ -53,10 +53,10 @@ __rvm_log_command_caclulate_log_file_name()
   fi
 }
 
-# Run a specified command and log it.
+# Run a specified command and log it (once).
 __rvm_log_command()
 {
-  typeset name message _log _command_start _command_name
+  typeset name message _command_start _command_name
   typeset -a _command
 
   name="${1:-}"
@@ -70,6 +70,37 @@ __rvm_log_command()
   _command_name="$1"  # store the real command so we can detect functions
 
   [[ ! "${_command_start}" =~ "=" ]] || _command=( "env" "${_command[@]}" )
+  if __function_on_stack __rvm_log_command_internal
+  then __rvm_log_command_simple   "$@"
+  else __rvm_log_command_internal "$@"
+  fi
+}
+
+# basic debugging information for the command
+__rvm_log_command_debug()
+{
+  printf "%b" "[$(__rvm_date +'%Y-%m-%d %H:%M:%S')] ${_command_name}\n"
+  if is_a_function "${_command_name}"
+  then typeset -f  "${_command_name}"
+  fi
+  printf "%b" "current path: $PWD\n"
+  env | grep -E '^GEM_HOME=|^GEM_PATH=|^PATH='
+  printf "%b" "command(${#_command[@]}): ${_command[*]}\n"
+}
+
+# Run a specified command and do not log it again.
+__rvm_log_command_simple()
+{
+  __rvm_log_command_debug
+  rvm_log "$message"
+  "$@" || return $?
+}
+
+# Run a specified command and log it.
+__rvm_log_command_internal()
+{
+  typeset _log
+
   (( ${rvm_niceness:-0} == 0 ))      || _command=( nice -n $rvm_niceness "${_command[@]}" )
 
   __rvm_log_command_caclulate_log_file_name
@@ -77,14 +108,8 @@ __rvm_log_command()
 
   [[ -d "${_log%\/*}" ]] || \mkdir -p "${_log%\/*}"
   [[ -f "${_log}"     ]] || \rm -f "${_log}"
-  {
-    printf "%b" "[$(__rvm_date +'%Y-%m-%d %H:%M:%S')] ${_command_name}\n"
-    if is_a_function "${_command_name}"
-    then typeset -f  "${_command_name}"
-    fi
-    printf "%b" "current path: $PWD\n"
-    printf "%b" "command(${#_command[@]}): ${_command[*]}\n"
-  } | tee "${_log}" | rvm_debug_stream
+
+  __rvm_log_command_debug | tee "${_log}" | rvm_debug_stream
 
   __rvm_log_dotted "${_log}" "$message" "${_command[@]}" ||
   {
