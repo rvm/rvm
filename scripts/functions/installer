@@ -60,6 +60,7 @@ install_rvm()
     cleanse_old_environments
     migrate_old_gemsets
     migrate_defaults
+    migrate_environments_and_wrappers
     record_ruby_configs
     update_gemsets_install_rvm
     configure_autolibs
@@ -1216,6 +1217,35 @@ migrate_defaults()
   __rvm_rm_rf "$rvm_path/config/default"
 }
 
+migrate_environments_and_wrappers()
+{
+  typeset environment_file wrappers_path new_path gemset_name
+
+  for environment_file in "$rvm_path"/environments/*
+  do
+    gemset_name="${environment_file##*/}"
+    new_path="$rvm_path/gems/${gemset_name}/environment"
+    if
+      [[ -f "$environment_file" && ! -L "$environment_file" && ! -e "$new_path" ]]
+    then
+      rvm_out "    Migrating environment ${gemset_name} to use with 'gem-wrappers' gem."
+      \mv "$environment_file" "$new_path" && \ln -s "$new_path" "$environment_file"
+    fi
+  done
+
+  for wrappers_path in "$rvm_path"/wrappers/*
+  do
+    gemset_name="${wrappers_path##*/}"
+    new_path="$rvm_path/gems/${gemset_name}/wrappers"
+    if
+      [[ -d "$wrappers_path" && ! -L "$wrappers_path" && ! -e "$new_path" ]]
+    then
+      rvm_out "    Migrating wrappers ${gemset_name} to use with 'gem-wrappers' gem."
+      \mv "$wrappers_path" "$new_path" && \ln -snf "$new_path" "$wrappers_path"
+    fi
+  done
+}
+
 record_ruby_configs()
 {
   __rvm_record_ruby_configs
@@ -1223,47 +1253,51 @@ record_ruby_configs()
 
 update_gemsets_install_rvm()
 {
-  typeset _iterator installed found missing _current_path
+  typeset _iterator _gem installed found missing _current_path
   typeset -a paths missing
 
-  if
-    [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 &&
-      ! " ${rvm_without_gems:-} " =~ " rvm "
-    ]]
-  then
-    # rvm /gems
-    paths=($(
-      __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | __rvm_sed 's/^\.\///'
-    ))
+  [[ ${rvm_keep_gemset_defaults_flag:-0} == 0 ]] || return 0
 
-    for _iterator in "${paths[@]}"
-    do
-      # skip unless this ruby is installed
-      installed="${_iterator%@global}"
-      installed="${installed/\/gems\//\/rubies\//}/bin/ruby"
-      installed=${installed//\\/}
-      [[ -x "$installed" ]] || continue
+  # rvm /gems
+  paths=($(
+    __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | __rvm_sed 's/^\.\///'
+  ))
 
-      _current_path="${_iterator%%+(\/)}/gems"
-      # rvm /gems @global /gems
-      found=($(
-        [[ ! -d "${_current_path}" ]] ||
-        __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" 'rvm-*' | __rvm_sed 's/^\.\///'
-      ))
-      (( ${#found[@]} > 0 )) || missing+=( "$_iterator" )
-    done
-
-    if
-      (( ${#missing[@]} > 0 ))
-    then
-      printf "%b" "    Installing rvm gem in ${#missing[@]} gemsets "
-      for _iterator in "${missing[@]}"
+  for _gem in rvm gem-wrappers
+  do
+    [[ " ${rvm_without_gems:-} " =~ " ${_gem} " ]] ||
+    {
+      for _iterator in "${paths[@]}"
       do
-        rvm "${_iterator##*/}" do gem install rvm | __rvm_awk '{printf "."}'
+        # skip unless this ruby is installed
+        installed="${_iterator%@global}"
+        installed="${installed/\/gems\//\/rubies\//}/bin"
+        installed="${installed//\\/}"
+        [[ -x "${installed}/ruby" ]] || continue
+        [[ -x "${installed}/gem" ]] || continue
+
+        _current_path="${_iterator%%+(\/)}/gems"
+        # rvm /gems @global /gems
+        found=($(
+          [[ ! -d "${_current_path}" ]] ||
+          __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" ${_gem}-'*' | __rvm_sed 's/^\.\///'
+        ))
+        (( ${#found[@]} > 0 )) || missing+=( "${installed}=${_iterator}" )
       done
-      printf "\n"
-    fi
-  fi
+
+      if
+        (( ${#missing[@]} > 0 ))
+      then
+        for _iterator in "${missing[@]}"
+        do
+          printf "%b" "installing ${_gem} in ${__gem_home##*/}"
+          __gem_home="${_iterator#*=}"
+          _iterator="${_iterator%%=*}"
+          GEM_HOME="${__gem_home}" PATH="${_iterator}:$PATH" gem install ${_gem}
+        done | __rvm_dotted "    Installing ${_gem} gem in ${#missing[@]} gemsets"
+      fi
+    }
+  done
 }
 
 configure_autolibs()
