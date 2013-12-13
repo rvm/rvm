@@ -233,7 +233,7 @@ __rvm_install_source()
       __rvm_post_configure_${rvm_ruby_interpreter}
   fi
 
-  __rvm_log_command "make" "$rvm_ruby_string - #compiling" ${rvm_ruby_make:-__rvm_make} "${rvm_make_flags[@]}" ||
+  __rvm_every_nth_dot 20 __rvm_log_command "make" "$rvm_ruby_string - #compiling" ${rvm_ruby_make:-__rvm_make} "${rvm_make_flags[@]}" ||
   {
     result=$?
     rvm_error "There has been an error while running make. Halting the installation."
@@ -279,14 +279,10 @@ __rvm_install_source()
       ;;
   esac
 
-  rvm_create_flag=1 __rvm_use &&
-    ( rubygems_setup ${rvm_rubygems_version:-latest} ) && # () for exit in rubygems_fatal_error
-    __rvm_generate_wrappers &&
-    __rvm_log_command "chmod.bin" "" chmod +x "$rvm_ruby_home/bin"/* &&
-    __rvm_post_install ||
-    return $?
-
-  __rvm_fetch_ruby_cleanup
+  __rvm_initial_gemsets_create "$rvm_ruby_home/bin/ruby" &&
+  __rvm_post_install &&
+  __rvm_fetch_ruby_cleanup ||
+  return $?
 
   rvm_log "Install of $rvm_ruby_string - #complete "
 }
@@ -549,7 +545,7 @@ __rvm_remove_wrappers()
   typeset wrapper
 
   __rvm_read_lines wrappers <(
-    __rvm_find "$rvm_wrappers_path" -maxdepth 1 -mindepth 1 -type d "${name_opt}" "*$rvm_ruby_string*" 2>/dev/null
+    __rvm_find "$rvm_wrappers_path" -maxdepth 1 -mindepth 1 -type d -o -type l "${name_opt}" "*$rvm_ruby_string*" 2>/dev/null
     __rvm_find "$rvm_bin_path" -maxdepth 1 -mindepth 1 "${name_opt}" "*-$rvm_ruby_string" 2>/dev/null
   )
   for wrapper in "${wrappers[@]}"
@@ -563,10 +559,9 @@ __rvm_remove_environments()
   rvm_log "Removing $rvm_ruby_string environments..."
   typeset environments environment
 
-  environments=($(__rvm_find "$rvm_environments_path" -maxdepth 1 -mindepth 1 -type f "${name_opt}" "*$rvm_ruby_string*" ))
-  for environment in "${environments[@]}"
+  for environment in "$rvm_environments_path/$rvm_ruby_string" "$rvm_environments_path/$rvm_ruby_string"@*
   do
-    if [[ -e "$environment" ]]
+    if [[ -e "$environment" || -L "$environment" ]]
     then __rvm_rm_rf "$environment"
     fi
   done
@@ -649,7 +644,6 @@ __rvm_post_install()
     done
   fi
   binaries=(gem irb erb ri rdoc testrb rake) #reset
-  __rvm_gemsets_initial
   __rvm_irbrc
 }
 
