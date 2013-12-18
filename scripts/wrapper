@@ -8,110 +8,30 @@ unset rvm_default_flag rvm_wrapper_name prefix
 source "$rvm_scripts_path/base"
 source "$rvm_scripts_path/initialize"
 
-usage()
-{
-  printf "%b" "
-  Usage:
-
-    rvm wrapper ruby_string [wrapper_prefix] [binary[ binary[ ...]]]
-
-  Binaries
-
-    ruby, gem, rake, irb, rdoc, ri, testrb
-
-  Notes
-
-    For more information, see 'rvm help wrapper'
-
-  Example
-
-    # Wrap the spec binary as 'rails3_spec' for 1.9.2@rails3
-    rvm wrapper 1.9.2@rails3 rails3 spec
-
-    # To create a single binary you can do the following,
-    user$ rvm use --create 1.8.7@ey ; gem install ey
-    user$ rvm wrapper 1.8.7@ey --no-prefix ey
-    # So that it is clear I am now in a different env,
-    user$ rvm 1.9.2
-    user$ ruby -v
-    ruby 1.9.2p180 (2011-02-18 revision 30909) [x86_64-darwin10.7.0]
-    # And we have the desired result,
-    user$ ey
-    Usage:
-      ey [--help] [--version] COMMAND [ARGS]
-      ...
-
-"
-}
-
-wrap()
-{
-  [[ -n "${file_name:-""}" ]] ||
-  {
-    rvm_error "wrap() : file_name unkown variable for wrap()."
-    return 1
-  }
-  mkdir -p "${file_name%/*}"
-  \rm -f "$file_name"
-  printf "%b" \
-"#!/usr/bin/env bash
-
-if [[ -s \"$rvm_environments_path/${environment_identifier}\" ]]
-then
-  source \"$rvm_environments_path/${environment_identifier}\"
-  exec $binary_name \"\$@\"
-else
-  echo \"ERROR: Missing RVM environment file: '$rvm_environments_path/${environment_identifier}'\" >&2
-  exit 1
-fi
-" > "$file_name"
-  chmod +x "$file_name"
-}
-
-symlink_binary()
-{
-  # Generate the default wrapper with the given binary name.
-  # We first check if we can wrap the binary and if we were able to,
-  # we then symlink it into place.
-  if
-    wrap_binary && [[ -f "$file_name" ]]
-  then
-    file_link="$rvm_bin_path/${prefix}_${binary_name##*\/}"
-    file_link=${file_link// /_}
-    \rm -f "$rvm_bin_path/${prefix}_${binary_name##*\/}"
-    ln -fs "$file_name" "$file_link"
-  fi
-}
-
-wrap_binary()
-{
-  # We wrap when the given binary is in the path or override_check is set to one.
-  if
-    [[ "$override_check" == "1" ]] ||
-    builtin command -v $binary_name > /dev/null
-  then
-    wrap
-  else
-    rvm_error "Binary '$binary_name' not found."
-    return 1
-  fi
-}
-
 # Empty ruby string: show usage and exit.
-(( $# )) && [[ -n "$1" ]] ||
+[[ -n "${1:-}" ]] ||
 {
-  usage
+  rvm_help wrapper "$@"
   exit 1
 }
+
 ruby_string="$1"
 shift
 prefix="${1:-}"
 (( $# == 0 )) || shift
 
+case "${prefix:-}" in
+  (--no-links)
+    rvm_error "Used '--no-links' this no operation as wrappers only creates links now."
+    exit 1
+    ;;
+esac
+
 if (( $# ))
 then binaries=("$@")
 else binaries=(ruby gem irb ri rdoc rake erb testrb)
 fi
+
 override_check=0
 (( ${rvm_default_flag:-0} == 0 )) || prefix="default"
 
@@ -180,69 +100,32 @@ then
   )
 fi
 
-_log="${rvm_log_path}${rvm_ruby_string:+/}${rvm_ruby_string:-}"
-[[ -d "${_log}" ]] || mkdir -p "${_log}"
-_log="${_log}/wrappers.log"
-
-if [[ "--no-links" == "$prefix" ]]
-then wrappers_target="$rvm_wrappers_path/${environment_identifier}"
-else wrappers_target="$rvm_bin_path"
-fi
-
-echo "prefix: '$prefix'." > "$_log"
-
 # For each binary, we want to generate the wrapper / symlink
 # it to the existing wrapper if needed.
 for binary_name in "${binaries[@]}"
 do
-  echo "wrapper: '$binary_name'."
   file_name="$rvm_wrappers_path/${environment_identifier}/${binary_name##*\/}"
   file_name=${file_name// /_}
+  destination=""
   if
-    [[ -z "${prefix:-}" ]]
+    [[ -f "$file_name" ]]
   then
-    override_check=1
-    wrap_binary
-    # Symlink it into place.
-    if
-      [[ -f "$file_name" ]]
-    then
-      if
-        [[ "$binary_name" == "ruby" ]]
-      then
-        destination="$rvm_bin_path/$environment_identifier"
-      else
-        destination="$rvm_bin_path/${binary_name##*\/}-${environment_identifier}"
-      fi
-      \rm -f "$destination"
-      ln -sf "$file_name" "$destination"
-    fi
-  elif
-    [[ "--no-links" == "$prefix" ]]
-  then
-    override_check=1
-    wrap_binary
-  elif
-    [[ "--no-prefix" == "$prefix" ]]
-  then
-    override_check=1
-    wrap_binary
-    if
-      [[ -f  "$file_name" ]]
-    then
-      destination="$rvm_bin_path/${binary_name##*\/}"
-      if
-        [[ -s "$destination" ]]
-      then
-        \rm -f "$destination"
-      fi
-      ln -sf "$file_name" "$destination"
-    fi
-  else
-    symlink_binary
+    case "${prefix:-}" in
+      (--no-prefix) destination="$rvm_bin_path/${binary_name##*\/}" ;;
+      ("")          destination="$rvm_bin_path/${binary_name##*\/}-${environment_identifier}" ;;
+      (*)           destination="$rvm_bin_path/${prefix}_${binary_name##*\/}" ;;
+    esac
   fi
-done | tee -a "$_log" | __rvm_dotted "Saving wrappers to '$wrappers_target'" ||
-{
-  rvm_error "Failed generating wrappers, check for details in '${_log}'."
-  exit 1
-}
+  if
+    [[ -n "$destination" ]]
+  then
+    destination="${destination// /_}"
+    destination="${destination//ruby-ruby-/ruby-}"
+    if
+      [[ -s "$destination" ]]
+    then
+      \rm -f "$destination"
+    fi
+    ln -sf "$file_name" "$destination"
+  fi
+done
