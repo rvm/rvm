@@ -129,7 +129,7 @@ __rvm_apply_patch()
   else
     __rvm_apply_patch_prepare
     touch "patches.list"
-    __rvm_log_command "patch.apply.${_patch_name##*\/}" "Applying patch ${_full_patch_path}" \
+    __rvm_log_command "patch.apply.${_patch_name##*\/}" "$rvm_ruby_string - #applying patch ${_full_patch_path}" \
       __rvm_patch -F ${_patch_fuzziness} -p${_patch_level} -N -f -i "${_local_patch_path}" &&
     printf "%b" "${_patch_name}\n" >> "patches.list"
     __rvm_apply_patch_remove
@@ -233,7 +233,7 @@ __rvm_install_source()
       __rvm_post_configure_${rvm_ruby_interpreter}
   fi
 
-  __rvm_every_nth_dot 20 __rvm_log_command "make" "$rvm_ruby_string - #compiling" ${rvm_ruby_make:-__rvm_make} "${rvm_make_flags[@]}" ||
+  __rvm_log_command "make" "$rvm_ruby_string - #compiling" ${rvm_ruby_make:-__rvm_make} "${rvm_make_flags[@]}" ||
   {
     result=$?
     rvm_error "There has been an error while running make. Halting the installation."
@@ -287,6 +287,14 @@ __rvm_install_source()
   rvm_log "Install of $rvm_ruby_string - #complete "
 }
 
+__rvm_old_ruby()
+{
+  case "$1" in
+    (ree*|ruby-1.8*|ruby-1.9.1*|ruby-1.9.2*) return 0 ;;
+    (*) return 1 ;;
+  esac
+}
+
 __rvm_install_ruby_try_remote()
 {
   : rvm_disable_binary_flag:${rvm_disable_binary_flag:=0}: rvm_remote_flag:${rvm_remote_flag:=0}:
@@ -311,6 +319,12 @@ __rvm_install_ruby_try_remote()
         then
           rvm_error "Requested binary installation but no rubies are available to download, consider skipping --binary flag."
           return 1
+        elif
+          __rvm_old_ruby "${rvm_ruby_string}"
+        then
+          rvm_log "No binary rubies available for: $(__rvm_system_path -)/${rvm_ruby_string}.
+It is not possible to build movable binaries for rubies 1.8-1.9.2, but you can do it for your system only.
+Continuing with compilation. Please read 'rvm help mount' to get more information on binary rubies."
         else
           rvm_warn "No binary rubies available for: $(__rvm_system_path -)/${rvm_ruby_string}.
 Continuing with compilation. Please read 'rvm help mount' to get more information on binary rubies."
@@ -422,7 +436,7 @@ __rvm_check_default()
     [[ -n "$current_ruby_interpreter" ]] &&
     [[ "$current_ruby_interpreter" == "$default_ruby_interpreter" ]]
   then
-    __rvm_log_command 'default.restore' 'Removing default ruby interpreter' \
+    __rvm_log_command 'default.restore' "$rvm_ruby_string - #removing default ruby interpreter" \
       rvm use system --default
   fi
 }
@@ -454,7 +468,7 @@ __rvm_remove_ruby()
     if
       [[ -d "${_dir}/$rvm_ruby_string" ]]
     then
-      __rvm_log_command "remove.${_dir##*/}" "Removing ${_dir}/$rvm_ruby_string" __rvm_rm_rf "${_dir}/$rvm_ruby_string"
+      __rvm_log_command "remove.${_dir##*/}" "$rvm_ruby_string - #removing ${_dir}/$rvm_ruby_string" __rvm_rm_rf "${_dir}/$rvm_ruby_string"
     else
       rvm_log "${_dir}/$rvm_ruby_string has already been removed."
     fi
@@ -532,7 +546,7 @@ __rvm_remove_gemsets()
   if
     (( ${rvm_gems_flag:=0} == 1 ))
   then
-    __rvm_log_command remove_gemsets "Removing $rvm_ruby_string gemsets" __rvm_remove_gemsets__ ||
+    __rvm_log_command remove_gemsets "$rvm_ruby_string - #removing gemsets" __rvm_remove_gemsets__ ||
       return $?
   fi
   true # for OSX
@@ -540,7 +554,7 @@ __rvm_remove_gemsets()
 
 __rvm_remove_wrappers()
 {
-  rvm_log "Removing $rvm_ruby_string wrappers..."
+  rvm_log "$rvm_ruby_string - #removing wrappers"
   typeset -a wrappers
   typeset wrapper
 
@@ -556,7 +570,7 @@ __rvm_remove_wrappers()
 
 __rvm_remove_environments()
 {
-  rvm_log "Removing $rvm_ruby_string environments..."
+  rvm_log "$rvm_ruby_string - #removing environments"
   typeset environments environment
 
   for environment in "$rvm_environments_path/$rvm_ruby_string" "$rvm_environments_path/$rvm_ruby_string"@*
@@ -569,7 +583,7 @@ __rvm_remove_environments()
 
 __rvm_remove_aliases()
 {
-  rvm_log "Removing $rvm_ruby_string aliases..."
+  rvm_log "$rvm_ruby_string - #removing aliases"
   typeset alias_name aliases
 
   aliases=($(__rvm_awk '/'$rvm_ruby_string'/{print}' "$rvm_path/config/alias" | __rvm_sed 's/=.*//'))
@@ -584,7 +598,7 @@ __rvm_remove_archives()
 {
   if (( ${rvm_archive_flag:=0} == 1 ))
   then
-    rvm_log "Removing $rvm_ruby_string archives..."
+    rvm_log "$rvm_ruby_string - #removing archives"
     \rm -f ${rvm_archives_path}/${rvm_ruby_package_file}.*
   fi
 }
@@ -592,21 +606,16 @@ __rvm_remove_archives()
 # Iterate over all binaries and check for symlinked wrappers etc.
 __rvm_remove_binaries()
 {
-  rvm_log "Removing $rvm_ruby_string binaries..."
-  typeset full_binary_path linked_binary_path
-  typeset -a binaries
+  rvm_log "$rvm_ruby_string - #removing binaries"
+  typeset _binary_path
+  typeset -a _binaries
 
-  __rvm_read_lines binaries <(
+  __rvm_read_lines _binaries <(
     __rvm_find "${rvm_bin_path:-$rvm_path/bin}" -maxdepth 1 -mindepth 1 "${name_opt}" "*$rvm_ruby_string" -or "${name_opt}" "*$rvm_ruby_string@*"
   )
-  for full_binary_path in "${binaries[@]}"
+  for _binary_path in "${_binaries[@]}"
   do
-    if
-      [[ -L "$full_binary_path" ]] &&
-      __rvm_string_match "$(__rvm_readlink "$full_binary_path")" "*$rvm_ruby_string/*" "*$rvm_ruby_string@*"
-    then
-      \rm -f "$full_binary_path"
-    fi
+    \rm -f "${_binary_path}"
   done
 }
 

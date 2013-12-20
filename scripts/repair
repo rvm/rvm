@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 source "$rvm_scripts_path/base"
+source "$rvm_scripts_path/functions/gemset"
 
 usage()
 {
@@ -46,18 +47,15 @@ repair_gemsets()
 
 repair_wrappers()
 {
-  typeset -a wrapper_ruby_names failed_wrappers
-  typeset wrapper_ruby_name
-
   rvm_log "Regenerating all wrappers..."
-  __rvm_read_lines wrapper_ruby_names <("$rvm_scripts_path/list" gemsets strings)
+  __rvm_read_lines ruby_names <("$rvm_scripts_path/list" gemsets strings)
 
-  for wrapper_ruby_name in "${wrapper_ruby_names[@]}"
+  for ruby_name in "${ruby_names[@]}"
   do
     __rvm_log_command \
-      "wrappers.regenerate.$wrapper_ruby_name" \
-      "Regenerating wrappers for $wrapper_ruby_name" \
-      "$rvm_scripts_path/wrapper" "$wrapper_ruby_name" ||
+      "wrappers.regenerate.$ruby_name" \
+      "Regenerating wrappers for $ruby_name" \
+      __rvm_with $ruby_name run_gem_wrappers_regenerate ||
     failed_wrappers+=( "$wrapper_ruby_name" )
   done
 
@@ -68,31 +66,19 @@ repair_wrappers()
   return ${#failed_wrappers[@]}
 }
 
-# Removes stale symlinks in $rvm_bin_path, likely
-# related to wrappers.
+# Removes stale symlinks in $rvm_bin_path, likely related to wrappers.
 repair_symlinks()
 {
   rvm_log "Repairing symlinks..."
-
-  (
-    __rvm_cd "${rvm_bin_path}"
-
-    for executable_name in $(__rvm_find \. -type l)
-    do
-      if [[ -e "$executable_name" || \
-        "$(__rvm_readlink "$executable_name")" != "$rvm_wrappers_path/"* ]]
-      then
-        continue
-      fi
-
-      if [[ -f "$executable_name" ]]
-      then
-        rvm_log "removing stale symlink from $(basename "$executable_name")"
-        \rm -f "$executable_name"
-      fi
-    done
-  )
-
+  for executable_name in "${rvm_bin_path}"/*
+  do
+    if
+      [[ -l "$executable_name" && ! -e "$executable_name" && "$executable_name" != "${rvm_bin_path}/*" ]]
+    then
+      rvm_log "removing stale symlink from $(basename "$executable_name")"
+      \rm -f "$executable_name"
+    fi
+  done
   rvm_log "Symlinks repaired"
 }
 
