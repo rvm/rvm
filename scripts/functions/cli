@@ -270,14 +270,28 @@ __rvm_cli_autoreload()
   fi
 }
 
-__rvm_can_install_rubies()
+__rvm_cli_install_ruby()
 (
-  typeset __ruby __rubies __installed
-  typeset -a __search
+  if
+    [[ -n "$1" ]]
+  then
+    typeset __rubies __installed __missing
+    typeset -a __search
+    __rvm_custom_separated_array __search , "$1"
+    __rubies=""
+    __rvm_cli_rubies_select "$1" || return $?
+    if __rvm_cli_rubies_not_installed
+    then __rvm_run_wrapper manage install "$1" || return $?
+    fi
+  else
+    rvm_error "Can not use or install 'all' rubies."
+    false #report error
+  fi
+)
 
-  __rvm_custom_separated_array __search , "$1"
-  __rubies=""
-
+__rvm_cli_rubies_select()
+{
+  typeset __ruby
   for __ruby in "${__search[@]}"
   do
     rvm_ruby_string="${__ruby}"
@@ -290,7 +304,10 @@ __rvm_can_install_rubies()
     }
   done
   __rubies="${__rubies%|}"
+}
 
+__rvm_cli_rubies_not_installed()
+{
   if
     (( ${rvm_force_flag:-0} == 0 )) &&
     __installed="$(
@@ -298,7 +315,6 @@ __rvm_can_install_rubies()
     )" &&
     [[ -n "${__installed}" ]]
   then
-
     rvm_warn "Already installed ${__installed//|/,}.
 To reinstall use:
 
@@ -307,4 +323,4 @@ To reinstall use:
     return 2
   fi
   true
-)
+}
