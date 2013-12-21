@@ -383,6 +383,9 @@ https://rvm.io/rubies/named/
   fi
 
   __rvm_select_late
+  if (( ${rvm_force_flag:-0} == 0 ))
+  then __rvm_remove_src_and_ruby
+  fi
 
   if __rvm_install_ruby_try_remote
   then return 0
@@ -462,28 +465,10 @@ __rvm_remove_ruby()
     return 1
   }
 
-  typeset _dir
-  for _dir in "${rvm_src_path}" "${rvm_rubies_path}"
-  do
-    if
-      [[ -d "${_dir}/$rvm_ruby_string" ]]
-    then
-      __rvm_log_command "remove.${_dir##*/}" "$rvm_ruby_string - #removing ${_dir}/$rvm_ruby_string" __rvm_rm_rf "${_dir}/$rvm_ruby_string"
-    else
-      rvm_log "$rvm_ruby_string - #already removed ${_dir}/$rvm_ruby_string"
-    fi
-  done
-
-  if
-    [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
-  then
-    \rm -f "${rvm_bin_path}/$rvm_ruby_string"
-  fi
-
   __rvm_remove_install_record "$rvm_ruby_string"
   case "${1:-remove}" in
     (remove)
-      __rvm_remove_gemsets
+      __rvm_remove_src_and_ruby
       __rvm_remove_archives
       __rvm_remove_aliases
       __rvm_remove_wrappers
@@ -491,11 +476,11 @@ __rvm_remove_ruby()
       __rvm_remove_binaries
       ;;
     (uninstall)
-      __rvm_remove_gemsets
+      __rvm_remove_src_and_ruby
       __rvm_check_default
       ;;
     (reinstall)
-      true # nothing more to do here!
+      __rvm_remove_src_and_ruby
       ;;
   esac
   unset rvm_remove_flag
@@ -520,6 +505,36 @@ __rvm_gemset_pristine_all()
   done
 }
 
+__rvm_remove_src_and_ruby()
+{
+  typeset _dir
+  for _dir in "${rvm_src_path}" "${rvm_rubies_path}"
+  do
+    if
+      [[ -d "${_dir}/$rvm_ruby_string" ]]
+    then
+      __rvm_log_command "remove.${_dir##*/}" \
+        "$rvm_ruby_string - #removing ${_dir##*/}" \
+        __rvm_rm_rf "${_dir}/$rvm_ruby_string" ||
+        return $?
+    else
+      rvm_debug "$rvm_ruby_string - #already removed ${_dir##*/}"
+    fi
+  done
+
+  if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
+  then \rm -f "${rvm_bin_path}/$rvm_ruby_string"
+  fi
+
+  if
+    (( ${rvm_gems_flag:=0} == 1 ))
+  then
+    __rvm_log_command "remove_gemsets" "$rvm_ruby_string - #removing gemsets" \
+      __rvm_remove_gemsets__ ||
+      return $?
+  fi
+}
+
 __rvm_remove_gemsets__()
 {
   typeset gemset
@@ -539,17 +554,6 @@ __rvm_remove_gemsets__()
       return ${__res}
     }
   done
-}
-
-__rvm_remove_gemsets()
-{
-  if
-    (( ${rvm_gems_flag:=0} == 1 ))
-  then
-    __rvm_log_command remove_gemsets "$rvm_ruby_string - #removing gemsets" __rvm_remove_gemsets__ ||
-      return $?
-  fi
-  true # for OSX
 }
 
 __rvm_remove_wrappers()
@@ -596,7 +600,8 @@ __rvm_remove_aliases()
 
 __rvm_remove_archives()
 {
-  if (( ${rvm_archive_flag:=0} == 1 ))
+  if
+    (( ${rvm_archive_flag:=0} == 1 ))
   then
     rvm_log "$rvm_ruby_string - #removing archives"
     \rm -f ${rvm_archives_path}/${rvm_ruby_package_file}.*
