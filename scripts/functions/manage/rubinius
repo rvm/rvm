@@ -40,17 +40,33 @@ rubinius_install_detect_required_ruby()
   ruby="$(__rvm_mri_ruby "$ruby")"
 }
 
-rubinius_install_ensure_wrapper()
+rubinius_install_ensure_gem()
 {
-  typeset __binary=$1
-  shift
-  [[ -x "$rvm_wrappers_path/$ruby/${__binary}" ]] ||
-  {
-    if (( $# ))
-    then __rvm_log_command "install_${__binary}" "$rvm_ruby_string - #install ${__binary}" "$@" || return $?
-    fi
-    gem wrappers regenerate || return $?
-  }
+  __rvm_which "$1" >/dev/null &&
+  [[ -x "$rvm_wrappers_path/$ruby/$1" ]] ||
+  __rvm_log_command "install.${2:-$1}" "$ruby - #install gem ${2:-$1}" gem install ${2:-$1} &&
+  __rvm_which "$1" >/dev/null &&
+  [[ -x "$rvm_wrappers_path/$ruby/$1" ]] ||
+  return $?
+}
+
+rubinius_install_ensure_wrappers()
+{
+  [[ -x "$rvm_wrappers_path/$ruby/ruby" && -x "$rvm_wrappers_path/$ruby/gem" ]] ||
+    __rvm_log_command "gemset.wrappers.rubinius" "$ruby - #generating wrappers" \
+    run_gem_wrappers_regenerate ||
+    return $?
+  rubinius_install_ensure_gem rake || return $?
+  rubinius_install_ensure_gem bundle bundler || return $?
+}
+
+rubinius_install_setup_ruby()
+{
+  if [[ ${rvm_ignore_gemsets_flag:-0} -eq 0 ]]
+  then ruby="${ruby}@rubinius"
+  fi
+  __rvm_with "$ruby" rubinius_install_ensure_wrappers
+  __rvm_osx_ssl_certs_ensure_for_ruby "$rvm_wrappers_path/$ruby/ruby"
 }
 
 rubinius_install()
@@ -69,6 +85,7 @@ rubinius_install()
   __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
   __rvm_remove_rvm_from_path
   __rvm_conditionally_add_bin_path
+  rubinius_install_setup_ruby || return $?
 
   __rvm_fetch_ruby || return $?
 
@@ -95,27 +112,9 @@ rubinius_install()
   (( ${rvm_llvm_flag:=1} )) || rvm_configure_flags+=( --disable-llvm )
 
   if
-    [[ -f "Gemfile" && ${rvm_ignore_gemsets_flag:-0} -eq 0 ]]
-  then
-    ruby="${ruby}@rubinius"
-    (
-      typeset rvm_create_flag=1
-      typeset rvm_internal_use_flag=1
-      typeset rvm_use_flag=0
-      __rvm_use "$ruby"
-    )
-  fi
-  rvm_log "Using $ruby for $rvm_ruby_string installation"
-  rubinius_install_ensure_wrapper ruby
-  __rvm_osx_ssl_certs_ensure_for_ruby "$rvm_wrappers_path/$ruby/ruby"
-  rubinius_install_ensure_wrapper gem
-  rubinius_install_ensure_wrapper rake "$rvm_wrappers_path/$ruby/gem" install rake
-  if
     [[ -f "Gemfile" ]]
   then
-    rubinius_install_ensure_wrapper bundle "$rvm_wrappers_path/$ruby/gem" install bundle
-    __rvm_log_command "bundle" "$rvm_ruby_string - #bundle install" \
-      "${rvm_ruby_make:-}$rvm_wrappers_path/$ruby/bundle" install ||
+    __rvm_log_command "bundle" "$ruby - #bundle install" "$rvm_wrappers_path/$ruby/bundle" install ||
       return $?
   fi
   if
