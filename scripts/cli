@@ -982,26 +982,12 @@ rvm()
       ;;
     try_install|install)
       export rvm_path
-      if [[ -n "${rvm_ruby_strings}" ]]
+      if
+        [[ -n "${rvm_ruby_strings}" ]]
       then
-        typeset save_ruby
-        selected_ruby="$( __rvm_select && echo $rvm_env_string )"
-        if
-          [[ -z "${selected_ruby}" ]]
-        then
-          rvm_error "Could not detect ruby version/name for installation, please be more specific."
-          false #report error
-        elif
-          (( ${rvm_force_flag:-0} == 0 )) &&
-          "$rvm_scripts_path"/list strings | __rvm_grep "^${selected_ruby%${rvm_gemset_separator:-'@'}*}$" > /dev/null
-        then
-          rvm_log "Already installed ${selected_ruby%${rvm_gemset_separator:-'@'}*}.
-To reinstall use:
-
-    rvm reinstall ${rvm_ruby_strings}
-"
-        else
-          __rvm_run_wrapper manage install "${rvm_ruby_strings}"
+        if __rvm_can_install_rubies "${rvm_ruby_strings}"
+        then __rvm_run_wrapper manage install "${rvm_ruby_strings}"
+        else false
         fi
       else
         rvm_error "Can not use or install 'all' rubies."
@@ -1054,12 +1040,13 @@ To reinstall use:
   case "$rvm_action" in
     reinstall|try_install|install)
       if
-        [[ $(__rvm_find $rvm_rubies_path -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l) -eq 1 ]] &&
-        [[ ! -f "${rvm_environments_path}/default" ]] &&
+        [[ -n "${rvm_ruby_string}" ]]
         rvm_is_a_shell_function no_warning
       then
-        rvm_log ""
-        rvm_verbose_flag=0 rvm_default_flag=1 __rvm_use
+        if [[ -f "${rvm_environments_path}/default" ]]
+        then rvm_verbose_flag=0 __rvm_use
+        else rvm_verbose_flag=0 rvm_default_flag=1 __rvm_use
+        fi
       fi
     ;;
   esac
