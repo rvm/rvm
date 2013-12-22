@@ -269,3 +269,58 @@ __rvm_cli_autoreload()
     __rvm_teardown
   fi
 }
+
+__rvm_cli_install_ruby()
+(
+  if
+    [[ -n "$1" ]]
+  then
+    typeset __rubies __installed __missing
+    typeset -a __search
+    __rvm_custom_separated_array __search , "$1"
+    __rubies=""
+    __rvm_cli_rubies_select "$1" || return $?
+    if __rvm_cli_rubies_not_installed
+    then __rvm_run_wrapper manage install "$1" || return $?
+    fi
+  else
+    rvm_error "Can not use or install 'all' rubies."
+    false #report error
+  fi
+)
+
+__rvm_cli_rubies_select()
+{
+  typeset __ruby
+  for __ruby in "${__search[@]}"
+  do
+    rvm_ruby_string="${__ruby}"
+    __rvm_select &&
+    [[ -n "$rvm_ruby_string" ]] &&
+    __rubies+="^$rvm_ruby_string\$|" ||
+    {
+      rvm_error "Could not detect ruby version/name for installation '${__ruby}', please be more specific."
+      return 1
+    }
+  done
+  __rubies="${__rubies%|}"
+}
+
+__rvm_cli_rubies_not_installed()
+{
+  if
+    (( ${rvm_force_flag:-0} == 0 )) &&
+    __installed="$(
+      "$rvm_scripts_path"/list strings | __rvm_grep -E "${__rubies}"
+    )" &&
+    [[ -n "${__installed}" ]]
+  then
+    rvm_warn "Already installed ${__installed//|/,}.
+To reinstall use:
+
+    rvm reinstall ${__installed//|/,}
+"
+    return 2
+  fi
+  true
+}

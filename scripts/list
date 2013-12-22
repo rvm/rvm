@@ -219,27 +219,23 @@ list_strings()
 # This is meant to be used with scripting.
 list_gemset_strings()
 {
-  typeset all_rubies ruby_name gemset gemsets
+  typeset all_rubies ruby_name gemset
 
-  all_rubies="$(list_strings | sort)"
+  all_rubies="$(list_strings | tr "\n" ":")"
 
-  gemsets=($(
-    __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}"
-    __rvm_find . -maxdepth 1 -mindepth 1 -type d 2>/dev/null | \
-      __rvm_xargs -n1 basename -- | \
-      __rvm_grep -v '^\(@\|doc$\|cache$\|system$\)' | sort
-  ))
-
-  for gemset in "${gemsets[@]//.\/}"
+  for gemset in "${rvm_gems_path:-"$rvm_path/gems"}"/*
   do
-    ruby_name="${gemset//${rvm_gemset_separator:-"@"}*}"
-
-    if [[ "$all_rubies" != *"$ruby_name"* ]]
-    then
-      continue
-    fi
-    echo "$gemset"
-  done
+    case "$gemset" in
+      (*/\*|@*|doc|cache|system) continue ;;
+    esac
+    ruby_name="${gemset%%@*}"
+    ruby_name="${ruby_name##*/}"
+    case ":$all_rubies" in
+      (*:${ruby_name}:*) true ;;
+      (*) continue ;;
+    esac
+    echo "${gemset##*/}"
+  done | sort
 
   return 0
 }
