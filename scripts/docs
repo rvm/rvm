@@ -56,22 +56,19 @@ open_docs()
 
 run_rdoc()
 {
-  update_rdoc
-  rdoc "$@" || return $?
+  update_rdoc -V
+  if rdoc -V --help >/dev/null 2>&1
+  then rdoc -V "$@" || return $?
+  else rdoc    "$@" || return $?
+  fi
 }
 
 generate_ri()
 {
   install_ruby_source
-  # Generate ri docs
   (
     __rvm_cd "${rvm_src_path}/$rvm_docs_ruby_string/"
-
-    rvm_log "Generating ri documentation, be aware that this could take a *long* time, and depends heavily on your system resources..."
-
-    rvm_log "( Errors will be logged to ${rvm_log_path}/$rvm_docs_ruby_string/docs.log )"
-
-    run_rdoc -a --ri-site > /dev/null 2>> ${rvm_log_path}/$rvm_docs_ruby_string/docs.log
+    __rvm_log_command "generate_ri" "Generating ri documentation" run_rdoc -a --ri-site
   )
 }
 
@@ -80,22 +77,14 @@ generate_rdoc()
   install_ruby_source
   (
     __rvm_cd "${rvm_src_path}/$rvm_docs_ruby_string/"
-
-    __rvm_rm_rf "${rvm_docs_path:-"$rvm_path/docs"}/$rvm_docs_ruby_string/$rvm_docs_type/"
-
-    rvm_log "Generating rdoc documentation, be aware that this could take a *long* time, and depends heavily on your system resources..."
-
-    rvm_log "( Errors will be logged to ${rvm_log_path}/$rvm_docs_ruby_string/docs.log )"
-
-    if gem list | __rvm_grep ^hanna >/dev/null 2>&1
+    if
+      gem list | __rvm_grep ^hanna >/dev/null 2>&1
     then
-
-      hanna -o "${rvm_docs_path:-"$rvm_path/docs"}/$rvm_docs_ruby_string/$rvm_docs_type" --inline-source --line-numbers --fmt=html > /dev/null 2>> "${rvm_log_path}/$rvm_docs_ruby_string/docs.log"
-
+      __rvm_log_command "generate_hanna" "Generating hanna documentation" \
+        hanna -o "${rvm_docs_path:-"$rvm_path/docs"}/$rvm_docs_ruby_string/$rvm_docs_type" --inline-source --line-numbers --fmt=html
     else
-
-      run_rdoc -a -o "${rvm_docs_path:-"$rvm_path/docs"}/$rvm_docs_ruby_string/$rvm_docs_type" > /dev/null 2>> "${rvm_log_path}/$rvm_docs_ruby_string/docs.log"
-
+      __rvm_log_command "generate_rdoc" "Generating rdoc documentation" \
+        run_rdoc -a -o "${rvm_docs_path:-"$rvm_path/docs"}/$rvm_docs_ruby_string/$rvm_docs_type"
     fi
   )
 }
@@ -106,7 +95,7 @@ update_rdoc()
     (( rdoc_installed == 0 ))
   then
     rdoc_installed=1
-    gem install rdoc
+    gem install "$@" rdoc
   fi
 }
 

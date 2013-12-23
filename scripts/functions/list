@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+# Query for valid rvm ruby strings
+# This is meant to be used with scripting.
+__rvm_list_strings()
+{
+  __rvm_find "$rvm_rubies_path" -mindepth 1 -maxdepth 1 -type d | __rvm_awk -F'/' '{print $NF}'
+}
+
+# This is meant to be used with scripting.
+__rvm_list_gemset_strings()
+{
+  typeset all_rubies ruby_name gemset
+
+  all_rubies="$(__rvm_list_strings | tr "\n" ":")"
+
+  for gemset in "${rvm_gems_path:-"$rvm_path/gems"}"/*
+  do
+    case "$gemset" in
+      (*/\*|@*|doc|cache|system) continue ;;
+    esac
+    ruby_name="${gemset%%@*}"
+    ruby_name="${ruby_name##*/}"
+    case ":$all_rubies" in
+      (*:${ruby_name}:*) true ;;
+      (*) continue ;;
+    esac
+    echo "${gemset##*/}"
+  done | sort
+
+  return 0
+}
+
+# This is meant to be used with scripting.
+__rvm_list_known_strings()
+{
+  __rvm_sed -e 's/#.*$//g' -e 's#\[##g' -e 's#\]##g' < "$rvm_path/config/known" | \
+    sort -r | uniq
+
+  return $?
+}

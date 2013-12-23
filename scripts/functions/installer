@@ -22,9 +22,9 @@ install_rvm()
   __steps=()
 
   load_configuration
-  load_installer
   parse_args "$@"
   setup_installer
+  load_rvm
 
   if (( rvm_user_install_flag == 0 ))
   then __steps+=( system_installation_check setup_rvm_group_and_users )
@@ -127,29 +127,6 @@ load_configuration()
   unset rvm_auto_dotfiles_flag
 }
 
-load_installer()
-{
-  export install_source_path="$0"
-  install_source_path="${install_source_path%/install}"
-  install_source_path="${install_source_path%/scripts}" # install -> scripts/install
-
-  source "$install_source_path/scripts/initialize"
-  source "$install_source_path/scripts/functions/logging"
-  source "$install_source_path/scripts/functions/db"
-  source "$install_source_path/scripts/functions/support"
-  source "$install_source_path/scripts/functions/utility"
-  source "$install_source_path/scripts/functions/cleanup"
-  source "$install_source_path/scripts/functions/autolibs"
-  source "$install_source_path/scripts/functions/group"
-  source "$install_source_path/scripts/version"
-
-  if [[ "$install_source_path/scripts" != "." && "$install_source_path/scripts" != "$PWD" ]]
-  then __rvm_cd "$install_source_path"
-  fi
-
-  true "${source_path:=${PWD%%+(\/)}}"
-}
-
 parse_args()
 {
   true ${DESTDIR:=}
@@ -217,7 +194,7 @@ parse_args()
 
 install_usage()
 {
-  rvm_out "
+  printf "%b" "
   Usage:
 
     ${0} [options]
@@ -270,6 +247,27 @@ setup_installer()
   then upgrade_flag=1
   else upgrade_flag=0
   fi
+}
+
+load_rvm()
+{
+  export install_source_path="$0"
+  install_source_path="${install_source_path%/install}"
+  install_source_path="${install_source_path%/scripts}" # install -> scripts/install
+  typeset save_rvm_scripts_path="$rvm_scripts_path"
+  export rvm_scripts_path="${install_source_path}/scripts"
+
+  source "$rvm_scripts_path/base"
+  source "$rvm_scripts_path/functions/autolibs"
+  source "$rvm_scripts_path/functions/group"
+
+  rvm_scripts_path="$save_rvm_scripts_path"
+
+  if [[ "$install_source_path/scripts" != "." && "$install_source_path/scripts" != "$PWD" ]]
+  then __rvm_cd "$install_source_path"
+  fi
+
+  true "${source_path:=${PWD%%+(\/)}}"
 }
 
 system_installation_check()
@@ -382,7 +380,6 @@ save_custom_flags()
   typeset -a __variables
   __variables=(
     ^rvm_ignore_dotfiles_flag=
-    ^rvm_rubies_path=
   )
   typeset IFS="|"
   set | __rvm_grep -E "${__variables[*]}" > "${rvm_path:-}/user/custom_flags"
@@ -1219,30 +1216,39 @@ migrate_defaults()
 
 migrate_environments_and_wrappers()
 {
-  typeset environment_file wrappers_path new_path gemset_name
+  typeset environment_file wrappers_path new_path ruby_version
 
   for environment_file in "$rvm_path"/environments/*
   do
-    gemset_name="${environment_file##*/}"
-    new_path="$rvm_path/gems/${gemset_name}/environment"
+    ruby_version="${environment_file##*/}"
+    new_path="$rvm_path/gems/${ruby_version}/environment"
     if
       [[ -f "$environment_file" && ! -L "$environment_file" && -d "${new_path%/*}" && ! -e "$new_path" ]]
     then
-      rvm_out "    Migrating environment ${gemset_name} to use with 'gem-wrappers' gem."
+      rvm_out "    Migrating environment ${ruby_version} to use with 'gem-wrappers' gem."
       \mv "$environment_file" "$new_path" && \ln -s "$new_path" "$environment_file"
     fi
   done
 
   for wrappers_path in "$rvm_path"/wrappers/*
   do
-    gemset_name="${wrappers_path##*/}"
-    new_path="$rvm_path/gems/${gemset_name}/wrappers"
+    ruby_version="${wrappers_path##*/}"
+    new_path="$rvm_path/gems/${ruby_version}/wrappers"
     if
       [[ -d "$wrappers_path" && ! -L "$wrappers_path" && -d "${new_path%/*}" && ! -e "$new_path" ]]
     then
-      rvm_out "    Migrating wrappers ${gemset_name} to use with 'gem-wrappers' gem."
+      rvm_out "    Migrating wrappers ${ruby_version} to use with 'gem-wrappers' gem."
       \mv "$wrappers_path" "$new_path" && \ln -snf "$new_path" "$wrappers_path"
     fi
+  done
+
+  grep -rl 'unset GEM_HOME' /home/mpapis/.rvm/gems/*/environment /home/mpapis/.rvm/environments/ 2>/dev/null |
+  while read environment_file
+  do
+    ruby_version="${environment_file%/environment}"
+    ruby_version="${ruby_version##*/}"
+    rvm_out "    Fixing environment for ${ruby_version}."
+    __rvm_with "${ruby_version}" __rvm_ensure_has_environment_files
   done
 }
 

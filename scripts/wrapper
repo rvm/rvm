@@ -42,10 +42,6 @@ __rvm_become "$ruby_string" || {
   exit 3
 }
 
-__rvm_log_command "gemset.wrappers.$ruby_string" \
-  "Regenerating $ruby_string wrappers" \
-  run_gem_wrappers_regenerate 2>/dev/null || true
-
 # strip trailing / so we can use ${...%/*} to get parent
 rvm_bin_path="${rvm_bin_path%/}"
 rvm_wrappers_path="${rvm_wrappers_path%/}"
@@ -58,6 +54,10 @@ then
   exit 4
 fi
 [[ -d "$rvm_bin_path" ]] || mkdir -p "$rvm_bin_path"
+
+__rvm_log_command "gemset.wrappers.$ruby_string" \
+  "Regenerating $ruby_string wrappers" \
+  run_gem_wrappers_regenerate 2>/dev/null || true
 
 __rvm_ensure_has_environment_files
 environment_identifier="$(__rvm_env_string)"
@@ -104,15 +104,20 @@ for binary_name in "${binaries[@]}"
 do
   file_name="$rvm_wrappers_path/${environment_identifier}/${binary_name##*\/}"
   file_name=${file_name// /_}
-  destination=""
   if
-    [[ -f "$file_name" ]]
+    [[ -f "$file_name" || -f "$binary_name" ]]
   then
+    if [[ ! -f "$file_name" && -f "$binary_name" ]]
+    then gem wrappers "$binary_name"
+    fi
     case "${prefix:-}" in
       (--no-prefix) destination="$rvm_bin_path/${binary_name##*\/}" ;;
       ("")          destination="$rvm_bin_path/${binary_name##*\/}-${environment_identifier}" ;;
       (*)           destination="$rvm_bin_path/${prefix}_${binary_name##*\/}" ;;
     esac
+  else
+    rvm_warn "Could not find file '$binary_name' nor '$file_name'."
+    destination=""
   fi
   if
     [[ -n "$destination" ]]
