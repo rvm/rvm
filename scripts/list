@@ -3,14 +3,9 @@
 rvm_base_except="selector"
 
 source "$rvm_scripts_path/base"
+source "$rvm_scripts_path/functions/list"
 
-usage()
-{
-  "${rvm_scripts_path}/help" list "$@"
-  return 0
-}
-
-list_remote()
+__rvm_list_remote()
 {
   is_a_function __list_remote_${1:-rubies}_for || {
     rvm_error "Do not know how to display binary rubies for '${1:-rubies}'."
@@ -56,7 +51,7 @@ list_remote()
   fi
 }
 
-list_detect_arch()
+__rvm_list_detect_arch()
 {
   if
     [[ -d "$rvm_gems_path/${__version}" && ! -d "$rvm_rubies_path/${__version%%@*}" ]]
@@ -86,14 +81,14 @@ list_detect_arch()
   fi
 }
 
-list_show_version_with_arch()
+__rvm_list_show_version_with_arch()
 {
   typeset __arch __prefix __version __suffix
   __prefix="$1"
   __version="$2"
   __suffix="${3:-}"
 
-  list_detect_arch
+  __rvm_list_detect_arch
 
   if rvm_pretty_print stdout
   then __version="${rvm_notify_clr:-}${__version}${rvm_reset_clr:-}"
@@ -101,19 +96,19 @@ list_show_version_with_arch()
   printf "%b" "${__prefix}${__version} [ ${__arch} ]${__suffix}"
 }
 
-list_gemsets()
+__rvm_list_gemsets()
 {
   typeset all_rubies version versions ruby_version_name current_ruby selected system_ruby system_version string binary prefix
 
   if [[ "${1:-""}" == "strings" ]]
   then
-    list_gemset_strings
+    __rvm_list_gemset_strings
     return 0
   fi
 
   current_ruby="$(__rvm_env_string)"
 
-  all_rubies="$(list_strings | sort)"
+  all_rubies="$(__rvm_list_strings | sort)"
 
   printf "%b" "\nrvm gemsets\n"
 
@@ -134,7 +129,7 @@ list_gemsets()
     then prefix="=> "
     else prefix="   "
     fi
-    list_show_version_with_arch "\n${prefix}" "$version"
+    __rvm_list_show_version_with_arch "\n${prefix}" "$version"
   done
 
   if [[ -f "$rvm_path/config/default" && -s "$rvm_path/config/default" ]]
@@ -147,18 +142,18 @@ list_gemsets()
       [[ -n "$version" ]]
     then
       printf "%b" "\nDefault Ruby (for new shells)\n"
-      list_show_version_with_arch "\n  " "$version" "\n"
+      __rvm_list_show_version_with_arch "\n  " "$version" "\n"
     fi
   fi
   printf "%b" "\n\n"
   return 0
 }
 
-list_default()
+__rvm_list_default()
 {
   typeset version string
   if
-    [[ "${args[0]:-""}" == "string" ]]
+    [[ "$1" == "string" ]]
   then
     "$rvm_scripts_path/alias" show default 2>/dev/null |
       __rvm_awk -F"${rvm_gemset_separator:-"@"}" '{print $1}' |
@@ -176,7 +171,7 @@ list_default()
         [[ -n "$version" ]]
       then
         printf "%b" "\nDefault Ruby (for new shells)\n"
-        list_show_version_with_arch "\n   " "$version" "\n"
+        __rvm_list_show_version_with_arch "\n   " "$version" "\n"
       fi
     fi
   fi
@@ -184,7 +179,7 @@ list_default()
   return 0
 }
 
-list_ruby_svn_tags()
+__rvm_list_ruby_svn_tags()
 {
   typeset -a tags
   typeset prefix tag
@@ -207,53 +202,11 @@ list_ruby_svn_tags()
   return 0
 }
 
-# Query for valid rvm ruby strings
-# This is meant to be used with scripting.
-list_strings()
-(
-  __rvm_cd "$rvm_rubies_path" &&
-  __rvm_find . -maxdepth 1 -mindepth 1 -type d | __rvm_sed -e 's#./##g' ||
-  return $?
-)
-
-# This is meant to be used with scripting.
-list_gemset_strings()
-{
-  typeset all_rubies ruby_name gemset
-
-  all_rubies="$(list_strings | tr "\n" ":")"
-
-  for gemset in "${rvm_gems_path:-"$rvm_path/gems"}"/*
-  do
-    case "$gemset" in
-      (*/\*|@*|doc|cache|system) continue ;;
-    esac
-    ruby_name="${gemset%%@*}"
-    ruby_name="${ruby_name##*/}"
-    case ":$all_rubies" in
-      (*:${ruby_name}:*) true ;;
-      (*) continue ;;
-    esac
-    echo "${gemset##*/}"
-  done | sort
-
-  return 0
-}
-
-# This is meant to be used with scripting.
-list_known_strings()
-{
-  __rvm_sed -e 's/#.*$//g' -e 's#\[##g' -e 's#\]##g' < "$rvm_path/config/known" | \
-    sort -r | uniq
-
-  return $?
-}
-
-list_known()
+__rvm_list_known()
 {
   if [[ "${1:-""}" == "strings" ]]
   then
-    list_known_strings
+    __rvm_list_known_strings
     return 0
   fi
 
@@ -267,24 +220,14 @@ list_known()
   return $?
 }
 
-list_rubies_strings()
-{
-  (
-  __rvm_cd "$rvm_rubies_path"
-    __rvm_find -maxdepth 0 -type d | __rvm_tail -n+2 | __rvm_xargs -n1 basename -- |  __rvm_strip
-  )
-
-  return $?
-}
-
-list_rubies()
+__rvm_list_rubies()
 {
   typeset current_ruby rubies version selected system_ruby system_version \
     default_ruby string binary prefix
 
   if [[ "${1:-""}" == "strings" ]]
   then
-    list_rubies_strings
+    __rvm_list_rubies_strings
     return 0
   fi
 
@@ -318,7 +261,7 @@ list_rubies()
     else
       prefix="   "
     fi
-    list_show_version_with_arch "${prefix}" "$version" "\n"
+    __rvm_list_show_version_with_arch "${prefix}" "$version" "\n"
   done
 
   if (( ${#rubies[@]} == 0 ))
@@ -348,24 +291,26 @@ list_rubies()
 # List all rvm installed rubies, default ruby and system ruby.
 # Display the rubies, indicate their architecture and indicate which is currently used.
 # This is not meant to be used with scripting. This is for interactive mode usage only.
-args=($*)
-action="${args[0]:-""}"
-args=${args[@]:1} # Strip trailing / leading / extra spacing.
+__rvm_list()
+{
+  typeset action="${1:-rubies}"
+  shift
 
-case "${action:-rubies}" in
-  -r|--remote|remote) list_remote "${args// /}" ;;
-  known)         list_known           ;;
-  known_strings) list_known_strings   ;;
-  gemsets)       list_gemsets "$args" ;;
-  default)       list_default         ;;
-  rubies)        list_rubies "$args"  ;;
-  strings)       list_strings         ;;
-  ruby_svn_tags) list_ruby_svn_tags   ;;
-  help)          usage                ;;
-  *)
-    rvm_error_help "Unknown action '$action' for 'rvm list'." list $action
-    exit 1
-    ;;
-esac
+  case "${action}" in
+    -r|--remote|remote)
+       __rvm_list_remote "$@"
+       ;;
+    known|known_strings|gemsets|default|rubies|strings|ruby_svn_tags)
+      __rvm_list_${action} "$@"
+      ;;
+    help)
+      rvm_help list "${action}" "$@"
+      ;;
+    *)
+      rvm_error_help "Unknown action '$action' for 'rvm list'." list "${action}" "$@"
+      return 1
+      ;;
+  esac
+}
 
-exit $?
+__rvm_list "$@"
