@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+__rvm_check_default()
+{
+  typeset default_ruby_interpreter current_ruby_interpreter
+  default_ruby_interpreter="$( rvm alias show default 2>/dev/null )"
+  default_ruby_interpreter="${default_ruby_interpreter%%${rvm_gemset_separator:-"@"}*}"
+  current_ruby_interpreter="${rvm_ruby_string%%${rvm_gemset_separator:-"@"}*}"
+  if
+    [[ -n "$current_ruby_interpreter" ]] &&
+    [[ "$current_ruby_interpreter" == "$default_ruby_interpreter" ]]
+  then
+    __rvm_log_command 'default.restore' "$rvm_ruby_string - #removing default ruby interpreter" \
+      rvm use system --default
+  fi
+}
+
+__rvm_remove_ruby()
+{
+  case "${rvm_ruby_string:-}" in
+    (*@*)
+      rvm_error "'rvm remove' does not work with gemsets, use '--gems' to remove all gemsets or
+'rvm ${rvm_ruby_string%@*} do rvm gemset remove ${rvm_ruby_string#*@}' to remove the '${rvm_ruby_string#*@}' gemset."
+      return 1
+      ;;
+  esac
+  (( ${rvm_ruby_selected_flag:=0} )) || __rvm_select
+  [[ -n "${rvm_ruby_string:-}"    ]] ||
+  {
+    rvm_error "Cannot ${1:-remove} unknown package '$rvm_ruby_string'"
+    return 1
+  }
+
+  __rvm_remove_install_record "$rvm_ruby_string"
+  case "${1:-remove}" in
+    (remove)
+      __rvm_remove_src_and_ruby
+      __rvm_remove_archives
+      __rvm_remove_aliases
+      __rvm_remove_wrappers
+      __rvm_remove_environments
+      __rvm_remove_binaries
+      ;;
+    (uninstall)
+      __rvm_remove_src_and_ruby
+      __rvm_check_default
+      ;;
+    (reinstall)
+      __rvm_remove_src_and_ruby
+      ;;
+  esac
+  unset rvm_remove_flag
+}
+
+__rvm_remove_src_and_ruby()
+{
+  typeset _dir
+  for _dir in "${rvm_src_path}" "${rvm_rubies_path}"
+  do
+    if
+      [[ -d "${_dir}/$rvm_ruby_string" ]]
+    then
+      __rvm_log_command "remove.${_dir##*/}" \
+        "$rvm_ruby_string - #removing ${_dir##*/}" \
+        __rvm_rm_rf "${_dir}/$rvm_ruby_string" ||
+        return $?
+    else
+      rvm_debug "$rvm_ruby_string - #already removed ${_dir##*/}"
+    fi
+  done
+
+  if [[ -e "${rvm_bin_path}/$rvm_ruby_string" ]]
+  then \rm -f "${rvm_bin_path}/$rvm_ruby_string"
+  fi
+
+  if
+    (( ${rvm_gems_flag:=0} == 1 ))
+  then
+    __rvm_log_command "remove_gemsets" "$rvm_ruby_string - #removing gemsets" \
+      __rvm_remove_gemsets__ ||
+      return $?
+  fi
+}
+
+__rvm_remove_gemsets__()
+{
+  typeset gemset
+  typeset -a gemsets
+  __rvm_read_lines gemsets <(
+    __rvm_find -L "${rvm_gems_path:-"$rvm_path/gems"}" -maxdepth 1 \
+      "${name_opt}" "${rvm_ruby_string}" -o \
+      "${name_opt}" "${rvm_ruby_string}@*"
+  )
+  for gemset in "${gemsets[@]}"
+  do
+    printf "Removing $gemset - "
+    __rvm_rm_rf "$gemset" && printf "ok\n" ||
+    {
+      typeset __res=$?
+      echo "failed\n"
+      return ${__res}
+    }
+  done
+}
+
+__rvm_remove_wrappers()
+{
+  rvm_log "$rvm_ruby_string - #removing wrappers"
+  typeset -a wrappers
+  typeset wrapper
+
+  __rvm_read_lines wrappers <(
+    __rvm_find "$rvm_wrappers_path" -maxdepth 1 -mindepth 1 -type d -o -type l "${name_opt}" "*$rvm_ruby_string*" 2>/dev/null
+    __rvm_find "$rvm_bin_path" -maxdepth 1 -mindepth 1 "${name_opt}" "*-$rvm_ruby_string" 2>/dev/null
+  )
+  for wrapper in "${wrappers[@]}"
+  do
+    __rvm_rm_rf "$wrapper"
+  done
+}
+
+__rvm_remove_environments()
+{
+  rvm_log "$rvm_ruby_string - #removing environments"
+  typeset environments environment
+
+  for environment in "$rvm_environments_path/$rvm_ruby_string" "$rvm_environments_path/$rvm_ruby_string"@*
+  do
+    if [[ -e "$environment" || -L "$environment" ]]
+    then __rvm_rm_rf "$environment"
+    fi
+  done
+}
+
+__rvm_remove_aliases()
+{
+  rvm_log "$rvm_ruby_string - #removing aliases"
+  typeset alias_name aliases
+
+  aliases=($(__rvm_awk '/'$rvm_ruby_string'/{print}' "$rvm_path/config/alias" | __rvm_sed 's/=.*//'))
+  for alias_name in "${aliases[@]}"
+  do
+    # Remove from alias key-value store
+    "$rvm_scripts_path/alias" delete "$alias_name" >/dev/null 2>&1
+  done
+}
+
+__rvm_remove_archives()
+{
+  if
+    (( ${rvm_archive_flag:=0} == 1 ))
+  then
+    rvm_log "$rvm_ruby_string - #removing archives"
+    \rm -f ${rvm_archives_path}/${rvm_ruby_package_file}.*
+  fi
+}
+
+# Iterate over all binaries and check for symlinked wrappers etc.
+__rvm_remove_binaries()
+{
+  rvm_log "$rvm_ruby_string - #removing binaries"
+  typeset _binary_path
+  typeset -a _binaries
+
+  __rvm_read_lines _binaries <(
+    __rvm_find "${rvm_bin_path:-$rvm_path/bin}" -maxdepth 1 -mindepth 1 "${name_opt}" "*$rvm_ruby_string" -or "${name_opt}" "*$rvm_ruby_string@*"
+  )
+  for _binary_path in "${_binaries[@]}"
+  do
+    \rm -f "${_binary_path}"
+  done
+}
