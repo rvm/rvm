@@ -90,9 +90,30 @@ migrate_rubies_checks()
     die_with_error "Ruby '$expanded_destination' is not installed - please install it first."
   fi
 
+  migrate_rubies_checks_required_space
+
   echo "Are you sure you wish to MOVE gems from $expanded_source to $expanded_destination?"
 
   confirm "This will overwrite existing gems in $expanded_destination and remove them from $expanded_source" || return 1
+}
+
+migrate_rubies_checks_required_space()
+{
+  typeset __used_space __free_space
+  __rvm_calculate_space_free "${rvm_gems_path}"
+  __rvm_calculate_space_used "$rvm_gems_path/$expanded_source"{,@*}
+
+  if
+    (( __used_space > __free_space ))
+  then
+    die_with_error "Not enough space (${__free_space}MB) to copy gemsets (${__used_space}MB)."
+  elif
+    (( __used_space*12 > __free_space*10 )) # 20% check
+  then
+    rvm_warn "You are running low on disk space ${__free_space}MB, required ${__used_space}MB."
+  else
+    rvm_log "Free disk space ${__free_space}MB, required ${__used_space}MB."
+  fi
 }
 
 __migrate_gemset()
@@ -100,7 +121,7 @@ __migrate_gemset()
   \mkdir -p "${rvm_gems_path:-"$rvm_path/gems"}/$2"/  &&
   \rm -rfv  "${rvm_gems_path:-"$rvm_path/gems"}/$2"/* &&
   \cp -rv "${rvm_gems_path:-"$rvm_path/gems"}/$1"/* "${rvm_gems_path:-"$rvm_path/gems"}/$2"/ &&
-  __rvm_with "$2" gemset_reset_env
+  gemset_reset_env "$2"
 }
 
 migrate_rubies_gemsets()
@@ -134,6 +155,12 @@ migrate_rubies_gemsets()
   done
 }
 
+migrate_rubies_alias()
+{
+  "$rvm_scripts_path/alias" delete "$migrate_alias_name"
+  "$rvm_scripts_path/alias" create "$migrate_alias_name" "$migrate_new_alias_name"
+}
+
 migrate_rubies_aliases()
 {
   __rvm_read_lines alias_pairs < "$rvm_path/config/alias"
@@ -159,11 +186,12 @@ migrate_rubies_aliases()
     do
       migrate_alias_name="${alias_pair#*=}"
       migrate_new_alias_name="${alias_pair%%=*}"
-      echo "Updating alias $migrate_alias_name to point to $migrate_new_alias_name"
-      "$rvm_scripts_path/alias" delete "$migrate_alias_name" >/dev/null 2>&1
-      "$rvm_scripts_path/alias" create "$migrate_alias_name" "$migrate_new_alias_name" >/dev/null 2>&1
+      __rvm_log_command "migrate.alias.$migrate_alias_name" \
+        "Updating alias $migrate_alias_name to point to $migrate_new_alias_name" \
+        migrate_rubies_alias
     done
   fi
+  true
 }
 
 migrate_rubies_wrappers()

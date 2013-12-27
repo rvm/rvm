@@ -362,9 +362,19 @@ __rvm_select_interpreter_jamesgolick()
 
 __rvm_select_interpreter_ruby()
 {
-  if [[ -n "${rvm_ruby_patch_level}" ]]
-  then rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
-  else rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+  if
+    [[ -n "${rvm_ruby_patch_level}" ]]
+  then
+    if
+      [[ "${rvm_ruby_patch_level}" == "p0" ]] &&
+      __rvm_version_compare "${rvm_ruby_version}" -ge 2.1.0
+    then
+      rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
+    else
+      rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}-${rvm_ruby_patch_level}"
+    fi
+  else
+    rvm_ruby_package_name="${rvm_ruby_interpreter}-${rvm_ruby_version}"
   fi
   rvm_ruby_package_file="${rvm_ruby_package_name}"
   if
@@ -601,19 +611,7 @@ __rvm_use()
       fi
     fi
 
-    if
-      [[ ! -d "$rvm_ruby_gem_home" || -n "${rvm_expected_gemset_name}" ]]
-    then
-      if
-        (( ${rvm_gemset_create_on_use_flag:=0} == 1 || ${rvm_create_flag:=0} == 1 ))
-      then
-        rvm_warn "gemset $rvm_gemset_name is not existing, creating."
-        gemset_create "$rvm_gemset_name"
-      else
-        rvm_error "Gemset '${rvm_expected_gemset_name}' does not exist, 'rvm $rvm_ruby_string do rvm gemset create ${rvm_expected_gemset_name}' first, or append '--create'."
-        return 2
-      fi
-    fi
+    __rvm_gemset_use_ensure || return $?
 
     export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
     GEM_HOME="$rvm_ruby_gem_home"
