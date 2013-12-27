@@ -90,9 +90,30 @@ migrate_rubies_checks()
     die_with_error "Ruby '$expanded_destination' is not installed - please install it first."
   fi
 
+  migrate_rubies_checks_required_space
+
   echo "Are you sure you wish to MOVE gems from $expanded_source to $expanded_destination?"
 
   confirm "This will overwrite existing gems in $expanded_destination and remove them from $expanded_source" || return 1
+}
+
+migrate_rubies_checks_required_space()
+{
+  typeset __used_space __free_space
+  __rvm_calculate_space_free "${rvm_gems_path}"
+  __rvm_calculate_space_used "$rvm_gems_path/$expanded_source"{,@*}
+
+  if
+    (( __used_space > __free_space ))
+  then
+    die_with_error "Not enough space (${__free_space}MB) to copy gemsets (${__used_space}MB)."
+  elif
+    (( __used_space*12 > __free_space*10 )) # 20% check
+  then
+    rvm_warn "You are running low on disk space ${__free_space}MB, required ${__used_space}MB."
+  else
+    rvm_log "Free disk space ${__free_space}MB, required ${__used_space}MB."
+  fi
 }
 
 __migrate_gemset()
