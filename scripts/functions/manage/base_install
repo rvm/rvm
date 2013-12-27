@@ -246,6 +246,7 @@ Continuing with compilation. Please read 'rvm help mount' to get more informatio
       rvm_log "Found remote file ${__rvm_ruby_url}"
       __rvm_setup_compile_environment_setup
       __rvm_setup_compile_environment_requirements "${rvm_ruby_string}" || return 1
+      __rvm_check_available_space "${rvm_ruby_string}"
       if
         rvm_verify_downloads_flag=${__rvm_ruby_verify_download_flag} rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "${__rvm_ruby_url}" "${rvm_ruby_string}"
       then
@@ -257,6 +258,74 @@ Continuing with compilation. Please read 'rvm help mount' to get more informatio
     fi
   fi
   return 2 # continue with compilation
+}
+
+__rvm_check_available_space()
+{
+  typeset __required_space __free_space __i_have_no_idea
+  __rvm_calculate_space_free "${rvm_rubies_path}"
+
+  __i_have_no_idea=0
+  case "$1" in
+    # this should be enough for binary only version, including package file
+    (jruby*)         __required_space=50  ;;
+    (ree-*)          __required_space=70  ;;
+    (rbx*|rubinius*) __required_space=170 ;;
+    (ruby-1.8.5*)    __required_space=20  ;;
+    (ruby-1.8.6*)    __required_space=20  ;;
+    (ruby-1.8.7*)    __required_space=25  ;;
+    (ruby-1.9.1*)    __required_space=60  ;;
+    (ruby-1.9.2*)    __required_space=60  ;;
+    (ruby-1.9.3*)    __required_space=70  ;;
+    (ruby-2.0.0*)    __required_space=90  ;;
+    (ruby-head*)     __required_space=130 ;;
+    (ruby*)          __required_space=100 ;; #2.1.0+
+    (*)
+      __required_space=50
+      __i_have_no_idea=1
+      rvm_warn "RVM does not have perdiction for required space for $1, assuming ${__required_space}MB should be enough, let us know if it was not."
+      ;;
+  esac
+
+  if
+    [[ "${2:-}" == "sources" ]]
+  then
+    # this adds sources and repository size to the installed size, even if we would remove sources
+    # after installation we still need them during installation so it's needed to add it
+    case "$1" in
+      (jruby*)         let __required_space+=230 ;;
+      (rbx*|rubinius*) let __required_space+=600 ;;
+      (ree-1.8.6*)     let __required_space+=40  ;;
+      (ree-1.8.7*)     let __required_space+=130 ;;
+      (ruby-1.8.5*)    let __required_space+=35  ;;
+      (ruby-1.8.6*)    let __required_space+=40  ;;
+      (ruby-1.8.7*)    let __required_space+=40  ;;
+      (ruby-1.9.1*)    let __required_space+=120 ;;
+      (ruby-1.9.2*)    let __required_space+=160 ;;
+      (ruby-1.9.3*)    let __required_space+=170 ;;
+      (ruby-2.0.0*)    let __required_space+=300 ;;
+      (ruby-head*)     let __required_space+=560 ;;
+      (ruby-*)         let __required_space+=340 ;; # 2.1.0+
+      (*)              let __required_space+=100 ;;
+    esac
+  fi
+
+  if (( __i_have_no_idea ))
+  then rvm_warn "RVM does not have prediction for required space for $1, assuming ${__required_space}MB should be enough, let us know if it was not."
+  fi
+
+  if
+    (( __required_space > __free_space ))
+  then
+    rvm_error "Not enough space (${__free_space}MB) to install ruby (${__required_space}MB)."
+    return 1
+  elif
+    (( __required_space*12 > __free_space*10 )) # 20% check
+  then
+    rvm_warn "You are running low on disk space ${__free_space}MB, required ${__required_space}MB."
+  else
+    rvm_debug "Free disk space ${__free_space}MB, required ${__required_space}MB."
+  fi
 }
 
 __rvm_install_ruby()
@@ -305,6 +374,7 @@ https://rvm.io/rubies/named/
   else (( $? == 2 )) || return 1 # 2 => continue with compilation
   fi
 
+  __rvm_check_available_space "${rvm_ruby_string}" sources || return $?
   __rvm_check_for_compiler || return $?
 
   case "${rvm_ruby_interpreter}" in
@@ -316,9 +386,11 @@ https://rvm.io/rubies/named/
     kiji|tcs|jamesgolick) ruby_install_type=ruby     ;;
     default)
       rvm_error "a ruby interpreter to install must be specified and not simply 'default'."
+      return 1
       ;;
     *)
       rvm_error "Either the ruby interpreter is unknown or there was an error!."
+      return 1
       ;;
   esac
 
