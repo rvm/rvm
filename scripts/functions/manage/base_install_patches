@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+
+# Emits a number of patches to STDOUT, each on a new line
+# Expands patchsets etc.
+#TODO: Lookup default patches on rvm_ruby_string heirarchy.
+__rvm_current_patch_names()
+{
+  typeset -a expanded_names
+  typeset _variable patch_level_separator level name expanded_name
+  _variable="${1:-}"
+  # Need variable for ${x%...}
+  patch_level_separator="%"
+  for name in "${rvm_patch_names[@]}" default ${_system_name_lowercase}
+  do
+    [[ -n "${name:-}" ]] || continue
+
+    if __rvm_string_match "${name}" "*${patch_level_separator}*"
+    then level="${name##*${patch_level_separator}}"
+    else level=1
+    fi
+
+    name="${name%${patch_level_separator}*}"
+    __rvm_read_lines expanded_names <( __rvm_expand_patch_name "$name" "$level" )
+
+    rvm_debug "Patch name '$name', expanded_name(s) '${expanded_names[*]}'."
+
+    for expanded_name in "${expanded_names[@]}"
+    do
+      [[ -z "${expanded_name}" ]] || eval "${_variable}+=( \"\${expanded_name}\" )"
+    done
+  done
+}
+
+__rvm_apply_patches()
+{
+  typeset patch_name patch_level_separator patch_fuzziness patch_level source_directory full_patch_path _save_dir
+  typeset -a patches
+  patches=()
+  patch_level_separator="%"
+  patch_fuzziness="25" # max fuziness that makes sense is 3 (or there are patches with bigger context ?)
+  result=0
+  source_directory="${1:-"${rvm_src_path}/$rvm_ruby_string"}"
+  (( $# == 0 )) || shift
+
+  _save_dir="$PWD"
+  __rvm_cd "$source_directory"
+  case "${1:-all}" in
+    (all) __rvm_current_patch_names patches ;;
+    (*) patches=( "$@" ) ;;
+  esac
+  rvm_debug "All found patches(${#patches[*]}): ${patches[*]}."
+
+  if
+    [[ -n "${rvm_ruby_name:-${detected_rvm_ruby_name:-}}" ]] &&
+    [[ "${rvm_configure_flags[*]}${patches[*]}" == "" ]]
+  then
+    rvm_error "\
+Warning: Installing named ruby without patches, you might need to consider adding extra flags/patches like:
+    --patch falcon
+    --patch railsexpress
+    --patch float_warnings
+Options starting: '--with*' '--disable*' '--enable*' are passed to rubys './configure', also anything after '--'."
+  fi
+
+  for patch_name in "${patches[@]}"
+  do
+    if __rvm_string_match "${patch_name}" "*${patch_level_separator}*"
+    then patch_level="${patch_name##*${patch_level_separator}}"
+    else patch_level=1
+    fi
+    patch_name="${patch_name%${patch_level_separator}*}"
+
+    full_patch_path="$(__rvm_lookup_full_patch_path "$patch_name")"
+    rvm_debug "Patch full path '$full_patch_path'."
+    if
+      [[ -z "${full_patch_path:-}" ]]
+    then
+      rvm_warn "Patch '$patch_name' not found."
+      result=1
+    elif
+      ! __rvm_apply_patch "${patch_name}" "$full_patch_path" "$patch_fuzziness" "$patch_level"
+    then
+      result=1
+    fi
+  done
+  __rvm_cd "${_save_dir}"
+  return ${result:-0}
+}
+
+__rvm_apply_patch_prepare()
+{
+  if
+    __rvm_string_match "${_full_patch_path}" "http://*" "https://*"
+  then
+    _local_patch_path="$(
+      mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX
+    )"
+    rvm_log "Fetching patch ${_full_patch_path}"
+    __rvm_curl --create-dirs -sS -C - -o "${_local_patch_path}" "${_full_patch_path}"
+  else
+    _local_patch_path="${_full_patch_path}"
+  fi
+}
+
+__rvm_apply_patch_remove()
+{
+  if
+    __rvm_string_match "${_full_patch_path}" "http://*" "https://*"
+  then
+    \rm -f "${_local_patch_path}"
+  fi
+}
+
+__rvm_apply_patch()
+{
+  typeset _patch_name _full_patch_path _local_patch_path _patch_fuzziness _patch_level
+  _patch_name="$1"
+  _full_patch_path="$2"
+  _patch_fuzziness="$3"
+  _patch_level="$4"
+
+  if
+    [[ -r "patches.list" ]] &&
+    __rvm_grep "${_patch_name}" "patches.list" >/dev/null
+  then
+    rvm_warn "Patch ${_patch_name} was already applied."
+  else
+    __rvm_apply_patch_prepare
+    touch "patches.list"
+    __rvm_log_command "patch.apply.${_patch_name##*\/}" "$rvm_ruby_string - #applying patch ${_full_patch_path}" \
+      __rvm_patch -F ${_patch_fuzziness} -p${_patch_level} -N -f -i "${_local_patch_path}" &&
+    printf "%b" "${_patch_name}\n" >> "patches.list"
+    __rvm_apply_patch_remove
+  fi
+}
