@@ -1,0 +1,414 @@
+#!/usr/bin/env bash
+
+__rvm_install_source()
+{
+  true ${rvm_ruby_selected_flag:=0}
+
+  typeset directory db_configure_flags
+  typeset -a autoconf_flags
+
+  (( rvm_ruby_selected_flag )) || __rvm_select
+
+  if [[ -n "${DYLD_LIBRARY_PATH:-}" ]]
+  then rvm_error "Warning: DYLD_LIBRARY_PATH environment variable is set, this might interact with the compilation and ruby."
+  fi
+
+  rvm_log "Installing Ruby from source to: $rvm_ruby_home, this may take a while depending on your cpu(s)..."
+  __rvm_cd "${rvm_src_path}"
+
+  __rvm_fetch_ruby ||
+  {
+    result=$?
+    rvm_error "There has been an error fetching the ruby interpreter. Halting the installation."
+    return $result
+  }
+
+  __rvm_cd "${rvm_src_path}/$rvm_ruby_string" ||
+  {
+    result=$?
+    rvm_error "Source directory is missing.  \nDid the download or extraction fail?  \nHalting the installation."
+    return $result
+  }
+
+  if
+    [[ -d "${rvm_path}/usr" ]]
+  then
+    __rvm_add_to_path prepend "${rvm_path}/usr/bin"
+    builtin hash -r
+  fi
+
+  __rvm_apply_patches ||
+  {
+    result="$?"
+    rvm_error "There has been an error applying the specified patches. Halting the installation."
+    return $result
+  }
+
+  if
+    (( ${rvm_force_autoconf_flag:-0} == 1 )) || {
+      [[ -z "${rvm_ruby_configure:-}" ]] &&
+      [[ ! -s "${rvm_src_path}/$rvm_ruby_string/configure" ||
+        "${rvm_src_path}/$rvm_ruby_string/configure.in" -nt "${rvm_src_path}/$rvm_ruby_string/configure"
+      ]]
+    }
+  then
+    (( ${rvm_force_autoconf_flag:-0} == 1 )) &&
+      autoconf_flags+=( -f )
+    __rvm_log_command "autoreconf" "$rvm_ruby_string - #autoreconf${autoconf_flags:-}" __rvm_autoreconf "${autoconf_flags[@]}"
+  fi
+
+  if
+    [[ -n "${rvm_ruby_configure:-""}" ]]
+  then
+    __rvm_log_command "configure" "$rvm_ruby_string - #configuring" "$rvm_ruby_configure" ||
+    {
+      result=$?
+      rvm_error "There has been an error while configuring. Halting the installation."
+      return $result
+    }
+  elif
+    [[ -s ./configure ]]
+  then
+    rvm_configure_flags=( --prefix="$rvm_ruby_home"  "${rvm_configure_flags[@]}" )
+
+    __rvm_db "${rvm_ruby_interpreter}_configure_flags" db_configure_flags
+    if [[ -n "${ZSH_VERSION:-}" ]]
+    then rvm_configure_flags=( ${=db_configure_flags} "${rvm_configure_flags[@]}" )
+    else rvm_configure_flags=( ${db_configure_flags}  "${rvm_configure_flags[@]}" )
+    fi
+    __rvm_array_prepend_or_ignore rvm_configure_env   CFLAGS= " " "-O3" "-O"
+    __rvm_array_prepend_or_ignore rvm_configure_env  CCFLAGS= " " "-O3" "-O"
+    __rvm_array_prepend_or_ignore rvm_configure_env CXXFLAGS= " " "-O3" "-O"
+    __rvm_log_command "configure" "$rvm_ruby_string - #configuring" \
+      "${rvm_configure_env[@]}" ./configure "${rvm_configure_flags[@]}" ||
+    {
+      result=$?
+      rvm_error "There has been an error while running configure. Halting the installation."
+      return $result
+    }
+  else
+    rvm_error "Skipping configure step, 'configure' does not exist, did autoreconf not run successfully?"
+  fi
+
+  if
+    is_a_function __rvm_post_configure_${rvm_ruby_interpreter}
+  then
+    __rvm_log_command "postconfigure" "$rvm_ruby_string - #post-configuration" \
+      __rvm_post_configure_${rvm_ruby_interpreter}
+  fi
+
+  __rvm_log_command "make" "$rvm_ruby_string - #compiling" ${rvm_ruby_make:-__rvm_make} "${rvm_make_flags[@]}" ||
+  {
+    result=$?
+    rvm_error "There has been an error while running make. Halting the installation."
+    return $result
+  }
+
+  __rvm_rm_rf "$PWD/.ext/rdoc" # WTF?
+
+  rvm_ruby_make_install=${rvm_ruby_make_install:-"__rvm_make install"}
+
+  __rvm_run "install" "$rvm_ruby_make_install" "$rvm_ruby_string - #installing" ||
+  {
+    result=$?
+    rvm_error "There has been an error while running make install. Halting the installation."
+    return $result
+  }
+
+  if [[ -s "${rvm_src_path}/$rvm_ruby_string/patches.list" ]]
+  then __rvm_cp -f "${rvm_src_path}/$rvm_ruby_string/patches.list" "$rvm_ruby_home/patches.list"
+  fi
+
+  case "${rvm_ruby_string:-""}" in
+    ruby-1.8.4|ruby-1.8.5-*)
+      typeset libdir
+      libdir="$rvm_ruby_home/lib"
+      if
+        [[ -d "${libdir}64" ]]
+      then
+        \rm -rf "${libdir}"
+        ln -s "${libdir}64" "${libdir}"
+      fi
+    ;;
+  esac
+
+  case " ${rvm_configure_flags[*]} " in
+    (*[[:space:]]--program-suffix=*)
+      typeset program_suffix
+      program_suffix="${rvm_configure_flags[*]}"
+      program_suffix="${program_suffix#*--program-suffix=}"
+      program_suffix="${program_suffix%%[\' ]*}"
+      __rvm_log_command "link.ruby" "$rvm_ruby_string - #linking ruby${program_suffix} -> ruby " \
+        ln -s "$rvm_ruby_home/bin/ruby${program_suffix}" "$rvm_ruby_home/bin/ruby"
+      ;;
+  esac
+
+  __rvm_initial_gemsets_create "$rvm_ruby_home/bin/ruby" &&
+  __rvm_post_install &&
+  __rvm_fetch_ruby_cleanup ||
+  return $?
+
+  rvm_log "Install of $rvm_ruby_string - #complete "
+}
+
+__rvm_post_install()
+{
+  case "$rvm_ruby_interpreter" in
+  (jruby|ree|rbx|mruby|macruby) true ;; #skip
+  (*)
+    (( ${#binaries[@]} )) || binaries=(gem irb erb ri rdoc testrb rake)
+    ;;
+  esac
+
+  if
+    (( ${#binaries[@]} ))
+  then
+    rvm_log "$rvm_ruby_string - #adjusting #shebangs for (${binaries[@]})."
+    for binary in "${binaries[@]}"
+    do
+      if
+        [[ -e "$rvm_ruby_home/bin/$binary" || -e "${rvm_src_path}/$rvm_ruby_string/bin/$binary" ]]
+      then
+        if
+          [[ "${rvm_src_path}/$rvm_ruby_string" != "$rvm_ruby_home" ]] &&
+          [[ -f "${rvm_src_path}/$rvm_ruby_string/bin/$binary" && ! -L "$rvm_ruby_home/bin/$binary" ]]
+        then
+          __rvm_cp -f "${rvm_src_path}/$rvm_ruby_string/bin/$binary" "$rvm_ruby_home/bin/$binary"
+        elif
+          [[ -f "$rvm_ruby_gem_home/bin/$binary" ]]
+        then
+          __rvm_cp -f "$rvm_ruby_gem_home/bin/$binary" "$rvm_ruby_home/bin/$binary"
+        fi
+        __rvm_inject_ruby_shebang "$rvm_ruby_home/bin/$binary"
+        [[ -x "$rvm_ruby_home/bin/$binary" ]] || chmod +x "$rvm_ruby_home/bin/$binary"
+      fi
+    done
+  fi
+  binaries=(gem irb erb ri rdoc testrb rake) #reset
+  __rvm_irbrc
+}
+
+__rvm_inject_ruby_shebang()
+{
+  typeset actual_file="$1"
+  __rvm_readlink_deep actual_file
+  if
+    [[ -f "$actual_file" ]]
+  then
+    __rvm_sed_i "${actual_file}" -e '1,1s=.*=#!'"/usr/bin/env ruby="
+    [[ -x "$actual_file" ]] || chmod +x "$actual_file"
+  fi
+}
+
+__rvm_old_ruby()
+{
+  case "$1" in
+    (ree*|ruby-1.8*|ruby-1.9.1*|ruby-1.9.2*) return 0 ;;
+    (*) return 1 ;;
+  esac
+}
+
+__rvm_install_ruby_try_remote()
+{
+  : rvm_disable_binary_flag:${rvm_disable_binary_flag:=0}: rvm_remote_flag:${rvm_remote_flag:=0}:
+  if
+    (( rvm_remote_flag > 0 )) || # remote flag wins!
+    (( rvm_head_flag == 0 && rvm_disable_binary_flag == 0 )) # not a head and disabled binary
+  then
+    rvm_log "Searching for binary rubies, this might take some time."
+    typeset __rvm_ruby_url __rvm_ruby_verify_download_flag
+    __rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}" )"
+    IFS=: read __rvm_ruby_verify_download_flag __rvm_ruby_url <<<"${__rvm_ruby_url}"
+    if
+      (( ${rvm_verify_downloads_flag:-1} > ${__rvm_ruby_verify_download_flag:=0} ))
+    then
+      __rvm_ruby_verify_download_flag=${rvm_verify_downloads_flag}
+    fi
+    if
+      [[ -z "${__rvm_ruby_url}" ]]
+    then
+      if
+        (( rvm_remote_flag ))
+      then
+        rvm_error "Requested binary installation but no rubies are available to download, consider skipping --binary flag."
+        return 1
+      elif
+        __rvm_old_ruby "${rvm_ruby_string}"
+      then
+        rvm_log "No binary rubies available for: $(__rvm_system_path -)/${rvm_ruby_string}.
+It is not possible to build movable binaries for rubies 1.8-1.9.2, but you can do it for your system only.
+Continuing with compilation. Please read 'rvm help mount' to get more information on binary rubies."
+      else
+        rvm_warn "No binary rubies available for: $(__rvm_system_path -)/${rvm_ruby_string}.
+Continuing with compilation. Please read 'rvm help mount' to get more information on binary rubies."
+      fi
+    else
+      rvm_log "Found remote file ${__rvm_ruby_url}"
+      __rvm_setup_compile_environment_setup
+      __rvm_setup_compile_environment_requirements "${rvm_ruby_string}" || return 1
+      __rvm_check_available_space "${rvm_ruby_string}"
+      if
+        rvm_verify_downloads_flag=${__rvm_ruby_verify_download_flag} rvm_remote_flag=1 "${rvm_scripts_path}/external" mount "${__rvm_ruby_url}" "${rvm_ruby_string}"
+      then
+        return 0
+      else
+        __rvm_rm_rf "$rvm_rubies_path/$rvm_ruby_string" # cleanup so standard installation works
+        rvm_warn "Mounting remote ruby failed, trying to compile."
+      fi
+    fi
+  fi
+  return 2 # continue with compilation
+}
+
+__rvm_check_available_space()
+{
+  typeset __required_space __free_space __i_have_no_idea
+  __rvm_calculate_space_free "${rvm_rubies_path}"
+
+  __i_have_no_idea=0
+  case "$1" in
+    # this should be enough for binary only version, including package file
+    (jruby*)         __required_space=50  ;;
+    (ree-*)          __required_space=70  ;;
+    (rbx*|rubinius*) __required_space=170 ;;
+    (ruby-1.8.5*)    __required_space=20  ;;
+    (ruby-1.8.6*)    __required_space=20  ;;
+    (ruby-1.8.7*)    __required_space=25  ;;
+    (ruby-1.9.1*)    __required_space=60  ;;
+    (ruby-1.9.2*)    __required_space=60  ;;
+    (ruby-1.9.3*)    __required_space=70  ;;
+    (ruby-2.0.0*)    __required_space=90  ;;
+    (ruby-head*)     __required_space=130 ;;
+    (ruby*)          __required_space=100 ;; #2.1.0+
+    (*)
+      __required_space=50
+      __i_have_no_idea=1
+      ;;
+  esac
+
+  if
+    [[ "${2:-}" == "sources" ]]
+  then
+    # this adds sources and repository size to the installed size, even if we would remove sources
+    # after installation we still need them during installation so it's needed to add it
+    case "$1" in
+      (jruby*)         let __required_space+=230 ;;
+      (rbx*|rubinius*) let __required_space+=600 ;;
+      (ree-1.8.6*)     let __required_space+=40  ;;
+      (ree-1.8.7*)     let __required_space+=130 ;;
+      (ruby-1.8.5*)    let __required_space+=35  ;;
+      (ruby-1.8.6*)    let __required_space+=40  ;;
+      (ruby-1.8.7*)    let __required_space+=40  ;;
+      (ruby-1.9.1*)    let __required_space+=120 ;;
+      (ruby-1.9.2*)    let __required_space+=160 ;;
+      (ruby-1.9.3*)    let __required_space+=170 ;;
+      (ruby-2.0.0*)    let __required_space+=300 ;;
+      (ruby-head*)     let __required_space+=560 ;;
+      (ruby-*)         let __required_space+=340 ;; # 2.1.0+
+      (*)              let __required_space+=100 ;;
+    esac
+  fi
+
+  if (( __i_have_no_idea ))
+  then rvm_warn "RVM does not have prediction for required space for $1, assuming ${__required_space}MB should be enough, let us know if it was not."
+  fi
+
+  if
+    (( __required_space > __free_space ))
+  then
+    rvm_error "Not enough space (${__free_space}MB) to install ruby (${__required_space}MB)."
+    return 1
+  elif
+    (( __required_space*12 > __free_space*10 )) # 20% check
+  then
+    rvm_warn "You are running low on disk space ${__free_space}MB, required ${__required_space}MB."
+  else
+    rvm_debug "Free disk space ${__free_space}MB, required ${__required_space}MB."
+  fi
+}
+
+__rvm_install_ruby()
+{
+  true ${rvm_head_flag:=0} ${rvm_ruby_selected_flag:=0}
+  typeset binary __rvm_ruby_name ruby_install_type
+
+  if
+    (( rvm_ruby_selected_flag == 0 ))
+  then
+    __rvm_ruby_name="$rvm_ruby_name"
+    __rvm_select || return $?
+    if
+      [[ -n "$__rvm_ruby_name" ]]
+    then
+      __rvm_select || return $? # second detection for -n verification
+      if
+        [[ "$__rvm_ruby_name" != "$detected_rvm_ruby_name" ]]
+      then
+        rvm_error "
+The used ruby name (-n) is not valid, it was matched as:
+
+$( env | __rvm_grep "^rvm.*=$__rvm_ruby_name$" || printf "# Was not used at all\n")
+
+for more details on selecting names please visit:
+https://rvm.io/rubies/named/
+" #" fix escaping
+        return 1
+      fi
+    fi
+  fi
+
+  if [[ -n "${RUBYOPT:-""}" ]]
+  then
+    ruby_options="$RUBYOPT"
+    unset RUBYOPT
+  fi
+
+  __rvm_select_late
+  if (( ${rvm_force_flag:-0} == 0 ))
+  then __rvm_remove_src_and_ruby
+  fi
+
+  if __rvm_install_ruby_try_remote
+  then return 0
+  else (( $? == 2 )) || return 1 # 2 => continue with compilation
+  fi
+
+  __rvm_check_available_space "${rvm_ruby_string}" sources || return $?
+  __rvm_check_for_compiler || return $?
+
+  case "${rvm_ruby_interpreter}" in
+    opal|macruby|ree|jruby|maglev|goruby|rubinius|ironruby|ruby|mruby|topaz)
+      ruby_install_type=$rvm_ruby_interpreter
+      ;;
+    rbx)      ruby_install_type=rubinius ;;
+    ir)       ruby_install_type=ironruby ;;
+    kiji|tcs|jamesgolick) ruby_install_type=ruby     ;;
+    default)
+      rvm_error "a ruby interpreter to install must be specified and not simply 'default'."
+      return 1
+      ;;
+    *)
+      rvm_error "Either the ruby interpreter is unknown or there was an error!."
+      return 1
+      ;;
+  esac
+
+  export -a rvm_configure_env
+  [[ -n "${rvm_configure_env[*]}" ]] || rvm_configure_env=() # zsh can assume empty var => ( '' )
+
+  source "$rvm_scripts_path/functions/manage/${ruby_install_type}"
+  ${ruby_install_type}_install || return $?
+
+  # Record the Ruby's configuration to a file, key=value format.
+  __rvm_ruby_config_save "$rvm_ruby_home/bin/ruby"
+  __rvm_fix_group_permissions "$rvm_ruby_home"
+
+  rvm_hook="after_install"
+  source "$rvm_scripts_path/hook"
+
+  if [[ -n "$ruby_options" ]]
+  then
+    RUBYOPT="$ruby_options"
+    export RUBYOPT
+  fi
+}
