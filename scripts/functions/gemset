@@ -118,36 +118,52 @@ __rvm_parse_gems_args()
   fi
 }
 
-# Install a gem
-gem_install()
+is_gem_installed()
 {
-  typeset gem_name gem_version gem_spec version_check
-  typeset -a _command
-
-  __rvm_parse_gems_args "$@"
-
+  typeset gem_spec version_check
   gem_spec="gem '$gem_name'"
   if
     [[ -n "${gem_version}" ]]
   then
     gem_spec+=", '$gem_version'"
-    version_check="$gem_version"
+    version_check="${gem_version#*=}"
   else
     version_check="*([[:digit:]\.])"
   fi
-  if
-    (( ${rvm_force_flag:-0} == 0 )) &&
-    {
-      ls -ld "${rvm_ruby_gem_home}/gems"/${gem_name}-${version_check} >/dev/null 2>&1 ||
-      "${rvm_ruby_binary}" -rrubygems -e "$gem_spec" 2>/dev/null
-    }
-  then
-    rvm_log "${gem_spec} is already installed"
-    return 0
+  ls -ld "${rvm_ruby_gem_home}/gems"/${gem_name}-${version_check} >/dev/null 2>&1 ||
+  "${rvm_ruby_binary}" -rrubygems -e "$gem_spec" 2>/dev/null ||
+  return $?
+}
+
+# Install a gem
+gem_install()
+{
+  typeset gem_name gem_version
+  typeset -a install_params
+
+  __rvm_parse_gems_args "$@"
+
+  if [[ -z "${gem_version}" ]]
+  then __rvm_db "gem_${gem_name}_version" "gem_version"
   fi
 
-  __rvm_log_command "gem.install" "installing ${gem_spec}" gem install $* $rvm_gem_options ||
-  return $?
+  install_params=( "${gem_name}" )
+  if [[ -n "${gem_version:-}" ]]
+  then install_params+=( -v "${gem_version:-}" )
+  fi
+
+  if
+    (( ${rvm_force_flag:-0} == 0 )) && is_gem_installed
+  then
+    rvm_log "gem ${install_params[*]} is already installed"
+    return 0
+  else
+    __rvm_log_command \
+      "gem.install.${gem_name}${gem_version:+-}${gem_version:-}" \
+      "installing gem ${install_params[*]}" \
+      \gem install "${install_params[@]}"  --no-ri --no-rdoc $rvm_gem_options ||
+    return $?
+  fi
   true # for OSX
 }
 
@@ -233,27 +249,12 @@ gemset_initial()
     run_gem_wrappers_regenerate 2>/dev/null || true
 }
 
-ensure_gem_installed()
-{
-  gem query -i -n "$@" >/dev/null || gem install "$@" || return $?
-}
-
 run_gem_wrappers_regenerate()
 {
-  typeset gem_wrappers_minimal_version
-  __rvm_db "gem_wrappers_minimal_version" "gem_wrappers_minimal_version"
-  ensure_gem_installed gem-wrappers -v ">=$gem_wrappers_minimal_version" &&
+  gem_install gem-wrappers &&
   gem wrappers regenerate ||
   return $?
 }
-
-__gemset_gem()
-(
-  export GEM_HOME="$rvm_ruby_gem_home"
-  export GEM_PATH="$rvm_ruby_gem_home:$rvm_ruby_global_gems_path"
-  export PATH="$rvm_ruby_home/bin"
-  gem "$@" || return $?
-)
 
 __rvm_rubygems_create_link()
 {
