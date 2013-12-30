@@ -117,7 +117,7 @@ __rvm_parse_gems_args()
 
 is_gem_installed()
 {
-  typeset gem_spec version_check
+  typeset gem_spec
   gem_spec="gem '$gem_name'"
   if
     [[ -n "${gem_version}" ]]
@@ -135,8 +135,7 @@ is_gem_installed()
 # Install a gem
 gem_install()
 {
-  typeset gem_name gem_version
-  typeset -a install_params
+  typeset gem_name gem_version version_check
 
   gem_version="" # no version
   __rvm_parse_gems_args "$@"
@@ -145,24 +144,36 @@ gem_install()
   then __rvm_db "gem_${gem_name}_version" "gem_version"
   fi
 
-  install_params=( "${gem_name}" )
-  if [[ -n "${gem_version}" ]]
-  then install_params+=( -v "${gem_version}" )
-  fi
-
   if
     (( ${rvm_force_flag:-0} == 0 )) && is_gem_installed
   then
-    rvm_log "gem ${install_params[*]} is already installed"
+    rvm_log "gem ${gem_name} ${gem_version:-} is already installed"
     return 0
   else
-    __rvm_log_command \
-      "gem.install.${gem_name}${gem_version:+-}${gem_version:-}" \
-      "installing gem ${install_params[*]}" \
-      \gem install "${install_params[@]}"  --no-ri --no-rdoc $rvm_gem_options ||
-    return $?
+    gem_install_force || return $?
   fi
   true # for OSX
+}
+
+gem_install_force()
+{
+  typeset __available_gem
+  typeset -a install_params
+
+  install_params=()
+  __available_gem="$( ls -v1 "${rvm_path}/gem-cache"/${gem_name}-${version_check}.gem 2>/dev/null | tail -n 1 )"
+
+  if [[ -z "${__available_gem}" && -n "${gem_version}" ]]
+  then install_params+=( -v "${gem_version}" )
+  fi
+
+  install_params+=( --no-ri --no-rdoc $rvm_gem_options )
+
+  __rvm_log_command \
+    "gem.install.${gem_name}${gem_version:+-}${gem_version:-}" \
+    "installing gem ${__available_gem:-${gem_name}} ${install_params[*]}" \
+    \gem install "${__available_gem:-${gem_name}}" "${install_params[@]}" ||
+    return $?
 }
 
 gemset_import()
