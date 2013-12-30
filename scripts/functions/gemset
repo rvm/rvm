@@ -294,7 +294,7 @@ __rvm_initial_gemsets_create()
   ( rubygems_setup ${rvm_rubygems_version:-latest} ) && # () for exit in rubygems_fatal_error
   __rvm_rubygems_create_link "$1" &&
   gemset_create "global" "" &&
-  __rvm_remove_without_gems
+  __rvm_with "${rvm_ruby_string}@global" __rvm_remove_without_gems
 }
 
 __rvm_remove_without_gems()
@@ -302,12 +302,46 @@ __rvm_remove_without_gems()
   [[ -n "${rvm_without_gems}" ]] || return 0
 
   typeset -a __gems_to_remove
-  __rvm_custom_separated_array __gems_to_remove " " "${rvm_without_gems}"
+  __rvm_read_lines __gems_to_remove <( __rvm_list_gems "" "${rvm_without_gems}" )
 
-  __rvm_log_command \
-    "gem.uninstall.${rvm_without_gems// /.}" \
-    "$rvm_ruby_string - #ensuring unwanted gems are removed: ${rvm_without_gems}" \
-    __rvm_with "${rvm_ruby_string}@global" \gem uninstall "${__gems_to_remove[@]}" -ax
+  (( ${#__gems_to_remove[@]} )) || return 0
+
+  typeset __gem __name __version
+  for __gem in "${__gems_to_remove[@]}"
+  do
+    __name="${__gem% *}"
+    __version="${__gem##* }"
+
+    __rvm_log_command "gem.uninstall.${__name}-${__version}" \
+      "$rvm_ruby_string - #uninstalling gem ${__name}-${__version}" \
+      \gem uninstall "${__name}" -v "${__version}" -x || true
+  done
+}
+
+# Transform the list of gems one version per line
+__rvm_list_gems()
+{
+  typeset __check __names
+  __check="${1:-}"
+  shift || true
+  __names="$*"
+
+  if [[ -n "${__names}" ]]
+  then __checks="%w{${__names}}.include?(gem.name)${__checks:+" && ( ${__checks} )"}"
+  fi
+
+  if [[ -n "${__checks}" ]]
+  then __checks="if ${__checks}"
+  fi
+
+  ruby -rrubygems -e "
+    Gem::Specification.each{|gem|
+      puts \"#{gem.name} #{gem.version}\" ${__checks}
+    }
+  " 2>/dev/null ||
+  gem list $@ |
+    __rvm_sed '/\*\*\*/ d ; /^$/ d; s/ (/,/; s/, /,/g; s/)//;' |
+    __rvm_awk -F ',' '{for(i=2;i<=NF;i++) print $1" "$i }'
 }
 
 gemset_reset_env()
