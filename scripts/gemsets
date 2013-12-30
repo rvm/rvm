@@ -436,7 +436,7 @@ gemset_unpack()
   do
     ( command gem unpack "$gem_name" -v"$version" --target "$directory" )&
   done < <(
-    GEM_PATH="$GEM_HOME" __rvm_list_gems
+    GEM_PATH="$GEM_HOME" __rvm_list_gems '! gem.executables.empty? || ! gem.extensions.empty?'
   )
   wait
   rvm_log "Unpacking into ${directory} complete\n"
@@ -491,7 +491,7 @@ Append these after using a ';' field separator
       then echo "gem '$gem_name', '$version'"
       else echo "$gem_name -v$version"
       fi
-    done < <( GEM_PATH="$GEM_HOME" __rvm_list_gems )
+    done < <( GEM_PATH="$GEM_HOME" __rvm_list_gems '! gem.executables.empty? || ! gem.extensions.empty?' )
   else
     while read gem_name versions
     do
@@ -548,7 +548,7 @@ gemset_prune()
       \mv "$cached_file_path" "${temporary_cache_path}/${cached_gem_name}"
     fi
   done < <(
-    GEM_PATH="$GEM_HOME" __rvm_list_gems
+    GEM_PATH="$GEM_HOME" __rvm_list_gems '! gem.executables.empty? || ! gem.extensions.empty?'
   )
   rvm_log "Removing live cache and restoring temporary cache..."
   # Switch the cache back.
@@ -575,7 +575,7 @@ gemset_pristine()
       gem pristine "${_gem}" --version "${_version}" >/dev/null ||
         _failed+=(  "${_gem} --version ${_version}" )
     done < <(
-      GEM_PATH="$GEM_HOME" __rvm_list_gems
+      GEM_PATH="$GEM_HOME" __rvm_list_gems '! gem.executables.empty? || ! gem.extensions.empty?'
     )
     if
       (( ${#_failed[@]} > 0 ))
@@ -589,19 +589,6 @@ gemset_pristine()
     rvm_error "'gem' command not found in PATH."
     return 1
   fi
-}
-
-# Transform the list of gems one version per line
-__rvm_list_gems()
-{
-  ruby -rrubygems -e '
-    Gem::Specification.each{|gem|
-      puts "#{gem.name} #{gem.version}" unless gem.executables.empty? and gem.extensions.empty?
-    }
-  ' 2>/dev/null ||
-  gem list |
-    __rvm_sed '/\*\*\*/ d ; /^$/ d; s/ (/,/; s/, /,/g; s/)//;' |
-    __rvm_awk -F ',' '{for(i=2;i<=NF;i++) print $1" "$i }'
 }
 
 gem_search()
