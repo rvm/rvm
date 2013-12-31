@@ -145,11 +145,12 @@ parse_args()
       (--autolibs=*)
         export rvm_autolibs_flag="${token#--autolibs=}"
         ;;
-      (--with-gems=*)
-        export rvm_with_gems="${token#--with-gems=}"
-        ;;
-      (--without-gems=*)
-        export rvm_without_gems="${token#--without-gems=}"
+      (--without-gems=*|--with-gems=*|--with-default-gems=*)
+        value="${token#*=}"
+        token="${token%%=*}"
+        token="${token#--}"
+        token="${token//-/_}"
+        export "rvm_${token}"="${value}"
         ;;
       (--path)
         export rvm_path="$1"
@@ -393,7 +394,7 @@ install_rvm_files()
     __rvm_cp -f "$source_path/${file}" "$rvm_path/${file}"
   done
 
-  for directory in config contrib scripts examples lib help patches
+  for directory in config contrib scripts examples lib help patches gem-cache
   do
     for entry in $(__rvm_find $directory 2>/dev/null)
     do
@@ -533,6 +534,22 @@ install_binaries()
   return 0
 }
 
+update_gemsets_rvmrc()
+{
+  if
+    [[ -n "$2" ]]
+  then
+    if [[ -f ~/.rvmrc ]] && __rvm_grep "^$1=" ~/.rvmrc >/dev/null
+    then __rvm_sed_i ~/.rvmrc -e "s/^$1=.*$/$1=\"$2\"/"
+    else printf "%b" "\n$1=\"$2\"\n" >> ~/.rvmrc
+    fi
+  else
+    if [[ -f ~/.rvmrc ]]
+    then __rvm_sed_i ~/.rvmrc -e "/^$1=/ d"
+    fi
+  fi
+}
+
 install_gemsets()
 {
   typeset gemset_files
@@ -546,9 +563,10 @@ install_gemsets()
   then
     [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
 
-    gemset_files=($(
-      __rvm_find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' | __rvm_sed 's/^\.\///'
-    ))
+    __rvm_read_lines gemset_files <(
+      __rvm_find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' |
+      __rvm_sed 's/^\.\///'
+    )
 
     for gemset_file in "${gemset_files[@]}"
     do
@@ -559,47 +577,14 @@ install_gemsets()
       then
         destination_path="${destination%/*}"
         [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-        if
-          [[ -n "${rvm_without_gems:-}" ]]
-        then
-          if [[ "${_system_type}" = "Darwin" ]]
-          then __rvm_sed -E '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
-          else __rvm_sed -r '/^('"${rvm_without_gems// /|}"')/ d' < "$gemset_file" > "$destination"
-          fi
-        else
-          \cat < "$gemset_file" > "$destination"
-        fi
-        if
-          [[ -n "${rvm_with_gems:-}" && "${destination##*/}" == "global.gems" ]]
-        then
-          printf "%b" "${rvm_with_gems// /\n}\n" >> "$destination"
-        fi
+        \cat < "$gemset_file" > "$destination"
       fi
     done
   fi
 
-  if
-    [[ -n "${rvm_with_gems:-}" ]]
-  then
-    if
-      __rvm_grep "rvm_with_gems=" ~/.rvmrc >/dev/null
-    then
-      __rvm_sed_i ~/.rvmrc -e 's/^rvm_with_gems=.*$/rvm_with_gems="'"${rvm_with_gems}"'"/'
-    else
-      printf "%b" "\nrvm_with_gems=\"${rvm_with_gems}\"\n" >> ~/.rvmrc
-    fi
-  fi
-  if
-    [[ -n "${rvm_without_gems:-}" ]]
-  then
-    if
-      __rvm_grep "rvm_without_gems=" ~/.rvmrc >/dev/null
-    then
-      __rvm_sed_i ~/.rvmrc -e 's/^rvm_without_gems=.*$/rvm_without_gems="'"${rvm_without_gems}"'"/'
-    else
-      printf "%b" "\nrvm_without_gems=\"${rvm_without_gems}\"\n" >> ~/.rvmrc
-    fi
-  fi
+  update_gemsets_rvmrc rvm_without_gems      "${rvm_without_gems}"
+  update_gemsets_rvmrc rvm_with_gems         "${rvm_with_gems}"
+  update_gemsets_rvmrc rvm_with_default_gems "${rvm_with_default_gems}"
 }
 
 install_patchsets()
@@ -1271,7 +1256,7 @@ update_gemsets_install_rvm()
 
   for _gem in rvm gem-wrappers
   do
-    [[ " ${rvm_without_gems:-} " =~ " ${_gem} " ]] ||
+    [[ " ${rvm_without_gems:-} " == *" ${_gem} "* ]] ||
     {
       for _iterator in "${paths[@]}"
       do
@@ -1299,7 +1284,7 @@ update_gemsets_install_rvm()
           printf "%b" "installing ${_gem} in ${__gem_home##*/}"
           __gem_home="${_iterator#*=}"
           _iterator="${_iterator%%=*}"
-          GEM_HOME="${__gem_home}" PATH="${_iterator}:$PATH" gem install ${_gem} --no-ri --no-rdoc
+          __rvm_with "${__gem_home##*/}" gem_install ${_gem}
         done | __rvm_dotted "    Installing ${_gem} gem in ${#missing[@]} gemsets"
       fi
     }

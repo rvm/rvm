@@ -278,9 +278,8 @@ gemset_empty()
       [[ ${rvm_force_flag:-0} -gt 0 ]] ||
       __rvm_ask_for "Are you SURE you wish to remove the installed gems for ${GEM_HOME}?" yes
     then
-      gem list | grep ^gem-empty >/dev/null ||
-        __rvm_log_command "install.gem-empty" "Installing gem gem-empty" GEM_HOME="${GEM_HOME%@*}@global" gem install gem-empty
-      gem empty &&
+      gem_install gem-empty &&
+      \gem empty &&
       rvm_log "Removed successfully." ||
       return $?
     else
@@ -557,40 +556,6 @@ gemset_prune()
   return 0
 }
 
-gemset_pristine()
-{
-  if
-    (
-      unset -f gem
-      builtin command -v gem > /dev/null
-    )
-  then
-    typeset _gem _version _platforms
-    typeset -a _failed
-    rvm_log "Restoring gems to pristine condition..."
-    while
-      read _gem _version _platforms
-    do
-      printf "%b" "${_gem}-${_version} "
-      gem pristine "${_gem}" --version "${_version}" >/dev/null ||
-        _failed+=(  "${_gem} --version ${_version}" )
-    done < <(
-      GEM_PATH="$GEM_HOME" __rvm_list_gems '! gem.executables.empty? || ! gem.extensions.empty?'
-    )
-    if
-      (( ${#_failed[@]} > 0 ))
-    then
-      rvm_error "\n'gem pristine ${_failed[*]}' failed, you need to fix this gems manually."
-      return 1
-    else
-      rvm_log "\nfinished."
-    fi
-  else
-    rvm_error "'gem' command not found in PATH."
-    return 1
-  fi
-}
-
 gem_search()
 {
   typeset gemspec gemspecs gem_name option environment_id ruby_string name gem_version
@@ -679,16 +644,13 @@ case "$action" in
     if
       [[ -z "${rvm_ruby_strings:-""}" ]]
     then
-      gemset_import "$@"
+      gemset_import "Installing gems" "$1"
     else
       rubies=()
       __rvm_custom_separated_array rubies , "$rvm_ruby_strings"
       for rvm_ruby_string in "${rubies[@]}"
       do
-        (
-          __rvm_become
-          gemset_import "$@"
-        )
+        __rvm_with "$rvm_ruby_string" gemset_import "Installing gems" "$1"
       done
     fi
     ;;

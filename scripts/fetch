@@ -18,7 +18,7 @@ __rvm_cleanup_download()
 __rvm_cd "$rvm_archives_path"
 
 [[ -n "$archive" ]] || archive=$(basename "$url")
-fetch_command=( __rvm_curl --create-dirs -C - -o "${archive}" )
+fetch_command=( __rvm_curl --create-dirs -C - -o "${archive}.part" )
 
 download=1
 try_ftp=0
@@ -76,8 +76,8 @@ function download_the_url()
     rvm_error "ERROR: Retried 3 times and failed!"
     return 200
   fi
-  \rm -f $archive
-  "${fetch_command[@]}" "$url" ||
+  "${fetch_command[@]}" "$url" &&
+  \mv "${archive}.part" "${archive}" ||
   {
     result=$?
     case "$result" in
@@ -86,10 +86,12 @@ function download_the_url()
         ;;
       (18)
         rvm_error "Partial file($result). Only a part of the file was transferred. Removing partial and re-trying."
+        \rm -f "${archive}.part"
         download_the_url $counter
         ;;
       (33)
-        rvm_debug "Server does not support 'range' command($result), removing '$archive'"
+        rvm_debug "Server does not support 'range' command($result), removing '${archive}.part'"
+        \rm -f "${archive}.part"
         download_the_url $counter
         ;;
       # duplication marker lfdgzkngdkjvnfjknkjvcnbjkncvjxbn
