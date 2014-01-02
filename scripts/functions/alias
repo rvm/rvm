@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+alias_show() {
+  typeset expanded_alias_name
+
+  if
+    [[ -z "${1:-$alias_name}" ]]
+  then
+    rvm_log "usage: 'rvm alias show [alias_name]'"
+    return 1
+  fi
+
+  [[ -s "$rvm_path/config/alias" ]] || return 2
+
+  expanded_alias_name="$( __rvm_db_ "$rvm_path/config/alias" "${1:-$alias_name}")"
+
+  if
+    [[ -z "$expanded_alias_name" ]]
+  then
+    rvm_error "Unknown alias name: '${1:-$alias_name}'"
+    return 3
+  else
+    if [[ -n "$gemset_name" ]]
+    then printf "%b" "${expanded_alias_name}${rvm_gemset_separator:-"@"}${gemset_name}\n"
+    else printf "%b" "${expanded_alias_name}\n"
+    fi
+  fi
+}
+
+alias_after_delete_default()
+{
+  rvm_log "Deleting default links/files"
+
+  for _path in "$rvm_bin_path"/default_*
+  do
+    # remove default_ruby
+    [[ -f "$_path" ]] && \rm -rf "${_path}"
+    # remove ruby
+    _path="${_path#default_}"
+    [[ -f "$_path" ]] && \rm -rf "${_path}"
+  done
+
+  for _path in "$rvm_path"/wrappers/default/* gem irb erb ri rdoc testrb rake ruby bundle
+  do
+    _path="${_path##*\/}"
+    \rm -f "$rvm_bin_path/${_path}"
+  done
+}
+
+alias_delete()
+{
+  rvm_log "Deleting alias: ${1:-$alias_name}"
+
+  for _path in "$rvm_rubies_path" "$rvm_environments_path" "$rvm_wrappers_path"
+  do
+    if [[ -L "$_path/${1:-$alias_name}" ]]
+    then \rm -f "$_path/${1:-$alias_name}"
+    fi
+  done
+
+  touch "$rvm_path/config/alias"
+
+  __rvm_db_ "$rvm_path/config/alias" "${1:-$alias_name}" "delete"
+
+  if [[ "${1:-$alias_name}" == "default" ]]
+  then alias_after_delete_default
+  fi
+}

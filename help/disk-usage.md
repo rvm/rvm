@@ -1,15 +1,16 @@
+## Usage
 
-    $ rvm disk-usage {all,archives,repos,sources,logs,packages,rubies,gemsets}
+    rvm disk-usage {all,total,archives,docs,repos,sources,logs,pkg,rubies,gemsets,wrappers,tmp,others}'
 
-Returns the amount of disk space used by a specific set of data associated
-with rvm. All returns each, individually, along with the total space used.
+Shows the amount of disk space used by a specific set of data associated with rvm.
+`all` returns each, individually, along with the total space used.
 
-Examples:
+## Examples:
 
 To find out how much space your rvm install is using, simply run:
 
-    $ rvm disk-usage all
+    rvm disk-usage all
 
 To find out how much space only your gemsets use, run:
 
-    $ rvm disk-usage gemsets
+    rvm disk-usage gemsets
