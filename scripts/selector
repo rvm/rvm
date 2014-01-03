@@ -535,8 +535,14 @@ __rvm_select_after_parse()
   __rvm_select_default_variables     ||
   return $?
 
-  [[ "system" == "$rvm_ruby_interpreter" ]] || __rvm_gemset_select ||
-    return $result
+  [[ "system" == "$rvm_ruby_interpreter" ]] ||
+  {
+    __rvm_gemset_select ||
+    case $? in
+      2) true      ;;
+      *) return $? ;;
+    esac
+  }
 
   rvm_ruby_selected_flag=1
 }
@@ -702,14 +708,9 @@ __rvm_use_common()
 }
 
 __rvm_ruby_string_installed()
-{
-  [[ -n "$rvm_ruby_interpreter" && -n "${rvm_ruby_string}" &&
-    -d "$rvm_rubies_path/${rvm_ruby_string%${rvm_gemset_separator}*}"
-  ]] &&
-  [[ "${rvm_ruby_string%${rvm_gemset_separator}*}" == "${rvm_ruby_string}" ||
-    -d "$rvm_gems_path/${rvm_ruby_string}"
-  ]]
-}
+[[ -n "$rvm_ruby_interpreter" && -n "${rvm_ruby_string}" &&
+  -d "$rvm_rubies_path/${rvm_ruby_string%${rvm_gemset_separator}*}"
+]]
 
 __rvm_ruby_string()
 {
@@ -889,7 +890,6 @@ __rvm_ruby_strings_exist()
   do
     rvm_gemset_name=""
     rvm_verbose_flag=0 __rvm_use "${rvm_ruby_string}" >/dev/null 2>&1 || return $?
-    true rvm_gemset_name:${rvm_gemset_name:=${rvm_expected_gemset_name}}
     printf "%b" "${rvm_ruby_string}${rvm_gemset_name:+@}${rvm_gemset_name:-}\n"
   done
   unset rvm_ruby_string
