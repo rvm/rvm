@@ -1,0 +1,2020 @@
+From c31e7c1e8b2895ef33204938487597e2b3acaaf7 Mon Sep 17 00:00:00 2001
+From: nobu <nobu@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Fri, 2 Mar 2012 02:45:35 +0000
+Subject: [PATCH 01/19] merge revision(s) 25230,34866:
+
+	* marshal.c (struct {dump,load}_arg): manage with dfree, instead
+	  of using local variable which may be moved by context switch.
+	  [ruby-dev:39425]
+
+	* marshal.c (mark_dump_arg): mark destination string.  patch by
+	  Vit Ondruch.  [Bug #4339]
+
+	* marshal.c (clear_dump_arg, clear_load_arg): clean up also data
+	  tables as same as symbols tables.
+
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@34867 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                 |  14 +++++
+ marshal.c                 | 145 +++++++++++++++++++++++-----------------------
+ test/ruby/test_marshal.rb |  28 +++++++++
+ version.h                 |  10 ++--
+ 4 files changed, 120 insertions(+), 77 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index a09237e..352a30f 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,17 @@
++Fri Mar  2 11:44:33 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
++
++	* marshal.c (mark_dump_arg): mark destination string.  patch by
++	  Vit Ondruch.  [Bug #4339]
++
++	* marshal.c (clear_dump_arg, clear_load_arg): clean up also data
++	  tables as same as symbols tables.
++
++Fri Mar  2 11:44:33 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
++
++	* marshal.c (struct {dump,load}_arg): manage with dfree, instead
++	  of using local variable which may be moved by context switch.
++	  [ruby-dev:39425]
++
+ Wed Feb  8 14:06:59 2012  Hiroshi Nakamura  <nahi@ruby-lang.org>
+ 
+ 	* ext/openssl/ossl_ssl.c: Add SSL constants and allow to unset SSL
+diff --git a/marshal.c b/marshal.c
+index 35e0d60..632f6ca 100644
+--- a/marshal.c
++++ b/marshal.c
+@@ -85,12 +85,10 @@
+ static ID s_getc, s_read, s_write, s_binmode;
+ 
+ struct dump_arg {
+-    VALUE obj;
+     VALUE str, dest;
+     st_table *symbols;
+     st_table *data;
+     int taint;
+-    VALUE wrapper;
+ };
+ 
+ struct dump_call_arg {
+@@ -104,20 +102,31 @@ struct dump_call_arg {
+     struct dump_arg *arg;
+     ID sym;
+ {
+-    if (!DATA_PTR(arg->wrapper)) {
++    if (!arg->symbols) {
+         rb_raise(rb_eRuntimeError, "Marshal.dump reentered at %s",
+ 		 rb_id2name(sym));
+     }
+ }
+ 
++static void clear_dump_arg _((struct dump_arg *arg));
++
+ static void
+ mark_dump_arg(ptr)
+     void *ptr;
+ {
+     struct dump_arg *p = ptr;
+-    if (!ptr)
++    if (!p->symbols)
+         return;
+     rb_mark_set(p->data);
++    rb_gc_mark(p->str);
++}
++
++static void
++free_dump_arg(ptr)
++    void *ptr;
++{
++    clear_dump_arg(ptr);
++    xfree(ptr);
+ }
+ 
+ static VALUE
+@@ -699,32 +708,18 @@ class2path(klass)
+     }
+ }
+ 
+-static VALUE
+-dump(arg)
+-    struct dump_call_arg *arg;
+-{
+-    w_object(arg->obj, arg->arg, arg->limit);
+-    if (arg->arg->dest) {
+-	rb_io_write(arg->arg->dest, arg->arg->str);
+-	rb_str_resize(arg->arg->str, 0);
+-    }
+-    return 0;
+-}
+-
+-static VALUE
+-dump_ensure(arg)
++static void
++clear_dump_arg(arg)
+     struct dump_arg *arg;
+ {
+-    if (!DATA_PTR(arg->wrapper)) return 0;
++    if (!arg->symbols) return;
+     st_free_table(arg->symbols);
++    arg->symbols = 0;
+     st_free_table(arg->data);
+-    DATA_PTR(arg->wrapper) = 0;
+-    arg->wrapper = 0;
++    arg->data = 0;
+     if (arg->taint) {
+ 	OBJ_TAINT(arg->str);
+     }
+-
+-    return 0;
+ }
+ 
+ /*
+@@ -760,8 +755,8 @@ class2path(klass)
+ {
+     VALUE obj, port, a1, a2;
+     int limit = -1;
+-    struct dump_arg arg;
+-    struct dump_call_arg c_arg;
++    struct dump_arg *arg;
++    VALUE wrapper;
+ 
+     port = Qnil;
+     rb_scan_args(argc, argv, "12", &obj, &a1, &a2);
+@@ -775,37 +770,40 @@ class2path(klass)
+ 	else if (NIL_P(a1)) goto type_error;
+ 	else port = a1;
+     }
+-    arg.dest = 0;
+-    arg.symbols = st_init_numtable();
+-    arg.data    = st_init_numtable();
+-    arg.taint   = Qfalse;
+-    arg.str = rb_str_buf_new(0);
+-    RBASIC(arg.str)->klass = 0;
+-    arg.wrapper = Data_Wrap_Struct(rb_cData, mark_dump_arg, 0, &arg);
++    wrapper = Data_Make_Struct(rb_cData, struct dump_arg, mark_dump_arg, free_dump_arg, arg);
++    arg->dest = 0;
++    arg->symbols = st_init_numtable();
++    arg->data    = st_init_numtable();
++    arg->taint   = Qfalse;
++    arg->str = rb_str_buf_new(0);
++    RBASIC(arg->str)->klass = 0;
+     if (!NIL_P(port)) {
+ 	if (!rb_respond_to(port, s_write)) {
+ 	  type_error:
+ 	    rb_raise(rb_eTypeError, "instance of IO needed");
+ 	}
+-	arg.dest = port;
++	arg->dest = port;
+ 	if (rb_respond_to(port, s_binmode)) {
+ 	    rb_funcall2(port, s_binmode, 0, 0);
+-	    check_dump_arg(&arg, s_binmode);
++	    check_dump_arg(arg, s_binmode);
+ 	}
+     }
+     else {
+-	port = arg.str;
++	port = arg->str;
+     }
+ 
+-    c_arg.obj   = obj;
+-    c_arg.arg   = &arg;
+-    c_arg.limit = limit;
++    w_byte(MARSHAL_MAJOR, arg);
++    w_byte(MARSHAL_MINOR, arg);
+ 
+-    w_byte(MARSHAL_MAJOR, &arg);
+-    w_byte(MARSHAL_MINOR, &arg);
++    w_object(obj, arg, limit);
++    if (arg->dest) {
++	rb_io_write(arg->dest, arg->str);
++	rb_str_resize(arg->str, 0);
++    }
+ 
+-    rb_ensure(dump, (VALUE)&c_arg, dump_ensure, (VALUE)&arg);
+-    RBASIC(arg.str)->klass = rb_cString;
++    RBASIC(arg->str)->klass = rb_cString;
++    clear_dump_arg(arg);
++    RB_GC_GUARD(wrapper);
+ 
+     return port;
+ }
+@@ -817,7 +815,6 @@ struct load_arg {
+     st_table *data;
+     VALUE proc;
+     int taint;
+-    VALUE wrapper;
+ };
+ 
+ static void
+@@ -825,22 +822,31 @@ struct load_arg {
+     struct load_arg *arg;
+     ID sym;
+ {
+-    if (!DATA_PTR(arg->wrapper)) {
++    if (!arg->symbols) {
+         rb_raise(rb_eRuntimeError, "Marshal.load reentered at %s",
+ 		 rb_id2name(sym));
+     }
+ }
+ 
++static void clear_load_arg _((struct load_arg *arg));
++
+ static void
+ mark_load_arg(ptr)
+     void *ptr;
+ {
+     struct load_arg *p = ptr;
+-    if (!ptr)
++    if (!p->symbols)
+         return;
+     rb_mark_tbl(p->data);
+ }
+ 
++static void
++free_load_arg(void *ptr)
++{
++    clear_load_arg(ptr);
++    xfree(ptr);
++}
++
+ static VALUE r_object _((struct load_arg *arg));
+ 
+ static int
+@@ -1415,23 +1421,15 @@ struct load_arg {
+     return r_object0(arg, arg->proc, 0, Qnil);
+ }
+ 
+-static VALUE
+-load(arg)
+-    struct load_arg *arg;
+-{
+-    return r_object(arg);
+-}
+-
+-static VALUE
+-load_ensure(arg)
++static void
++clear_load_arg(arg)
+     struct load_arg *arg;
+ {
+-    if (!DATA_PTR(arg->wrapper)) return 0;
++    if (!arg->symbols) return;
+     st_free_table(arg->symbols);
++    arg->symbols = 0;
+     st_free_table(arg->data);
+-    DATA_PTR(arg->wrapper) = 0;
+-    arg->wrapper = 0;
+-    return 0;
++    arg->data = 0;
+ }
+ 
+ /*
+@@ -1452,8 +1450,8 @@ struct load_arg {
+ {
+     VALUE port, proc;
+     int major, minor, taint = Qfalse;
+-    VALUE v;
+-    struct load_arg arg;
++    VALUE v, wrapper;
++    struct load_arg *arg;
+ 
+     rb_scan_args(argc, argv, "11", &port, &proc);
+     v = rb_check_string_type(port);
+@@ -1470,17 +1468,18 @@ struct load_arg {
+     else {
+ 	rb_raise(rb_eTypeError, "instance of IO needed");
+     }
+-    arg.src = port;
+-    arg.offset = 0;
+-    arg.symbols = st_init_numtable();
+-    arg.data    = st_init_numtable();
+-    arg.proc = 0;
+-    arg.wrapper = Data_Wrap_Struct(rb_cData, mark_load_arg, 0, &arg);
+-    arg.taint = taint;
+-
+-    major = r_byte(&arg);
+-    minor = r_byte(&arg);
++    wrapper = Data_Make_Struct(rb_cData, struct load_arg, mark_load_arg, free_load_arg, arg);
++    arg->src = port;
++    arg->offset = 0;
++    arg->symbols = st_init_numtable();
++    arg->data    = st_init_numtable();
++    arg->proc = 0;
++    arg->taint = taint;
++
++    major = r_byte(arg);
++    minor = r_byte(arg);
+     if (major != MARSHAL_MAJOR || minor > MARSHAL_MINOR) {
++	clear_load_arg(arg);
+ 	rb_raise(rb_eTypeError, "incompatible marshal file format (can't be read)\n\
+ \tformat version %d.%d required; %d.%d given",
+ 		 MARSHAL_MAJOR, MARSHAL_MINOR, major, minor);
+@@ -1491,8 +1490,10 @@ struct load_arg {
+ 		MARSHAL_MAJOR, MARSHAL_MINOR, major, minor);
+     }
+ 
+-    if (!NIL_P(proc)) arg.proc = proc;
+-    v = rb_ensure(load, (VALUE)&arg, load_ensure, (VALUE)&arg);
++    if (!NIL_P(proc)) arg->proc = proc;
++    v = r_object(arg);
++    clear_load_arg(arg);
++    RB_GC_GUARD(wrapper);
+ 
+     return v;
+ }
+diff --git a/test/ruby/test_marshal.rb b/test/ruby/test_marshal.rb
+index 5ae521e..d40c9da 100644
+--- a/test/ruby/test_marshal.rb
++++ b/test/ruby/test_marshal.rb
+@@ -72,6 +72,34 @@ def test_too_long_string
+     assert_equal("marshal data too short", e.message)
+   end
+ 
++  class DumpTest
++    def marshal_dump
++      loop { Thread.pass }
++    end
++  end
++
++  class LoadTest
++    def marshal_dump
++      nil
++    end
++    def marshal_load(obj)
++      loop { Thread.pass }
++    end
++  end
++
++  def test_context_switch
++    o = DumpTest.new
++    Thread.new { Marshal.dump(o) }
++    GC.start
++    assert(true, '[ruby-dev:39425]')
++
++    o = LoadTest.new
++    m = Marshal.dump(o)
++    Thread.new { Marshal.load(m) }
++    GC.start
++    assert(true, '[ruby-dev:39425]')
++  end
++
+   def test_taint
+     x = Object.new
+     x.taint
+diff --git a/version.h b/version.h
+index d6f16f5..1f2a143 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-02-08"
++#define RUBY_RELEASE_DATE "2012-03-02"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120208
+-#define RUBY_PATCHLEVEL 358
++#define RUBY_RELEASE_CODE 20120302
++#define RUBY_PATCHLEVEL 359
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+-#define RUBY_RELEASE_MONTH 2
+-#define RUBY_RELEASE_DAY 8
++#define RUBY_RELEASE_MONTH 3
++#define RUBY_RELEASE_DAY 2
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From acc55c25c587fef5c7327c5912f3aa50a969ec34 Mon Sep 17 00:00:00 2001
+From: nobu <nobu@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Tue, 6 Mar 2012 03:06:11 +0000
+Subject: [PATCH 02/19] merge revision(s) 34919:
+
+	* lib/yaml/rubytypes.rb (Exception.yaml_new): fix bug that causes
+	  YAML serialization problem for Exception.
+	  Exception#initialize doesn't use visible instance variable for
+	  the exception message, so call the method with the message.
+	  patched by Jingwen Owen Ou <jingweno AT gmail.com>.
+	  http://github.com/ruby/ruby/pull/41
+
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@34920 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                   |  9 ++++++++
+ lib/yaml/rubytypes.rb       |  3 ++-
+ test/yaml/test_exception.rb | 52 +++++++++++++++++++++++++++++++++++++++++++++
+ version.h                   |  8 +++----
+ 4 files changed, 67 insertions(+), 5 deletions(-)
+ create mode 100644 test/yaml/test_exception.rb
+
+diff --git a/ChangeLog b/ChangeLog
+index 352a30f..886be66 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,12 @@
++Tue Mar  6 12:05:42 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
++
++	* lib/yaml/rubytypes.rb (Exception.yaml_new): fix bug that causes
++	  YAML serialization problem for Exception.
++	  Exception#initialize doesn't use visible instance variable for
++	  the exception message, so call the method with the message.
++	  patched by Jingwen Owen Ou <jingweno AT gmail.com>.
++	  http://github.com/ruby/ruby/pull/41
++
+ Fri Mar  2 11:44:33 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 
+ 	* marshal.c (mark_dump_arg): mark destination string.  patch by
+diff --git a/lib/yaml/rubytypes.rb b/lib/yaml/rubytypes.rb
+index 35b7191..55d59fa 100644
+--- a/lib/yaml/rubytypes.rb
++++ b/lib/yaml/rubytypes.rb
+@@ -117,7 +117,8 @@ def to_yaml( opts = {} )
+ class Exception
+     yaml_as "tag:ruby.yaml.org,2002:exception"
+     def Exception.yaml_new( klass, tag, val )
+-        o = YAML.object_maker( klass, { 'mesg' => val.delete( 'message' ) } )
++        o = klass.allocate
++        Exception.instance_method(:initialize).bind(o).call(val.delete('message'))
+         val.each_pair do |k,v|
+             o.instance_variable_set("@#{k}", v)
+         end
+diff --git a/test/yaml/test_exception.rb b/test/yaml/test_exception.rb
+new file mode 100644
+index 0000000..1dc3044
+--- /dev/null
++++ b/test/yaml/test_exception.rb
+@@ -0,0 +1,52 @@
++require 'test/unit'
++require 'yaml'
++
++module Syck
++  class TestException < Test::Unit::TestCase
++    class Wups < Exception
++      attr_reader :foo, :bar
++      def initialize *args
++        super
++        @foo = 1
++        @bar = 2
++      end
++
++      def ==(other)
++        self.class == other.class and
++          self.message == other.message and
++          self.backtrace == other.backtrace
++      end
++    end
++
++    def setup
++      @wups = Wups.new('test_message')
++    end
++
++    def test_to_yaml
++      w = YAML.load(@wups.to_yaml)
++      assert_equal @wups, w
++      assert_equal 1, w.foo
++      assert_equal 2, w.bar
++    end
++
++    def test_dump
++      w = YAML.load(@wups.to_yaml)
++      assert_equal @wups, w
++      assert_equal 1, w.foo
++      assert_equal 2, w.bar
++    end
++
++    def test_to_yaml_properties
++      class << @wups
++        def to_yaml_properties
++          [:@foo]
++        end
++      end
++
++      w = YAML.load(YAML.dump(@wups))
++      assert_equal @wups, w
++      assert_equal 1, w.foo
++      assert_nil w.bar
++    end
++  end
++end
+diff --git a/version.h b/version.h
+index 1f2a143..13e41e8 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-03-02"
++#define RUBY_RELEASE_DATE "2012-03-06"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120302
+-#define RUBY_PATCHLEVEL 359
++#define RUBY_RELEASE_CODE 20120306
++#define RUBY_PATCHLEVEL 360
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+ #define RUBY_RELEASE_MONTH 3
+-#define RUBY_RELEASE_DAY 2
++#define RUBY_RELEASE_DAY 6
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From 698d21a276f862da823c7a6536f9c15afe602e19 Mon Sep 17 00:00:00 2001
+From: nobu <nobu@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Sat, 14 Apr 2012 09:52:10 +0000
+Subject: [PATCH 03/19] merge revision(s) 35325:
+
+	* bignum.c (rb_big2str0): prevent working clone from
+	  GC. [exerb-dev:0578].  patched by MURASE Masamitsu
+	  <masamitsu.murase AT gmail.com> at [exerb-dev:0580]
+
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35327 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog |  6 ++++++
+ bignum.c  |  3 ++-
+ version.h | 10 +++++-----
+ 3 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 886be66..fae1bb1 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,9 @@
++Sat Apr 14 18:51:41 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
++
++	* bignum.c (rb_big2str0): prevent working clone from
++	  GC. [exerb-dev:0578].  patched by MURASE Masamitsu
++	  <masamitsu.murase AT gmail.com> at [exerb-dev:0580]
++
+ Tue Mar  6 12:05:42 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 
+ 	* lib/yaml/rubytypes.rb (Exception.yaml_new): fix bug that causes
+diff --git a/bignum.c b/bignum.c
+index 0c5ae3e..77697ae 100644
+--- a/bignum.c
++++ b/bignum.c
+@@ -772,7 +772,7 @@
+     int base;
+     int trim;
+ {
+-    volatile VALUE t;
++    VALUE t;
+     BDIGIT *ds;
+     long i, j, hbase;
+     VALUE ss;
+@@ -847,6 +847,7 @@
+ 	    if (trim && i == 0 && num == 0) break;
+ 	}
+     }
++    RB_GC_GUARD(t);
+     if (trim) {while (s[j] == '0') j++;}
+     i = RSTRING(ss)->len - j;
+     if (RBIGNUM(x)->sign) {
+diff --git a/version.h b/version.h
+index 13e41e8..a2b4487 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-03-06"
++#define RUBY_RELEASE_DATE "2012-04-14"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120306
+-#define RUBY_PATCHLEVEL 360
++#define RUBY_RELEASE_CODE 20120414
++#define RUBY_PATCHLEVEL 361
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+-#define RUBY_RELEASE_MONTH 3
+-#define RUBY_RELEASE_DAY 6
++#define RUBY_RELEASE_MONTH 4
++#define RUBY_RELEASE_DAY 14
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From a4e76099bf44ae7d75bd24c3c8233d710e590fac Mon Sep 17 00:00:00 2001
+From: nobu <nobu@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Fri, 11 May 2012 05:09:58 +0000
+Subject: [PATCH 04/19] 	* ext/bigdecimal/bigdecimal.c (PUSH): to prevent VALUE
+ from GC, 	  must not cast it to unsigned long, which may be shorter than
+ 	  VALUE, and the result can be mere garbage.
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35619 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                   |  6 ++++++
+ ext/bigdecimal/bigdecimal.c |  2 +-
+ version.h                   | 10 +++++-----
+ 3 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index fae1bb1..9201d3e 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,9 @@
++Fri May 11 14:09:48 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
++
++	* ext/bigdecimal/bigdecimal.c (PUSH): to prevent VALUE from GC,
++	  must not cast it to unsigned long, which may be shorter than
++	  VALUE, and the result can be mere garbage.
++
+ Sat Apr 14 18:51:41 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 
+ 	* bignum.c (rb_big2str0): prevent working clone from
+diff --git a/ext/bigdecimal/bigdecimal.c b/ext/bigdecimal/bigdecimal.c
+index 7846c0d..16be520 100644
+--- a/ext/bigdecimal/bigdecimal.c
++++ b/ext/bigdecimal/bigdecimal.c
+@@ -32,7 +32,7 @@
+ 
+ /* MACRO's to guard objects from GC by keeping them in stack */
+ #define ENTER(n) volatile VALUE vStack[n];int iStack=0
+-#define PUSH(x)  vStack[iStack++] = (unsigned long)(x);
++#define PUSH(x)  vStack[iStack++] = (VALUE)(x);
+ #define SAVE(p)  PUSH(p->obj);
+ #define GUARD_OBJ(p,y) {p=y;SAVE(p);}
+ 
+diff --git a/version.h b/version.h
+index a2b4487..9dcae40 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-04-14"
++#define RUBY_RELEASE_DATE "2012-05-11"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120414
+-#define RUBY_PATCHLEVEL 361
++#define RUBY_RELEASE_CODE 20120511
++#define RUBY_PATCHLEVEL 362
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+-#define RUBY_RELEASE_MONTH 4
+-#define RUBY_RELEASE_DAY 14
++#define RUBY_RELEASE_MONTH 5
++#define RUBY_RELEASE_DAY 11
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From b0901e0f63ed056c9c95273052a029930cad87af Mon Sep 17 00:00:00 2001
+From: knu <knu@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Mon, 21 May 2012 07:35:21 +0000
+Subject: [PATCH 05/19] * ext/syslog/syslog.c (mSyslog_inspect): Make sure self
+ is a   module before calling rb_class2name().
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35746 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog           | 5 +++++
+ ext/syslog/syslog.c | 2 ++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/ChangeLog b/ChangeLog
+index 9201d3e..3c477b4 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,8 @@
++Mon May 21 16:29:47 2012  Akinori MUSHA  <knu@iDaemons.org>
++
++	* ext/syslog/syslog.c (mSyslog_inspect): Make sure self is a
++	  module before calling rb_class2name().
++
+ Fri May 11 14:09:48 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 
+ 	* ext/bigdecimal/bigdecimal.c (PUSH): to prevent VALUE from GC,
+diff --git a/ext/syslog/syslog.c b/ext/syslog/syslog.c
+index ecc4931..1372cb7 100644
+--- a/ext/syslog/syslog.c
++++ b/ext/syslog/syslog.c
+@@ -168,6 +168,8 @@ static VALUE mSyslog_inspect(VALUE self)
+ {
+     char buf[1024];
+ 
++    Check_Type(self, T_MODULE);
++
+     if (syslog_opened) {
+ 	snprintf(buf, sizeof(buf),
+ 	  "<#%s: opened=true, ident=\"%s\", options=%d, facility=%d, mask=%d>",
+-- 
+1.8.5.1
+
+
+From c869f69c3543552c0ffa27628d587bae460b6213 Mon Sep 17 00:00:00 2001
+From: svn <svn@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Mon, 21 May 2012 07:35:26 +0000
+Subject: [PATCH 06/19] * 2012-05-21
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35747 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ version.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/version.h b/version.h
+index 9dcae40..927ae53 100644
+--- a/version.h
++++ b/version.h
+@@ -1,7 +1,7 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-05-11"
++#define RUBY_RELEASE_DATE "2012-05-21"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120511
++#define RUBY_RELEASE_CODE 20120521
+ #define RUBY_PATCHLEVEL 362
+ 
+ #define RUBY_VERSION_MAJOR 1
+@@ -9,7 +9,7 @@
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+ #define RUBY_RELEASE_MONTH 5
+-#define RUBY_RELEASE_DAY 11
++#define RUBY_RELEASE_DAY 21
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From 69883b3ee6502cc210e598fd440b65e20629cd9c Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Wed, 6 Jun 2012 05:20:08 +0000
+Subject: [PATCH 07/19] merge revision(s) 33611: 	*
+ lib/webrick/utils.rb: fix fcntl call. 	* lib/drb/unix.rb: ditto.
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35939 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog            |  6 ++++++
+ lib/drb/unix.rb      |  2 +-
+ lib/webrick/utils.rb |  2 +-
+ version.h            | 10 +++++-----
+ 4 files changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 3c477b4..dd5808a 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,9 @@
++Wed Jun  6 14:06:02 2012  Tanaka Akira  <akr@fsij.org>
++
++	* lib/webrick/utils.rb: fix fcntl call.
++
++	* lib/drb/unix.rb: ditto.
++
+ Mon May 21 16:29:47 2012  Akinori MUSHA  <knu@iDaemons.org>
+ 
+ 	* ext/syslog/syslog.c (mSyslog_inspect): Make sure self is a
+diff --git a/lib/drb/unix.rb b/lib/drb/unix.rb
+index 57feed8..90ca292 100644
+--- a/lib/drb/unix.rb
++++ b/lib/drb/unix.rb
+@@ -100,7 +100,7 @@ def accept
+     end
+ 
+     def set_sockopt(soc)
+-      soc.fcntl(Fcntl::F_SETFL, Fcntl::FD_CLOEXEC) if defined? Fcntl::FD_CLOEXEC
++      soc.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) if defined? Fcntl::FD_CLOEXEC
+     end
+   end
+ 
+diff --git a/lib/webrick/utils.rb b/lib/webrick/utils.rb
+index cf9da6f..1c29ef5 100644
+--- a/lib/webrick/utils.rb
++++ b/lib/webrick/utils.rb
+@@ -29,7 +29,7 @@ def set_non_blocking(io)
+ 
+     def set_close_on_exec(io)
+       if defined?(Fcntl::FD_CLOEXEC)
+-        io.fcntl(Fcntl::FD_CLOEXEC, 1)
++        io.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+       end
+     end
+     module_function :set_close_on_exec
+diff --git a/version.h b/version.h
+index 927ae53..d084c57 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-05-21"
++#define RUBY_RELEASE_DATE "2012-06-06"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120521
+-#define RUBY_PATCHLEVEL 362
++#define RUBY_RELEASE_CODE 20120606
++#define RUBY_PATCHLEVEL 363
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+-#define RUBY_RELEASE_MONTH 5
+-#define RUBY_RELEASE_DAY 21
++#define RUBY_RELEASE_MONTH 6
++#define RUBY_RELEASE_DAY 6
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From 996e9cf4e9c78c4bf8fdbf937f3984e0b2eb6e40 Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Wed, 6 Jun 2012 05:34:55 +0000
+Subject: [PATCH 08/19] @nobu you must run make test-all _before_ you check in.
+
+reverting revision r34920 because it fails.
+
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35940 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ lib/yaml/rubytypes.rb       |  3 +--
+ test/yaml/test_exception.rb | 52 ---------------------------------------------
+ version.h                   |  2 +-
+ 3 files changed, 2 insertions(+), 55 deletions(-)
+ delete mode 100644 test/yaml/test_exception.rb
+
+diff --git a/lib/yaml/rubytypes.rb b/lib/yaml/rubytypes.rb
+index 55d59fa..35b7191 100644
+--- a/lib/yaml/rubytypes.rb
++++ b/lib/yaml/rubytypes.rb
+@@ -117,8 +117,7 @@ def to_yaml( opts = {} )
+ class Exception
+     yaml_as "tag:ruby.yaml.org,2002:exception"
+     def Exception.yaml_new( klass, tag, val )
+-        o = klass.allocate
+-        Exception.instance_method(:initialize).bind(o).call(val.delete('message'))
++        o = YAML.object_maker( klass, { 'mesg' => val.delete( 'message' ) } )
+         val.each_pair do |k,v|
+             o.instance_variable_set("@#{k}", v)
+         end
+diff --git a/test/yaml/test_exception.rb b/test/yaml/test_exception.rb
+deleted file mode 100644
+index 1dc3044..0000000
+--- a/test/yaml/test_exception.rb
++++ /dev/null
+@@ -1,52 +0,0 @@
+-require 'test/unit'
+-require 'yaml'
+-
+-module Syck
+-  class TestException < Test::Unit::TestCase
+-    class Wups < Exception
+-      attr_reader :foo, :bar
+-      def initialize *args
+-        super
+-        @foo = 1
+-        @bar = 2
+-      end
+-
+-      def ==(other)
+-        self.class == other.class and
+-          self.message == other.message and
+-          self.backtrace == other.backtrace
+-      end
+-    end
+-
+-    def setup
+-      @wups = Wups.new('test_message')
+-    end
+-
+-    def test_to_yaml
+-      w = YAML.load(@wups.to_yaml)
+-      assert_equal @wups, w
+-      assert_equal 1, w.foo
+-      assert_equal 2, w.bar
+-    end
+-
+-    def test_dump
+-      w = YAML.load(@wups.to_yaml)
+-      assert_equal @wups, w
+-      assert_equal 1, w.foo
+-      assert_equal 2, w.bar
+-    end
+-
+-    def test_to_yaml_properties
+-      class << @wups
+-        def to_yaml_properties
+-          [:@foo]
+-        end
+-      end
+-
+-      w = YAML.load(YAML.dump(@wups))
+-      assert_equal @wups, w
+-      assert_equal 1, w.foo
+-      assert_nil w.bar
+-    end
+-  end
+-end
+diff --git a/version.h b/version.h
+index d084c57..3b58c4e 100644
+--- a/version.h
++++ b/version.h
+@@ -2,7 +2,7 @@
+ #define RUBY_RELEASE_DATE "2012-06-06"
+ #define RUBY_VERSION_CODE 187
+ #define RUBY_RELEASE_CODE 20120606
+-#define RUBY_PATCHLEVEL 363
++#define RUBY_PATCHLEVEL 364
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+-- 
+1.8.5.1
+
+
+From 1acfb03370704aee624b7a1e5ccf4776f40f2895 Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Wed, 6 Jun 2012 05:47:45 +0000
+Subject: [PATCH 09/19] merge revision(s) 28324: 	* bignum.c
+ (rb_big2dbl), test/ruby/test_bignum.rb (test_to_f): 	  A negative Bignum
+ out of Float range should be converted to -Infinity. 	  [ruby-core:30492]
+ [Bug #3362]
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35941 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                | 15 ++++++---------
+ bignum.c                 |  5 ++++-
+ test/ruby/test_bignum.rb |  6 ++++++
+ version.h                |  2 +-
+ 4 files changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index dd5808a..69c7ced 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,9 @@
++Wed Jun  6 14:44:13 2012  Kenta Murata  <mrkn@mrkn.jp>
++
++	* bignum.c (rb_big2dbl), test/ruby/test_bignum.rb (test_to_f):
++	  A negative Bignum out of Float range should be converted to -Infinity.
++	  [ruby-core:30492] [Bug #3362]
++
+ Wed Jun  6 14:06:02 2012  Tanaka Akira  <akr@fsij.org>
+ 
+ 	* lib/webrick/utils.rb: fix fcntl call.
+@@ -21,15 +27,6 @@ Sat Apr 14 18:51:41 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 	  GC. [exerb-dev:0578].  patched by MURASE Masamitsu
+ 	  <masamitsu.murase AT gmail.com> at [exerb-dev:0580]
+ 
+-Tue Mar  6 12:05:42 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+-
+-	* lib/yaml/rubytypes.rb (Exception.yaml_new): fix bug that causes
+-	  YAML serialization problem for Exception.
+-	  Exception#initialize doesn't use visible instance variable for
+-	  the exception message, so call the method with the message.
+-	  patched by Jingwen Owen Ou <jingweno AT gmail.com>.
+-	  http://github.com/ruby/ruby/pull/41
+-
+ Fri Mar  2 11:44:33 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 
+ 	* marshal.c (mark_dump_arg): mark destination string.  patch by
+diff --git a/bignum.c b/bignum.c
+index 77697ae..6c0bf65 100644
+--- a/bignum.c
++++ b/bignum.c
+@@ -1069,7 +1069,10 @@
+ 
+     if (isinf(d)) {
+ 	rb_warn("Bignum out of Float range");
+-	d = HUGE_VAL;
++	if (d < 0.0)
++	    d = -HUGE_VAL;
++	else
++	    d = HUGE_VAL;
+     }
+     return d;
+ }
+diff --git a/test/ruby/test_bignum.rb b/test/ruby/test_bignum.rb
+index 99c5952..a0405ca 100644
+--- a/test/ruby/test_bignum.rb
++++ b/test/ruby/test_bignum.rb
+@@ -103,4 +103,10 @@ def test_too_big_to_s
+     e = assert_raise(RangeError) {(1 << big).to_s}
+     assert_match(/too big to convert/, e.message)
+   end
++
++  def test_to_f
++    inf = 1 / 0.0
++    assert_equal(inf,  (1  << 65536).to_f)
++    assert_equal(-inf, (-1 << 65536).to_f) # [ruby-core:30492] [Bug #3362]
++  end
+ end
+diff --git a/version.h b/version.h
+index 3b58c4e..3d64d07 100644
+--- a/version.h
++++ b/version.h
+@@ -2,7 +2,7 @@
+ #define RUBY_RELEASE_DATE "2012-06-06"
+ #define RUBY_VERSION_CODE 187
+ #define RUBY_RELEASE_CODE 20120606
+-#define RUBY_PATCHLEVEL 364
++#define RUBY_PATCHLEVEL 365
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+-- 
+1.8.5.1
+
+
+From d18b653719687756c82c7c800dee5e91b388fefd Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Wed, 6 Jun 2012 06:16:25 +0000
+Subject: [PATCH 10/19] merge revision(s) 23432: 	* eval.c
+ (rb_thread_join), ext/thread/thread.c (wake_one): adjusts 	  targets of
+ rest waiting threads to join.  [ruby-core:23457]
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35942 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                  |  5 ++++
+ eval.c                     | 10 ++++++++
+ ext/thread/thread.c        | 26 +++++++++++++++++--
+ test/thread/test_thread.rb | 63 ++++++++++++++++++++++++++++++++++++++++++++++
+ version.h                  |  2 +-
+ 5 files changed, 103 insertions(+), 3 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 69c7ced..8956096 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,8 @@
++Wed Jun  6 15:09:00 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
++
++	* eval.c (rb_thread_join), ext/thread/thread.c (wake_one): adjusts
++	  targets of rest waiting threads to join.  [ruby-core:23457]
++
+ Wed Jun  6 14:44:13 2012  Kenta Murata  <mrkn@mrkn.jp>
+ 
+ 	* bignum.c (rb_big2dbl), test/ruby/test_bignum.rb (test_to_f):
+diff --git a/test/thread/test_thread.rb b/test/thread/test_thread.rb
+index 699f4fe..e3246d1 100644
+--- a/test/thread/test_thread.rb
++++ b/test/thread/test_thread.rb
+@@ -86,5 +86,68 @@ def test_queue_rescue
+         assert_nothing_raised("[ruby-dev:37545]") {assert_equal(1, queue.pop)}
+         assert(queue.empty?)
+     end
++
++  # This test checks that a thread in Mutex#lock which is raised is
++  # completely removed from the wait_list of the mutex
++  def test_mutex_exception_handling
++    m = Mutex.new
++    m.lock
++
++    sleeping = false
++    t = Thread.new do
++      begin
++        m.lock
++      rescue
++      end
++
++      sleeping = true
++      # Keep that thread alive: if the thread returns, the test method
++      # won't be able to check that +m+ has not been taken (dead mutex
++      # owners are ignored)
++      sleep
++    end
++
++    # Wait for t to wait for the mutex and raise it
++    while true
++      sleep 0.1
++      break if t.stop?
++    end
++    t.raise ArgumentError
++    assert(t.alive? || sleeping)
++
++    # Wait for +t+ to reach the sleep
++    while true
++      sleep 0.1
++      break if t.stop?
++    end
++
++    # Now unlock. The mutex should be free, so Mutex#unlock should return nil
++    assert(! m.unlock)
++  end
++
++  def test_mutex_join
++    m = Mutex.new
++    m.lock
++    wt2 = Thread.new do
++      m.lock
++      sleep 0.5
++      m.unlock
++    end
++
++    # Ensure wt2 is waiting on m
++    sleep 0.1
++
++    wt1 = Thread.new do
++      m.lock
++      m.unlock
++    end
++    # Ensure wt1 is waiting on m
++    sleep 0.1
++
++    # Give it to wt2
++    m.unlock
++
++    assert_nothing_raised {wt1.join}
++  end
+ end
+ 
+diff --git a/version.h b/version.h
+index 3d64d07..293cd6e 100644
+--- a/version.h
++++ b/version.h
+@@ -2,7 +2,7 @@
+ #define RUBY_RELEASE_DATE "2012-06-06"
+ #define RUBY_VERSION_CODE 187
+ #define RUBY_RELEASE_CODE 20120606
+-#define RUBY_PATCHLEVEL 365
++#define RUBY_PATCHLEVEL 366
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+-- 
+1.8.5.1
+
+
+From 15fbb87b594a47ed622829cfdd6891eb97ea4726 Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Thu, 7 Jun 2012 10:05:59 +0000
+Subject: [PATCH 11/19] merge revision(s) 30993: 	*
+ ext/bigdecimal/bigdecimal.c (VpMemAlloc): Fixes a bug reported by Drew Yao
+ <ayao at apple.com>
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35953 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                   | 5 +++++
+ ext/bigdecimal/bigdecimal.c | 8 ++++----
+ version.h                   | 8 ++++----
+ 3 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 8956096..3ac2f87 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,8 @@
++Thu Jun  7 19:00:35 2012  Kenta Murata <mrkn@mrkn.jp>
++
++	* ext/bigdecimal/bigdecimal.c (VpMemAlloc): Fixes a bug reported
++	  by Drew Yao <ayao at apple.com>
++
+ Wed Jun  6 15:09:00 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 
+ 	* eval.c (rb_thread_join), ext/thread/thread.c (wake_one): adjusts
+diff --git a/ext/bigdecimal/bigdecimal.c b/ext/bigdecimal/bigdecimal.c
+index 16be520..7ebb3f7 100644
+--- a/ext/bigdecimal/bigdecimal.c
++++ b/ext/bigdecimal/bigdecimal.c
+@@ -2032,11 +2032,11 @@
+ VP_EXPORT void *
+ VpMemAlloc(U_LONG mb)
+ {
+-    void *p = xmalloc((unsigned int)mb);
+-    if(!p) {
+-        VpException(VP_EXCEPTION_MEMORY,"failed to allocate memory",1);
++    void *p = xmalloc(mb);
++    if (!p) {
++        VpException(VP_EXCEPTION_MEMORY, "failed to allocate memory", 1);
+     }
+-    memset(p,0,mb);
++    memset(p, 0, mb);
+ #ifdef _DEBUG
+     gnAlloc++; /* Count allocation call */
+ #endif /* _DEBUG */
+diff --git a/version.h b/version.h
+index 293cd6e..7a53a5c 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-06-06"
++#define RUBY_RELEASE_DATE "2012-06-07"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120606
+-#define RUBY_PATCHLEVEL 366
++#define RUBY_RELEASE_CODE 20120607
++#define RUBY_PATCHLEVEL 367
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+ #define RUBY_RELEASE_MONTH 6
+-#define RUBY_RELEASE_DAY 6
++#define RUBY_RELEASE_DAY 7
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From ef73b34c87f52be6a87e0f7ab8d5a03bfcaa983f Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Sat, 9 Jun 2012 18:12:07 +0000
+Subject: [PATCH 12/19] merge revision(s) 32542: 	* eval.c
+ (ruby_setjmp): need to save the stack after r2 (the Table 	  of Contents
+ on ppc64) is saved onto the stack by getcontext(). 	  based on
+ <https://bugzilla.redhat.com/show_bug.cgi?id=628715>. 	  Bug#4411
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@35995 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog |  7 +++++++
+ eval.c    | 18 ++++++++++++++----
+ version.h |  8 ++++----
+ 3 files changed, 25 insertions(+), 8 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 3ac2f87..9637df1 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,10 @@
++Sun Jun 10 03:00:21 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
++
++	* eval.c (ruby_setjmp): need to save the stack after r2 (the Table
++	  of Contents on ppc64) is saved onto the stack by getcontext().
++	  based on <https://bugzilla.redhat.com/show_bug.cgi?id=628715>.
++	  Bug#4411
++
+ Thu Jun  7 19:00:35 2012  Kenta Murata <mrkn@mrkn.jp>
+ 
+ 	* ext/bigdecimal/bigdecimal.c (VpMemAlloc): Fixes a bug reported
+diff --git a/eval.c b/eval.c
+index c350159..4458dff 100644
+--- a/eval.c
++++ b/eval.c
+@@ -179,6 +179,9 @@
+        (function_call_may_return_twice_false_2 ? \
+         setjmp(function_call_may_return_twice_jmp_buf) : \
+         0)
++#  elif defined(__PPC64__)
++#    define JUST_BEFORE_SETJMP(extra_save, j) ((void)0)
++#    define JUST_AFTER_SETJMP(extra_save, j) ((j)->status ? (void)0 : (extra_save))
+ #  elif defined(__FreeBSD__) && __FreeBSD__ < 7
+ /*
+  * workaround for FreeBSD/i386 getcontext/setcontext bug.
+@@ -196,16 +199,23 @@
+ #  ifndef POST_GETCONTEXT
+ #    define POST_GETCONTEXT 0
+ #  endif
++#  ifndef JUST_BEFORE_SETJMP
++#    define JUST_BEFORE_SETJMP(extra_save, j) (extra_save)
++#  endif
++#  ifndef JUST_AFTER_SETJMP
++#    define JUST_AFTER_SETJMP(extra_save, j) ((void)0)
++#  endif
+ #  define ruby_longjmp(env, val) rb_jump_context(env, val)
+-#  define ruby_setjmp(just_before_setjmp, j) ((j)->status = 0, \
+-     (just_before_setjmp), \
++#  define ruby_setjmp(extra_save, j) ((j)->status = 0, \
++     JUST_BEFORE_SETJMP(extra_save, j), \
+      PRE_GETCONTEXT, \
+      getcontext(&(j)->context), \
+      POST_GETCONTEXT, \
++     JUST_AFTER_SETJMP(extra_save, j), \
+      (j)->status)
+ #else
+-#  define ruby_setjmp(just_before_setjmp, env) \
+-     ((just_before_setjmp), RUBY_SETJMP(env))
++#  define ruby_setjmp(extra_save, env) \
++     ((extra_save), RUBY_SETJMP(env))
+ #  define ruby_longjmp(env,val) RUBY_LONGJMP(env,val)
+ #  ifdef __CYGWIN__
+ int _setjmp(), _longjmp();
+diff --git a/version.h b/version.h
+index 7a53a5c..6341599 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-06-07"
++#define RUBY_RELEASE_DATE "2012-06-10"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120607
+-#define RUBY_PATCHLEVEL 367
++#define RUBY_RELEASE_CODE 20120610
++#define RUBY_PATCHLEVEL 368
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+ #define RUBY_RELEASE_MONTH 6
+-#define RUBY_RELEASE_DAY 7
++#define RUBY_RELEASE_DAY 10
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From d761c9b178d8a2b7757ca5ea41135c7ea37c70b2 Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Mon, 18 Jun 2012 09:53:29 +0000
+Subject: [PATCH 13/19] merge revision(s) 32605:32610: 	* backport r32609 from
+ trunk. 	* ext/openssl/ossl_hmac.c: Revert checking return type of 
+   HMAC_Init_ex as it is not compatible with OpenSSL < 1.0.0. 	* backport
+ r32606 from trunk. 	* ext/openssl/ossl_digest.c: Check return value of
+ EVP_DigestInit_ex. 	* ext/openssl/ossl_hmac.c: Check return value of
+ HMAC_Init_ex. 	  Thanks, Jared Jennings, for the patch. 	  [ Ruby 1.9 -
+ Bug #4944 ] [ruby-core:37670]
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@36126 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                 | 16 ++++++++++++++++
+ ext/openssl/ossl_digest.c | 12 +++++++++---
+ version.h                 |  8 ++++----
+ 3 files changed, 29 insertions(+), 7 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 9637df1..e7445fa 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,19 @@
++Mon Jun 18 18:32:43 2012  Martin Bosslet  <Martin.Bosslet@googlemail.com>
++
++	* backport r32609 from trunk.
++
++	* ext/openssl/ossl_hmac.c: Revert checking return type of
++	  HMAC_Init_ex as it is not compatible with OpenSSL < 1.0.0.
++
++Mon Jun 18 18:32:43 2012  Martin Bosslet  <Martin.Bosslet@googlemail.com>
++
++	* backport r32606 from trunk.
++
++	* ext/openssl/ossl_digest.c: Check return value of EVP_DigestInit_ex.
++	* ext/openssl/ossl_hmac.c: Check return value of HMAC_Init_ex.
++	  Thanks, Jared Jennings, for the patch.
++	  [ Ruby 1.9 - Bug #4944 ] [ruby-core:37670]
++
+ Sun Jun 10 03:00:21 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 
+ 	* eval.c (ruby_setjmp): need to save the stack after r2 (the Table
+diff --git a/ext/openssl/ossl_digest.c b/ext/openssl/ossl_digest.c
+index 879d399..13111ce 100644
+--- a/ext/openssl/ossl_digest.c
++++ b/ext/openssl/ossl_digest.c
+@@ -62,7 +62,9 @@
+ 
+     ret = ossl_digest_alloc(cDigest);
+     GetDigest(ret, ctx);
+-    EVP_DigestInit_ex(ctx, md, NULL);
++    if (EVP_DigestInit_ex(ctx, md, NULL) != 1) {
++	ossl_raise(eDigestError, "Digest initialization failed.");
++    }
+    
+     return ret;
+ }
+@@ -104,7 +106,9 @@
+     if (!NIL_P(data)) StringValue(data);
+ 
+     GetDigest(self, ctx);
+-    EVP_DigestInit_ex(ctx, md, NULL);
++    if (EVP_DigestInit_ex(ctx, md, NULL) != 1) {
++	ossl_raise(eDigestError, "Digest initialization failed.");
++    }
+     
+     if (!NIL_P(data)) return ossl_digest_update(self, data);
+     return self;
+@@ -138,7 +142,9 @@
+     EVP_MD_CTX *ctx;
+ 
+     GetDigest(self, ctx);
+-    EVP_DigestInit_ex(ctx, EVP_MD_CTX_md(ctx), NULL);
++    if (EVP_DigestInit_ex(ctx, EVP_MD_CTX_md(ctx), NULL) != 1) {
++	ossl_raise(eDigestError, "Digest initialization failed.");
++    }
+ 
+     return self;
+ }
+diff --git a/version.h b/version.h
+index 6341599..7b2f01a 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-06-10"
++#define RUBY_RELEASE_DATE "2012-06-18"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120610
+-#define RUBY_PATCHLEVEL 368
++#define RUBY_RELEASE_CODE 20120618
++#define RUBY_PATCHLEVEL 369
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+ #define RUBY_RELEASE_MONTH 6
+-#define RUBY_RELEASE_DAY 10
++#define RUBY_RELEASE_DAY 18
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From e48d99f0e574a36f0e9c7337b396a437cbff4cc5 Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Fri, 29 Jun 2012 12:31:25 +0000
+Subject: [PATCH 14/19] merge revision(s) 36251: 	* eval.c
+ (stack_extend): prevent ALLOCA_N, which reserves a memory 	  space with
+ for restoring machine stack stored in each threads, from 	  optimization
+ out.  backport r34278 from the trunk.
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@36253 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog | 6 ++++++
+ eval.c    | 2 ++
+ version.h | 8 ++++----
+ 3 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index e7445fa..2d4bcb0 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,9 @@
++Fri Jun 29 21:26:05 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
++
++	* eval.c (stack_extend): prevent ALLOCA_N, which reserves a memory
++	  space with for restoring machine stack stored in each threads, from
++	  optimization out.  backport r34278 from the trunk.
++
+ Mon Jun 18 18:32:43 2012  Martin Bosslet  <Martin.Bosslet@googlemail.com>
+ 
+ 	* backport r32609 from trunk.
+diff --git a/version.h b/version.h
+index 7b2f01a..d90d5b1 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-06-18"
++#define RUBY_RELEASE_DATE "2012-06-29"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120618
+-#define RUBY_PATCHLEVEL 369
++#define RUBY_RELEASE_CODE 20120629
++#define RUBY_PATCHLEVEL 370
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+ #define RUBY_RELEASE_MONTH 6
+-#define RUBY_RELEASE_DAY 18
++#define RUBY_RELEASE_DAY 29
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From 2ac236dcbd90bd33bfeac4f699763c3baef4038e Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Fri, 12 Oct 2012 04:05:35 +0000
+Subject: [PATCH 15/19] * error.c (name_err_to_s): we need not infect msg.
+
+* test/ruby/test_exception.rb (TestException#test_exception_to_s_should_not_propagate_untrustedness): test for it.
+
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@37148 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                   |  6 ++++++
+ error.c                     |  3 ---
+ test/ruby/test_exception.rb | 30 +++++++++++++++++++++++++++++-
+ version.h                   | 10 +++++-----
+ 4 files changed, 40 insertions(+), 9 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 2d4bcb0..e2e1059 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,9 @@
++Fri Oct 12 12:25:15 2012  URABE Shyouhei  <shyouhei@ruby-lang.org>
++
++	* error.c (name_err_to_s): we need not infect msg.
++
++	* test/ruby/test_exception.rb (TestException#test_exception_to_s_should_not_propagate_untrustedness): test for it.
++
+ Fri Jun 29 21:26:05 2012  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+ 
+ 	* eval.c (stack_extend): prevent ALLOCA_N, which reserves a memory
+diff --git a/error.c b/error.c
+index 59b445e..2b3bf3f 100644
+--- a/error.c
++++ b/error.c
+@@ -665,9 +665,6 @@
+ 
+     if (NIL_P(mesg)) return rb_class_name(CLASS_OF(exc));
+     StringValue(str);
+-    if (str != mesg) {
+-	OBJ_INFECT(str, mesg);
+-    }
+     return str;
+ }
+ 
+diff --git a/test/ruby/test_exception.rb b/test/ruby/test_exception.rb
+index c5f4091..434838f 100644
+--- a/test/ruby/test_exception.rb
++++ b/test/ruby/test_exception.rb
+@@ -204,6 +204,34 @@ def o.to_str
+     o.taint
+     e = NameError.new(o)
+     s = e.to_s
+-    assert_equal(true, s.tainted?)
++    assert_equal(false, s.tainted?)
++  end
++
++  def test_exception_to_s_should_not_propagate_untrustedness
++    favorite_lang = "Ruby"
++
++    for exc in [Exception, NameError]
++      assert_raise(SecurityError) do
++        lambda {
++          $SAFE = 4
++          exc.new(favorite_lang).to_s
++          favorite_lang.replace("Python")
++        }.call
++      end
++    end
++
++    assert_raise(SecurityError) do
++      lambda {
++        $SAFE = 4
++        o = Object.new
++        (class << o; self; end).send(:define_method, :to_str) {
++          favorite_lang
++        }
++        NameError.new(o).to_s
++        favorite_lang.replace("Python")
++      }.call
++    end
++
++    assert_equal("Ruby", favorite_lang)
+   end
+ end
+diff --git a/version.h b/version.h
+index d90d5b1..e509ed2 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-06-29"
++#define RUBY_RELEASE_DATE "2012-10-12"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20120629
+-#define RUBY_PATCHLEVEL 370
++#define RUBY_RELEASE_CODE 20121012
++#define RUBY_PATCHLEVEL 371
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2012
+-#define RUBY_RELEASE_MONTH 6
+-#define RUBY_RELEASE_DAY 29
++#define RUBY_RELEASE_MONTH 10
++#define RUBY_RELEASE_DAY 12
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From eca9bf617ab517b73598f449388b543d19c72b7d Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Sat, 18 May 2013 14:55:14 +0000
+Subject: [PATCH 16/19] merge revision(s) 39384,39509,39511: [Backport #7961]
+
+	* lib/rexml/document.rb (REXML::Document.entity_expansion_text_limit):
+	  new attribute to read/write entity expansion text limit.  the default
+	  limit is 10Kb.
+
+	* lib/rexml/text.rb (REXML::Text.unnormalize): check above attribute.
+
+	* lib/rexml/document.rb: move entity_expansion_limit accessor to ...
+
+	* lib/rexml/rexml.rb: ... here to make rexml/text independent from
+	  REXML::Document. It causes circular require.
+
+	* lib/rexml/document.rb (REXML::Document.entity_expansion_limit):
+	  deprecated.
+
+	* lib/rexml/document.rb (REXML::Document.entity_expansion_limit=):
+	  deprecated.
+
+	* lib/rexml/text.rb: add missing require "rexml/rexml" for
+	  REXML.entity_expansion_limit.
+	  Reported by Robert Ulejczyk. Thanks!!! [ruby-core:52895] [Bug #7961]
+
+	* lib/rexml/document.rb: move entity_expansion_text_limit accessor to ...
+
+	* lib/rexml/document.rb (REXML::Document.entity_expansion_text_limit):
+
+	* lib/rexml/document.rb (REXML::Document.entity_expansion_text_limit=):
+	  REXML.entity_expansion_text_limit.
+
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@40812 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog             | 21 ++++++++++++++++++++
+ lib/rexml/document.rb | 14 ++++++++++++++
+ lib/rexml/rexml.rb    | 12 ++++++++++++
+ lib/rexml/text.rb     | 53 +++++++++++++++++++++++++--------------------------
+ version.h             | 12 ++++++------
+ 5 files changed, 79 insertions(+), 33 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index e2e1059..c80774f 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,24 @@
++Sat May 18 23:34:50 2013  Kouhei Sutou  <kou@cozmixng.org>
++
++	* lib/rexml/document.rb: move entity_expansion_text_limit accessor to ...
++	* lib/rexml/rexml.rb: ... here to make rexml/text independent from
++	  REXML::Document. It causes circular require.
++	* lib/rexml/document.rb (REXML::Document.entity_expansion_text_limit):
++	  deprecated.
++	* lib/rexml/document.rb (REXML::Document.entity_expansion_text_limit=):
++	  deprecated.
++	* lib/rexml/text.rb: add missing require "rexml/rexml" for
++	  REXML.entity_expansion_text_limit.
++	  Reported by Robert Ulejczyk. Thanks!!! [ruby-core:52895] [Bug #7961]
++
++Sat May 18 23:34:50 2013  Aaron Patterson <aaron@tenderlovemaking.com>
++
++	* lib/rexml/document.rb (REXML::Document.entity_expansion_text_limit):
++	  new attribute to read/write entity expansion text limit.  the default
++	  limit is 10Kb.
++
++	* lib/rexml/text.rb (REXML::Text.unnormalize): check above attribute.
++
+ Fri Oct 12 12:25:15 2012  URABE Shyouhei  <shyouhei@ruby-lang.org>
+ 
+ 	* error.c (name_err_to_s): we need not infect msg.
+diff --git a/lib/rexml/document.rb b/lib/rexml/document.rb
+index 3d1300a..16a2c77 100644
+--- a/lib/rexml/document.rb
++++ b/lib/rexml/document.rb
+@@ -213,6 +213,20 @@ def Document::entity_expansion_limit
+       return @@entity_expansion_limit
+     end
+ 
++    # Set the entity expansion limit. By default the limit is set to 10240.
++    #
++    # Deprecated. Use REXML.entity_expansion_text_limit= instead.
++    def Document::entity_expansion_text_limit=( val )
++      REXML.entity_expansion_text_limit = val
++    end
++
++    # Get the entity expansion limit. By default the limit is set to 10000.
++    #
++    # Deprecated. Use REXML.entity_expansion_text_limit instead.
++    def Document::entity_expansion_text_limit
++      return REXML.entity_expansion_text_limit
++    end
++
+     attr_reader :entity_expansion_count
+     
+     def record_entity_expansion
+diff --git a/lib/rexml/rexml.rb b/lib/rexml/rexml.rb
+index 95bc2a7..8845300 100644
+--- a/lib/rexml/rexml.rb
++++ b/lib/rexml/rexml.rb
+@@ -29,4 +29,16 @@ module REXML
+ 
+   Copyright = COPYRIGHT
+   Version = VERSION
++
++  @@entity_expansion_text_limit = 10_240
++
++  # Set the entity expansion limit. By default the limit is set to 10240.
++  def self.entity_expansion_text_limit=( val )
++    @@entity_expansion_text_limit = val
++  end
++
++  # Get the entity expansion limit. By default the limit is set to 10240.
++  def self.entity_expansion_text_limit
++    return @@entity_expansion_text_limit
++  end
+ end
+diff --git a/lib/rexml/text.rb b/lib/rexml/text.rb
+index a4a30b6..b6dbf45 100644
+--- a/lib/rexml/text.rb
++++ b/lib/rexml/text.rb
+@@ -1,3 +1,4 @@
++require 'rexml/rexml'
+ require 'rexml/entity'
+ require 'rexml/doctype'
+ require 'rexml/child'
+@@ -308,37 +309,35 @@ def Text::normalize( input, doctype=nil, entity_filter=nil )
+ 
+     # Unescapes all possible entities
+     def Text::unnormalize( string, doctype=nil, filter=nil, illegal=nil )
+-      rv = string.clone
+-      rv.gsub!( /\r\n?/, "\n" )
+-      matches = rv.scan( REFERENCE )
+-      return rv if matches.size == 0
+-      rv.gsub!( NUMERICENTITY ) {|m|
+-        m=$1
+-        m = "0#{m}" if m[0] == ?x
+-        [Integer(m)].pack('U*')
++      sum = 0
++      string.gsub( /\r\n?/, "\n" ).gsub( REFERENCE ) {
++        s = Text.expand($&, doctype, filter)
++        if sum + s.bytesize > REXML.entity_expansion_text_limit
++          raise "entity expansion has grown too large"
++        else
++          sum += s.bytesize
++        end
++        s
+       }
+-      matches.collect!{|x|x[0]}.compact!
+-      if matches.size > 0
+-        if doctype
+-          matches.each do |entity_reference|
+-            unless filter and filter.include?(entity_reference)
+-              entity_value = doctype.entity( entity_reference )
+-              re = /&#{entity_reference};/
+-              rv.gsub!( re, entity_value ) if entity_value
+-            end
+-          end
++    end
++
++    def Text.expand(ref, doctype, filter)
++      if ref[1] == ?#
++        if ref[2] == ?x
++          [ref[3...-1].to_i(16)].pack('U*')
+         else
+-          matches.each do |entity_reference|
+-            unless filter and filter.include?(entity_reference)
+-              entity_value = DocType::DEFAULT_ENTITIES[ entity_reference ]
+-              re = /&#{entity_reference};/
+-              rv.gsub!( re, entity_value.value ) if entity_value
+-            end
+-          end
++          [ref[2...-1].to_i].pack('U*')
+         end
+-        rv.gsub!( /&amp;/, '&' )
++      elsif ref == '&amp;'
++        '&'
++      elsif filter and filter.include?( ref[1...-1] )
++        ref
++      elsif doctype
++        doctype.entity( ref[1...-1] ) or ref
++      else
++        entity_value = DocType::DEFAULT_ENTITIES[ ref[1...-1] ]
++        entity_value ? entity_value.value : ref
+       end
+-      rv
+     end
+   end
+ end
+diff --git a/version.h b/version.h
+index e509ed2..2158647 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2012-10-12"
++#define RUBY_RELEASE_DATE "2013-05-18"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20121012
+-#define RUBY_PATCHLEVEL 371
++#define RUBY_RELEASE_CODE 20130518
++#define RUBY_PATCHLEVEL 372
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+-#define RUBY_RELEASE_YEAR 2012
+-#define RUBY_RELEASE_MONTH 10
+-#define RUBY_RELEASE_DAY 12
++#define RUBY_RELEASE_YEAR 2013
++#define RUBY_RELEASE_MONTH 5
++#define RUBY_RELEASE_DAY 18
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From 961bf7496ded3acfe847cf56fa90bbdcfd6e614f Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Thu, 27 Jun 2013 11:22:26 +0000
+Subject: [PATCH 17/19] 	* ext/openssl/lib/openssl/ssl-internal.rb
+ (OpenSSL::SSL#verify_certificate_identity): 	  fix hostname verification.
+ Patch by nahi.
+
+	* test/openssl/test_ssl.rb (OpenSSL#test_verify_certificate_identity):
+	  test for above.
+
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@41676 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                               |  8 ++++++++
+ ext/openssl/lib/openssl/ssl-internal.rb | 18 +++++++++++++-----
+ test/openssl/test_ssl.rb                | 23 +++++++++++++++++++++++
+ version.h                               | 10 +++++-----
+ 4 files changed, 49 insertions(+), 10 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index c80774f..cbba5f0 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,11 @@
++Thu Jun 27 20:21:18 2013  URABE Shyouhei  <shyouhei@ruby-lang.org>
++
++	* ext/openssl/lib/openssl/ssl-internal.rb (OpenSSL::SSL#verify_certificate_identity):
++	  fix hostname verification. Patch by nahi.
++
++	* test/openssl/test_ssl.rb (OpenSSL#test_verify_certificate_identity):
++	  test for above.
++
+ Sat May 18 23:34:50 2013  Kouhei Sutou  <kou@cozmixng.org>
+ 
+ 	* lib/rexml/document.rb: move entity_expansion_text_limit accessor to ...
+diff --git a/ext/openssl/lib/openssl/ssl-internal.rb b/ext/openssl/lib/openssl/ssl-internal.rb
+index abf0e8d..9ef6f92 100644
+--- a/ext/openssl/lib/openssl/ssl-internal.rb
++++ b/ext/openssl/lib/openssl/ssl-internal.rb
+@@ -90,14 +90,22 @@ def verify_certificate_identity(cert, hostname)
+       should_verify_common_name = true
+       cert.extensions.each{|ext|
+         next if ext.oid != "subjectAltName"
+-        ext.value.split(/,\s+/).each{|general_name|
+-          if /\ADNS:(.*)/ =~ general_name
++        id, ostr = OpenSSL::ASN1.decode(ext.to_der).value
++        sequence = OpenSSL::ASN1.decode(ostr.value)
++        sequence.value.each{|san|
++          case san.tag
++          when 2 # dNSName in GeneralName (RFC5280)
+             should_verify_common_name = false
+-            reg = Regexp.escape($1).gsub(/\\\*/, "[^.]+")
++            reg = Regexp.escape(san.value).gsub(/\\\*/, "[^.]+")
+             return true if /\A#{reg}\z/i =~ hostname
+-          elsif /\AIP Address:(.*)/ =~ general_name
++          when 7 # iPAddress in GeneralName (RFC5280)
+             should_verify_common_name = false
+-            return true if $1 == hostname
++            # follows GENERAL_NAME_print() in x509v3/v3_alt.c
++            if san.value.size == 4
++              return true if san.value.unpack('C*').join('.') == hostname
++            elsif san.value.size == 16
++              return true if san.value.unpack('n*').map { |e| sprintf("%X", e) }.join(':') == hostname
++            end
+           end
+         }
+       }
+diff --git a/test/openssl/test_ssl.rb b/test/openssl/test_ssl.rb
+index 177b684..098ccdd 100644
+--- a/test/openssl/test_ssl.rb
++++ b/test/openssl/test_ssl.rb
+@@ -547,6 +547,29 @@ def test_unset_OP_ALL
+       ssl.close
+     }
+   end
++ 
++  def test_verify_certificate_identity
++    # creating NULL byte SAN certificate
++    ef = OpenSSL::X509::ExtensionFactory.new
++    cert = OpenSSL::X509::Certificate.new
++    cert.subject = OpenSSL::X509::Name.parse "/DC=some/DC=site/CN=Some Site"
++    ext = ef.create_ext('subjectAltName', 'DNS:placeholder,IP:192.168.7.1,IP:13::17')
++    ext_asn1 = OpenSSL::ASN1.decode(ext.to_der)
++    san_list_der = ext_asn1.value.reduce(nil) { |memo,val| val.tag == 4 ? val.value : memo }
++    san_list_asn1 = OpenSSL::ASN1.decode(san_list_der)
++    san_list_asn1.value[0].value = 'www.example.com\0.evil.com'
++    ext_asn1.value[1].value = san_list_asn1.to_der
++    real_ext = OpenSSL::X509::Extension.new ext_asn1
++    cert.add_extension(real_ext)
++
++    assert_equal(false, OpenSSL::SSL.verify_certificate_identity(cert, 'www.example.com'))
++    assert_equal(true,  OpenSSL::SSL.verify_certificate_identity(cert, 'www.example.com\0.evil.com'))
++    assert_equal(false, OpenSSL::SSL.verify_certificate_identity(cert, '192.168.7.255'))
++    assert_equal(true,  OpenSSL::SSL.verify_certificate_identity(cert, '192.168.7.1'))
++    assert_equal(false, OpenSSL::SSL.verify_certificate_identity(cert, '13::17'))
++    assert_equal(true,  OpenSSL::SSL.verify_certificate_identity(cert, '13:0:0:0:0:0:0:17'))
++  end
++L
+ end
+ 
+ end
+diff --git a/version.h b/version.h
+index 2158647..97111c5 100644
+--- a/version.h
++++ b/version.h
+@@ -1,15 +1,15 @@
+ #define RUBY_VERSION "1.8.7"
+-#define RUBY_RELEASE_DATE "2013-05-18"
++#define RUBY_RELEASE_DATE "2013-06-27"
+ #define RUBY_VERSION_CODE 187
+-#define RUBY_RELEASE_CODE 20130518
+-#define RUBY_PATCHLEVEL 372
++#define RUBY_RELEASE_CODE 20130627
++#define RUBY_PATCHLEVEL 373
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+ #define RUBY_VERSION_TEENY 7
+ #define RUBY_RELEASE_YEAR 2013
+-#define RUBY_RELEASE_MONTH 5
+-#define RUBY_RELEASE_DAY 18
++#define RUBY_RELEASE_MONTH 6
++#define RUBY_RELEASE_DAY 27
+ 
+ #ifdef RUBY_EXTERN
+ RUBY_EXTERN const char ruby_version[];
+-- 
+1.8.5.1
+
+
+From 469d4b9389cc2f877f2f17ba248146831d69c66b Mon Sep 17 00:00:00 2001
+From: shyouhei <shyouhei@b2dd03c8-39d4-4d8f-98ff-823fe69b080e>
+Date: Thu, 27 Jun 2013 11:56:26 +0000
+Subject: [PATCH 18/19] Oops, sorry!
+
+git-svn-id: svn+ssh://ci.ruby-lang.org/ruby/branches/ruby_1_8_7@41678 b2dd03c8-39d4-4d8f-98ff-823fe69b080e
+---
+ ChangeLog                | 4 ++++
+ test/openssl/test_ssl.rb | 1 -
+ version.h                | 2 +-
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index cbba5f0..dbba29d 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,7 @@
++Thu Jun 27 20:55:23 2013  URABE Shyouhei  <shyouhei@ruby-lang.org>
++
++	* test/openssl/test_ssl.rb: Oops, sorry!
++
+ Thu Jun 27 20:21:18 2013  URABE Shyouhei  <shyouhei@ruby-lang.org>
+ 
+ 	* ext/openssl/lib/openssl/ssl-internal.rb (OpenSSL::SSL#verify_certificate_identity):
+diff --git a/test/openssl/test_ssl.rb b/test/openssl/test_ssl.rb
+index 098ccdd..2e014f1 100644
+--- a/test/openssl/test_ssl.rb
++++ b/test/openssl/test_ssl.rb
+@@ -569,7 +569,6 @@ def test_verify_certificate_identity
+     assert_equal(false, OpenSSL::SSL.verify_certificate_identity(cert, '13::17'))
+     assert_equal(true,  OpenSSL::SSL.verify_certificate_identity(cert, '13:0:0:0:0:0:0:17'))
+   end
+-L
+ end
+ 
+ end
+diff --git a/version.h b/version.h
+index 97111c5..6b6d57e 100644
+--- a/version.h
++++ b/version.h
+@@ -2,7 +2,7 @@
+ #define RUBY_RELEASE_DATE "2013-06-27"
+ #define RUBY_VERSION_CODE 187
+ #define RUBY_RELEASE_CODE 20130627
+-#define RUBY_PATCHLEVEL 373
++#define RUBY_PATCHLEVEL 374
+ 
+ #define RUBY_VERSION_MAJOR 1
+ #define RUBY_VERSION_MINOR 8
+-- 
+1.8.5.1
+
