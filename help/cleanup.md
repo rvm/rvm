@@ -1,11 +1,15 @@
+## Usage:
 
-    $ rvm cleanup {all,archives,repos,sources,logs,gemsets,links}
+    rvm cleanup {all,archives,repos,sources,logs,gemsets,links}
 
-Performs general cleanup for the specific set of rvm directories.
+## Description:
+
+Cleans up the directory tree for the specified item.
+For gemsets removes only those without matching ruby.
 
 Useful for reclaiming used disk space from rvm compiles.
 
-Examples:
+## Examples:
 
 To reclaim all of the space used by archives, repository clones,
 source files (and associated temporary compile file) and logs, you'd
@@ -18,5 +22,4 @@ If instead you only wanted to clean up source files, you'd run:
     $ rvm cleanup sources
 
 Please note that sometimes having archives and sources around are desirable.
-Namely, you need the sources to install something such as ruby-debug under
-1.9.
+Namely, you need the sources to install something such as ruby-debug under 1.9.

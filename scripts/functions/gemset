@@ -33,6 +33,13 @@ __rvm_current_gemcache_dir()
   return 0
 }
 
+__rvm_remove_broken_symlinks()
+{
+  if [[ ! -e "$1" && -L "$1" ]]
+  then __rvm_rm_rf "$1"
+  fi
+}
+
 gemset_create()
 {
   typeset gem_home gemset gemsets prefix
@@ -61,6 +68,7 @@ gemset_create()
     fi
 
     gem_home="${prefix}${gemset:+${rvm_gemset_separator:-"@"}}${gemset}"
+    __rvm_remove_broken_symlinks "$gem_home"
     [[ -d "$gem_home/bin" ]] || mkdir -p "$gem_home/bin"
 
     : rvm_gems_cache_path:${rvm_gems_cache_path:=${rvm_gems_path:-"$rvm_path/gems"}/cache}
@@ -74,9 +82,7 @@ gemset_create()
       __rvm_rm_rf "$gem_home/cache"
       ln -fs "$rvm_gems_cache_path" "$gem_home/cache"
     else
-      if [[ ! -e "$gem_home/cache" && -L "$gem_home/cache" ]]
-      then __rvm_rm_rf "$gem_home/cache" # remove broken symlinks
-      fi
+      __rvm_remove_broken_symlinks "$gem_home/cache"
       mkdir -p "$gem_home/cache"
     fi
     rvm_log "$rvm_ruby_string - #gemset created $gem_home"
@@ -181,7 +187,7 @@ gem_install_force()
 
 __rvm_lines_without_comments()
 {
-  __rvm_remove_from_array lines "#*|+([[:space:]])" "${lines[@]}"
+  __rvm_remove_from_array lines "#*|+( )" "${lines[@]}"
 }
 
 __rvm_lines_without_gems()
@@ -196,7 +202,7 @@ __rvm_lines_without_gems()
 
   typeset __gem
   for __gem in "${__gems_to_remove[@]}"
-  do  __rvm_remove_from_array lines "${__gem% *} *" "${lines[@]}"
+  do  __rvm_remove_from_array lines "${__gem}|${__gem% *} *" "${lines[@]}"
   done
 }
 
@@ -367,7 +373,9 @@ __rvm_remove_without_gems()
   [[ -n "${rvm_without_gems}" ]] || return 0
 
   typeset -a __gems_to_remove
-  __rvm_read_lines __gems_to_remove <( __rvm_list_gems "" "${rvm_without_gems}" )
+  __rvm_read_lines __gems_to_remove <(
+    GEM_PATH="$GEM_HOME" __rvm_list_gems "" "${rvm_without_gems}"
+  )
 
   (( ${#__gems_to_remove[@]} )) || return 0
 
