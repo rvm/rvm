@@ -158,7 +158,6 @@ __rvm_select_interpreter_rbx()
   __rvm_select_rbx_nightly || return $?
 
   rvm_ruby_interpreter="rbx"
-  rvm_ruby_string="${rvm_ruby_string//rubinius/rbx}"
 
   __rvm_select_rbx_compatibility_branch
 
@@ -524,23 +523,24 @@ __rvm_select()
 
   __rvm_select_set_variable_defaults &&
   __rvm_select_detect_ruby_string "${1:-${rvm_env_string}}" &&
-  __rvm_ruby_string                  &&
+  __rvm_ruby_string &&
+  __rvm_select_after_parse ||
+  return $?
+}
+
+__rvm_select_after_parse()
+{
   __rvm_select_interpreter_variables &&
   __rvm_select_version_variables     &&
   __rvm_select_default_variables     ||
   return $?
 
-  [[ "system" == "$rvm_ruby_interpreter" ]] ||
-  {
-    __rvm_gemset_select ||
-    case $? in
-      2) true      ;;
-      *) return $? ;;
-    esac
-  }
+  [[ "system" == "$rvm_ruby_interpreter" ]] || __rvm_gemset_select ||
+    return $result
 
   rvm_ruby_selected_flag=1
 }
+
 
 __rvm_use_system() {
 
@@ -588,11 +588,17 @@ __rvm_use()
 
   __rvm_select "$@" || return $?
 
-  if
-    [[ "system" == ${rvm_ruby_interpreter:="system"} ]]
-  then
-    __rvm_use_system
-  else
+  if [[ "system" == ${rvm_ruby_interpreter:="system"} ]]
+  then __rvm_use_system
+  else __rvm_use_ || return $?
+  fi
+  __rvm_use_common
+}
+
+__rvm_use_()
+{
+  rvm_ruby_home="${rvm_ruby_home%%@*}"
+
     if
       [[ ! -d "$rvm_ruby_home" ]]
     then
@@ -637,8 +643,10 @@ __rvm_use()
     then new_path="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}:$(__rvm_remove_rvm_from_path ;printf "%b" "$PATH")"
     else new_path="$GEM_HOME/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}:$(__rvm_remove_rvm_from_path ;printf "%b" "$PATH")"
     fi
-  fi
+}
 
+__rvm_use_common()
+{
   [[ -z "${rvm_ruby_string:-}" ]] || export rvm_ruby_string
   [[ -z "${rvm_gemset_name:-}" ]] || export rvm_gemset_name
 
@@ -688,6 +696,16 @@ __rvm_use()
   rvm_hook="after_use"
   source "$rvm_scripts_path/hook"
   return 0
+}
+
+__rvm_ruby_string_installed()
+{
+  [[ -n "$rvm_ruby_interpreter" && -n "${rvm_ruby_string}" &&
+    -d "$rvm_rubies_path/${rvm_ruby_string}"
+  ]] &&
+  [[ -z "${rvm_gemset_name}" ||
+    -d "$rvm_gems_path/${rvm_ruby_string}${rvm_gemset_separator}${rvm_gemset_name}"
+  ]]
 }
 
 __rvm_ruby_string()
@@ -747,6 +765,29 @@ __rvm_ruby_string()
 
   __rvm_ruby_string_parse || return $?
 
+  if __rvm_ruby_string_installed
+  then return 0
+  fi
+
+  __rvm_ruby_string_autodetect
+
+  if
+    [[ -n "${rvm_ruby_name:-}" ]]
+  then
+    rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_name}"
+    # record the name for validation of -n option
+    detected_rvm_ruby_name="${rvm_ruby_name}"
+    # clean the name so it is not added again (rbx -n install problem)
+    rvm_ruby_name=""
+  else
+    # record the no name for validation of -n option
+    detected_rvm_ruby_name=""
+  fi
+  true
+}
+
+__rvm_ruby_string_autodetect()
+{
   if
     [[ -z "${rvm_ruby_version:-}" &&
       "${rvm_ruby_interpreter}" != "ext" &&
@@ -843,18 +884,6 @@ __rvm_ruby_string()
     then rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
     fi
   fi
-  if
-    [[ -n "${rvm_ruby_name:-}" ]]
-  then
-    rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_name}"
-    # record the name for validation of -n option
-    detected_rvm_ruby_name="${rvm_ruby_name}"
-    # clean the name so it is not added again (rbx -n install problem)
-    rvm_ruby_name=""
-  else
-    # record the no name for validation of -n option
-    detected_rvm_ruby_name=""
-  fi
   true # OSX --trace FIX
 }
 
@@ -864,6 +893,7 @@ __rvm_ruby_strings_exist()
   do
     rvm_gemset_name=""
     rvm_verbose_flag=0 __rvm_use "${rvm_ruby_string}" >/dev/null 2>&1 || return $?
+    true rvm_gemset_name:${rvm_gemset_name:=${rvm_expected_gemset_name}}
     printf "%b" "${rvm_ruby_string}${rvm_gemset_name:+@}${rvm_gemset_name:-}\n"
   done
   unset rvm_ruby_string
