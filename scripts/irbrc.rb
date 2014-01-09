@@ -37,7 +37,7 @@ rescue LoadError
 end
 
 # Calculate the ruby string.
-rvm_ruby_string = ENV["rvm_ruby_string"] || (ENV['GEM_HOME'].nil? ? `ruby -v`.match(/^([^ ]+ [^ ]+)/)[0].sub(/ /,'-') : ENV['GEM_HOME'].split(/\//).last.split(/@/).first)
+rvm_ruby_string = ENV["rvm_ruby_string"] || (ENV['GEM_HOME'].nil? ? (`ruby -v` || '').match(/^([^ ]+ [^ ]+)/)[0].sub(/ /,'-') : ENV['GEM_HOME'].split(/\//).last.split(/@/).first)
 
 # cut ruby- ... everyone knows it's ruby
 rvm_ruby_string = $1 if rvm_ruby_string =~ /^ruby-(.*)/
