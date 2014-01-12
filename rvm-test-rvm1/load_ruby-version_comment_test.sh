@@ -12,6 +12,8 @@ PATH="$( echo $PATH | sed 's/^.*rvm[^:]*://' )" # env[PATH]!=/rvm/
 
 echo "2.0.0" > .ruby-version
 echo "@test" > .ruby-gemset
+export PS4="+ \${BASH_SOURCE} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+set -x
 source "$rvm_path/scripts/rvm"
 # env[GEM_HOME]=/2.0.0-p353@test$/
 # env[PATH]=/2.0.0-p353@test/
