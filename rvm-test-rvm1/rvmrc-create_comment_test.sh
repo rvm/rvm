@@ -6,6 +6,7 @@ d=$TMPDIR/test-rvmrc
 mkdir $d
 pushd $d
 command rvm install 1.9.3-p484
+rvm 1.9.3-p484 do rvm gemset reset_env
 rvm use 1.8.7 --install
 
 : .rvmrc generated
@@ -13,12 +14,12 @@ rvm rvmrc create 1.9.3-p484
 [ -f .rvmrc ]         # status=0
 rvm current           # match=/1.8.7/
 rvm rvmrc trust .rvmrc
-export PS4="+ \${BASH_SOURCE} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
-set -x
+## export PS4="+ \${BASH_SOURCE} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+## set -x
 rvm rvmrc load .rvmrc
 # env[GEM_HOME]=/1.9.3-p484$/
 # env[PATH]=/1.9.3-p484/
-set +x
+## set +x
 rvm current           # match=/1.9.3-p484/
 
 : .rvmrc with use
