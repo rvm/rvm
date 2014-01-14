@@ -275,13 +275,13 @@ __rvm_cli_install_ruby()
   if
     [[ -n "$1" ]]
   then
-    typeset __rubies __installed __missing
+    typeset __rubies __search __installed __missing
     typeset -a __search
     __rvm_custom_separated_array __search , "$1"
     __rubies=""
     __rvm_cli_rubies_select "$1" || return $?
     if __rvm_cli_rubies_not_installed
-    then __rvm_run_wrapper manage install "${__rubies//|/,}" || return $?
+    then __rvm_run_wrapper manage install "${__rubies}" || return $?
     fi
   else
     rvm_error "Can not use or install 'all' rubies."
@@ -296,14 +296,18 @@ __rvm_cli_rubies_select()
   do
     rvm_ruby_string="${__ruby}"
     __rvm_select &&
-    [[ -n "$rvm_ruby_string" ]] &&
-    __rubies+="^$rvm_ruby_string\$|" ||
-    {
+    if
+      [[ -n "$rvm_ruby_string" ]]
+    then
+      __rubies+="$rvm_ruby_string,"
+      __search+="^$rvm_ruby_string\$|"
+    else
       rvm_error "Could not detect ruby version/name for installation '${__ruby}', please be more specific."
       return 1
-    }
+    fi
   done
-  __rubies="${__rubies%|}"
+  __rubies="${__rubies%,}"
+  __search="${__search%|}"
 }
 
 __rvm_cli_rubies_not_installed()
@@ -311,7 +315,7 @@ __rvm_cli_rubies_not_installed()
   if
     (( ${rvm_force_flag:-0} == 0 )) &&
     __installed="$(
-      __rvm_list_strings | __rvm_grep -E "${__rubies}"
+      __rvm_list_strings | __rvm_grep -E "${__search}"
     )" &&
     [[ -n "${__installed}" ]]
   then
