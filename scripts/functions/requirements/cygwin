@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+requirements_cygwin_lib_installed()
+{
+  cygcheck -c -d | __rvm_grep "^$1" >/dev/null || return $?
+}
+
+requirements_cygwin_libs_install()
+{
+  typeset __packages_list __manager
+
+  if [[ "${_system_arch}" == "x86_64" ]]
+  then __manager="setup-x86_64.exe"
+  else __manager="setup-x86.exe"
+  fi
+  rvm_debug "__manager: ${__manager}"
+
+  __packages_list="$*"
+  ${__manager} -q -P "${__packages_list// /,}" || return $?
+}
+
+requirements_cygwin_update_system()
+{
+  true # really???
+}
+
+requirements_cygwin_define()
+{
+  case "$1" in
+    (rvm)
+      requirements_check bash curl patch
+      ;;
+    (jruby*)
+      if
+        is_head_or_disable_binary "$1"
+      then
+        requirements_check git
+        if is_jruby_post17 "$1"
+        then echo "Need Java JDK and Maven"
+        else echo "Need Java JDK and Ant"
+        fi
+      else
+        echo "Need Java"
+      fi
+      ;;
+    (ir*)
+      true # should be already there in most cases
+      ;;
+    (opal)
+      echo "Need Node.js"
+      ;;
+    (*-head)
+      requirements_check autoconf git
+      requirements_cygwin_define "${1%-head}"
+      ;;
+    (*)
+      requirements_check libiconv zlib zlib-devel openssl openssl-devel libyaml-devel libyaml0_2 sqlite3 make libtool gcc gcc-core autoconf automake bison m4 mingw64-i686-gcc mingw64-x86_64-gcc
+      if [[ "${_system_arch}" == "x86_64" ]]
+      then requirements_check cygwin32-readline
+      else requirements_check readline
+      fi
+      ;;
+  esac
+}

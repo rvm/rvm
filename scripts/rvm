@@ -112,15 +112,17 @@ else
   rvm_loaded_flag=0
 fi
 
-if (( ${rvm_loaded_flag:=0} == 0 )) || (( ${rvm_reload_flag:=0} == 1 ))
+if
+  (( ${rvm_loaded_flag:=0} == 0 )) || (( ${rvm_reload_flag:=0} == 1 ))
 then
-  if [[ -n "${rvm_path}" && -d "$rvm_path" ]]
+  if
+    [[ -n "${rvm_path}" && -d "$rvm_path" ]]
   then
     true ${rvm_scripts_path:="$rvm_path/scripts"}
 
-    if [[ -f "$rvm_scripts_path/base" ]]
+    if
+      [[ -f "$rvm_scripts_path/base" ]]
     then
-    #=============++++++++++++++++================++++++++++++++++++++===================================================================================
       source "$rvm_scripts_path/base"
     else
       printf "%b" "WARNING:
@@ -136,23 +138,35 @@ then
 
     alias rvm-restart="rvm_reload_flag=1 source '${rvm_scripts_path:-${rvm_path}/scripts}/rvm'"
 
-    if ! builtin command -v ruby >/dev/null 2>&1 ||
+    if
+      ! builtin command -v ruby >/dev/null 2>&1 ||
       builtin command -v ruby | __rvm_grep -v "${rvm_path}" >/dev/null ||
       builtin command -v ruby | __rvm_grep "${rvm_path}/bin/ruby$" >/dev/null
     then
-      if [[ -s "$rvm_environments_path/default" && "${rvm_action}" != "switch" ]]
+      if [[ -s "$rvm_path/environments/default" ]]
+      then source "$rvm_path/environments/default"
+      fi
+      if
+        [[ ${rvm_project_rvmrc:-1} -gt 0 ]] &&
+        ! __function_on_stack __rvm_project_rvmrc
       then
-        __rvm_load_environment "default"
-      elif [[ -s "$rvm_path/environments/default" ]]
-      then
-        source "$rvm_path/environments/default"
+        # Reload the rvmrc, use promptless ensuring shell processes does not
+        # prompt if .rvmrc trust value is not stored, revert to default on fail
+        if
+          rvm_current_rvmrc=""
+          rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
+        then
+          rvm_hook=after_cd
+          source "${rvm_scripts_path:-${rvm_path}/scripts}/hook"
+        fi
       fi
     fi
 
     # Makes sure rvm_bin_path is in PATH atleast once.
     __rvm_conditionally_add_bin_path
 
-    if (( ${rvm_reload_flag:=0} == 1 ))
+    if
+      (( ${rvm_reload_flag:=0} == 1 ))
     then
       [[ "${rvm_auto_reload_flag:-0}" == 2 ]] || printf "%b" 'RVM reloaded!\n'
       # make sure we clean env on reload
@@ -161,28 +175,9 @@ then
     fi
 
     rvm_loaded_flag=1
+    __rvm_teardown
   else
     printf "%b" "\n\$rvm_path ($rvm_path) does not exist."
   fi
-  unset rvm_prefix_needs_trailing_slash rvm_gems_cache_path \
-    rvm_gems_path rvm_project_rvmrc_default rvm_gemset_separator rvm_reload_flag
-else
-  source "${rvm_scripts_path:="$rvm_path/scripts"}/initialize"
-  __rvm_setup
-  __rvm_fix_path_from_gem_path
-  __rvm_clean_path
+  unset rvm_prefix_needs_trailing_slash rvm_gems_cache_path rvm_gems_path rvm_project_rvmrc_default rvm_gemset_separator rvm_reload_flag
 fi
-
-if [[ -t 0 && ${rvm_project_rvmrc:-1} -gt 0 ]] &&
-  rvm_is_a_shell_function no_warning &&
-  ! __function_on_stack __rvm_project_rvmrc &&
-  typeset -f __rvm_project_rvmrc >/dev/null 2>&1
-then
-  # Reload the rvmrc, use promptless ensuring shell processes does not
-  # prompt if .rvmrc trust value is not stored.
-  rvm_promptless=1 __rvm_project_rvmrc
-  rvm_hook=after_cd
-  source "${rvm_scripts_path:-${rvm_path}/scripts}/hook"
-fi
-
-__rvm_teardown
