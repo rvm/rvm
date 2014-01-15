@@ -2,12 +2,18 @@
 
 __rvm_ruby_string_fuzzy_remote_for()
 {
-  typeset new_ruby_string
+  typeset new_ruby_string __search
+  __search="${rvm_ruby_string/rbx/rubinius}"
   new_ruby_string="$(
     __list_remote_$1_for $( __rvm_system_path_for ${2:-$1} ) |
     __rvm_awk -F/ '{x=$NF; gsub(".tar.*","",x); gsub("jruby-bin","jruby",x); print x}' |
-    __rvm_grep "${rvm_ruby_string/rbx/rubinius}" |
-    sort | __rvm_tail -n 1
+    \sort -V |
+    __rvm_awk '
+BEGIN{found=""; any=""}
+/^'"${__search}"'$/ {found=$1}
+/^'"${__search}"'/ {any=$1}
+END{if (found) print found; else if (any) print any;}
+'
   )"
   rvm_ruby_string="${new_ruby_string:-$rvm_ruby_string}"
 }
@@ -51,25 +57,23 @@ __rvm_ruby_string_parse_()
   rvm_ruby_repo_branch="${branch_name:-}"
   rvm_ruby_name="$ruby_name"
 
-  strings=()
-  __rvm_custom_separated_array strings - "${ruby_string}"
-
   if
-    (( ${#strings[@]} == 0 ))
+    [[ -z "${ruby_string}" ]]
   then
     if
       [[ "${GEM_HOME:-}" == *"${rvm_gems_path}"* ]]
     then
       # Current Ruby
-      strings="${GEM_HOME##*\/}"
-      strings="${strings/%${rvm_gemset_separator:-"@"}*}"
-      rvm_ruby_string="$strings"
-      strings=( $(echo ${rvm_ruby_string//-/ }) )
+      ruby_string="${GEM_HOME##*\/}"
+      ruby_string="${ruby_string/%${rvm_gemset_separator:-"@"}*}"
     else
-      strings=(system)
-      rvm_ruby_string="system"
+      ruby_string="system"
     fi
   fi
+
+  strings=()
+  __rvm_custom_separated_array strings - "${ruby_string}"
+  rvm_ruby_string="${ruby_string}"
 
   for string in ${strings[@]}
   do
@@ -242,7 +246,7 @@ __rvm_ruby_string_latest()
   then check_ruby_string+="${rvm_ruby_patch_level//\./\.}.*"
   fi
   if [[ -z "${check_ruby_string}" ]]
-  then check_ruby_string="$orig_rvm_ruby_string"
+  then check_ruby_string="$rvm_ruby_string"
   fi
   new_ruby_string="$(
     \cat "$rvm_path/config/known_strings" |
@@ -254,15 +258,14 @@ __rvm_ruby_string_latest()
   then
     rvm_ruby_string="${new_ruby_string}"
   else
-    rvm_error "Unknown ruby string (do not know how to handle): $orig_rvm_ruby_string."
+    rvm_error "Unknown ruby string (do not know how to handle): $rvm_ruby_string."
     return 1
   fi
 }
 
 __rvm_ruby_string_parse()
 {
-  typeset orig_rvm_ruby_string __check_latest
-  orig_rvm_ruby_string="${rvm_ruby_string}"
+  typeset __check_latest
   __check_latest=0
   if
     (( ${rvm_fuzzy_flag:-0} == 1 )) &&
@@ -280,7 +283,8 @@ __rvm_ruby_string_parse()
   fi
   __rvm_ruby_string_parse_ || return $?
   if
-    (( __check_latest ))
+    (( __check_latest )) &&
+    (( ${rvm_head_flag:-0} == 0 ))
   then
     __rvm_ruby_string_latest &&
     __rvm_ruby_string_parse_ ||
@@ -289,7 +293,7 @@ __rvm_ruby_string_parse()
   if
     [[ -z "${rvm_ruby_interpreter}" ]]
   then
-    rvm_error "Unknown ruby interpreter version (do not know how to handle): $orig_rvm_ruby_string."
+    rvm_error "Unknown ruby interpreter version (do not know how to handle): $rvm_ruby_string."
     return 1
   fi
 }

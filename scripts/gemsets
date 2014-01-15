@@ -3,13 +3,6 @@
 source "$rvm_scripts_path/base"
 source "$rvm_scripts_path/functions/build" # For gems with C extensions.
 
-rvm_ruby_gem_home="${rvm_ruby_gem_home:-$GEM_HOME}"
-
-if [[ ! -d "$rvm_ruby_gem_home" ]] && builtin command -v gem > /dev/null 2>&1
-then
-  rvm_ruby_gem_home="$(gem env home)"
-fi
-
 gemset_list_all()
 {
   for rvm_ruby_string in $( __rvm_list_strings )
@@ -226,7 +219,8 @@ gemset_delete_task()
     $rvm_scripts_path/alias delete ${item}
   done
   __rvm_rm_rf "$gemdir" &&
-  __rvm_rm_rf "${rvm_wrappers_path:="$rvm_path/wrappers"}/${ruby_at_gemset}"
+  __rvm_rm_rf "${rvm_wrappers_path:="$rvm_path/wrappers"}/${ruby_at_gemset}" &&
+  __rvm_rm_rf "${rvm_environments_path:="$rvm_path/environments"}/${ruby_at_gemset}"
 }
 
 gemset_delete()
@@ -248,7 +242,7 @@ gemset_delete()
   ruby_at_gemset="$rvm_ruby_string${rvm_gemset_separator:-"@"}$rvm_gemset_name"
   gemdir="${rvm_gems_path:-$rvm_path/gems}/${ruby_at_gemset}"
 
-  [[ -d "$gemdir" ]] ||
+  [[ -e "$gemdir" ]] ||
   {
     rvm_warn "$gemdir did not previously exist. Ignoring."
     return 0
@@ -329,7 +323,7 @@ gemset_copy()
   )
   destination_path=$(
     __rvm_select "$destination_ruby" > /dev/null 2>&1
-    echo $rvm_ruby_gem_home@$rvm_expected_gemset_name
+    echo $rvm_ruby_gem_home${rvm_expected_gemset_name:+@}${rvm_expected_gemset_name:-}
   )
   if
     [[ -z "$source_path" || ! -d "$source_path" ]]
@@ -342,36 +336,39 @@ gemset_copy()
     rvm_error "Unable to expand '$destination_ruby'."
     return 1
   fi
+
   if
     [[ -d "$source_path" ]]
   then
     rvm_log "Copying gemset from $source_ruby to $destination_ruby"
-    for dir in bin doc gems specifications cache bundle
+    for dir in "$source_path"/*
     do
       if
-        [[ -d "$source_path/$dir" ]]
+        [[ -d "$dir" ]]
       then
-        __rvm_cp -Rf "$source_path/$dir" "$destination_path/"
+        __rvm_cp -Rf "$dir" "$destination_path/"
       elif
-        [[ -L "$source_path/$dir" ]]
+        [[ -L "$dir" ]]
       then
-        __rvm_cp "$source_path/$dir" "$destination_path/$dir"
+        __rvm_cp "$dir" "$destination_path/${dir##*/}"
       else
-        if
-          [[ -f "$source_path/$dir" ]]
-        then
-          rvm_warn "Unknown file type for $( file $source_path/$dir )" >&2
-        else
-          : "$source_path/$dir" does not exist
-        fi
-        mkdir -p "$destination_path/$dir"
+        rvm_debug "$dir not a file or link, not copying"
       fi
     done
+    __rvm_log_command "gemset.wrappers"  "Generating gemset wrappers ${destination_path##*/}" gemset_reset_env "${destination_path##*/}" &&
     __rvm_gemset_pristine "$destination_ruby"
   else
     rvm_error "Gems directory does not exist for $source_path ($source_path)"
     return 1
   fi
+}
+
+# Migrate gemsets from ruby X to ruby Y
+gemset_rename_()
+{
+  \mv "$source_path" "$destination_path" &&
+  \rm "${rvm_wrappers_path:="$rvm_path/wrappers"}/${source_path##*/}" &&
+  \rm "${rvm_environments_path:="$rvm_path/environments"}/${source_path##*/}"
 }
 
 # Migrate gemsets from ruby X to ruby Y
@@ -405,7 +402,8 @@ gemset_rename()
     if
       [[ ! -d "$destination_path" ]]
     then
-      __rvm_log_command "gemset.rename" "Renaming gemset ${source_path##*/} => ${destination_path##*/}" \mv "$source_path" "$destination_path"
+      __rvm_log_command "gemset.rename" "Renaming gemset ${source_path##*/} => ${destination_path##*/}" gemset_rename_ &&
+      __rvm_log_command "gemset.reset"  "Reseting gemset ${destination_path##*/}" gemset_reset_env "${destination_path##*/}" &&
       __rvm_gemset_pristine "${destination_path##*/}"
     else
       rvm_error "Gemset $destination_name already exists!"
@@ -638,6 +636,13 @@ then
   rvm_gemset_name="${rvm_gemset_name#@}"
 fi
 
+rvm_ruby_gem_home="${rvm_ruby_gem_home:-$GEM_HOME}"
+if
+  [[ ! -d "$rvm_ruby_gem_home" ]] &&
+  builtin command -v gem > /dev/null 2>&1
+then
+  rvm_ruby_gem_home="$(gem env home)"
+fi
 
 case "$action" in
   import|load)
@@ -657,7 +662,12 @@ case "$action" in
   export|dump)
     gemset_export "$@"
     ;;
-  create|copy|delete|dir|empty|globalcache|initial|list|list_all|list_strings|pristine|prune|rename|update|unpack|reset_env)
+  create)
+    __rvm_select
+    rvm_gemset_name="${rvm_gemset_name:-${rvm_expected_gemset_name:-}}"
+    gemset_$action "$@"
+    ;;
+  copy|delete|dir|empty|globalcache|initial|list|list_all|list_strings|pristine|prune|rename|update|unpack|reset_env)
     gemset_$action "$@"
     ;;
   name|string)
