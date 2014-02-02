@@ -74,14 +74,16 @@ requirements_rvm_pkg_lib_installed_custom()
 install_package()
 {
   __rvm_db "${package}_url" "package_url"
+  __rvm_db "${package}_rename_dir" "package_rename_dir"
   (
     __rvm_cd "$rvm_src_path"
     __rvm_rm_rf "$rvm_src_path/$package-$version"
-    rvm_log "Fetching $package-$version.$archive_format to $rvm_archives_path"
+    local_file="$package-$version.$archive_format"
+    rvm_log "Fetching $local_file to $rvm_archives_path"
 
-    "$rvm_scripts_path/fetch" "$package_url/$package-$version.$archive_format" || return $?
+    "$rvm_scripts_path/fetch" "$package_url/${remote_file:-$local_file}" "$local_file" || return $?
     __rvm_log_command "$package/extract" "Extracting ${package} to $rvm_src_path/$package-$version" \
-      __rvm_package_extract "$rvm_archives_path/$package-$version.$archive_format" "$rvm_src_path" ||
+      __rvm_package_extract "$rvm_archives_path/$local_file" "$rvm_src_path" ||
     case $? in
       199)
         rvm_error "\nUnrecognized archive format '$archive_format'"
@@ -93,6 +95,9 @@ install_package()
         ;;
     esac
 
+    if [[ -n "${package_rename_dir:-}" ]]
+    then \mv "$rvm_src_path/${package_rename_dir}" "$rvm_src_path/$package-$version"
+    fi
     __rvm_cd "$rvm_src_path/$package-$version"
     __rvm_add_to_path append /usr/bin
 
@@ -353,7 +358,8 @@ install_yaml()
 
 install_libyaml()
 {
-  package="yaml" ; version="0.1.4" ; archive_format="tar.gz"
+  package="yaml" ; version="0.1.4.3" ; archive_format="tar.gz"
+  remote_file="$version.$archive_format"
   install_package
 }
 

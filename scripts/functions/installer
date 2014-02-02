@@ -64,6 +64,7 @@ install_rvm()
     record_ruby_configs
     update_gemsets_install_rvm
     configure_autolibs
+    update_yaml_if_needed
     cleanup_tmp_files
     record_installation_time
   )
@@ -261,6 +262,7 @@ load_rvm()
   source "$rvm_scripts_path/base"
   source "$rvm_scripts_path/functions/autolibs"
   source "$rvm_scripts_path/functions/group"
+  source "$rvm_scripts_path/functions/pkg"
 
   rvm_scripts_path="$save_rvm_scripts_path"
 
@@ -394,7 +396,7 @@ install_rvm_files()
     __rvm_cp -f "$source_path/${file}" "$rvm_path/${file}"
   done
 
-  for directory in config contrib scripts examples lib help patches gem-cache
+  for directory in config contrib scripts examples lib help docs patches gem-cache
   do
     for entry in $(__rvm_find $directory 2>/dev/null)
     do
@@ -402,12 +404,9 @@ install_rvm_files()
         [[ -f "$source_path/$entry" ]] &&
         [[ "$entry" == "scripts/extras/completion.zsh/_rvm" || "$entry" == "scripts/zsh/Completion/_rvm" ]]
       then
-        if
-          __rvm_rm_rf "$rvm_path/$entry" 2>/dev/null
-        then
-          __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
-        else
-          rvm_log "    Can not update '$entry', it's a conflict between Zsh and multiuser installation, prefix the command with 'rvmsudo' to update this file."
+        if __rvm_rm_rf "$rvm_path/$entry" 2>/dev/null
+        then __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
+        else rvm_log "    Can not update '$entry', it's a conflict between Zsh and multiuser installation, prefix the command with 'rvmsudo' to update this file."
         fi
       elif
         [[ -f "$source_path/$entry" ]]
@@ -428,7 +427,10 @@ install_rvm_files()
       fi
     done
   done
-  true
+  # cleanup old help and docs files
+  find "$rvm_path/help" -type f \! \( -name '*.md' -o -name '*.txt' \) -delete
+  find "$rvm_path/docs" -type f \! \( -name '*.md' -o -name '*.txt' \) -delete
+  true # for osx
 }
 
 install_rvm_hooks()
@@ -490,7 +492,8 @@ install_binaries()
   typeset -a files
   typeset system_bin
   files=(
-    rvm-prompt rvm rvmsudo rvm-shell rvm-smile rvm-exec rvm-auto-ruby ruby-rvm-env
+    rvm-prompt rvm rvmsudo rvm-shell rvm-smile rvm-exec rvm-auto-ruby
+    ruby-rvm-env rvm-shebang-ruby
   )
 
   [[ -d "${rvm_bin_path}" ]] || mkdir -p "${rvm_bin_path}"
@@ -1018,7 +1021,7 @@ setup_user_profile_summary()
   then __missing="Zsh"
   fi
   if [[ -n "${__missing}" ]]
-  then rvm_warn "    RVM ${__target} line not found for ${__missing}, run the installer with '--auto-dotfiles' to fix it."
+  then rvm_warn "    RVM ${__target} line not found for ${__missing}, rerun this command with '--auto-dotfiles' flag to fix it."
   fi
 }
 
@@ -1345,6 +1348,18 @@ configure_autolibs()
   then rm -rf "${rvm_bin_path}/brew"
   fi
 )
+
+update_yaml_if_needed()
+{
+  if
+    libyaml_installed &&
+    ! __rvm_grep -r "0\.1\.4\.3" "${rvm_usr_path:=$rvm_path/usr}" >/dev/null 2>&1
+  then
+    __rvm_log_command "update_yaml" \
+      "    Updating libyaml in $rvm_usr_path to 0.1.4.3, see https://github.com/wayneeseguin/rvm/issues/2594 " \
+      install_libyaml
+  fi
+}
 
 record_installation_time()
 {

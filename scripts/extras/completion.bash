@@ -62,7 +62,7 @@ _rvm_commands ()
         version use reload implode update reset info debug\
         install uninstall reinstall remove\
         ruby gem rake tests specs monitor gemset\
-        gemdir srcdir fetch list package notes snapshot\
+        gemdir fetch list package notes snapshot\
         help'
 
   case "${cur}" in

@@ -22,15 +22,17 @@ usage() {
 "
 }
 
-alias_after_create_default()
+alias_create_exceute()
 {
-  rvm_log "Creating default links/files"
+  for _path in "$rvm_rubies_path" "$rvm_environments_path" "$rvm_wrappers_path"
+  do
+    if [[ -L "$_path/$alias_name" ]]
+    then \rm -fv "$_path/$alias_name" || return $?
+    fi
+    \ln -fsv "$_path/$rvm_ruby_string" "$_path/$alias_name" || return $?
+  done
 
-  environment_id="${final_environment_identifier}"
-
-  RUBY_VERSION="$("$rvm_ruby_home/bin/ruby" -v | __rvm_sed 's#^\(.*\) (.*$#\1#')"
-
-  export GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION
+  __rvm_db_ "$rvm_path/config/alias" "$alias_name" "$rvm_ruby_string"
 }
 
 alias_create()
@@ -52,19 +54,9 @@ alias_create()
     rvm_error "$alias_name is a full ruby name and can not be used as alias name."
     return 2
   else
-    final_environment_identifier="${rvm_ruby_string:-$(__rvm_env_string)}"
-
-    rvm_log "Creating alias $alias_name for $final_environment_identifier."
-    for _path in "$rvm_rubies_path" "$rvm_environments_path" "$rvm_wrappers_path"
-    do
-      [[ -L "$_path/$alias_name" ]] && \rm -f "$_path/$alias_name"
-      \ln -fs "$_path/$rvm_ruby_string" "$_path/$alias_name"
-    done
-
-    rvm_log "Recording alias $alias_name for $final_environment_identifier."
-    "$rvm_scripts_path"/db "$rvm_path/config/alias" "$alias_name" "$final_environment_identifier"
-
-    [[ "default" != "$alias_name" ]] || alias_after_create_default
+    __rvm_log_command "alias_create" \
+      "Creating alias $alias_name for $rvm_ruby_string" \
+      alias_create_exceute
   fi
 }
 
