@@ -29,40 +29,46 @@ alias_show() {
 
 alias_after_delete_default()
 {
-  rvm_log "Deleting default links/files"
+  [[ "$1" == "default" ]] || return 0
 
   for _path in "$rvm_bin_path"/default_*
   do
     # remove default_ruby
-    [[ -f "$_path" ]] && \rm -rf "${_path}"
+    if [[ -f "$_path" ]]
+    then \rm -rfv "${_path}" || return $?
+    fi
     # remove ruby
     _path="${_path#default_}"
-    [[ -f "$_path" ]] && \rm -rf "${_path}"
+    if [[ -f "$_path" ]]
+    then \rm -rfv "${_path}" || return $?
+    fi
   done
 
   for _path in "$rvm_path"/wrappers/default/* gem irb erb ri rdoc testrb rake ruby bundle
   do
     _path="${_path##*\/}"
-    \rm -f "$rvm_bin_path/${_path}"
+    \rm -fv "$rvm_bin_path/${_path}" || return $?
   done
+}
+
+alias_delete_execute()
+{
+  for _path in "$rvm_rubies_path" "$rvm_environments_path" "$rvm_wrappers_path"
+  do
+    if [[ -L "$_path/$1" ]]
+    then \rm -fv "$_path/$1" || return $?
+    fi
+  done
+
+  __rvm_db_ "$rvm_path/config/alias" "$1" "delete"
+
+  alias_after_delete_default "$1" || return $?
 }
 
 alias_delete()
 {
-  rvm_log "Deleting alias: ${1:-$alias_name}"
-
-  for _path in "$rvm_rubies_path" "$rvm_environments_path" "$rvm_wrappers_path"
-  do
-    if [[ -L "$_path/${1:-$alias_name}" ]]
-    then \rm -f "$_path/${1:-$alias_name}"
-    fi
-  done
-
-  touch "$rvm_path/config/alias"
-
-  __rvm_db_ "$rvm_path/config/alias" "${1:-$alias_name}" "delete"
-
-  if [[ "${1:-$alias_name}" == "default" ]]
-  then alias_after_delete_default
-  fi
+  __rvm_log_command "alias_delete" \
+    "Deleting alias: ${1:-$alias_name}" \
+    alias_delete_execute "${1:-$alias_name}" ||
+    return $?
 }

@@ -51,22 +51,32 @@ ruby_install()
   (
     __rvm_setup_compile_environment "${rvm_ruby_string}" &&
     __rvm_install_source $* &&
-    if
-      ! __ruby_clang_ok ${rvm_ruby_string} &&
-      [[ -n "${initially_selected_compiler:-}" ]] &&
-      __rvm_compiler_is_llvm "${initially_selected_compiler:-}"
-    then
-      rvm_warn "Ruby '${rvm_ruby_string}' was built using clang - but it's not (fully) supported, expect errors."
-    fi
+    ruby_install_warn_clang
   ) || return $?
 
+  ruby_install_warnings
+}
+
+ruby_install_warn_clang()
+{
+  if
+    ! __ruby_clang_ok ${rvm_ruby_string} &&
+    [[ -n "${initially_selected_compiler:-}" ]] &&
+    __rvm_compiler_is_llvm "${initially_selected_compiler:-}"
+  then
+    rvm_warn "Ruby '${rvm_ruby_string}' was built using clang - but it's not (fully) supported, expect errors."
+  fi
+}
+
+ruby_install_warnings()
+{
   typeset patches_count
   patches_count=$(
     rvm_ruby_string="${rvm_ruby_string}" "$rvm_scripts_path/patchsets" show default | wc -l
   )
 
-  typeset _default _version _patch _memo _oldest_maintained
-  _oldest_maintained=$(__rvm_db "oldest_maintained_ruby")
+  typeset _default _version _patch _memo _unmaintained_ruby _unmaintained_date
+  _unmaintained_ruby=$(__rvm_db "unmaintained_ruby")
   _default=$(__rvm_db "default_ruby")
   _version=$(__rvm_db "${_default}_version")
   _patch=$(__rvm_db "${_default}_${_version}_patch_level")
@@ -75,14 +85,25 @@ ruby_install()
   if
     (( ${rvm_head_flag:-0} == 0 )) &&
     [[ "$rvm_ruby_version" != "head" ]] &&
-    __rvm_version_compare "$rvm_ruby_version" -lt "${_oldest_maintained}"
+    __rvm_version_compare "$rvm_ruby_version" -le "${_unmaintained_ruby}"
   then
-    rvm_error "WARNING: Please be aware that you just installed a ruby that is no longer maintained, for a list of maintained rubies visit:
+    _unmaintained_date=$(__rvm_db "unmaintained_date")
+    if
+      __rvm_version_compare "$rvm_ruby_version" -eq "${_unmaintained_ruby}" &&
+      __rvm_version_compare "$(date +%F)" -lt "${_unmaintained_date}"
+    then
+      rvm_error "WARNING: Please be aware that you just installed a ruby that will finish normal maintenance on ${_unmaintained_date}, for a list of maintained rubies visit:
 
     http://bugs.ruby-lang.org/projects/ruby/wiki/ReleaseEngineering
 
 ${_memo}"
+    else
+      rvm_error "WARNING: Please be aware that you just installed a ruby that is no longer maintained (${_unmaintained_date}), for a list of maintained rubies visit:
 
+    http://bugs.ruby-lang.org/projects/ruby/wiki/ReleaseEngineering
+
+${_memo}"
+    fi
   elif
     [[ ! "${rvm_ruby_string}" =~ "${_version}" ]] && (( patches_count > 0 ))
   then

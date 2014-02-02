@@ -41,26 +41,21 @@ __rvm_cleanse_variables()
 # Add bin path if not present
 __rvm_conditionally_add_bin_path()
 {
-  [[ ":${PATH}:" =~ ":${rvm_bin_path}:" ]] ||
+  [[ ":${PATH}:" == *":${rvm_bin_path}:"* ]] ||
   {
-    case "${rvm_ruby_string:-"system"}" in
-      system)
-        PATH="$PATH:${rvm_bin_path}"
-        ;;
-      *)
-        PATH="${rvm_bin_path}:$PATH"
-        ;;
-    esac
+    if [[ "${rvm_ruby_string:-"system"}" == "system" && -z "$GEM_HOME" ]]
+    then PATH="$PATH:${rvm_bin_path}"
+    else PATH="${rvm_bin_path}:$PATH"
+    fi
     builtin hash -r
   }
 }
 
 __rvm_load_environment()
 {
-  typeset string __hook
-  string="$1"
+  typeset __hook
   if
-    [[ -f "$rvm_environments_path/$string" ]]
+    [[ -f "$rvm_environments_path/$1" ]]
   then
     # Restore the environment
     unset GEM_HOME GEM_PATH
@@ -68,7 +63,7 @@ __rvm_load_environment()
     __rvm_conditionally_add_bin_path
 
     # source the environment file
-    \. "$rvm_environments_path/$string"
+    \. "$rvm_environments_path/$1"
 
     for __hook in "${rvm_path:-$HOME/.rvm}/hooks/after_use"*
     do
@@ -79,12 +74,8 @@ __rvm_load_environment()
 
     # clear the PATH cache
     builtin hash -r
-  elif
-    [[ -n "$string" ]]
-  then
-    __rvm_use "$string"
   else
-    : # TODO: This should have some error handling in the context.
+    __rvm_use "$1"
   fi
 }
 
@@ -118,28 +109,6 @@ __rvm_unset_exports()
         ;;
     esac
   done < <(printenv_null)
-}
-
-# Clean all *duplicate* items out of the path. (keep first occurrence of each)
-__rvm_clean_path()
-{
-  export PATH
-  typeset IFS _iterator_path
-  typeset -a _old_path _new_path
-  IFS=:
-  _old_path=()
-  _new_path=()
-  __rvm_custom_separated_array _old_path : "${PATH}"
-
-  for _iterator_path in "${_old_path[@]}"
-  do
-    case ":${_new_path[*]}:" in
-      (*:${_iterator_path}:*) true ;;
-      (*) _new_path+=( "${_iterator_path}" ) ;;
-    esac
-  done
-  PATH="${_new_path[*]}"
-  builtin hash -r
 }
 
 __rvm_fix_path_from_gem_path()

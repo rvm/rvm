@@ -2,8 +2,8 @@
 
 ## Synopsis
 
-    rvm osx-ssl-certs status [<ruby>|all]
-    rvm [--silent] osx-ssl-certs update [<ruby>|all]
+    rvm osx-ssl-certs status [<ruby>|<certs-path>|<openssl-binary>|all]
+    rvm [--silent] osx-ssl-certs update [<ruby>|<certs-path>|<openssl-binary>|all]
     rvm osx-ssl-certs cron [status|install|uninstall]
 
 ## Description
@@ -19,9 +19,13 @@ You can check status, update certificates manually or schedule an automated upda
 
 * `status`      => Show certificates status for current Ruby,
   * `<ruby>`    => Status of a specific Ruby certificates,
+  * `<certs-path>`     => Status for a specific path certificates,
+  * `<openssl-binary>` => Status for a specific openssl installation,
   * `all`       => Status of all installed Rubies certificate paths.
 * `update`      => Update SSL certificates for current Ruby,
   * `<ruby>`    => Update a specific Ruby certificates,
+  * `<certs-path>`     => Update certificates in a specific path,
+  * `<openssl-binary>` => Update certificates for a specific openssl installation,
   * `all`       => Update all installed Rubies certificate paths.
 * `cron`        => Manage cron job for daily updates,
   * `status`    => Show if the cron job is installed,
@@ -37,6 +41,10 @@ Show the status for all installed rubies:
 Update OpenSSL certificates for current ruby:
 
     rvm osx-ssl-certs update
+
+Update OpenSSL certificates for specific path:
+
+    rvm osx-ssl-certs update /etc/openssl
 
 Schedule daily update of certificates:
 

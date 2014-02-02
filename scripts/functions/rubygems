@@ -214,27 +214,30 @@ rubygems_setup()
 
   typeset -a __command
   __command=(
-    "${rvm_ruby_binary}" -d "${rvm_src_path}/$rvm_gem_package_name/setup.rb"
+    GEM_HOME="" GEM_PATH="" "${rvm_ruby_binary}" -d "${rvm_src_path}/$rvm_gem_package_name/setup.rb"
   )
   if [[ ${rvm_debug_flag:-0} == 1 || ${rvm_trace_flag:-0} == 1 ]]
   then __command+=( --verbose )
   fi
   rubygems_setup_lang_fallback
-  if
-    __rvm_log_command "rubygems.install" "$rvm_ruby_string - #installing $rvm_gem_package_name" \
-      "${__command[@]}"
-  then
+  __rvm_log_command "rubygems.install" \
+    "$rvm_ruby_string - #installing $rvm_gem_package_name" \
+    "${__command[@]}" ||
+    return $?
+  [[ -e "$rvm_ruby_home/bin/gem" ]] ||
+  {
     typeset program_suffix
     program_suffix="$( __rvm_ruby_config_get configure_args "${rvm_ruby_binary}" )"
     case "${program_suffix:-}" in
       (*--program-suffix=*)
         program_suffix="${program_suffix#*--program-suffix=}"
         program_suffix="${program_suffix%%[\' ]*}"
-        __rvm_run "link.gem" "ln -s \"$rvm_ruby_home/bin/gem${program_suffix}\" \
-          \"$rvm_ruby_home/bin/gem\"" "$rvm_ruby_string - #linking gem${program_suffix} -> gem "
+        __rvm_log_command "link.gem" "$rvm_ruby_string - #linking gem${program_suffix} -> gem" \
+          ln -s "$rvm_ruby_home/bin/gem${program_suffix}" "$rvm_ruby_home/bin/gem"
         ;;
     esac
-  fi
+  }
+  true # for osx
 }
 
 rubygems_validate_gemfile_extract()
