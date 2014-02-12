@@ -1,0 +1,197 @@
+diff -ur 0.1.4/ext/psych/yaml/loader.c 0.1.5/ext/psych/yaml/loader.c
+--- 0.1.4/ext/psych/yaml/loader.c	2012-12-24 04:51:32.000000000 +0100
++++ 0.1.5/ext/psych/yaml/loader.c	2014-02-04 04:41:19.000000000 +0100
+@@ -286,6 +286,8 @@
+     int index;
+     yaml_char_t *tag = first_event->data.scalar.tag;
+ 
++    if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
++
+     if (!tag || strcmp((char *)tag, "!") == 0) {
+         yaml_free(tag);
+         tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_SCALAR_TAG);
+@@ -329,6 +331,8 @@
+     int index, item_index;
+     yaml_char_t *tag = first_event->data.sequence_start.tag;
+ 
++    if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
++
+     if (!tag || strcmp((char *)tag, "!") == 0) {
+         yaml_free(tag);
+         tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_SEQUENCE_TAG);
+@@ -351,6 +355,9 @@
+     if (!yaml_parser_parse(parser, &event)) return 0;
+ 
+     while (event.type != YAML_SEQUENCE_END_EVENT) {
++        if (!STACK_LIMIT(parser,
++                    parser->document->nodes.start[index-1].data.sequence.items,
++                    INT_MAX-1)) return 0;
+         item_index = yaml_parser_load_node(parser, &event);
+         if (!item_index) return 0;
+         if (!PUSH(parser,
+@@ -387,6 +394,8 @@
+     yaml_node_pair_t pair;
+     yaml_char_t *tag = first_event->data.mapping_start.tag;
+ 
++    if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
++
+     if (!tag || strcmp((char *)tag, "!") == 0) {
+         yaml_free(tag);
+         tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_MAPPING_TAG);
+@@ -409,6 +418,9 @@
+     if (!yaml_parser_parse(parser, &event)) return 0;
+ 
+     while (event.type != YAML_MAPPING_END_EVENT) {
++        if (!STACK_LIMIT(parser,
++                    parser->document->nodes.start[index-1].data.mapping.pairs,
++                    INT_MAX-1)) return 0;
+         pair.key = yaml_parser_load_node(parser, &event);
+         if (!pair.key) return 0;
+         if (!yaml_parser_parse(parser, &event)) return 0;
+diff -ur 0.1.4/ext/psych/yaml/reader.c 0.1.5/ext/psych/yaml/reader.c
+--- 0.1.4/ext/psych/yaml/reader.c	2012-12-24 04:51:32.000000000 +0100
++++ 0.1.5/ext/psych/yaml/reader.c	2014-02-04 04:41:19.000000000 +0100
+@@ -460,6 +460,10 @@
+ 
+     }
+ 
++    if (parser->offset >= PTRDIFF_MAX)
++        return yaml_parser_set_reader_error(parser, "input is too long",
++                PTRDIFF_MAX, -1);
++
+     return 1;
+ }
+ 
+diff -ur 0.1.4/ext/psych/yaml/scanner.c 0.1.5/ext/psych/yaml/scanner.c
+--- 0.1.4/ext/psych/yaml/scanner.c	2012-12-24 04:51:32.000000000 +0100
++++ 0.1.5/ext/psych/yaml/scanner.c	2014-02-04 04:41:19.000000000 +0100
+@@ -615,11 +615,11 @@
+  */
+ 
+ static int
+-yaml_parser_roll_indent(yaml_parser_t *parser, int column,
+-        int number, yaml_token_type_t type, yaml_mark_t mark);
++yaml_parser_roll_indent(yaml_parser_t *parser, ptrdiff_t column,
++        ptrdiff_t number, yaml_token_type_t type, yaml_mark_t mark);
+ 
+ static int
+-yaml_parser_unroll_indent(yaml_parser_t *parser, int column);
++yaml_parser_unroll_indent(yaml_parser_t *parser, ptrdiff_t column);
+ 
+ /*
+  * Token fetchers.
+@@ -1103,7 +1103,7 @@
+      */
+ 
+     int required = (!parser->flow_level
+-            && parser->indent == (int)parser->mark.column);
++            && parser->indent == (ptrdiff_t)parser->mark.column);
+ 
+     /*
+      * A simple key is required only when it is the first token in the current
+@@ -1176,6 +1176,11 @@
+ 
+     /* Increase the flow level. */
+ 
++    if (parser->flow_level == INT_MAX) {
++        parser->error = YAML_MEMORY_ERROR;
++        return 0;
++    }
++
+     parser->flow_level++;
+ 
+     return 1;
+@@ -1206,8 +1211,8 @@
+  */
+ 
+ static int
+-yaml_parser_roll_indent(yaml_parser_t *parser, int column,
+-        int number, yaml_token_type_t type, yaml_mark_t mark)
++yaml_parser_roll_indent(yaml_parser_t *parser, ptrdiff_t column,
++        ptrdiff_t number, yaml_token_type_t type, yaml_mark_t mark)
+ {
+     yaml_token_t token;
+ 
+@@ -1226,6 +1231,11 @@
+         if (!PUSH(parser, parser->indents, parser->indent))
+             return 0;
+ 
++        if (column > INT_MAX) {
++            parser->error = YAML_MEMORY_ERROR;
++            return 0;
++        }
++
+         parser->indent = column;
+ 
+         /* Create a token and insert it into the queue. */
+@@ -1254,7 +1264,7 @@
+ 
+ 
+ static int
+-yaml_parser_unroll_indent(yaml_parser_t *parser, int column)
++yaml_parser_unroll_indent(yaml_parser_t *parser, ptrdiff_t column)
+ {
+     yaml_token_t token;
+ 
+@@ -2574,7 +2584,7 @@
+ 
+     /* Resize the string to include the head. */
+ 
+-    while (string.end - string.start <= (int)length) {
++    while ((size_t)(string.end - string.start) <= length) {
+         if (!yaml_string_extend(&string.start, &string.pointer, &string.end)) {
+             parser->error = YAML_MEMORY_ERROR;
+             goto error;
+diff -ur 0.1.4/ext/psych/yaml/yaml_private.h 0.1.5/ext/psych/yaml/yaml_private.h
+--- 0.1.4/ext/psych/yaml/yaml_private.h	2012-12-24 04:51:32.000000000 +0100
++++ 0.1.5/ext/psych/yaml/yaml_private.h	2014-02-04 04:41:19.000000000 +0100
+@@ -7,6 +7,17 @@
+ 
+ #include <assert.h>
+ #include <limits.h>
++#include <stddef.h>
++
++#ifndef _MSC_VER
++#include <stdint.h>
++#else
++#ifdef _WIN64
++#define PTRDIFF_MAX _I64_MAX
++#else
++#define PTRDIFF_MAX INT_MAX
++#endif
++#endif
+ 
+ /*
+  * Memory management.
+@@ -421,6 +432,12 @@
+ #define STACK_EMPTY(context,stack)                                              \
+     ((stack).start == (stack).top)
+ 
++#define STACK_LIMIT(context,stack,size)                                         \
++    ((stack).top - (stack).start < (size) ?                                     \
++        1 :                                                                     \
++        ((context)->error = YAML_MEMORY_ERROR,                                  \
++         0))
++
+ #define PUSH(context,stack,value)                                               \
+     (((stack).top != (stack).end                                                \
+       || yaml_stack_extend((void **)&(stack).start,                             \
+diff -ur 0.1.4/ext/psych/yaml/config.h 0.1.5/ext/psych/yaml/config.h
+--- 0.1.4/ext/psych/yaml/config.h	2012-12-01 04:58:39.000000000 +0100
++++ 0.1.5/ext/psych/yaml/config.h	2014-02-12 17:45:51.424238616 +0100
+@@ -1,11 +1,11 @@
+ 
+ #define PACKAGE_NAME "yaml"
+ #define PACKAGE_TARNAME "yaml"
+-#define PACKAGE_VERSION "0.1.4"
+-#define PACKAGE_STRING "yaml 0.1.4"
++#define PACKAGE_VERSION "0.1.5"
++#define PACKAGE_STRING "yaml 0.1.5"
+ #define PACKAGE_BUGREPORT "http://pyyaml.org/newticket?component libyaml"
+ #define PACKAGE_URL ""
+ #define YAML_VERSION_MAJOR 0
+ #define YAML_VERSION_MINOR 1
+-#define YAML_VERSION_PATCH 4
+-#define YAML_VERSION_STRING "0.1.4"
++#define YAML_VERSION_PATCH 5
++#define YAML_VERSION_STRING "0.1.5"

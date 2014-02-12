@@ -7,34 +7,35 @@ maglev_install()
 
   rvm_log "Running MagLev prereqs checking script."
 
-  "$rvm_scripts_path/maglev"
-  result=$?
-
-  if (( result > 0 ))
-  then
+  "$rvm_scripts_path/maglev" ||
+  {
+    result=$?
     rvm_error "Prerequisite checks have failed. \nHalting the installation."
-    exit $result
-  fi
+    return $result
+  }
 
   __rvm_cd "${rvm_src_path}"
 
   system="${_system_type}"
   arch="${_system_arch}"
-  [ "${system}-${arch}" == "Darwin-x86_64" ] && arch="i386"
-
-  if [[ ! -d "${rvm_src_path}/$rvm_ruby_string" ]] || (( ${rvm_head_flag:=0} == 1 ))
-  then
-    __rvm_fetch_ruby
-    result=$?
-
-    if (( result > 0 ))
-    then
-      rvm_error "There has been an error while trying to fetch the source.  \nHalting the installation."
-      exit $result
-    fi
+  if [[ "${system}-${arch}" == "Darwin-x86_64" ]]
+  then arch="i386"
   fi
 
-  if (( ${rvm_head_flag:=0} == 1 ))
+  if
+    [[ ! -d "${rvm_src_path}/$rvm_ruby_string" ]] ||
+    (( ${rvm_head_flag:=0} == 1 ))
+  then
+    __rvm_fetch_ruby ||
+    {
+      result=$?
+      rvm_error "There has been an error while trying to fetch the source.  \nHalting the installation."
+      exit $result
+    }
+  fi
+
+  if
+    (( ${rvm_head_flag:=0} == 1 ))
   then
     __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
 
@@ -45,33 +46,33 @@ maglev_install()
 
   rvm_log "Downloading the GemStone package, this may take a while depending on your connection..."
 
-  "$rvm_scripts_path/fetch" "$rvm_gemstone_url"
-  result=$?
-
-  if (( result > 0 ))
-  then
+  "$rvm_scripts_path/fetch" "$rvm_gemstone_url" ||
+  {
+    result=$?
     rvm_error "There has been an error while trying to fetch the GemStone package.\nHalting the installation."
-    exit $result
-  fi
+    return $result
+  }
 
   __rvm_cd "${rvm_src_path}"
 
   if [[ -s "$rvm_ruby_package_file" ]]
-  then
-    \mv "$rvm_ruby_package_file" "${rvm_src_path}/$rvm_ruby_string"
+  then \mv "$rvm_ruby_package_file" "${rvm_src_path}/$rvm_ruby_string"
   fi
 
   __rvm_cd "${rvm_src_path}/$rvm_ruby_string"
 
-  if [[ -d   ${rvm_src_path}/${rvm_gemstone_package_file} ]]
+  if
+    [[ -d "${rvm_src_path}/${rvm_gemstone_package_file}" ]]
   then
-    __rvm_run "gemstone.fix_rights" \
-      "chmod -R u+w ${rvm_src_path}/${rvm_gemstone_package_file}"
+    __rvm_log_command "gemstone.fix_rights" \
+      "Fixing gemstone rights" \
+      chmod -R u+w "${rvm_src_path}/${rvm_gemstone_package_file}"
   else
     mkdir -p "${rvm_src_path}/${rvm_gemstone_package_file}"
   fi
 
-  __rvm_log_command "extract" "$rvm_ruby_string - #extracting $rvm_gemstone_package_file to ${rvm_src_path}" \
+  __rvm_log_command "extract" \
+    "$rvm_ruby_string - #extracting $rvm_gemstone_package_file to ${rvm_src_path}" \
     __rvm_package_extract "${rvm_archives_path}/$rvm_gemstone_package_file.$rvm_archive_extension" "${rvm_src_path}" ||
   case $? in
     199)
@@ -88,56 +89,51 @@ maglev_install()
 
   __rvm_rm_rf $rvm_ruby_home
 
-  __rvm_run "install" \
-    "__rvm_cp -Rf ${rvm_src_path}/$rvm_ruby_string $rvm_ruby_home" \
-    "Installing maglev to $rvm_ruby_home"
+  __rvm_log_command "install" \
+    "Installing maglev to $rvm_ruby_home" \
+    __rvm_cp -Rf "${rvm_src_path}/$rvm_ruby_string" "$rvm_ruby_home"
 
   (
-  __rvm_cd "$rvm_ruby_home/bin/"
+    __rvm_cd "$rvm_ruby_home/bin/"
 
-  for binary in maglev-irb maglev-ruby maglev-gem
-  do
-    ln -fs "$binary" "${binary#maglev-}"
-  done
-  unset binary
+    for binary in maglev-irb maglev-ruby maglev-gem
+    do
+      ln -fs "$binary" "${binary#maglev-}"
+    done
+    unset binary
   )
 
   __rvm_cd "$rvm_ruby_home"
 
-  if (( ${rvm_head_flag:=0} == 1 ))
+  if
+    (( ${rvm_head_flag:=0} == 1 ))
   then
     git submodule update --init
-
     "$rvm_ruby_home/bin/maglev" force-reload
   fi
 
   ln -fs maglev.demo.key-${system}-${arch} etc/maglev.demo.key
 
-  rvm_log "Bootstrapping a new image"
-  "$rvm_wrappers_path/$compatible_ruby/rake" "build:maglev"
+  __rvm_log_command "build:maglev" \
+    "Bootstrapping a new image" \
+    "$rvm_wrappers_path/$compatible_ruby/rake" "build:maglev"
 
-  if [[ ! -e ${rvm_ruby_home}/etc/conf.d/maglev.conf ]]
-  then
-    rvm_log "Creating default 'maglev' repository."
+  [[ -e ${rvm_ruby_home}/etc/conf.d/maglev.conf ]] ||
+  __rvm_log_command "stone.create" \
+    "Creating default 'maglev' repository." \
     "$rvm_wrappers_path/$compatible_ruby/rake" "stone:create[maglev]" >/dev/null 2>&1
-  fi
 
-  rvm_log "Generating maglev HTML documentation"
-  "$rvm_wrappers_path/$compatible_ruby/rake" rdoc >/dev/null 2>&1
+  __rvm_log_command "rdoc" \
+    "Generating maglev HTML documentation" \
+    "$rvm_wrappers_path/$compatible_ruby/rake" rdoc >/dev/null 2>&1
 
-  rvm_log "Generating smalltalk FFI."
-  "$rvm_wrappers_path/$compatible_ruby/rake" stwrappers >/dev/null 2>&1
-
-  # maglev ships with some built in gems, copy them in to place.
-  if [[ -d "$rvm_ruby_home/lib/maglev/gems/1.8" ]]
-  then
-    rvm_log "Copying across included gems"
-    __rvm_cp -R "$rvm_ruby_home/lib/maglev/gems/1.8/" "$rvm_ruby_gem_home/"
-  fi
+  __rvm_log_command "stwrappers" \
+    "Generating smalltalk FFI." \
+    "$rvm_wrappers_path/$compatible_ruby/rake" stwrappers >/dev/null 2>&1
 
   unset compatible_ruby
 
-  __rvm_initial_gemsets_create &&
+  __rvm_initial_gemsets_create_without_rubygems &&
   __rvm_irbrc &&
   __rvm_fetch_ruby_cleanup
 }
