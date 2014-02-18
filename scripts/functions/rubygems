@@ -77,6 +77,11 @@ rubygems_version_list()
     __rvm_grep '^[[:digit:]\.]*$'
 }
 
+rubygems_current_rubygems_version()
+{
+  "${1:-ruby}" -rrubygems -e 'puts(Gem::VERSION)' 2>/dev/null
+}
+
 rubygems_master_sha()
 {
   __rvm_curl -s "https://api.github.com/repos/rubygems/rubygems/commits?page=last&per_page=1" |
@@ -192,6 +197,25 @@ rubygems_setup()
   (( rvm_ruby_selected_flag == 0 )) || __rvm_select
 
   rubygems_select_version_url "$version" || return $?
+
+  if
+    [[ "${rvm_force_flag:-0}" -eq 1 ]]
+  then
+    true # just let us continue with installation
+  else
+    typeset __current_rubygems_version="$( rubygems_current_rubygems_version )"
+    if
+      __rvm_version_compare "${__current_rubygems_version}" -eq "$version"
+    then
+      rvm_log "Rubygems $version already installed, skipping installation, use --force to reinstall."
+      return 0
+    elif
+      __rvm_version_compare "${__current_rubygems_version}" -gt "$version"
+    then
+      rvm_log "Installed rubygems ${__current_rubygems_version} is newer then $version, skipping installation, use --force to force installation."
+      return 0
+    fi
+  fi
 
   make_sure_jruby_can_work_with_rubygems ||
   rubygems_fatal_error "RVM can not install rubygems for older jruby, select other ruby and try again." $?
