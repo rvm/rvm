@@ -88,7 +88,7 @@ rubygems_master_sha()
     __rvm_sed -n '/^    "sha":/ {s/^.*".*": "\(.*\)".*$/\1/;p;}'
 }
 
-rubygems_select_version_url()
+rubygems_select_current()
 {
   case "$version" in
     latest|current)
@@ -101,7 +101,10 @@ rubygems_select_version_url()
       version="${version:-"$(__rvm_db "rubygems_version")"}"
       ;;
   esac
+}
 
+rubygems_select_latest()
+{
   case "$version" in
     latest-*)
       version="${version#latest-}"
@@ -109,7 +112,10 @@ rubygems_select_version_url()
       version="${version}"
       ;;
   esac
+}
 
+rubygems_select_version_url()
+{
   case "${version:-missing}" in
     ignore|none)
       rvm_rubygems_version="$version"
@@ -139,6 +145,14 @@ rubygems_select_version_url()
       rvm_gem_url="${rvm_rubygems_url}/${rvm_gem_package_name}.tgz"
       ;;
   esac
+}
+
+rubygems_select_version()
+{
+  rubygems_select_current     "$1" &&
+  rubygems_select_latest      "$1" &&
+  rubygems_select_version_url "$1" ||
+  return $?
 }
 
 __rvm_warn_on_rubyopt()
@@ -194,9 +208,9 @@ rubygems_setup()
 
   unset RUBYOPT
 
-  (( rvm_ruby_selected_flag == 0 )) || __rvm_select
+  (( rvm_ruby_selected_flag == 0 ))  || __rvm_select
 
-  rubygems_select_version_url "$version" || return $?
+  rubygems_select_version "$version" || return $?
 
   if
     [[ "${rvm_force_flag:-0}" -eq 1 ]]
