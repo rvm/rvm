@@ -23,26 +23,27 @@ goruby_install()
   #__rvm_cd "${rvm_src_path}/$rvm_ruby_string/configure"
 
   [[ -s "${rvm_src_path}/$rvm_ruby_string/configure" ]] ||
-    __rvm_run "autoreconf" "__rvm_autoreconf" "Running autoreconf"
+    __rvm_log_command "autoreconf" "$rvm_ruby_string - #autoreconf" __rvm_autoreconf
 
-  if [[ -s ./Makefile && -z "$rvm_reconfigure_flag" ]]
+  if
+    [[ -s ./Makefile && -z "$rvm_reconfigure_flag" ]]
   then
     if (( ${rvm_debug_flag:=0} > 0 ))
     then
       rvm_debug "Skipping configure step, Makefile exists so configure must have already been run."
     fi
-  elif [[ -n "$rvm_ruby_configure" ]]
+  elif
+    [[ -n "$rvm_ruby_configure" ]]
   then
-    __rvm_run "configure" "$rvm_ruby_configure"
-    result=$?
-
-    if (( result > 0 ))
-    then
+    __rvm_log_command "configure" "$rvm_ruby_string - #configuring" $rvm_ruby_configure ||
+    {
+      result=$?
       rvm_error "There has been an error while trying to configure the source.  \nHalting the installation."
       exit $result
-    fi
+    }
 
-  elif [[ -s ./configure ]]
+  elif
+    [[ -s ./configure ]]
   then
     __rvm_log_command "configure" "$rvm_ruby_string - #configuring" \
       "${rvm_configure_env[@]}" ./configure --prefix="$rvm_ruby_home" "${rvm_configure_flags[@]}"
@@ -70,16 +71,14 @@ goruby_install()
     exit $result
   fi
 
-  rvm_ruby_make_install=${rvm_ruby_make_install:-"__rvm_make install"}
+  [[ -n "${rvm_ruby_make_install:-}" ]] || rvm_ruby_make_install=( __rvm_make install )
 
-  __rvm_run "install" "$rvm_ruby_make_install" "Installing $rvm_ruby_string"
-  result=$?
-
-  if (( result > 0 ))
-  then
+  __rvm_log_command "install" "$rvm_ruby_string - #installing" "${rvm_ruby_make_install[@]}" ||
+  {
+    result=$?
     rvm_error "There has been an error while trying to run make install.  \nHalting the installation."
     exit $result
-  fi
+  }
 
   rvm_log "Installation of $rvm_ruby_string is complete."
 
