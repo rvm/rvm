@@ -73,6 +73,7 @@ install_rvm()
     install_rvm_files
     cleanup_old_help_and_docs_files
     install_rvm_hooks
+    remove_old_hooks
     install_binaries
     install_gemsets
     install_patchsets
@@ -446,7 +447,7 @@ install_rvm_files()
       [[ -f "$source_path/$entry" ]] &&
       [[ "$entry" == "scripts/extras/completion.zsh/_rvm" || "$entry" == "scripts/zsh/Completion/_rvm" ]]
     then
-      if __rvm_rm_rf "$rvm_path/$entry" 2>/dev/null
+      if [[ ! -f "$rvm_path/$entry" ]] || __rvm_rm_rf "$rvm_path/$entry" 2>/dev/null
       then __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
       else rvm_log "    Can not update '$entry', it's a conflict between Zsh and multiuser installation, prefix the command with 'rvmsudo' to update this file."
       fi
@@ -517,8 +518,10 @@ install_rvm_hooks()
       [[ -d "$rvm_path/$entry" ]] || mkdir -p "$rvm_path/$entry"
     fi
   done
+}
 
-  #remove unneeded files
+remove_old_hooks()
+{
   for entry in after_use_custom after_use after_cd
   do
     name=${entry#after_}
@@ -606,10 +609,7 @@ install_gemsets()
   then __rvm_find "$rvm_path/gemsets" -type f -delete
   fi
 
-  if
-    [[ -d gemsets/ ]]
-  then
-    [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
+  [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
 
     __rvm_read_lines gemset_files <(
       __rvm_find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' |
@@ -628,7 +628,6 @@ install_gemsets()
         < "$gemset_file" > "$destination"
       fi
     done
-  fi
 
   update_gemsets_rvmrc rvm_without_gems      "${rvm_without_gems}"
   update_gemsets_rvmrc rvm_with_gems         "${rvm_with_gems}"
