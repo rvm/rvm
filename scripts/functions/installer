@@ -611,23 +611,21 @@ install_gemsets()
 
   [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
 
-    __rvm_read_lines gemset_files <(
-      __rvm_find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' |
-      __rvm_sed 's/^\.\///'
-    )
+  __rvm_read_lines gemset_files <(
+    __rvm_find "gemsets" "${name_opt}" '*.gems'
+  )
 
-    for gemset_file in "${gemset_files[@]}"
-    do
-      cwd="${PWD//\//\\/}\/gemsets\/"
-      destination="$rvm_path/gemsets/${gemset_file/$cwd}"
-      if
-        [[ ! -s "$destination" ]]
-      then
-        destination_path="${destination%/*}"
-        [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-        < "$gemset_file" > "$destination"
-      fi
-    done
+  for gemset_file in "${gemset_files[@]}"
+  do
+    destination="$rvm_path/gemsets/${gemset_file#gemsets/}"
+    if
+      [[ ! -s "$destination" ]]
+    then
+      destination_path="${destination%/*}"
+      [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
+      < "$gemset_file" > "$destination"
+    fi
+  done
 
   update_gemsets_rvmrc rvm_without_gems      "${rvm_without_gems}"
   update_gemsets_rvmrc rvm_with_gems         "${rvm_with_gems}"
@@ -948,7 +946,7 @@ setup_etc_bashrc()
     [[ ! -f "${new_content_path}" ]] || \rm -f "${new_content_path}"
     {
       print_etc_bashrc_change # prepend
-      \cat "${system_bashrc_file}" | __rvm_grep -v "|| export PATH=\"\${PATH}:\""
+      __rvm_grep -v "|| export PATH=\"\${PATH}:\"" < "${system_bashrc_file}"
       true
     } > "${new_content_path}" &&
     \mv "${new_content_path}" "${system_bashrc_file}" 2>/dev/null ||
@@ -1221,7 +1219,7 @@ migrate_old_gemsets()
 
   for gemset in "$rvm_path"/gems/*\@
   do
-    new_path=$(echo $gemset | __rvm_sed -e 's#\@$##')
+    new_path="$( __rvm_sed -e 's#\@$##' <<<"$gemset" )"
     if
       [[ -d "$gemset" && ! -d "$new_path" ]]
     then
@@ -1300,7 +1298,7 @@ update_gemsets_install_rvm()
 
   # rvm /gems
   paths=($(
-    __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | __rvm_sed 's/^\.\///'
+    __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global'
   ))
 
   for _gem in rvm gem-wrappers
@@ -1321,7 +1319,7 @@ update_gemsets_install_rvm()
         # rvm /gems @global /gems
         found=($(
           [[ ! -d "${_current_path}" ]] ||
-          __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" ${_gem}-'*' | __rvm_sed 's/^\.\///'
+          __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" ${_gem}-'*'
         ))
         (( ${#found[@]} > 0 )) || missing+=( "${installed}=${_iterator}" )
       done
