@@ -70,7 +70,9 @@ install_rvm()
     create_install_paths
     load_custom_flags
     save_custom_flags
+    install_rvm_directories
     install_rvm_files
+    install_rvm_scripts
     cleanup_old_help_and_docs_files
     install_rvm_hooks
     remove_old_hooks
@@ -426,6 +428,18 @@ save_custom_flags()
   true # no failing from grep filtering
 }
 
+install_rvm_directories()
+{
+  for entry in $(__rvm_find -L config patches gem-cache contrib examples lib help docs scripts -type d 2>/dev/null)
+  do
+    # Target is supposed to be a directory, remove if it is a file.
+    if [[ -f "$rvm_path/$entry" ]]
+    then \rm -f "$rvm_path/$entry"
+    fi
+    [[ -d "$rvm_path/$entry" ]] || mkdir -p "$rvm_path/$entry"
+  done
+}
+
 install_rvm_files()
 {
   for file in README LICENCE VERSION
@@ -433,40 +447,39 @@ install_rvm_files()
     __rvm_cp -f "$source_path/${file}" "$rvm_path/${file}"
   done
 
-  for entry in contrib examples lib help docs
+  for entry in $(__rvm_find -L config patches gem-cache contrib examples lib help docs -type f 2>/dev/null)
   do
-    if [[ -e "$rvm_path/$entry" ]]
+    # Target is supposed to be a file, remove if it is a directory.
+    if [[ -d "$rvm_path/$entry" ]]
     then __rvm_rm_rf "$rvm_path/$entry"
     fi
-    __rvm_cp -rf "$source_path/$entry" "$rvm_path/$entry"
+    \cat < "$source_path/$entry" > "$rvm_path/$entry"
+    if [[ -x "$source_path/$entry" ]]
+    then chmod +x "$rvm_path/$entry"
+    fi
   done
+}
 
-  for entry in $(__rvm_find config scripts patches gem-cache 2>/dev/null)
+install_rvm_scripts()
+{
+  for entry in $(__rvm_find -L scripts -type f 2>/dev/null)
   do
+    # Target is supposed to be a file, remove if it is a directory.
+    if [[ -d "$rvm_path/$entry" ]]
+    then __rvm_rm_rf "$rvm_path/$entry"
+    fi
     if
-      [[ -f "$source_path/$entry" ]] &&
       [[ "$entry" == "scripts/extras/completion.zsh/_rvm" || "$entry" == "scripts/zsh/Completion/_rvm" ]]
     then
       if [[ ! -f "$rvm_path/$entry" ]] || __rvm_rm_rf "$rvm_path/$entry" 2>/dev/null
       then __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
       else rvm_log "    Can not update '$entry', it's a conflict between Zsh and multiuser installation, prefix the command with 'rvmsudo' to update this file."
       fi
-    elif
-      [[ -f "$source_path/$entry" ]]
-    then
-      # Target is supposed to be a file, remove if it is a directory.
-      if [[ -d "$rvm_path/$entry" ]]
-      then __rvm_rm_rf "$rvm_path/$entry"
+    else
+      \cat < "$source_path/$entry" > "$rvm_path/$entry"
+      if [[ -x "$source_path/$entry" ]]
+      then chmod +x "$rvm_path/$entry"
       fi
-      __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
-    elif
-      [[ -d "$source_path/$entry" ]]
-    then
-      # Target is supposed to be a directory, remove if it is a file.
-      if [[ -f "$rvm_path/$entry" ]]
-      then \rm -f "$rvm_path/$entry"
-      fi
-      [[ -d "$rvm_path/$entry" ]] || mkdir -p "$rvm_path/$entry"
     fi
   done
   true # for osx
@@ -548,15 +561,17 @@ install_binaries()
 
   for file in "${files[@]}"
   do
-    # Ensure binscripts are always available in rvm_path/bin first.
-    [[ ! -f "${rvm_bin_path}/${file}" ]] || \rm -f "${rvm_bin_path}/${file}"
+    if [[ -e "${rvm_bin_path}/${file}" ]] &&
+    [[ ! -f "${rvm_bin_path}/${file}"  || -L "${rvm_bin_path}/${file}" ]]
+    then \rm -f "${rvm_bin_path}/${file}"
+    fi
 
     if
       [[ -L "${source_path}/bin/${file}" ]]
     then
       ln -s "$( readlink "${source_path}/bin/${file}" )" "${rvm_bin_path}/${file}"
     else
-      < "${source_path}/bin/${file}" > "${rvm_bin_path}/${file}"
+      \cat < "${source_path}/bin/${file}" > "${rvm_bin_path}/${file}"
     fi
 
     [[ -x "${rvm_bin_path}/${file}" ]] || chmod a+rx "${rvm_bin_path}/${file}"
@@ -623,7 +638,7 @@ install_gemsets()
     then
       destination_path="${destination%/*}"
       [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-      < "$gemset_file" > "$destination"
+      \cat < "$gemset_file" > "$destination"
     fi
   done
 
@@ -655,7 +670,7 @@ install_patchsets()
         destination_path="${destination%/*}"
         [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
         [[ ! -f "$destination"    ]] || \rm -f "$destination"
-        < "$patchset_file" > "$destination"
+        \cat < "$patchset_file" > "$destination"
       fi
     done
   fi
