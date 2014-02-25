@@ -430,7 +430,7 @@ save_custom_flags()
 
 install_rvm_directories()
 {
-  for entry in $(__rvm_find -L config patches gem-cache contrib examples lib help docs scripts -type d 2>/dev/null)
+  for entry in $(__rvm_find -L config patches patchsets gem-cache contrib examples lib hooks help docs scripts -type d 2>/dev/null)
   do
     # Target is supposed to be a directory, remove if it is a file.
     if [[ -f "$rvm_path/$entry" ]]
@@ -496,39 +496,27 @@ install_rvm_hooks()
 {
   typeset hook_x_flag entry name
 
-  for entry in $(__rvm_find hooks 2>/dev/null)
+  for entry in $(__rvm_find -L hooks -type f 2>/dev/null)
   do
+    # Target is supposed to be a file, remove if it is a directory.
+    if [[ -d "$rvm_path/$entry" ]]
+    then __rvm_rm_rf "$rvm_path/$entry"
+    fi
+    # Source is first level hook (after_use) and target is custom user hook, preserve it
     if
-      [[ -f "$source_path/$entry" ]]
+      [[ -f "$rvm_path/$entry" ]] &&
+      __rvm_grep -E '^hooks/[[:alpha:]]+_[[:alpha:]]+$' >/dev/null <<<"$entry" &&
+      ! __rvm_grep "$(basename ${entry})_\*" "$rvm_path/$entry" >/dev/null
     then
-      # Target is supposed to be a file, remove if it is a directory.
-      if [[ -d "$rvm_path/$entry" ]]
-      then __rvm_rm_rf "$rvm_path/$entry"
-      fi
-      # Source is first level hook (after_use) and target is custom user hook, preserve it
-      if
-        [[ -f "$rvm_path/$entry" ]] &&
-        __rvm_grep -E '^hooks/[[:alpha:]]+_[[:alpha:]]+$' >/dev/null <<<"$entry" &&
-        ! __rvm_grep "$(basename ${entry})_\*" "$rvm_path/$entry" >/dev/null
-      then
-        \mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
-      fi
-      hook_x_flag=0
-      [[ -x "$rvm_path/$entry" ]] || hook_x_flag=$?
+      \mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
+    fi
+    hook_x_flag=0
+    [[ -x "$rvm_path/$entry" ]] || hook_x_flag=$?
 
-      __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
+    __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
 
-      if (( hook_x_flag == 0 ))
-      then [[ -x "$rvm_path/$entry" ]] || chmod a+rx "$rvm_path/$entry"
-      fi
-    elif
-      [[ -d "$source_path/$entry" ]]
-    then
-      # Target is supposed to be a directory, remove if it is a file.
-      if [[ -f "$rvm_path/$entry" ]]
-      then \rm -f "$rvm_path/$entry"
-      fi
-      [[ -d "$rvm_path/$entry" ]] || mkdir -p "$rvm_path/$entry"
+    if (( hook_x_flag == 0 ))
+    then [[ -x "$rvm_path/$entry" ]] || chmod a+rx "$rvm_path/$entry"
     fi
   done
 }
@@ -667,9 +655,9 @@ install_patchsets()
       if
         [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
       then
-        destination_path="${destination%/*}"
-        [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-        [[ ! -f "$destination"    ]] || \rm -f "$destination"
+        if [[ -d "$destination"    ]]
+        then \rm -f "$destination"
+        fi
         \cat < "$patchset_file" > "$destination"
       fi
     done
