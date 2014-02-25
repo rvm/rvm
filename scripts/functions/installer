@@ -1,17 +1,53 @@
 #!/usr/bin/env bash
 
+install_run_debug_time()
+{
+  # 1st s = start, 1st e = end, 1st d = difference, 2nd s = seconds, 2nd n = nanoseconds
+  typeset __ss __sn __es __en __ds __dn __time __status=0
+  rvm_debug "step> '$1' started"
+
+  __ss="$(date +%s:%N)"
+  "$@" || __status=$?
+  __es="$(date +%s:%N)"
+
+  # split seconds and nano
+  __sn="${__ss#*:}"
+  __sn="${__sn#%N}"
+  __sn="${__sn##0}"
+  __ss="${__ss%:*}"
+  __ss="${__ss##0}"
+  __en="${__es#*:}"
+  __en="${__en#%N}"
+  __en="${__en##0}"
+  __es="${__es%:*}"
+  __es="${__es##0}"
+
+  __ds="$(( __es - __ss ))"
+  __dn=""
+  if
+    [[ -n "${__sn}" && -n "${__en}" ]]
+  then
+    __dn="$(( __en - __sn ))"
+    if
+      (( __dn < 0 ))
+    then
+      __dn="$(( __dn + 1000000000 ))"
+      __ds="$(( __ds - 1 ))"
+    fi
+  fi
+  __time="${__ds}${__dn:+".$__dn"} seconds"
+
+  rvm_debug "step< '$1' finished with status 0 in ${__time}"
+}
+
 install_rvm_step()
 {
-  rvm_debug "step> '$1' started"
-  if
-    $1
-  then
-    rvm_debug "step< '$1' finished with 0"
-  else
+  install_run_debug_time $1 ||
+  {
     typeset __status=$?
     rvm_error "Installer failed at step '$1' with status ${__status}, please run it with --debug and report a bug."
     return ${__status}
-  fi
+  }
 }
 
 install_rvm()
