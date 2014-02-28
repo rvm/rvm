@@ -22,7 +22,7 @@ rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
 # env[PATH]=/1.9.3-p448/
 
 : load project
-echo "2.0.0" > .ruby-version
+echo "2.0.0-p353" > .ruby-version
 rvm use system
 # env[GEM_HOME]=/^$/
 source "$rvm_path/scripts/initialize"
@@ -66,7 +66,7 @@ rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
 # env[PATH]=/1.9.3-p448/
 
 : load project
-echo "2.0.0" > .ruby-version
+echo "2.0.0-p353" > .ruby-version
 rvm use default
 # env[GEM_HOME]=/1.9.3-p448$/
 # env[PATH]=/1.9.3-p448/
@@ -113,7 +113,7 @@ rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
 # env[PATH]=/1.9.3-p448/
 
 : load project
-echo "2.0.0" > .ruby-version
+echo "2.0.0-p353" > .ruby-version
 rvm use system
 source "$rvm_path/scripts/initialize"
 # env[rvm_rubies_path]!=/^$/
