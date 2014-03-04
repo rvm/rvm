@@ -110,45 +110,7 @@ __rvm_rvmrc_tools()
       ;;
 
     try_to_read_ruby)
-      # make sure the flag is passed on to sub-process $()
-      if [[ -n "${rvm_trust_rvmrcs_flag:-}" ]]
-      then export rvm_trust_rvmrcs_flag
-      fi
-
-      case "$rvmrc_path" in
-        (*/.rvmrc)
-          if ! __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")"
-          then
-            # subprocess to not mess with current process variables
-            ( rvm_promptless=1 __rvm_project_rvmrc "$rvmrc_path" >/dev/null 2>&1 )
-          fi
-
-          if __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")"
-          then
-            rvm_action="${rvm_action:-use}"
-            rvm_ruby_string="$(
-              rvm_current_rvmrc=""
-              rvm_trust_rvmrcs_flag=1
-              rvm_is_not_a_shell_function=0
-              __rvm_project_rvmrc "$rvmrc_path" >/dev/null 2>&1 &&
-              __rvm_env_string
-            )"
-            rvm_ruby_strings="$rvm_ruby_string"
-          else
-            return 1
-          fi
-        ;;
-        (*)
-          rvm_action="${rvm_action:-use}"
-          rvm_ruby_string="$(
-            rvm_current_rvmrc=""
-            rvm_trust_rvmrcs_flag=1
-            __rvm_project_rvmrc "$rvmrc_path" >/dev/null 2>&1 &&
-            __rvm_env_string
-          )"
-          rvm_ruby_strings="$rvm_ruby_string"
-        ;;
-      esac
+      __rvm_rvmrc_tools_try_to_read_ruby "$@" || return $?
       ;;
 
     *)
@@ -158,4 +120,43 @@ __rvm_rvmrc_tools()
   esac
 
   return $?
+}
+
+__rvm_rvmrc_tools_try_to_read_ruby()
+{
+  case "$rvmrc_path" in
+    (*/.rvmrc)
+      # make sure the flag is passed on to sub-process () / $()
+      if [[ -n "${rvm_trust_rvmrcs_flag:-}" ]]
+      then export rvm_trust_rvmrcs_flag
+      fi
+
+      __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")"  "$(basename "$rvmrc_path")" ||
+      (
+        # subprocess to not mess with current process variables
+        rvm_promptless=1 __rvm_project_rvmrc "$rvmrc_path" >/dev/null 2>&1
+      )
+
+      if __rvm_rvmrc_tools is_trusted "$(dirname "$rvmrc_path")" "$(basename "$rvmrc_path")"
+      then __rvm_rvmrc_tools_read_ruby "$@" || return $?
+      else return 1
+      fi
+      ;;
+    (*)
+      __rvm_rvmrc_tools_read_ruby "$@" || return $?
+      ;;
+  esac
+}
+
+__rvm_rvmrc_tools_read_ruby()
+{
+  rvm_ruby_string="$(
+    # subprocess to not mess with current process variables
+    rvm_action="${rvm_action:-use}"
+    rvm_current_rvmrc=""
+    rvm_trust_rvmrcs_flag=1
+    __rvm_project_rvmrc "$rvmrc_path" >/dev/null 2>&1 &&
+    __rvm_env_string
+  )"
+  rvm_ruby_strings="$rvm_ruby_string"
 }
