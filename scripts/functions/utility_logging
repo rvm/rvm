@@ -58,8 +58,8 @@ __rvm_log_command()
 
   [[ ! "${_command_start}" =~ "=" ]] || _command=( "env" "${_command[@]}" )
   if __function_on_stack __rvm_log_command_internal
-  then __rvm_log_command_simple   "$@"
-  else __rvm_log_command_internal "$@"
+  then __rvm_log_command_simple   "$@" || return $?
+  else __rvm_log_command_internal "$@" || return $?
   fi
 }
 
@@ -146,6 +146,7 @@ __rvm_ask_for()
 
 __rvm_dotted()
 {
+  set +x
   typeset flush
 
   if (( $# ))
@@ -175,19 +176,29 @@ __rvm_dotted()
 
 __rvm_log_dotted()
 {
-  typeset __log_file __message __iterator
+  typeset __log_file __message __iterator __result
   __log_file="$1"
   __message="$2"
   shift 2
+  __result=0
   if
     [[ -n "${ZSH_VERSION:-}" ]]
   then
     rvm_log "${__message} - please wait"
-    "$@" > "${__log_file}" 2>&1 || return $?
+    {
+      set -x
+      "$@" > "${__log_file}" 2>&1 || __result=$?
+      (( __local_rvm_trace_flag > 0 )) || set +x
+    } 2>/dev/null
   else
-    "$@" 2>&1 | tee -a "${__log_file}" | __rvm_dotted "${__message}"
-    __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || return $?
+    {
+      set -x
+      "$@" 2>&1 | tee -a "${__log_file}" | __rvm_dotted "${__message}"
+      __rvm_check_pipestatus ${PIPESTATUS[@]} ${pipestatus[@]} || __result=$?
+      (( __local_rvm_trace_flag > 0 )) || set +x
+    } 2>/dev/null
   fi
+  return $__result
 }
 
 __rvm_check_pipestatus()
