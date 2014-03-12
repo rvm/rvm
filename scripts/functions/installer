@@ -1,15 +1,50 @@
 #!/usr/bin/env bash
 
-install_rvm_step()
+install_run_debug_time()
 {
-  typeset __status=0
+  # 1st s = start, 1st e = end, 1st d = difference, 2nd s = seconds, 2nd n = nanoseconds
+  typeset __ss __sn __es __en __ds __dn __time __status=0
   rvm_debug "step> '$1' started"
 
-  $1 || __status=$?
+  __ss="$(date +%s:%N)"
+  "$@" || __status=$?
+  __es="$(date +%s:%N)"
 
-  rvm_debug "step< '$1' finished with ${__status}"
+  # split seconds and nano
+  __sn="${__ss#*:}"
+  __sn="${__sn#%N}"
+  __sn="${__sn##*(0)}"
+  __ss="${__ss%:*}"
+  __ss="${__ss##*(0)}"
+  __en="${__es#*:}"
+  __en="${__en#%N}"
+  __en="${__en##*(0)}"
+  __es="${__es%:*}"
+  __es="${__es##*(0)}"
 
-  (( __status == 0 )) || {
+  __ds="$(( __es - __ss ))"
+  __dn=""
+  if
+    [[ -n "${__sn}" && -n "${__en}" ]]
+  then
+    __dn="$(( __en - __sn ))"
+    if
+      (( __dn < 0 ))
+    then
+      __dn="$(( __dn + 1000000000 ))"
+      __ds="$(( __ds - 1 ))"
+    fi
+  fi
+  __time="${__ds}${__dn:+"$(printf ".%09d" "$__dn")"} seconds"
+
+  rvm_debug "step< '$1' finished with status 0 in ${__time}"
+}
+
+install_rvm_step()
+{
+  install_run_debug_time $1 ||
+  {
+    typeset __status=$?
     rvm_error "Installer failed at step '$1' with status ${__status}, please run it with --debug and report a bug."
     return ${__status}
   }
@@ -35,13 +70,16 @@ install_rvm()
     create_install_paths
     load_custom_flags
     save_custom_flags
+    install_rvm_directories
     install_rvm_files
+    install_rvm_scripts
+    cleanup_old_help_and_docs_files
     install_rvm_hooks
+    remove_old_hooks
     install_binaries
     install_gemsets
     install_patchsets
     install_man_pages
-    ensure_scripts_are_executable
     setup_configuration_files
   )
   # not using elif for clarity
@@ -343,7 +381,7 @@ cleanse_old_entities()
   #
   for script in utility array
   do
-    if [[ -f "$rvm_path/scripts/${script}" ]]
+    if test -f "$rvm_path/scripts/${script}"
     then \rm -f "$rvm_path/scripts/${script}"
     fi
   done
@@ -389,6 +427,18 @@ save_custom_flags()
   true # no failing from grep filtering
 }
 
+install_rvm_directories()
+{
+  for entry in $(__rvm_find -L config patches patchsets gem-cache contrib examples lib hooks help docs scripts -type d 2>/dev/null)
+  do
+    # Target is supposed to be a directory, remove if it is a file.
+    if [[ -f "$rvm_path/$entry" ]]
+    then \rm -f "$rvm_path/$entry"
+    fi
+    [[ -d "$rvm_path/$entry" ]] || mkdir -p "$rvm_path/$entry"
+  done
+}
+
 install_rvm_files()
 {
   for file in README LICENCE VERSION
@@ -396,38 +446,46 @@ install_rvm_files()
     __rvm_cp -f "$source_path/${file}" "$rvm_path/${file}"
   done
 
-  for directory in config contrib scripts examples lib help docs patches gem-cache
+  for entry in $(__rvm_find -L config patches gem-cache contrib examples lib help docs -type f 2>/dev/null)
   do
-    for entry in $(__rvm_find $directory 2>/dev/null)
-    do
-      if
-        [[ -f "$source_path/$entry" ]] &&
-        [[ "$entry" == "scripts/extras/completion.zsh/_rvm" || "$entry" == "scripts/zsh/Completion/_rvm" ]]
-      then
-        if __rvm_rm_rf "$rvm_path/$entry" 2>/dev/null
-        then __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
-        else rvm_log "    Can not update '$entry', it's a conflict between Zsh and multiuser installation, prefix the command with 'rvmsudo' to update this file."
-        fi
-      elif
-        [[ -f "$source_path/$entry" ]]
-      then
-        # Target is supposed to be a file, remove if it is a directory.
-        if [[ -d "$rvm_path/$entry" ]]
-        then __rvm_rm_rf "$rvm_path/$entry"
-        fi
-        __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
-      elif
-        [[ -d "$source_path/$entry" ]]
-      then
-        # Target is supposed to be a directory, remove if it is a file.
-        if [[ -f "$rvm_path/$entry" ]]
-        then \rm -f "$rvm_path/$entry"
-        fi
-        [[ -d "$rvm_path/$entry" ]] || mkdir -p "$rvm_path/$entry"
-      fi
-    done
+    # Target is supposed to be a file, remove if it is a directory.
+    if [[ -d "$rvm_path/$entry" ]]
+    then __rvm_rm_rf "$rvm_path/$entry"
+    fi
+    \cat < "$source_path/$entry" > "$rvm_path/$entry"
+    if [[ -x "$source_path/$entry" ]]
+    then chmod +x "$rvm_path/$entry"
+    fi
   done
-  # cleanup old help and docs files
+}
+
+install_rvm_scripts()
+{
+  for entry in $(__rvm_find -L scripts -type f 2>/dev/null)
+  do
+    # Target is supposed to be a file, remove if it is a directory.
+    if [[ -d "$rvm_path/$entry" ]]
+    then __rvm_rm_rf "$rvm_path/$entry"
+    fi
+    if
+      [[ "$entry" == "scripts/extras/completion.zsh/_rvm" || "$entry" == "scripts/zsh/Completion/_rvm" ]]
+    then
+      if [[ ! -f "$rvm_path/$entry" ]] || __rvm_rm_rf "$rvm_path/$entry" 2>/dev/null
+      then __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
+      else rvm_log "    Can not update '$entry', it's a conflict between Zsh and multiuser installation, prefix the command with 'rvmsudo' to update this file."
+      fi
+    else
+      \cat < "$source_path/$entry" > "$rvm_path/$entry"
+      if [[ -x "$source_path/$entry" ]]
+      then chmod +x "$rvm_path/$entry"
+      fi
+    fi
+  done
+  true # for osx
+}
+
+cleanup_old_help_and_docs_files()
+{
   find "$rvm_path/help" -type f \! \( -name '*.md' -o -name '*.txt' \) -delete
   find "$rvm_path/docs" -type f \! \( -name '*.md' -o -name '*.txt' \) -delete
   true # for osx
@@ -437,43 +495,33 @@ install_rvm_hooks()
 {
   typeset hook_x_flag entry name
 
-  for entry in $(__rvm_find hooks 2>/dev/null)
+  for entry in $(__rvm_find -L hooks -type f 2>/dev/null)
   do
+    # Target is supposed to be a file, remove if it is a directory.
+    if [[ -d "$rvm_path/$entry" ]]
+    then __rvm_rm_rf "$rvm_path/$entry"
+    fi
+    # Source is first level hook (after_use) and target is custom user hook, preserve it
     if
-      [[ -f "$source_path/$entry" ]]
+      [[ -f "$rvm_path/$entry" ]] &&
+      __rvm_grep -E '^hooks/[[:alpha:]]+_[[:alpha:]]+$' >/dev/null <<<"$entry" &&
+      ! __rvm_grep "$(basename ${entry})_\*" "$rvm_path/$entry" >/dev/null
     then
-      # Target is supposed to be a file, remove if it is a directory.
-      if [[ -d "$rvm_path/$entry" ]]
-      then __rvm_rm_rf "$rvm_path/$entry"
-      fi
-      # Source is first level hook (after_use) and target is custom user hook, preserve it
-      if
-        [[ -f "$rvm_path/$entry" ]] &&
-        echo "$entry" | __rvm_grep -E '^hooks/[[:alpha:]]+_[[:alpha:]]+$' >/dev/null &&
-        ! __rvm_grep "$(basename ${entry})_\*" "$rvm_path/$entry" >/dev/null
-      then
-        \mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
-      fi
-      hook_x_flag=0
-      [[ -x "$rvm_path/$entry" ]] || hook_x_flag=$?
+      \mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
+    fi
+    hook_x_flag=0
+    [[ -x "$rvm_path/$entry" ]] || hook_x_flag=$?
 
-      __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
+    __rvm_cp -f "$source_path/$entry" "$rvm_path/$entry"
 
-      if (( hook_x_flag == 0 ))
-      then [[ -x "$rvm_path/$entry" ]] || chmod a+rx "$rvm_path/$entry"
-      fi
-    elif
-      [[ -d "$source_path/$entry" ]]
-    then
-      # Target is supposed to be a directory, remove if it is a file.
-      if [[ -f "$rvm_path/$entry" ]]
-      then \rm -f "$rvm_path/$entry"
-      fi
-      [[ -d "$rvm_path/$entry" ]] || mkdir -p "$rvm_path/$entry"
+    if (( hook_x_flag == 0 ))
+    then [[ -x "$rvm_path/$entry" ]] || chmod a+rx "$rvm_path/$entry"
     fi
   done
+}
 
-  #remove unneeded files
+remove_old_hooks()
+{
   for entry in after_use_custom after_use after_cd
   do
     name=${entry#after_}
@@ -500,8 +548,10 @@ install_binaries()
 
   for file in "${files[@]}"
   do
-    # Ensure binscripts are always available in rvm_path/bin first.
-    [[ ! -f "${rvm_bin_path}/${file}" ]] || \rm -f "${rvm_bin_path}/${file}"
+    if [[ -e "${rvm_bin_path}/${file}" ]] &&
+    [[ ! -f "${rvm_bin_path}/${file}"  || -L "${rvm_bin_path}/${file}" ]]
+    then \rm -f "${rvm_bin_path}/${file}"
+    fi
 
     if
       [[ -L "${source_path}/bin/${file}" ]]
@@ -561,29 +611,23 @@ install_gemsets()
   then __rvm_find "$rvm_path/gemsets" -type f -delete
   fi
 
-  if
-    [[ -d gemsets/ ]]
-  then
-    [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
+  [[ -d "$rvm_path/gemsets" ]] || mkdir -p "$rvm_path/gemsets"
 
-    __rvm_read_lines gemset_files <(
-      __rvm_find "${PWD%%+(\/)}/gemsets" "${name_opt}" '*.gems' |
-      __rvm_sed 's/^\.\///'
-    )
+  __rvm_read_lines gemset_files <(
+    __rvm_find "gemsets" "${name_opt}" '*.gems'
+  )
 
-    for gemset_file in "${gemset_files[@]}"
-    do
-      cwd="${PWD//\//\\/}\/gemsets\/"
-      destination="$rvm_path/gemsets/${gemset_file/$cwd}"
-      if
-        [[ ! -s "$destination" ]]
-      then
-        destination_path="${destination%/*}"
-        [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-        \cat < "$gemset_file" > "$destination"
-      fi
-    done
-  fi
+  for gemset_file in "${gemset_files[@]}"
+  do
+    destination="$rvm_path/gemsets/${gemset_file#gemsets/}"
+    if
+      [[ ! -s "$destination" ]]
+    then
+      destination_path="${destination%/*}"
+      [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
+      \cat < "$gemset_file" > "$destination"
+    fi
+  done
 
   update_gemsets_rvmrc rvm_without_gems      "${rvm_without_gems}"
   update_gemsets_rvmrc rvm_with_gems         "${rvm_with_gems}"
@@ -602,7 +646,7 @@ install_patchsets()
   then
     [[ -d "$rvm_path/patchsets" ]] || mkdir -p "$rvm_path/patchsets"
     patchsets=($(
-      __rvm_find patchsets/ -type f "${name_opt}" '*'
+      __rvm_find patchsets/ -type f
     ))
     for patchset_file in "${patchsets[@]}"
     do
@@ -610,9 +654,9 @@ install_patchsets()
       if
         [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
       then
-        destination_path="${destination%/*}"
-        [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-        [[ ! -f "$destination"    ]] || \rm -f "$destination"
+        if [[ -d "$destination"    ]]
+        then \rm -f "$destination"
+        fi
         \cat < "$patchset_file" > "$destination"
       fi
     done
@@ -643,22 +687,6 @@ install_man_pages()
   done
 }
 
-ensure_scripts_are_executable()
-{
-  typeset __file
-  typeset -a __failed_files
-  __failed_files=()
-  for __file in "$rvm_scripts_path"/*
-  do
-    if [[ -s "${__file}" && ! -x "${__file}" ]]
-    then chmod a+rx "${__file}" || __failed_files+=( "${__file}" )
-    fi
-  done
-  if (( ${#__failed_files[@]} > 0 ))
-  then permissions_warning "Failed to set permissions of: ${__failed_files[*]}"
-  fi
-}
-
 setup_configuration_files()
 {
   typeset _save_dir
@@ -680,7 +708,6 @@ setup_configuration_files()
   [[ -s user/db ]] ||
     echo '# User settings, overrides db settings and persists across installs.' >> user/db
 
-  [[ -d user        ]] || mkdir user
   [[ -f user/rvmrcs ]] || > user/rvmrcs
   [[ -f user/md5    ]] || > user/md5
   [[ -f user/sha512 ]] || > user/sha512
@@ -904,7 +931,7 @@ setup_etc_bashrc()
     [[ ! -f "${new_content_path}" ]] || \rm -f "${new_content_path}"
     {
       print_etc_bashrc_change # prepend
-      \cat "${system_bashrc_file}" | __rvm_grep -v "|| export PATH=\"\${PATH}:\""
+      __rvm_grep -v "|| export PATH=\"\${PATH}:\"" < "${system_bashrc_file}"
       true
     } > "${new_content_path}" &&
     \mv "${new_content_path}" "${system_bashrc_file}" 2>/dev/null ||
@@ -1177,7 +1204,7 @@ migrate_old_gemsets()
 
   for gemset in "$rvm_path"/gems/*\@
   do
-    new_path=$(echo $gemset | __rvm_sed -e 's#\@$##')
+    new_path="$( __rvm_sed -e 's#\@$##' <<<"$gemset" )"
     if
       [[ -d "$gemset" && ! -d "$new_path" ]]
     then
@@ -1256,13 +1283,15 @@ update_gemsets_install_rvm()
 
   # rvm /gems
   paths=($(
-    __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global' | __rvm_sed 's/^\.\///'
+    __rvm_find "$rvm_path/gems" -maxdepth 1 "${name_opt}" '*@global'
   ))
 
   for _gem in rvm gem-wrappers
   do
     [[ " ${rvm_without_gems:-} " == *" ${_gem} "* ]] ||
     {
+      missing=()
+
       for _iterator in "${paths[@]}"
       do
         # skip unless this ruby is installed
@@ -1276,7 +1305,7 @@ update_gemsets_install_rvm()
         # rvm /gems @global /gems
         found=($(
           [[ ! -d "${_current_path}" ]] ||
-          __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" ${_gem}-'*' | __rvm_sed 's/^\.\///'
+          __rvm_find "${_current_path}" -maxdepth 1 "${name_opt}" ${_gem}-'*'
         ))
         (( ${#found[@]} > 0 )) || missing+=( "${installed}=${_iterator}" )
       done
@@ -1286,7 +1315,6 @@ update_gemsets_install_rvm()
       then
         for _iterator in "${missing[@]}"
         do
-          printf "%b" "installing ${_gem} in ${__gem_home##*/}"
           __gem_home="${_iterator#*=}"
           _iterator="${_iterator%%=*}"
           __rvm_with "${__gem_home##*/}" gem_install ${_gem}
@@ -1382,12 +1410,7 @@ cleanup_tmp_files()
     (( ${#files[@]} > 0 ))
   then
     rvm_out "    Cleanup any .swp files."
-    for file in "${files[@]}"
-    do
-      if [[ -f "$file" ]]
-      then \rm -f "$file"
-      fi
-    done
+    \rm -f  "${files[@]}"
   fi
 }
 

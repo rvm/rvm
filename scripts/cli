@@ -56,7 +56,14 @@ __rvm_parse_args_find_known_flags()
 
 __rvm_parse_args_error_finding_project_file()
 {
-  rvm_error_message="Could not determine which Ruby to use; $rvm_token should contain .rvmrc or .versions.conf or .ruby-version or .rbfu-version or .rbenv-version, or an appropriate line in Gemfile."
+  case $? in
+    101)
+      rvm_error_message="Could not use ruby/gemset from the project file, try 'rvm use $rvm_token' for better explanation."
+      ;;
+    *)
+      rvm_error_message="Could not determine which Ruby to use; $rvm_token should contain .rvmrc or .versions.conf or .ruby-version or .rbfu-version or .rbenv-version, or an appropriate line in Gemfile."
+      ;;
+  esac
   rvm_action="error"
 }
 
@@ -891,8 +898,12 @@ rvm()
       unset rvm_ruby_string
       export rvm_ruby_strings rvm_in_flag
 
-      "$rvm_scripts_path/set" "$rvm_action" "${rvm_ruby_args[@]}"
-      result=$?
+      result=0
+      # run in a subprocess only when a function, when called via PATH just replace the process
+      if rvm_is_a_shell_function
+      then      "$rvm_scripts_path/set" "$rvm_action" "${rvm_ruby_args[@]}" || result=$?
+      else exec "$rvm_scripts_path/set" "$rvm_action" "${rvm_ruby_args[@]}" || result=$?
+      fi
 
       # Restore the state pre-sets.
       [[ -n "$old_rvm_ruby_string" ]] && rvm_ruby_string=$old_rvm_ruby_string

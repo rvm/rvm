@@ -181,7 +181,7 @@ __rvm_detect_xcode_version_at_least()
 # TODO: better semver support
 __rvm_version_sort()
 {
-  LC_ALL=C sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n
+  LC_ALL=C \sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n
 }
 
 __rvm_version_compare()
@@ -301,15 +301,11 @@ __rvm_find_first_file()
   return 1
 }
 
-file_exists_at_url()
-(
-  if
-    [[ -n "${1:-}" ]]
-  then
-    unset curl
-    __rvm_curl --silent --insecure --location --list-only \
-      --max-time ${rvm_max_time_flag:-5} --head "$1" 2>&1 |
-      __rvm_grep -E 'HTTP/[0-9\.]+ 200 OK' >/dev/null 2>&1 ||
+file_exists_at_url_command()
+{
+  __rvm_curl --silent --insecure --location --list-only \
+    --max-time ${rvm_max_time_flag:-5} --head "$@" 2>&1 |
+    __rvm_grep -E 'HTTP/[0-9\.]+ 200 OK' >/dev/null 2>&1 ||
     {
       typeset __ret=$?
       case ${__ret} in
@@ -319,6 +315,30 @@ you can increase the timeout by setting it in ~/.rvmrc => rvm_max_time_flag=10"
           ;;
       esac
       return ${__ret}
+    }
+}
+
+file_exists_at_url()
+(
+  if
+    [[ -n "${1:-}" ]]
+  then
+    unset curl
+    file_exists_at_url_command "$1" --insecure ||
+    {
+      typeset __ret=$?
+      case ${__ret} in
+        (60)
+          # detect double --insecure and avoid duplication, see:
+          # https://github.com/wayneeseguin/rvm/issues/2640#issuecomment-35669722
+          file_exists_at_url_command "$1" || return $?
+          return 0
+          ;;
+        (*)
+          # anything else then 60 just return it
+          return ${__ret}
+          ;;
+      esac
     }
   else
     rvm_warn "Warning: URL was not passed to file_exists_at_url"
