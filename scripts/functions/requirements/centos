@@ -16,6 +16,11 @@ requirements_centos_lib_available_no_caching()
   yum list --quiet "$1" >/dev/null 2>&1 || return $?
 }
 
+requirements_centos_version_list()
+{
+  rpm -q --whatprovides "$1" | sed -e "s#^$1-##"
+}
+
 requirements_centos_libs_install()
 {
   __rvm_try_sudo yum install -y "$@" || return $?
@@ -100,7 +105,7 @@ requirements_centos_define()
       else requirements_check libyaml-devel
       fi
       if
-        [[ "${_system_name}" == "Redhat" && ${_system_version:-0} -ge 6 ]] &&
+        [[ "${_system_name_lowercase}" == "redhat" && ${_system_version:-0} -ge 6 ]] &&
         ! requirements_centos_lib_available libffi-devel
       then
         rvm_warn "
@@ -113,7 +118,11 @@ Skipping installation of 'libffi-devel', in case you depend on FFI reinstall you
       if [[ "${_system_name}" != "Mageia" ]]
       then requirements_check glibc-headers
       fi
-      requirements_check gcc-c++ glibc-devel patch readline readline-devel zlib zlib-devel openssl-devel make bzip2 autoconf automake libtool bison
+      if [[ ${#rvm_patch_names[@]} -gt 0 ]] || [[ "$1" == *"-head" ]]
+      then requirements_version_minimal autoconf 2.67
+      else requirements_check autoconf
+      fi
+      requirements_check gcc-c++ glibc-devel patch readline readline-devel zlib zlib-devel openssl-devel make bzip2 automake libtool bison
       ;;
   esac
 }
@@ -150,6 +159,11 @@ requirements_clearos_before()
 }
 
 requirements_mageia_before()
+{
+  __lib_type=centos
+}
+
+requirements_scientific_before()
 {
   __lib_type=centos
 }
