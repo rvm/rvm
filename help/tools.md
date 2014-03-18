@@ -34,19 +34,19 @@ First, you need to define the shebang wrapper:
 
 This will define:
 
-  /usr/bin/{ruby,bash,zsh}-rvm-env
+    /usr/bin/{ruby,bash,zsh}-rvm-env
 
 Your scripts can then request the proper Ruby, using shebang:
 
-  #!/usr/bin/ruby-rvm-env 1.9.3
+    #!/usr/bin/ruby-rvm-env 1.9.3
 
 The script will be run using Ruby 1.9.3 from rvm.
 
 Alternatively, here is a hack to make a script switch itself:
 
-  if !ENV['ruby_switch_flag']
-    ENV['ruby_switch_flag'] = '42'
-    system('rvm', '1.9.3', 'do', __FILE__, *ARGV)
-    exit 0
-  end
+    if !ENV['ruby_switch_flag']
+      ENV['ruby_switch_flag'] = '42'
+      system('rvm', '1.9.3', 'do', __FILE__, *ARGV)
+      exit 0
+    end
 
