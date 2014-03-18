@@ -50,22 +50,14 @@ please let us know what's wrong and stick around. Someone will always respond in
 If you can't stick around, please file a bug on github or email us via the
 [google group](https://groups.google.com/forum/?fromgroups#!forum/rubyversionmanager).
 
-## Filing for Ruby installation errors
+## Filing issues
 
 ```
 rvm get head
 rvm reload
-rvm --debug install [ruby-version]
+rvm --debug [command]
 ```
 Make sure to include all mentioned log files.
-
-## Filing for other RVM commands
-
-```
-rvm get head
-rvm reload
-rvm --trace [command]
-```
 
 ## Coding guidelines
 https://github.com/wayneeseguin/rvm/blob/master/FORMATTING.md
