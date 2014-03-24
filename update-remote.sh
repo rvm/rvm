@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+echo "Linking: OSX binaries"
+ssh rvm@rvm.io -C ./site/bin/rvm-link-binaries.sh osx 10.9
+
 echo "Processing: remote - all"
 ssh rvm@rvm.io -C ./site/bin/rvm-list-binary.sh remote | sort > config/remote
 
