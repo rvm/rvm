@@ -45,6 +45,12 @@ And finally it is possible to just give a name and RVM will build the path for y
 
     rvm mount -r 1.9.3
 
+Assuming the binary is in proper remote path registered with rvm it will be automatically used during installation:
+
+    rvm install 1.9.3
+
+will use https://rvm.io/binaries/ubuntu/12.04/x86_64/ruby-1.9.3-p194.tar.bz2 assuming it is 64bit Ubuntu 12.04.
+
 
 ## List of available builds
 
