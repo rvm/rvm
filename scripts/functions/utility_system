@@ -217,19 +217,6 @@ __rvm_system_path()
   fi
 }
 
-__rvm_system_paths()
-{
-  typeset _iterator
-  _iterator=""
-  while
-    __rvm_db "rvm_remote_server_url${_iterator}" >/dev/null
-  do
-    __rvm_system_path - "${_iterator}"
-    : $(( _iterator+=1 ))
-  done | sort -u | \tr "\n" "|" | __rvm_sed 's/|$//'
-  true
-}
-
 __rvm_remote_extension()
 {
   case "$1" in
@@ -323,47 +310,84 @@ __rvm_remote_server_path()
   done
 }
 
-__list_remote_all_for()
+__list_remote_all()
 {
-  #TODO: read the list from db
-  {
-    __list_remote_rubies_for "$1"
-    __list_remote_rbx_for    "$1"
-    __list_remote_jruby_for  "$1"
-  } | sort -u
+  typeset _iterator rvm_remote_server_url rvm_remote_server_path
+  _iterator=""
+  while
+    __rvm_db "rvm_remote_server_url${_iterator:-}" rvm_remote_server_url
+  do
+    __rvm_system_path "" "${_iterator}"
+    rvm_debug "__list_remote_all${_iterator:-} $rvm_remote_server_url $rvm_remote_server_path"
+    __list_remote_for "${rvm_remote_server_url}" "$rvm_remote_server_path"
+    : $(( _iterator+=1 ))
+  done | \sort -u | __rvm_version_sort
 }
 
-__list_remote_rubies_for()
+__list_remote_for()
 {
-  typeset rvm_ruby_url
-  rvm_ruby_url="$1"
-  __rvm_awk '/'"${rvm_ruby_url//\//\/}"'/{print}' < $rvm_path/config/remote
+  __list_remote_for_local "$@" ||
+  __list_remote_for_index "$@" ||
+  __list_remote_for_s3    "$@" ||
+  return $?
+}
+
+__list_remote_for_local()
+{
+  typeset __status1 __status2
+  __status1=0
+  __status2=0
   if [[ -f $rvm_user_path/remote ]]
-  then __rvm_awk '/'"${rvm_ruby_url//\//\/}"'/{print}' < $rvm_user_path/remote
+  then __rvm_grep "${1}/${2}" < $rvm_user_path/remote || __status1=$?
   fi
+  __rvm_grep "${1}/${2}" < $rvm_path/config/remote || __status2=$?
+  if (( __status1 || __status2 ))
+  then return 1
+  else rvm_debug "__list_remote_for_local found"
+  fi
+  true # for OSX
 }
 
-__list_remote_rbx_for()
+__list_remote_for_index()
 {
-  __rvm_curl -s http://binaries.rubini.us/index.txt | GREP_OPTIONS="" \grep -E "$1.*\.tar\.bz2$"
+  file_exists_at_url_command "${1}/index.txt" || return $?
+  rvm_debug "__list_remote_for_index ${1}/index.txt"
+  __rvm_curl -s "${1}/index.txt" | GREP_OPTIONS="" \grep -E "${1}/${2}/.*\.tar\.(gz|bz2)$"
+  true # for OSX
 }
 
-__list_remote_jruby_for()
+__list_remote_for_s3()
 {
-  typeset rvm_ruby_url
-  rvm_ruby_url="$1"
-  __rvm_curl -s "http://jruby.org.s3.amazonaws.com/?prefix=downloads/&delimiter=/" |
-    GREP_OPTIONS="" \grep -oE "<Key>[^<]*</Key>" |
-    GREP_OPTIONS="" \grep -o '[0-9][^_]*' |
-    __rvm_awk '{print "http://jruby.org.s3.amazonaws.com/downloads/"$1"/jruby-bin-"$1".tar.gz"}' |
-    GREP_OPTIONS="" \grep "${rvm_ruby_url}" ||
-  {
-    typeset __result=$?
-    if [[ -f "${rvm_archives_path}/jruby-bin-${rvm_ruby_string#jruby-}.tar.gz" ]]
-    then echo "http://jruby.org.s3.amazonaws.com/downloads/${rvm_ruby_string#jruby-}/jruby-bin-${rvm_ruby_string#jruby-}.tar.gz"
-    else return ${__result}
+  curl -ILfs "${1}" | grep "Server: AmazonS3" >/dev/null || return $?
+  typeset __tmp_name __iterator __next __local_url
+  __iterator=0
+  __next=""
+  __tmp_name="$(
+    : ${TMPDIR:=${rvm_tmp_path:-/tmp}}
+    mktemp "${TMPDIR}/tmp.XXXXXXXXXXXXXXXXXX"
+  )"
+  while
+    [[ __iterator -eq 0 || -n "${__next}" ]]
+  do
+    __local_url="${1}?prefix=${2}/${__next:+&marker=${__next}}"
+    rvm_debug "__list_remote_for_s3-${__iterator} ${__local_url}"
+    __rvm_curl -s "${__local_url}" > "${__tmp_name}${__iterator}"
+
+    GREP_OPTIONS="" \grep -oE "<Key>[^<]*</Key>" < "${__tmp_name}${__iterator}" |
+    __rvm_awk -F"[<>]" '{print $3}' > "${__tmp_name}"
+
+    if __rvm_grep "<IsTruncated>true</IsTruncated>" < "${__tmp_name}${__iterator}"
+    then __next="$(tail -n 1 "${__tmp_name}")"
+    else __next=""
     fi
-  }
+
+    rm "${__tmp_name}${__iterator}"
+    : $(( __iterator+=1 ))
+  done
+  GREP_OPTIONS="" \grep -E "${2}/.*\.tar\.(gz|bz2)$" < "${__tmp_name}" |
+  GREP_OPTIONS="" \grep -v -- "-src-" |
+  __rvm_awk "{ print "'"'$1/'"'"\$1 }"
+  rm "${__tmp_name}"*
 }
 
 __rvm_get_user_shell()
