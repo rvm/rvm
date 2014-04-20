@@ -19,7 +19,7 @@ begin
   # This technique was adopted from /etc/irbrc on OS X.
   histfile = File.expand_path(".irb-history", ENV["HOME"])
 
-  if File.exists?(histfile)
+  if File.exist?(histfile)
     lines = IO.readlines(histfile).collect { |line| line.chomp }
     Readline::HISTORY.push(*lines)
   end
@@ -62,7 +62,7 @@ IRB.conf[:PROMPT_MODE] = :RVM if IRB.conf[:PROMPT_MODE] == :DEFAULT
 # Load the user's irbrc file, if possible.
 # Report any errors that occur.
 begin
-  load File.join(ENV["HOME"], ".irbrc") if File.exists?("#{ENV["HOME"]}/.irbrc")
+  load File.join(ENV["HOME"], ".irbrc") if File.exist?("#{ENV["HOME"]}/.irbrc")
 rescue LoadError => load_error
   puts load_error
 rescue => exception

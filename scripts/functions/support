@@ -409,10 +409,28 @@ __rvm_read_lines()
 
 __rvm_ruby_config_save()
 {
-  typeset ruby_path config_path default_config_path
+  typeset ruby_path
   ruby_path="${1:-$rvm_ruby_home/bin/ruby}"
+  case "$ruby_path" in
+    (*/mruby*)
+      __rvm_ruby_config_save_mruby "${2:-${ruby_path%%/bin/ruby}/config}"
+      ;;
+    (*)
+      __rvm_ruby_config_save_generic "$2"
+      ;;
+  esac
+}
+
+__rvm_ruby_config_save_mruby()
+{
+  echo "target_cpu=\"$_system_arch\"" > "$1"
+}
+
+__rvm_ruby_config_save_generic()
+{
+  typeset config_path default_config_path
   default_config_path="#{RbConfig::CONFIG[\"prefix\"]}/config"
-  config_path="${2:-$default_config_path}"
+  config_path="${1:-$default_config_path}"
   "$ruby_path" -rrbconfig -e '\
     File.open("'"$config_path"'","w") { |file|
       RbConfig::CONFIG.sort.each{|key,value|
@@ -430,7 +448,7 @@ __rvm_record_ruby_configs()
     if
       [[ ! -L "${__dir}" && ! -s "${__dir}/config" && -x "${__dir}/bin/ruby" ]]
     then
-      __rvm_ruby_config_save "${__dir}/bin/ruby" ||
+      __rvm_ruby_config_save "${__dir}/bin/ruby" "${__dir}/config" ||
       {
         typeset string="${__dir##*/}"
         rvm_error "    Can not save config data for ruby: '${string}', most likely it is broken installation and you can:

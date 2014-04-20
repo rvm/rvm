@@ -145,6 +145,21 @@ external_mount_link_default_binaries_create_links()
       [[ -e "${_target_path}/${_binary}" ]] ||
         ln -s "${prefix_path}/bin/${_binary_long}" "${_target_path}/${_binary}"
     fi
+    # relink links
+    if
+      [[ -L "${prefix_path}/bin/${_binary}" ]]
+    then
+      _binary="$( __rvm_readlink "${prefix_path}/bin/${_binary}" )"
+      case "${_binary}" in
+        (*/*)
+          true # skip relative paths
+          ;;
+        (*)
+          [[ -e "${_target_path}/${_binary}" ]] || # avoid duplicate relinking
+          ln -s "${prefix_path}/bin/${_binary}" "${_target_path}/${_binary}"
+          ;;
+      esac
+    fi
   done
 }
 
@@ -417,6 +432,7 @@ external_import_validate_archive()
   __rvm_read_lines downloaded_names <(
     __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | __rvm_awk -F/ '{print $1}' | sort -u
   )
+  rvm_debug "downloaded_names:${#downloaded_names[@]}:${downloaded_names[*]}:"
   short_ruby_string="${rvm_ruby_string%-${detected_rvm_ruby_name:-}}"
   if
     [[ "${#path_to_bin_ruby[*]}" -eq 1 ]]
@@ -582,102 +598,9 @@ external_import()
   done
 }
 
-external_prepare()
-{
-  typeset remote_shell
-  rvm_ruby_string="${1:-}"
-  remote_shell="${2:-}"
-  shift || [[ -n "${rvm_ruby_string}" ]] || {
-    rvm_error_help "Missing ruby name to export for prepare." external prepare
-    return 3
-  }
-  __rvm_ruby_string
-  __rvm_remote_extension "${rvm_ruby_string}"
-
-  external_prepare_package "${rvm_ruby_string}.${rvm_remote_extension}" &&
-  external_prepare_upload "${rvm_ruby_string}.${rvm_remote_extension}" "${remote_shell}"
-}
-
-external_prepare_package()
-{
-  typeset file_name
-  file_name="$1"
-
-  if [[ ! -d "${rvm_rubies_path}/${rvm_ruby_string}" ]]
-  then
-    if
-      (( ${rvm_install_flag:-0} > 0 ))
-    then
-      rvm_configure_flags+=( --enable-load-relative --sysconfdir=/etc )
-      __rvm_run_wrapper manage install "${rvm_ruby_string}" || return $?
-    else
-      rvm_error "Ruby ${rvm_ruby_string} does not exist, maybe install first?."
-      return 2
-    fi
-  fi
-
-  rvm_log "Preparing ${rvm_ruby_string} ..."
-  if
-    __rvm_package_create "${file_name}" "${rvm_rubies_path}" "${rvm_ruby_string}"
-  then
-    rvm_log "Prepared ${file_name}."
-  else
-    case $? in
-      199)
-        rvm_error "Unrecognized archive format for ${file_name}"
-        return 199
-        ;;
-      *)
-        rvm_error "Error packaging ${file_name}."
-        return 1
-        ;;
-    esac
-  fi
-}
-
-#TODO: move to SMF ! RVM2 ?
-external_prepare_upload()
-{
-  typeset remote_path remote_shell remote_directory system_path __remote_file file_name local_file path_prefix
-
-  file_name="$1"
-  remote_path="${2:-rvm@rvm.io:~/shared/public/binaries}"
-  system_path="$(__rvm_system_path - 99 )"
-  remote_directory="${remote_path#*:}/${system_path}"
-  remote_shell="${remote_path%:*}"
-  if
-    [[ ${rvm_path_flag:-0} -eq 1 ]]
-  then
-    path_prefix="${remote_path#*:}"
-    path_prefix="${path_prefix##*/}"
-    mkdir -p "${path_prefix}/${system_path}"
-    local_file="${path_prefix}/${system_path}/${file_name}"
-    \mv "${file_name}" "${local_file}"
-  else
-    local_file="${file_name}"
-  fi
-  __rvm_calculate_remote_file  0 1 1 "${file_name}"
-
-  rvm_log "--- upload:"
-  printf "%b" "ssh \"$remote_shell\" \"mkdir -p $remote_directory/\"\n"
-  if
-    [[ ${rvm_path_flag:-0} -eq 1 ]]
-  then
-    printf "%b" "rsync -av --rsh=ssh \"${path_prefix}/\" \"${remote_path}/\"\n"
-  else
-    printf "%b" "scp \"${local_file}\" \"$remote_shell:$remote_directory/${file_name}\"\n"
-  fi
-  rvm_log "--- rvm/config/remote:"
-  printf "%b" "${__remote_file}\n"
-  rvm_log "--- rvm/config/md5:"
-  printf "%b" "${__remote_file}=$( __rvm_md5_calculate      "${local_file}" )\n"
-  rvm_log "--- rvm/config/sha512:"
-  printf "%b" "${__remote_file}=$( __rvm_sha__calculate 512 "${local_file}" )\n"
-}
-
 action="${1:-}"
 shift || {
-  rvm_error_help "Missing action for external." external
+  rvm_error_help "Missing action for external." mount
   exit 1
 }
 
@@ -685,8 +608,8 @@ shift || {
 [[ -n "${1:-}" ]] || (( $#==0 )) || shift
 
 case "${action}" in
-  (automount|prepare)
-    external_$action "$@"
+  (automount)
+    external_automount "$@"
     ;;
   (mount|*_name)
     [[ -n "${1:-}" ]] ||
@@ -704,7 +627,7 @@ case "${action}" in
     fi
     ;;
   (*)
-    rvm_error_help "Wrong action for external '$action'." mount $action
+    rvm_error_help "Wrong action for mount '$action'." mount $action
     exit 2
     ;;
 esac

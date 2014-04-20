@@ -219,7 +219,7 @@ __rvm_parse_args()
             rvm_error_message="Please note that \`rvm $rvm_token ...\` was removed, try \`$rvm_token $next_token $*\` or \`rvm all do $rvm_token $next_token $*\` instead."
             ;;
 
-          fetch|version|reset|debug|reload|update|monitor|notes|implode|seppuku|question|answer|env|unexport|automount|prepare)
+          fetch|version|reset|debug|reload|update|monitor|notes|implode|seppuku|env|unexport|automount|prepare)
             rvm_action=$rvm_token
             ;;
 
@@ -637,7 +637,7 @@ __rvm_parse_args()
             export rvm_rvmrc_flag="${rvm_token}"
             ;;
 
-          --head|--static|--self|--gem|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--env|--path|--cron|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--force-autoconf|--auto-dotfiles|--autoinstall-bundler|--disable-binary|--ignore-gemsets|--skip-gemsets|--debug|--quiet|--silent|--skip-openssl|--fuzzy|--quiet-curl|--skip-pristine)
+          --head|--static|--self|--gem|--reconfigure|--default|--force|--export|--summary|--latest|--yaml|--json|--archive|--shebang|--path|--cron|--tail|--delete|--verbose|--import|--sticky|--create|--gems|--docs|--skip-autoreconf|--force-autoconf|--auto-dotfiles|--autoinstall-bundler|--disable-binary|--ignore-gemsets|--skip-gemsets|--debug|--quiet|--silent|--skip-openssl|--fuzzy|--quiet-curl|--skip-pristine)
             rvm_token=${rvm_token#--}
             rvm_token=${rvm_token//-/_}
             export "rvm_${rvm_token}_flag"=1
@@ -672,7 +672,8 @@ __rvm_parse_args()
 
           --clang)
             export CC=clang
-            #TODO: ??? rvm_disable_binary_flag=1
+            export CXX=clang++
+            rvm_disable_binary_flag=1
             ;;
 
           -M)
@@ -713,6 +714,20 @@ __rvm_parse_args()
               [[ -n "$next_token" ]]
             then
               __rvm_custom_separated_array rvm_configure_flags , "${next_token}"
+              next_token="${1:-}"
+              (( $# == 0 )) || shift
+              rvm_disable_binary_flag=1
+            else
+              rvm_action="error"
+              rvm_error_message="--configure *must* be followed by configure flags."
+            fi
+            ;;
+
+          -E|--env)
+            if
+              [[ -n "$next_token" ]]
+            then
+              __rvm_custom_separated_array rvm_configure_env , "${next_token}"
               next_token="${1:-}"
               (( $# == 0 )) || shift
               rvm_disable_binary_flag=1
@@ -873,7 +888,7 @@ rvm()
       ;;
 
     cleanup|tools|snapshot|disk-usage|repair|alias|docs|rubygems|migrate|cron|group)
-      __rvm_run_script "$rvm_action" "${rvm_ruby_args[@]}"
+      "$rvm_scripts_path/${rvm_action}" "${rvm_ruby_args[@]}"
       ;;
 
     upgrade)
@@ -992,11 +1007,18 @@ rvm()
       __rvm_cli_install_ruby "${rvm_ruby_strings}"
       ;;
 
-    mount|automount|prepare)
+    automount)
       if [[ -n "$rvm_ruby_string" ]]
       then rvm_ruby_args=( "$rvm_ruby_string" "${rvm_ruby_args[@]}" )
       fi
-      "${rvm_scripts_path}/external" "$rvm_action" "${rvm_ruby_args[@]}"
+      "${rvm_scripts_path}/mount" "$rvm_action" "${rvm_ruby_args[@]}"
+      ;;
+
+    mount|prepare)
+      if [[ -n "$rvm_ruby_string" ]]
+      then rvm_ruby_args=( "$rvm_ruby_string" "${rvm_ruby_args[@]}" )
+      fi
+      "${rvm_scripts_path}/$rvm_action" "$rvm_action" "${rvm_ruby_args[@]}"
       ;;
 
     export)
@@ -1009,16 +1031,6 @@ rvm()
 
     error)
       false
-      ;;
-
-    answer)
-      source "$rvm_scripts_path/functions/fun"
-      __rvm_Answer_to_the_Ultimate_Question_of_Life_the_Universe_and_Everything ; result=42
-      ;;
-
-    question)
-      source "$rvm_scripts_path/functions/fun"
-      __rvm_ultimate_question ; result=42
       ;;
 
     which)
@@ -1040,7 +1052,7 @@ rvm()
         [[ -n "${rvm_ruby_string}" ]]
         rvm_is_a_shell_function no_warning
       then
-        if [[ -f "${rvm_environments_path}/default" ]]
+        if [[ -e "${rvm_environments_path}/default" ]]
         then rvm_verbose_flag=0 __rvm_use
         else rvm_verbose_flag=0 rvm_default_flag=1 __rvm_use
         fi
