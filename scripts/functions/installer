@@ -1,4 +1,4 @@
-                                                                                                                                                                                             #!/usr/bin/env bash
+#!/usr/bin/env bash
 
 install_run_debug_time()
 {
@@ -456,7 +456,7 @@ install_rvm_files()
     then __rvm_rm_rf "$rvm_path/$entry"
     fi
     \cat < "$source_path/$entry" > "$rvm_path/$entry"
-    if [[ -x "$source_path/$entry" ]]
+    if [[ -x "$source_path/$entry" && ! -x "$rvm_path/$entry" ]]
     then chmod +x "$rvm_path/$entry"
     fi
   done
@@ -464,6 +464,27 @@ install_rvm_files()
 
 install_rvm_scripts()
 {
+  case "${_system_type}" in
+    (SunOS)
+      # SmartOS bash and /opt/local/bin/test have a bug checking for executable bit when
+      # run as root user. Reported here: https://github.com/joyent/smartos-live/issues/318
+      chmod_if_needed()
+      {
+        if /usr/bin/test -x "$1" && ! /usr/bin/test -x "$2"
+        then chmod +x "$2"
+        fi
+      }
+    ;;
+    *)
+      chmod_if_needed()
+      {
+        if [[ -x "$1" && ! -x "$2" ]]
+        then chmod +x "$2"
+        fi
+      }
+    ;;
+  esac
+
   for entry in $(__rvm_find -L scripts -type f 2>/dev/null)
   do
     # Target is supposed to be a file, remove if it is a directory.
@@ -479,9 +500,7 @@ install_rvm_scripts()
       fi
     else
       \cat < "$source_path/$entry" > "$rvm_path/$entry"
-      if [[ -x "$source_path/$entry" ]]
-      then chmod +x "$rvm_path/$entry"
-      fi
+      chmod_if_needed "$source_path/$entry" "$rvm_path/$entry"
     fi
   done
   true # for osx
@@ -1079,7 +1098,7 @@ setup_user_profile_rc()
     do
       touch "$profile_file"
       printf "%b" "
-PATH=\$PATH:$local_rvm_path/bin # Add RVM to PATH for scripting
+export PATH=\"\$PATH:$local_rvm_path/bin\" # Add RVM to PATH for scripting
 " >> "$profile_file"
     done
     user_rc_files=( "${target_rc[@]}" )
@@ -1161,23 +1180,23 @@ cleanse_old_environments()
   if
     [[ -d "$rvm_path/environments" ]]
   then
-    # Remove BUNDLE_PATH from environment files
-    environments=($(
-      __rvm_find "$rvm_path/environments/" -maxdepth 1 -mindepth 1 -type f
-    ))
-    if
-      (( ${#environments[@]} > 0 ))
-    then
-      for file in "${environments[@]}"
-      do
-        if
-          __rvm_grep 'BUNDLE_PATH' "$file" > /dev/null 2>&1
-        then
-          __rvm_grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
-          \mv "$file.new" "$file"
-        fi
-      done
-    fi
+    for file in "$rvm_path/environments"/*
+    do
+      # Remove BUNDLE_PATH from environment files
+      if
+        [[ -f "$file" && ! -L "$file" ]] &&
+        __rvm_grep 'BUNDLE_PATH' "$file" >/dev/null 2>&1
+      then
+        __rvm_grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
+        \mv "$file.new" "$file"
+      fi
+      # Remove broken links
+      if
+        [[ -L "$file" && ! -e "$file" ]]
+      then
+        rm -f "$file"
+      fi
+    done
   fi
 }
 

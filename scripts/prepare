@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+source "$rvm_scripts_path/base"
+
+external_prepare()
+{
+  typeset remote_shell
+  rvm_ruby_string="${1:-}"
+  remote_shell="${2:-}"
+  shift || [[ -n "${rvm_ruby_string}" ]] || {
+    rvm_error_help "Missing ruby name to export for prepare." external prepare
+    return 3
+  }
+  __rvm_ruby_string
+  __rvm_remote_extension "${rvm_ruby_string}"
+
+  external_prepare_package "${rvm_ruby_string}.${rvm_remote_extension}" &&
+  external_prepare_upload "${rvm_ruby_string}.${rvm_remote_extension}" "${remote_shell}"
+}
+
+external_prepare_package()
+{
+  typeset file_name
+  file_name="$1"
+
+  [[ -d "${rvm_rubies_path}/${rvm_ruby_string}" ]] ||
+  {
+    rvm_error "Ruby ${rvm_ruby_string} does not exist, maybe install first?."
+    return 2
+  }
+
+  rvm_log "Preparing ${rvm_ruby_string} ..."
+  if
+    __rvm_package_create "${file_name}" "${rvm_rubies_path}" "${rvm_ruby_string}"
+  then
+    rvm_log "Prepared ${file_name}."
+  else
+    case $? in
+      199)
+        rvm_error "Unrecognized archive format for ${file_name}"
+        return 199
+        ;;
+      *)
+        rvm_error "Error packaging ${file_name}."
+        return 1
+        ;;
+    esac
+  fi
+}
+
+#TODO: move to SMF ! RVM2 ?
+external_prepare_upload()
+{
+  typeset remote_path remote_shell remote_directory system_path __remote_file file_name local_file path_prefix
+
+  file_name="$1"
+  remote_path="${2:-rvm@rvm.io:~/site/shared/public/binaries}"
+  system_path="$(__rvm_system_path - 99 )"
+  remote_directory="${remote_path#*:}/${system_path}"
+  remote_shell="${remote_path%:*}"
+  if
+    [[ ${rvm_path_flag:-0} -eq 1 ]]
+  then
+    path_prefix="${remote_path#*:}"
+    path_prefix="${path_prefix##*/}"
+    mkdir -p "${path_prefix}/${system_path}"
+    local_file="${path_prefix}/${system_path}/${file_name}"
+    \mv "${file_name}" "${local_file}"
+  else
+    local_file="${file_name}"
+  fi
+  __rvm_calculate_remote_file  0 1 1 "${file_name}"
+
+  rvm_log "--- upload:"
+  printf "%b" "ssh \"$remote_shell\" \"mkdir -p $remote_directory/\"\n"
+  if
+    [[ ${rvm_path_flag:-0} -eq 1 ]]
+  then
+    printf "%b" "rsync -av --rsh=ssh \"${path_prefix}/\" \"${remote_path}/\"\n"
+  else
+    printf "%b" "scp \"${local_file}\" \"$remote_shell:$remote_directory/${file_name}\"\n"
+  fi
+  rvm_log "--- rvm/config/remote:"
+  printf "%b" "${__remote_file}\n"
+  rvm_log "--- rvm/config/md5:"
+  printf "%b" "${__remote_file}=$( __rvm_md5_calculate      "${local_file}" )\n"
+  rvm_log "--- rvm/config/sha512:"
+  printf "%b" "${__remote_file}=$( __rvm_sha__calculate 512 "${local_file}" )\n"
+}
+
+action="${1:-}"
+shift || {
+  rvm_error_help "Missing action for prepare." prepare
+  exit 1
+}
+
+# skip first param if empty
+[[ -n "${1:-}" ]] || (( $#==0 )) || shift
+
+case "${action}" in
+  (prepare)
+    external_prepare "$@"
+    ;;
+  (*)
+    rvm_error_help "Wrong action for prepare '$action'." prepare $action
+    exit 2
+    ;;
+esac
