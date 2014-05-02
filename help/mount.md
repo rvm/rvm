@@ -27,6 +27,13 @@ Which will create `ext-ruby-1.9.3-p194`, the `ext-` prefix is there to
 distinguish externally compiled rubies.
 
 
+## Unmounting locally compiled rubies
+
+Simply remove the ruby as you would any other:
+
+    rvm remove ext-ruby-1.9.3-p194
+
+
 ## Downloading compiled ruby (since RVM 1.16)
 
 RVM also supports downloading compiled rubies.
