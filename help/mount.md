@@ -29,7 +29,7 @@ distinguish externally compiled rubies.
 
 ## Unmounting locally compiled rubies
 
-Simply remove the ruby as you would any other:
+Remove the ruby as you would any other:
 
     rvm remove ext-ruby-1.9.3-p194
 
