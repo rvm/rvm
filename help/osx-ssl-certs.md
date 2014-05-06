@@ -50,6 +50,18 @@ Schedule daily update of certificates:
 
     rvm osx-ssl-certs cron install
 
+## Troubleshooting
+
+If the `status` argument returns that all is good and you still get errors, it's probably caused by bad certificate chain on the server.
+
+To troubleshoot you can check the chain with:
+
+```
+openssl s_client -showcerts -connect google.com:443
+```
+
+Replace `google.com` with your server address
+
 ## Reporting bugs
 
 Please report issues to https://github.com/wayneeseguin/rvm/issues
