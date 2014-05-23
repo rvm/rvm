@@ -1,4 +1,4 @@
-# Bash support for Zsh like chpwd support
+# Bash support for Zsh like chpwd hook
 
 Implemented based on the description from
 http://zsh.sourceforge.net/Doc/Release/Functions.html#Hook-Functions
