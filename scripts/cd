@@ -4,6 +4,18 @@
 # disable this feature, set rvm_project_rvmrc=0 in /etc/rvmrc or $HOME/.rvmrc
 case "${rvm_project_rvmrc:-1}" in
 1|cd)
+  # clonned from git@github.com:mpapis/bash_zsh_support.git
+  source "$rvm_scripts_path/extras/bash_zsh_support/chpwd/function.sh"
+
+  # not using default loadign to support older Zsh
+  [[ -n "${ZSH_VERSION:-}" ]] &&
+  __rvm_version_compare "$ZSH_VERSION" -gt  4.3.4 ||
+  {
+    cd()    { __zsh_like_cd cd    "$@" ; }
+    popd()  { __zsh_like_cd popd  "$@" ; }
+    pushd() { __zsh_like_cd pushd "$@" ; }
+  }
+
   __rvm_after_cd()
   {
     typeset rvm_hook
@@ -20,34 +32,8 @@ case "${rvm_project_rvmrc:-1}" in
     return 0
   }
   export -a chpwd_functions
+  [[ " ${chpwd_functions[*]} " == *" __rvm_cd_functions_set "* ]] ||
   chpwd_functions=( "${chpwd_functions[@]}" __rvm_cd_functions_set )
-
-  [[ -n "${ZSH_VERSION:-}" ]] &&
-  __rvm_version_compare "$ZSH_VERSION" -gt  4.3.4 ||
-  {
-    # On bash and old zsh we need to define chpwd_functions handler
-    __zsh_like_cd()
-    {
-      typeset __zsh_like_cd_hook
-      if
-        builtin "$@"
-      then
-        shift || true # remove the called method
-        for __zsh_like_cd_hook in chpwd "${chpwd_functions[@]}"
-        do
-          if typeset -v "$__zsh_like_cd_hook" >/dev/null 2>&1
-          then "$__zsh_like_cd_hook" "$@" || break # finish on first failed hook
-          fi
-        done
-        true
-      else
-        return $?
-      fi
-    }
-    cd()    { __zsh_like_cd cd    "$@" ; }
-    popd()  { __zsh_like_cd popd  "$@" ; }
-    pushd() { __zsh_like_cd pushd "$@" ; }
-  }
 
   # This functionality is opt-in by setting rvm_cd_complete_flag=1 in ~/.rvmrc
   # Generic bash cd completion seems to work great for most, so this is only
