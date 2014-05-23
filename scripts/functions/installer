@@ -1174,19 +1174,31 @@ cleanse_old_environments()
   then
     for file in "$rvm_path/environments"/*
     do
-      # Remove BUNDLE_PATH from environment files
-      if
-        [[ -f "$file" && ! -L "$file" ]] &&
-        __rvm_grep 'BUNDLE_PATH' "$file" >/dev/null 2>&1
-      then
-        __rvm_grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
-        \mv "$file.new" "$file"
-      fi
       # Remove broken links
       if
         [[ -L "$file" && ! -e "$file" ]]
       then
         rm -f "$file"
+      fi
+      if
+        [[ -f "$file" ]]
+      then
+        # Remove BUNDLE_PATH from environment files
+        if
+          __rvm_grep 'BUNDLE_PATH' "$file" >/dev/null 2>&1
+        then
+          __rvm_grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
+          \mv "$file.new" "$file"
+        fi
+        # regenerate when found broken path :/bin:/bin or missing $PATH
+        if
+          __rvm_grep ':/bin:/bin' "$file" >/dev/null 2>&1 ||
+          __rvm_grep "[^_]PATH=" "$file" | __rvm_grep -v "\$PATH" >/dev/null 2>&1
+        then
+          ruby_version="${file##*environments/}"
+          rvm_out "    Fixing environment for ${ruby_version}."
+          __rvm_with "${ruby_version}" __rvm_ensure_has_environment_files
+        fi
       fi
     done
   fi
