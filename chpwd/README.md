@@ -14,4 +14,4 @@ http://zsh.sourceforge.net/Doc/Release/Functions.html#Hook-Functions
 
         export -a chpwd_functions                              # define hooks as an shell array
         [[ " ${chpwd_functions[*]} " == *" _hook_name "* ]] || # prevent double addition
-        chpwd_functions=( "${chpwd_functions[@]}" _hook_name ) # finally add it to the list
+        chpwd_functions+=(_hook_name)                          # finally add it to the list
