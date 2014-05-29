@@ -56,22 +56,45 @@ jruby_install_post17()
   fi
 }
 
-jruby_install()
+jruby_install_check_java()
 {
-  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
-
   builtin command -v java > /dev/null ||
   {
     printf "%b" "java must be installed and in PATH for JRuby."
     return 1
   }
+}
 
+jruby_install_check_jruby_home()
+{
   if
     [[ -n "$JRUBY_HOME" ]]
   then
     printf "%b" "You have environment variable JRUBY_HOME set, please unset it before installing/using JRuby."
     return 2
   fi
+}
+
+jruby_install_check_java_home()
+{
+  if
+    [[ -z "${JAVA_HOME:-}" ]]
+  then
+    export JAVA_HOME="$(
+      cd "${rvm_scripts_path}/extras/java_read_properties"
+      java ReadProperties java.home
+    )"
+    rvm_warn "\$JAVA_HOME was empty, setting up JAVA_HOME=$JAVA_HOME, if it fails try setting JAVA_HOME to something sane and try again."
+  fi
+}
+
+jruby_install()
+{
+  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
+
+  jruby_install_check_java || return $?
+  jruby_install_check_jruby_home || return $?
+  jruby_install_check_java_home
 
   __rvm_cd "${rvm_src_path}"
 
