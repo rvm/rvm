@@ -25,132 +25,126 @@ add_raw_token()
 
 rvm_gemset_separator="${rvm_gemset_separator:-"@"}"
 ruby_string="$( builtin command -v ruby )"
-if
-  [[ "$ruby_string" =~ rvm && "$ruby_string" != "$rvm_path/bin/ruby" ]]
-then
-  unset format
-  while
-    (( $# ))
-  do
-    case "$1" in
-      i|interpreter)   add "interpreter"  ;;
-      v|version)       add "version"      ;;
-      p|patchlevel)    add "patchlevel"   ;;
-      r|revision)      add "revision"     ;;
-      a|architecture)  add "architecture" ;;
-      g|gemset)        add "gemset"       ;;
-      u|unicode)       add "unicode"      ;;
-      s|system)                           ;; #skip when in ruby
-      -d|--no-default) no_default=1       ;;
-      *)               add_raw_token "$1" ;;
-    esac
-    shift
-  done
 
-  if
-    [[ -z "${format:-""}" && -z "$no_default" ]]
-  then
-    for default in interpreter version patchlevel gemset
-    do
-      add "$default"
-    done
-  fi
-  # TODO this should be as simple as: ruby_string="${ruby_string%%*(/)bin*(/)ruby}"
-  ruby_string="${ruby_string%/ruby}"
-  ruby_string="${ruby_string%%/}"
-  ruby_string="${ruby_string%/bin}"
-  ruby_string="${ruby_string%%/}"
-  ruby_string="${ruby_string##*/}"
-  if
-    [[ -n "$no_default" && -n "${format:-""}" ]]
-  then
-    # Do not display anything if no default flag was provided
-    #   and we are using the default ruby
-    # Only people who explicitely ask for this will have the
-    #   slight performance penalty associated.
-    [[ "$(rvm tools identifier)" != "$(rvm alias show default)"  ]] || exit 0
-  fi
-  strings=(${ruby_string//-/ })
-  if
-    (( ${interpreter_flag:-0} )) || [[ -n "$unicode_flag" ]]
-  then
-    interpreter=${strings[0]}
-    (( ${interpreter_prefix_flag:-0} )) && interpreter="-${interpreter}"
-  fi
-  if
-    (( ${version_flag:-0} )) || [[ -n "$unicode_flag" ]]
-  then
-    version=${strings[1]}
-    (( ${version_prefix_flag:-0} )) && version="-${version}"
-  fi
-  if
-    (( ${#strings[@]} > 2 ))
-  then
-    if
-      (( ${patchlevel_flag:-0} ))
-    then
-      patchlevel=${strings[2]}
-      (( ${patchlevel_prefix_flag:-0} )) && patchlevel="-${patchlevel}"
-    fi
-  fi
-  if
-    (( ${architecture_flag:-0} ))
-  then
-    architecture="$(echo "$(ruby -v)" | sed 's/^.*\[//' | sed 's/\].*$//')"
-    (( ${architecture_prefix_flag:-0} )) && architecture="-${architecture}"
-  fi
-  if
-    (( ${gemset_flag:-0} ))
-  then
-    case "${GEM_HOME:-""}" in
-      (*${rvm_gemset_separator:-"@"}*)
-        gemset="${rvm_gemset_separator:-"@"}${GEM_HOME/*${rvm_gemset_separator:-"@"}/}"
-        ;;
-    esac
-  fi
-  if
-    (( ${unicode_flag:-0} ))
-  then
-    case "$interpreter" in
-      (jruby)    unicode="☯" ;;
-      (rbx)      unicode="❖" ;;
-      (ree)      unicode="✈" ;;
-      (macruby)  unicode="⌘" ;;
-      (maglev)   unicode="㎖" ;;
-      (ironruby) unicode="♭" ;;
-      (system)   unicode="★" ;;
-      (goruby)   unicode="⛳" ;; # TODO: what is this? can we use something more fonts support?
-      (topaz)    unicode="🐍" ;; # TODO: what is this? can we use something more fonts support?
-      (opal)     unicode="⬢" ;;
-      (ruby)
-        case ${version:-""} in
-          (1.8.6)  unicode="➇❻" ;;
-          (1.8.7)  unicode="➇❼" ;;
-          (1.8*)   unicode="➇"  ;;
-          (1.9.1)  unicode="➈❶" ;;
-          (1.9.2)  unicode="➈❷" ;;
-          (1.9.3)  unicode="➈❸" ;;
-          (2.0.0)  unicode="➋" ;;
-          (2.1.*)  unicode="➋➀" ;;
-          (*)      unicode="⦿"  ;;
-        esac ;;
-      (*) unicode="⦿" ;;
-    esac
-    if
-      echo "$ruby_string" | GREP_OPTIONS="" \grep '-head' >/dev/null 2>&1
-    then
-      unicode="${unicode}⚡"
-    fi
-    (( ${unicode_prefix_flag:-0} )) && unicode="-${unicode}"
-  fi
-  eval "echo \"$format\""
-else
-  while
-    (( $# ))
+if
+  [[ ! ( "$ruby_string" =~ rvm && "$ruby_string" != "$rvm_path/bin/ruby" ) ]]
+then
+  ruby_string="$rvm_path/rubies/system-system/bin/ruby"
+fi
+
+unset format
+while
+  (( $# ))
+do
+  case "$1" in
+    i|interpreter)   add "interpreter"  ;;
+    v|version)       add "version"      ;;
+    p|patchlevel)    add "patchlevel"   ;;
+    r|revision)      add "revision"     ;;
+    a|architecture)  add "architecture" ;;
+    g|gemset)        add "gemset"       ;;
+    u|unicode)       add "unicode"      ;;
+    s|system)                           ;; #skip when in ruby
+    -d|--no-default) no_default=1       ;;
+    *)               add_raw_token "$1" ;;
+  esac
+  shift
+done
+
+if
+  [[ -z "${format:-""}" && -z "$no_default" ]]
+then
+  for default in interpreter version patchlevel gemset
   do
-    case "$1" in
-      s|system) echo "system" ;;
-    esac
-    shift
+    add "$default"
   done
 fi
+# TODO this should be as simple as: ruby_string="${ruby_string%%*(/)bin*(/)ruby}"
+ruby_string="${ruby_string%/ruby}"
+ruby_string="${ruby_string%%/}"
+ruby_string="${ruby_string%/bin}"
+ruby_string="${ruby_string%%/}"
+ruby_string="${ruby_string##*/}"
+if
+  [[ -n "$no_default" && -n "${format:-""}" ]]
+then
+  # Do not display anything if no default flag was provided
+  #   and we are using the default ruby
+  # Only people who explicitely ask for this will have the
+  #   slight performance penalty associated.
+  [[ "$(rvm tools identifier)" != "$(rvm alias show default)"  ]] || exit 0
+fi
+strings=(${ruby_string//-/ })
+if
+  (( ${interpreter_flag:-0} )) || [[ -n "$unicode_flag" ]]
+then
+  interpreter=${strings[0]}
+  (( ${interpreter_prefix_flag:-0} )) && interpreter="-${interpreter}"
+fi
+if
+  (( ${version_flag:-0} )) || [[ -n "$unicode_flag" ]]
+then
+  version=${strings[1]}
+  (( ${version_prefix_flag:-0} )) && version="-${version}"
+fi
+if
+  (( ${#strings[@]} > 2 ))
+then
+  if
+    (( ${patchlevel_flag:-0} ))
+  then
+    patchlevel=${strings[2]}
+    (( ${patchlevel_prefix_flag:-0} )) && patchlevel="-${patchlevel}"
+  fi
+fi
+if
+  (( ${architecture_flag:-0} ))
+then
+  architecture="$(echo "$(ruby -v)" | sed 's/^.*\[//' | sed 's/\].*$//')"
+  (( ${architecture_prefix_flag:-0} )) && architecture="-${architecture}"
+fi
+if
+  (( ${gemset_flag:-0} ))
+then
+  case "${GEM_HOME:-""}" in
+    (*${rvm_gemset_separator:-"@"}*)
+      gemset="${rvm_gemset_separator:-"@"}${GEM_HOME/*${rvm_gemset_separator:-"@"}/}"
+      ;;
+  esac
+fi
+if
+  (( ${unicode_flag:-0} ))
+then
+  case "$interpreter" in
+    (jruby)    unicode="☯" ;;
+    (rbx)      unicode="❖" ;;
+    (ree)      unicode="✈" ;;
+    (macruby)  unicode="⌘" ;;
+    (maglev)   unicode="㎖" ;;
+    (ironruby) unicode="♭" ;;
+    (system)   unicode="★" ;;
+    (goruby)   unicode="⛳" ;; # TODO: what is this? can we use something more fonts support?
+    (topaz)    unicode="🐍" ;; # TODO: what is this? can we use something more fonts support?
+    (opal)     unicode="⬢" ;;
+    (ruby)
+      case ${version:-""} in
+        (1.8.6)  unicode="➇❻" ;;
+        (1.8.7)  unicode="➇❼" ;;
+        (1.8*)   unicode="➇"  ;;
+        (1.9.1)  unicode="➈❶" ;;
+        (1.9.2)  unicode="➈❷" ;;
+        (1.9.3)  unicode="➈❸" ;;
+        (2.0.0)  unicode="➋" ;;
+        (2.1.*)  unicode="➋➀" ;;
+        (*)      unicode="⦿"  ;;
+      esac ;;
+    (*) unicode="⦿" ;;
+  esac
+  if
+    echo "$ruby_string" | GREP_OPTIONS="" \grep '-head' >/dev/null 2>&1
+  then
+    unicode="${unicode}⚡"
+  fi
+  (( ${unicode_prefix_flag:-0} )) && unicode="-${unicode}"
+fi
+eval "echo \"$format\""
