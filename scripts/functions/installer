@@ -1,23 +1,38 @@
 #!/usr/bin/env bash
 
+case "`date +%s:%N`" in
+  (*:%N)
+    __install_time()
+    {
+      __time="$SECONDS:"
+    }
+    ;;
+  (*)
+    __install_time()
+    {
+      __time="$(date +%s:%N)"
+    }
+    ;;
+esac
+
 install_run_debug_time()
 {
   # 1st s = start, 1st e = end, 1st d = difference, 2nd s = seconds, 2nd n = nanoseconds
   typeset __ss __sn __es __en __ds __dn __time __status=0
   rvm_debug "step> '$1' started"
 
-  __ss="$(date +%s:%N)"
+  __install_time
+  __ss="${__time}"
   "$@" || __status=$?
-  __es="$(date +%s:%N)"
+  __install_time
+  __es="${__time}"
 
   # split seconds and nano
   __sn="${__ss#*:}"
-  __sn="${__sn#%N}"
   __sn="${__sn##*(0)}"
   __ss="${__ss%:*}"
   __ss="${__ss##*(0)}"
   __en="${__es#*:}"
-  __en="${__en#%N}"
   __en="${__en##*(0)}"
   __es="${__es%:*}"
   __es="${__es##*(0)}"
@@ -444,7 +459,7 @@ install_rvm_directories()
 
 install_rvm_files()
 {
-  for file in README LICENCE VERSION
+  for file in README LICENSE VERSION
   do
     __rvm_cp -f "$source_path/${file}" "$rvm_path/${file}"
   done
@@ -1174,19 +1189,31 @@ cleanse_old_environments()
   then
     for file in "$rvm_path/environments"/*
     do
-      # Remove BUNDLE_PATH from environment files
-      if
-        [[ -f "$file" && ! -L "$file" ]] &&
-        __rvm_grep 'BUNDLE_PATH' "$file" >/dev/null 2>&1
-      then
-        __rvm_grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
-        \mv "$file.new" "$file"
-      fi
       # Remove broken links
       if
         [[ -L "$file" && ! -e "$file" ]]
       then
         rm -f "$file"
+      fi
+      if
+        [[ -f "$file" ]]
+      then
+        # Remove BUNDLE_PATH from environment files
+        if
+          __rvm_grep 'BUNDLE_PATH' "$file" >/dev/null 2>&1
+        then
+          __rvm_grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
+          \mv "$file.new" "$file"
+        fi
+        # regenerate when found broken path :/bin:/bin or missing $PATH
+        if
+          __rvm_grep ':/bin:/bin' "$file" >/dev/null 2>&1 ||
+          __rvm_grep "[^_]PATH=" "$file" | __rvm_grep -v "\$PATH" >/dev/null 2>&1
+        then
+          ruby_version="${file##*environments/}"
+          rvm_out "    Fixing environment for ${ruby_version}."
+          __rvm_with "${ruby_version}" __rvm_ensure_has_environment_files
+        fi
       fi
     done
   fi

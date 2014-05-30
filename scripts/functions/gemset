@@ -381,12 +381,17 @@ __rvm_remove_without_gems()
 {
   [[ -n "${rvm_without_gems}" ]] || return 0
 
-  typeset -a __gems_to_remove
+  typeset -a __gems_to_remove __extra_flags
   __rvm_read_lines __gems_to_remove <(
     GEM_PATH="$GEM_HOME" __rvm_list_gems "" "${rvm_without_gems}"
   )
 
   (( ${#__gems_to_remove[@]} )) || return 0
+
+  __extra_flags=()
+  if __rvm_version_compare "$(\gem --version)" -ge 2.1.0
+  then __extra_flags+=( --abort-on-dependent )
+  fi
 
   typeset __gem __name __version
   for __gem in "${__gems_to_remove[@]}"
@@ -396,7 +401,7 @@ __rvm_remove_without_gems()
 
     __rvm_log_command "gem.uninstall.${__name}-${__version}" \
       "$rvm_ruby_string - #uninstalling gem ${__name}-${__version}" \
-      \gem uninstall "${__name}" -v "${__version}" -x --abort-on-dependent || true
+      \gem uninstall "${__name}" -v "${__version}" -x "${__extra_flags[@]}" || true
   done
 }
 
