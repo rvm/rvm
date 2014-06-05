@@ -24,9 +24,8 @@ add_raw_token()
 }
 
 rvm_gemset_separator="${rvm_gemset_separator:-"@"}"
-ruby_string="$( builtin command -v ruby )"
 if
-  [[ "$ruby_string" =~ rvm && "$ruby_string" != "$rvm_path/bin/ruby" ]]
+  [[ "${GEM_HOME:-}" =~ rvm && "$ruby_string" != "$rvm_path/bin/ruby" ]]
 then
   unset format
   while
@@ -55,12 +54,17 @@ then
       add "$default"
     done
   fi
-  # TODO this should be as simple as: ruby_string="${ruby_string%%*(/)bin*(/)ruby}"
-  ruby_string="${ruby_string%/ruby}"
-  ruby_string="${ruby_string%%/}"
-  ruby_string="${ruby_string%/bin}"
-  ruby_string="${ruby_string%%/}"
+  gemset=""
+  ruby_string="${GEM_HOME:-""}"
   ruby_string="${ruby_string##*/}"
+  case "${GEM_HOME:-""}" in
+    (*${rvm_gemset_separator:-"@"}*)
+      ruby_string="${ruby_string%%*${rvm_gemset_separator:-"@"}}"
+      if (( ${gemset_flag:-0} ))
+      then gemset="${rvm_gemset_separator:-"@"}${ruby_string##*${rvm_gemset_separator:-"@"}}"
+      fi
+      ;;
+  esac
   if
     [[ -n "$no_default" && -n "${format:-""}" ]]
   then
@@ -98,15 +102,6 @@ then
   then
     architecture="$(echo "$(ruby -v)" | sed 's/^.*\[//' | sed 's/\].*$//')"
     (( ${architecture_prefix_flag:-0} )) && architecture="-${architecture}"
-  fi
-  if
-    (( ${gemset_flag:-0} ))
-  then
-    case "${GEM_HOME:-""}" in
-      (*${rvm_gemset_separator:-"@"}*)
-        gemset="${rvm_gemset_separator:-"@"}${GEM_HOME/*${rvm_gemset_separator:-"@"}/}"
-        ;;
-    esac
   fi
   if
     (( ${unicode_flag:-0} ))
