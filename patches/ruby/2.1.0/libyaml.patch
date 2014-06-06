@@ -1,0 +1,656 @@
+diff -uw ruby-2.1.0/ext/psych/yaml/api.c ruby-2.1.2/ext/psych/yaml/api.c
+--- ruby-2.1.0/ext/psych/yaml/api.c	2012-11-28 05:35:40.000000000 +0100
++++ ruby-2.1.2/ext/psych/yaml/api.c	2014-02-24 05:24:15.000000000 +0100
+@@ -395,7 +395,7 @@
+     }
+     QUEUE_DEL(emitter, emitter->events);
+     STACK_DEL(emitter, emitter->indents);
+-    while (!STACK_EMPTY(empty, emitter->tag_directives)) {
++    while (!STACK_EMPTY(emitter, emitter->tag_directives)) {
+         yaml_tag_directive_t tag_directive = POP(emitter, emitter->tag_directives);
+         yaml_free(tag_directive.handle);
+         yaml_free(tag_directive.prefix);
+@@ -822,6 +822,7 @@
+     yaml_char_t *anchor_copy = NULL;
+     yaml_char_t *tag_copy = NULL;
+     yaml_char_t *value_copy = NULL;
++    size_t value_length;
+ 
+     assert(event);      /* Non-NULL event object is expected. */
+     assert(value);      /* Non-NULL anchor is expected. */
+@@ -839,16 +840,19 @@
+     }
+ 
+     if (length < 0) {
+-        length = strlen((char *)value);
++        value_length = strlen((char *)value);
++    }
++    else {
++        value_length = (size_t)length;
+     }
+ 
+-    if (!yaml_check_utf8(value, length)) goto error;
+-    value_copy = yaml_malloc(length+1);
++    if (!yaml_check_utf8(value, value_length)) goto error;
++    value_copy = yaml_malloc(value_length+1);
+     if (!value_copy) goto error;
+-    memcpy(value_copy, value, length);
+-    value_copy[length] = '\0';
++    memcpy(value_copy, value, value_length);
++    value_copy[value_length] = '\0';
+ 
+-    SCALAR_EVENT_INIT(*event, anchor_copy, tag_copy, value_copy, length,
++    SCALAR_EVENT_INIT(*event, anchor_copy, tag_copy, value_copy, value_length,
+             plain_implicit, quoted_implicit, style, mark, mark);
+ 
+     return 1;
+@@ -1202,6 +1206,8 @@
+     yaml_char_t *tag_copy = NULL;
+     yaml_char_t *value_copy = NULL;
+     yaml_node_t node;
++    size_t value_length;
++    ptrdiff_t ret;
+ 
+     assert(document);   /* Non-NULL document object is expected. */
+     assert(value);      /* Non-NULL value is expected. */
+@@ -1215,19 +1221,26 @@
+     if (!tag_copy) goto error;
+ 
+     if (length < 0) {
+-        length = strlen((char *)value);
++        value_length = strlen((char *)value);
++    }
++    else {
++        value_length = (size_t)length;
+     }
+ 
+-    if (!yaml_check_utf8(value, length)) goto error;
+-    value_copy = yaml_malloc(length+1);
++    if (!yaml_check_utf8(value, value_length)) goto error;
++    value_copy = yaml_malloc(value_length+1);
+     if (!value_copy) goto error;
+-    memcpy(value_copy, value, length);
+-    value_copy[length] = '\0';
++    memcpy(value_copy, value, value_length);
++    value_copy[value_length] = '\0';
+ 
+-    SCALAR_NODE_INIT(node, tag_copy, value_copy, length, style, mark, mark);
++    SCALAR_NODE_INIT(node, tag_copy, value_copy, value_length, style, mark, mark);
+     if (!PUSH(&context, document->nodes, node)) goto error;
+ 
+-    return document->nodes.top - document->nodes.start;
++    ret = document->nodes.top - document->nodes.start;
++#if PTRDIFF_MAX > INT_MAX
++    if (ret > INT_MAX) goto error;
++#endif
++    return (int)ret;
+ 
+ error:
+     yaml_free(tag_copy);
+@@ -1255,6 +1268,7 @@
+         yaml_node_item_t *top;
+     } items = { NULL, NULL, NULL };
+     yaml_node_t node;
++    ptrdiff_t ret;
+ 
+     assert(document);   /* Non-NULL document object is expected. */
+ 
+@@ -1272,7 +1286,11 @@
+             style, mark, mark);
+     if (!PUSH(&context, document->nodes, node)) goto error;
+ 
+-    return document->nodes.top - document->nodes.start;
++    ret = document->nodes.top - document->nodes.start;
++#if PTRDIFF_MAX > INT_MAX
++    if (ret > INT_MAX) goto error;
++#endif
++    return (int)ret;
+ 
+ error:
+     STACK_DEL(&context, items);
+@@ -1300,6 +1318,7 @@
+         yaml_node_pair_t *top;
+     } pairs = { NULL, NULL, NULL };
+     yaml_node_t node;
++    ptrdiff_t ret;
+ 
+     assert(document);   /* Non-NULL document object is expected. */
+ 
+@@ -1317,7 +1336,11 @@
+             style, mark, mark);
+     if (!PUSH(&context, document->nodes, node)) goto error;
+ 
+-    return document->nodes.top - document->nodes.start;
++    ret = document->nodes.top - document->nodes.start;
++#if PTRDIFF_MAX > INT_MAX
++    if (ret > INT_MAX) goto error;
++#endif
++    return (int)ret;
+ 
+ error:
+     STACK_DEL(&context, pairs);
+diff -uw ruby-2.1.0/ext/psych/yaml/config.h ruby-2.1.2/ext/psych/yaml/config.h
+--- ruby-2.1.0/ext/psych/yaml/config.h	2012-12-01 04:58:39.000000000 +0100
++++ ruby-2.1.2/ext/psych/yaml/config.h	2014-05-04 17:45:33.000000000 +0200
+@@ -1,11 +1,10 @@
+-
+ #define PACKAGE_NAME "yaml"
+ #define PACKAGE_TARNAME "yaml"
+-#define PACKAGE_VERSION "0.1.4"
+-#define PACKAGE_STRING "yaml 0.1.4"
++#define PACKAGE_VERSION "0.1.6"
++#define PACKAGE_STRING "yaml 0.1.6"
+ #define PACKAGE_BUGREPORT "http://pyyaml.org/newticket?component libyaml"
+ #define PACKAGE_URL ""
+ #define YAML_VERSION_MAJOR 0
+ #define YAML_VERSION_MINOR 1
+-#define YAML_VERSION_PATCH 4
+-#define YAML_VERSION_STRING "0.1.4"
++#define YAML_VERSION_PATCH 6
++#define YAML_VERSION_STRING "0.1.6"
+diff -uw ruby-2.1.0/ext/psych/yaml/emitter.c ruby-2.1.2/ext/psych/yaml/emitter.c
+--- ruby-2.1.0/ext/psych/yaml/emitter.c	2013-12-14 02:19:06.000000000 +0100
++++ ruby-2.1.2/ext/psych/yaml/emitter.c	2014-02-24 05:24:15.000000000 +0100
+@@ -53,7 +53,7 @@
+ #define WRITE_BREAK(emitter,string)                                             \
+     (FLUSH(emitter)                                                             \
+      && (CHECK(string,'\n') ?                                                   \
+-         (PUT_BREAK(emitter),                                                   \
++         ((void)PUT_BREAK(emitter),                                             \
+           string.pointer ++,                                                    \
+           1) :                                                                  \
+          (COPY(emitter->buffer,string),                                         \
+@@ -1493,7 +1493,7 @@
+     int break_space = 0;
+     int space_break = 0;
+ 
+-    int preceded_by_whitespace = 0;
++    int preceeded_by_whitespace = 0;
+     int followed_by_whitespace = 0;
+     int previous_space = 0;
+     int previous_break = 0;
+@@ -1524,7 +1524,7 @@
+         flow_indicators = 1;
+     }
+ 
+-    preceded_by_whitespace = 1;
++    preceeded_by_whitespace = 1;
+     followed_by_whitespace = IS_BLANKZ_AT(string, WIDTH(string));
+ 
+     while (string.pointer != string.end)
+@@ -1570,7 +1570,7 @@
+                 }
+             }
+ 
+-            if (CHECK(string, '#') && preceded_by_whitespace) {
++            if (CHECK(string, '#') && preceeded_by_whitespace) {
+                 flow_indicators = 1;
+                 block_indicators = 1;
+             }
+@@ -1619,7 +1619,7 @@
+             previous_break = 0;
+         }
+ 
+-        preceded_by_whitespace = IS_BLANKZ(string);
++        preceeded_by_whitespace = IS_BLANKZ(string);
+         MOVE(string);
+         if (string.pointer != string.end) {
+             followed_by_whitespace = IS_BLANKZ_AT(string, WIDTH(string));
+diff -uw ruby-2.1.0/ext/psych/yaml/loader.c ruby-2.1.2/ext/psych/yaml/loader.c
+--- ruby-2.1.0/ext/psych/yaml/loader.c	2012-11-28 05:35:40.000000000 +0100
++++ ruby-2.1.2/ext/psych/yaml/loader.c	2014-02-24 05:24:15.000000000 +0100
+@@ -283,9 +283,12 @@
+ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *first_event)
+ {
+     yaml_node_t node;
++    ptrdiff_t node_index;
+     int index;
+     yaml_char_t *tag = first_event->data.scalar.tag;
+ 
++    if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
++
+     if (!tag || strcmp((char *)tag, "!") == 0) {
+         yaml_free(tag);
+         tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_SCALAR_TAG);
+@@ -298,7 +301,11 @@
+ 
+     if (!PUSH(parser, parser->document->nodes, node)) goto error;
+ 
+-    index = parser->document->nodes.top - parser->document->nodes.start;
++    node_index = parser->document->nodes.top - parser->document->nodes.start;
++#if PTRDIFF_MAX > INT_MAX
++    if (node_index > INT_MAX) goto error;
++#endif
++    index = (int)node_index;
+ 
+     if (!yaml_parser_register_anchor(parser, index,
+                 first_event->data.scalar.anchor)) return 0;
+@@ -327,8 +334,11 @@
+         yaml_node_item_t *top;
+     } items = { NULL, NULL, NULL };
+     int index, item_index;
++    ptrdiff_t node_index;
+     yaml_char_t *tag = first_event->data.sequence_start.tag;
+ 
++    if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
++
+     if (!tag || strcmp((char *)tag, "!") == 0) {
+         yaml_free(tag);
+         tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_SEQUENCE_TAG);
+@@ -343,7 +353,11 @@
+ 
+     if (!PUSH(parser, parser->document->nodes, node)) goto error;
+ 
+-    index = parser->document->nodes.top - parser->document->nodes.start;
++    node_index = parser->document->nodes.top - parser->document->nodes.start;
++#if PTRDIFF_MAX > INT_MAX
++    if (node_index > INT_MAX) goto error;
++#endif
++    index = (int)node_index;
+ 
+     if (!yaml_parser_register_anchor(parser, index,
+                 first_event->data.sequence_start.anchor)) return 0;
+@@ -351,6 +365,9 @@
+     if (!yaml_parser_parse(parser, &event)) return 0;
+ 
+     while (event.type != YAML_SEQUENCE_END_EVENT) {
++        if (!STACK_LIMIT(parser,
++                    parser->document->nodes.start[index-1].data.sequence.items,
++                    INT_MAX-1)) return 0;
+         item_index = yaml_parser_load_node(parser, &event);
+         if (!item_index) return 0;
+         if (!PUSH(parser,
+@@ -384,9 +401,12 @@
+         yaml_node_pair_t *top;
+     } pairs = { NULL, NULL, NULL };
+     int index;
++    ptrdiff_t node_index;
+     yaml_node_pair_t pair;
+     yaml_char_t *tag = first_event->data.mapping_start.tag;
+ 
++    if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
++
+     if (!tag || strcmp((char *)tag, "!") == 0) {
+         yaml_free(tag);
+         tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_MAPPING_TAG);
+@@ -401,7 +421,11 @@
+ 
+     if (!PUSH(parser, parser->document->nodes, node)) goto error;
+ 
+-    index = parser->document->nodes.top - parser->document->nodes.start;
++    node_index = parser->document->nodes.top - parser->document->nodes.start;
++#if PTRDIFF_MAX > INT_MAX
++    if (node_index > INT_MAX) goto error;
++#endif
++    index = (int)node_index;
+ 
+     if (!yaml_parser_register_anchor(parser, index,
+                 first_event->data.mapping_start.anchor)) return 0;
+@@ -409,6 +433,9 @@
+     if (!yaml_parser_parse(parser, &event)) return 0;
+ 
+     while (event.type != YAML_MAPPING_END_EVENT) {
++        if (!STACK_LIMIT(parser,
++                    parser->document->nodes.start[index-1].data.mapping.pairs,
++                    INT_MAX-1)) return 0;
+         pair.key = yaml_parser_load_node(parser, &event);
+         if (!pair.key) return 0;
+         if (!yaml_parser_parse(parser, &event)) return 0;
+diff -uw ruby-2.1.0/ext/psych/yaml/parser.c ruby-2.1.2/ext/psych/yaml/parser.c
+--- ruby-2.1.0/ext/psych/yaml/parser.c	2012-12-05 05:08:17.000000000 +0100
++++ ruby-2.1.2/ext/psych/yaml/parser.c	2014-02-24 05:24:15.000000000 +0100
+@@ -759,9 +759,8 @@
+ 
+     else if (token->type == YAML_BLOCK_END_TOKEN)
+     {
+-        yaml_mark_t dummy_mark;     /* Used to eliminate a compiler warning. */
+         parser->state = POP(parser, parser->states);
+-        dummy_mark = POP(parser, parser->marks);
++        (void)POP(parser, parser->marks);
+         SEQUENCE_END_EVENT_INIT(*event, token->start_mark, token->end_mark);
+         SKIP_TOKEN(parser);
+         return 1;
+@@ -869,9 +868,8 @@
+ 
+     else if (token->type == YAML_BLOCK_END_TOKEN)
+     {
+-        yaml_mark_t dummy_mark;     /* Used to eliminate a compiler warning. */
+         parser->state = POP(parser, parser->states);
+-        dummy_mark = POP(parser, parser->marks);
++        (void)POP(parser, parser->marks);
+         MAPPING_END_EVENT_INIT(*event, token->start_mark, token->end_mark);
+         SKIP_TOKEN(parser);
+         return 1;
+@@ -952,7 +950,6 @@
+         yaml_event_t *event, int first)
+ {
+     yaml_token_t *token;
+-    yaml_mark_t dummy_mark;     /* Used to eliminate a compiler warning. */
+ 
+     if (first) {
+         token = PEEK_TOKEN(parser);
+@@ -997,7 +994,7 @@
+     }
+ 
+     parser->state = POP(parser, parser->states);
+-    dummy_mark = POP(parser, parser->marks);
++    (void)POP(parser, parser->marks);
+     SEQUENCE_END_EVENT_INIT(*event, token->start_mark, token->end_mark);
+     SKIP_TOKEN(parser);
+     return 1;
+@@ -1104,7 +1101,6 @@
+         yaml_event_t *event, int first)
+ {
+     yaml_token_t *token;
+-    yaml_mark_t dummy_mark;     /* Used to eliminate a compiler warning. */
+ 
+     if (first) {
+         token = PEEK_TOKEN(parser);
+@@ -1158,7 +1154,7 @@
+     }
+ 
+     parser->state = POP(parser, parser->states);
+-    dummy_mark = POP(parser, parser->marks);
++    (void)POP(parser, parser->marks);
+     MAPPING_END_EVENT_INIT(*event, token->start_mark, token->end_mark);
+     SKIP_TOKEN(parser);
+     return 1;
+diff -uw ruby-2.1.0/ext/psych/yaml/reader.c ruby-2.1.2/ext/psych/yaml/reader.c
+--- ruby-2.1.0/ext/psych/yaml/reader.c	2012-12-05 05:08:17.000000000 +0100
++++ ruby-2.1.2/ext/psych/yaml/reader.c	2014-02-24 05:24:15.000000000 +0100
+@@ -460,6 +460,10 @@
+ 
+     }
+ 
++    if (parser->offset >= PTRDIFF_MAX)
++        return yaml_parser_set_reader_error(parser, "input is too long",
++                PTRDIFF_MAX, -1);
++
+     return 1;
+ }
+ 
+diff -uw ruby-2.1.0/ext/psych/yaml/scanner.c ruby-2.1.2/ext/psych/yaml/scanner.c
+--- ruby-2.1.0/ext/psych/yaml/scanner.c	2013-01-13 08:47:10.000000000 +0100
++++ ruby-2.1.2/ext/psych/yaml/scanner.c	2014-05-04 17:45:33.000000000 +0200
+@@ -615,11 +615,11 @@
+  */
+ 
+ static int
+-yaml_parser_roll_indent(yaml_parser_t *parser, int column,
+-        int number, yaml_token_type_t type, yaml_mark_t mark);
++yaml_parser_roll_indent(yaml_parser_t *parser, ptrdiff_t column,
++        ptrdiff_t number, yaml_token_type_t type, yaml_mark_t mark);
+ 
+ static int
+-yaml_parser_unroll_indent(yaml_parser_t *parser, int column);
++yaml_parser_unroll_indent(yaml_parser_t *parser, ptrdiff_t column);
+ 
+ /*
+  * Token fetchers.
+@@ -1103,7 +1103,7 @@
+      */
+ 
+     int required = (!parser->flow_level
+-            && parser->indent == (int)parser->mark.column);
++            && parser->indent == (ptrdiff_t)parser->mark.column);
+ 
+     /*
+      * A simple key is required only when it is the first token in the current
+@@ -1176,6 +1176,11 @@
+ 
+     /* Increase the flow level. */
+ 
++    if (parser->flow_level == INT_MAX) {
++        parser->error = YAML_MEMORY_ERROR;
++        return 0;
++    }
++
+     parser->flow_level++;
+ 
+     return 1;
+@@ -1188,11 +1193,9 @@
+ static int
+ yaml_parser_decrease_flow_level(yaml_parser_t *parser)
+ {
+-    yaml_simple_key_t dummy_key;    /* Used to eliminate a compiler warning. */
+-
+     if (parser->flow_level) {
+         parser->flow_level --;
+-        dummy_key = POP(parser, parser->simple_keys);
++        (void)POP(parser, parser->simple_keys);
+     }
+ 
+     return 1;
+@@ -1206,8 +1209,8 @@
+  */
+ 
+ static int
+-yaml_parser_roll_indent(yaml_parser_t *parser, int column,
+-        int number, yaml_token_type_t type, yaml_mark_t mark)
++yaml_parser_roll_indent(yaml_parser_t *parser, ptrdiff_t column,
++        ptrdiff_t number, yaml_token_type_t type, yaml_mark_t mark)
+ {
+     yaml_token_t token;
+ 
+@@ -1226,7 +1229,14 @@
+         if (!PUSH(parser, parser->indents, parser->indent))
+             return 0;
+ 
+-        parser->indent = column;
++#if PTRDIFF_MAX > INT_MAX
++        if (column > INT_MAX) {
++            parser->error = YAML_MEMORY_ERROR;
++            return 0;
++        }
++#endif
++
++        parser->indent = (int)column;
+ 
+         /* Create a token and insert it into the queue. */
+ 
+@@ -1248,13 +1258,13 @@
+ 
+ /*
+  * Pop indentation levels from the indents stack until the current level
+- * becomes less or equal to the column.  For each indentation level, append
++ * becomes less or equal to the column.  For each intendation level, append
+  * the BLOCK-END token.
+  */
+ 
+ 
+ static int
+-yaml_parser_unroll_indent(yaml_parser_t *parser, int column)
++yaml_parser_unroll_indent(yaml_parser_t *parser, ptrdiff_t column)
+ {
+     yaml_token_t token;
+ 
+@@ -1263,7 +1273,7 @@
+     if (parser->flow_level)
+         return 1;
+ 
+-    /* Loop through the indentation levels in the stack. */
++    /* Loop through the intendation levels in the stack. */
+ 
+     while (parser->indent > column)
+     {
+@@ -2574,7 +2584,7 @@
+ 
+     /* Resize the string to include the head. */
+ 
+-    while (string.end - string.start <= (int)length) {
++    while ((size_t)(string.end - string.start) <= length) {
+         if (!yaml_string_extend(&string.start, &string.pointer, &string.end)) {
+             parser->error = YAML_MEMORY_ERROR;
+             goto error;
+@@ -2619,6 +2629,9 @@
+         /* Check if it is a URI-escape sequence. */
+ 
+         if (CHECK(parser->buffer, '%')) {
++            if (!STRING_EXTEND(parser, string))
++                goto error;
++
+             if (!yaml_parser_scan_uri_escapes(parser,
+                         directive, start_mark, &string)) goto error;
+         }
+@@ -2769,15 +2782,15 @@
+ 
+         if (IS_DIGIT(parser->buffer))
+         {
+-            /* Check that the indentation is greater than 0. */
++            /* Check that the intendation is greater than 0. */
+ 
+             if (CHECK(parser->buffer, '0')) {
+                 yaml_parser_set_scanner_error(parser, "while scanning a block scalar",
+-                        start_mark, "found an indentation indicator equal to 0");
++                        start_mark, "found an intendation indicator equal to 0");
+                 goto error;
+             }
+ 
+-            /* Get the indentation level and eat the indicator. */
++            /* Get the intendation level and eat the indicator. */
+ 
+             increment = AS_DIGIT(parser->buffer);
+ 
+@@ -2791,7 +2804,7 @@
+     {
+         if (CHECK(parser->buffer, '0')) {
+             yaml_parser_set_scanner_error(parser, "while scanning a block scalar",
+-                    start_mark, "found an indentation indicator equal to 0");
++                    start_mark, "found an intendation indicator equal to 0");
+             goto error;
+         }
+ 
+@@ -2841,7 +2854,7 @@
+ 
+     end_mark = parser->mark;
+ 
+-    /* Set the indentation level if it was specified. */
++    /* Set the intendation level if it was specified. */
+ 
+     if (increment) {
+         indent = parser->indent >= 0 ? parser->indent+increment : increment;
+@@ -2907,7 +2920,7 @@
+ 
+         if (!READ_LINE(parser, leading_break)) goto error;
+ 
+-        /* Eat the following indentation spaces and line breaks. */
++        /* Eat the following intendation spaces and line breaks. */
+ 
+         if (!yaml_parser_scan_block_scalar_breaks(parser,
+                     &indent, &trailing_breaks, start_mark, &end_mark)) goto error;
+@@ -2942,8 +2955,8 @@
+ }
+ 
+ /*
+- * Scan indentation spaces and line breaks for a block scalar.  Determine the
+- * indentation level if needed.
++ * Scan intendation spaces and line breaks for a block scalar.  Determine the
++ * intendation level if needed.
+  */
+ 
+ static int
+@@ -2955,11 +2968,11 @@
+ 
+     *end_mark = parser->mark;
+ 
+-    /* Eat the indentation spaces and line breaks. */
++    /* Eat the intendation spaces and line breaks. */
+ 
+     while (1)
+     {
+-        /* Eat the indentation spaces. */
++        /* Eat the intendation spaces. */
+ 
+         if (!CACHE(parser, 1)) return 0;
+ 
+@@ -2972,12 +2985,12 @@
+         if ((int)parser->mark.column > max_indent)
+             max_indent = (int)parser->mark.column;
+ 
+-        /* Check for a tab character messing the indentation. */
++        /* Check for a tab character messing the intendation. */
+ 
+         if ((!*indent || (int)parser->mark.column < *indent)
+                 && IS_TAB(parser->buffer)) {
+             return yaml_parser_set_scanner_error(parser, "while scanning a block scalar",
+-                    start_mark, "found a tab character where an indentation space is expected");
++                    start_mark, "found a tab character where an intendation space is expected");
+         }
+ 
+         /* Have we found a non-empty line? */
+@@ -3498,12 +3511,12 @@
+         {
+             if (IS_BLANK(parser->buffer))
+             {
+-                /* Check for tab character that abuse indentation. */
++                /* Check for tab character that abuse intendation. */
+ 
+                 if (leading_blanks && (int)parser->mark.column < indent
+                         && IS_TAB(parser->buffer)) {
+                     yaml_parser_set_scanner_error(parser, "while scanning a plain scalar",
+-                            start_mark, "found a tab character that violates indentation");
++                            start_mark, "found a tab character that violate intendation");
+                     goto error;
+                 }
+ 
+@@ -3536,7 +3549,7 @@
+             if (!CACHE(parser, 1)) goto error;
+         }
+ 
+-        /* Check indentation level. */
++        /* Check intendation level. */
+ 
+         if (!parser->flow_level && (int)parser->mark.column < indent)
+             break;
+diff -uw ruby-2.1.0/ext/psych/yaml/yaml_private.h ruby-2.1.2/ext/psych/yaml/yaml_private.h
+--- ruby-2.1.0/ext/psych/yaml/yaml_private.h	2012-12-05 05:08:17.000000000 +0100
++++ ruby-2.1.2/ext/psych/yaml/yaml_private.h	2014-05-04 17:45:33.000000000 +0200
+@@ -10,6 +10,17 @@
+ 
+ #include <assert.h>
+ #include <limits.h>
++#include <stddef.h>
++
++#ifndef _MSC_VER
++#include <stdint.h>
++#else
++#ifdef _WIN64
++#define PTRDIFF_MAX _I64_MAX
++#else
++#define PTRDIFF_MAX INT_MAX
++#endif
++#endif
+ 
+ /*
+  * Memory management.
+@@ -135,9 +146,12 @@
+      (string).start = (string).pointer = (string).end = 0)
+ 
+ #define STRING_EXTEND(context,string)                                           \
+-    (((string).pointer+5 < (string).end)                                        \
++    ((((string).pointer+5 < (string).end)                                       \
+         || yaml_string_extend(&(string).start,                                  \
+-            &(string).pointer, &(string).end))
++            &(string).pointer, &(string).end)) ?                                \
++         1 :                                                                    \
++        ((context)->error = YAML_MEMORY_ERROR,                                  \
++         0))
+ 
+ #define CLEAR(context,string)                                                   \
+     ((string).pointer = (string).start,                                         \
+@@ -422,7 +436,14 @@
+      (stack).start = (stack).top = (stack).end = 0)
+ 
+ #define STACK_EMPTY(context,stack)                                              \
+-    ((stack).start == (stack).top)
++    ((void)(context),                                                           \
++     ((stack).start == (stack).top))
++
++#define STACK_LIMIT(context,stack,size)                                         \
++    ((stack).top - (stack).start < (size) ?                                     \
++        1 :                                                                     \
++        ((context)->error = YAML_MEMORY_ERROR,                                  \
++         0))
+ 
+ #define PUSH(context,stack,value)                                               \
+     (((stack).top != (stack).end                                                \
