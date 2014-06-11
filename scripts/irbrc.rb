@@ -38,7 +38,12 @@ end
 
 # Calculate the ruby string.
 rvm_ruby_string = ENV["rvm_ruby_string"] ||
-  (ENV['GEM_HOME'] && ENV['GEM_HOME'].split(/\//).last.split(/@/).first) ||
+  (
+    ENV['GEM_HOME'] &&
+    path = ( File.realpath(ENV['GEM_HOME'].to_s) rescue nil ) &&
+    ( path = $1 if path =~ /(.+)\/$/ ; true ) &&
+    path.split(/\//).last.split(/@/).first
+  ) ||
   ("#{RUBY_VERSION}-p#{RUBY_PATCHLEVEL}" rescue nil) ||
   (RUBY_DESCRIPTION.split(" ")[1].sub('p', '-p') rescue nil ) ||
   (`ruby -v` || '').split(" ")[1].sub('p', '-p')
