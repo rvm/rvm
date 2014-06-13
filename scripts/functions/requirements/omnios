@@ -1,1 +1,142 @@
-openindiana
+#!/usr/bin/env bash
+
+requirements_omnios_lib_installed()
+{
+  pkg info "$1" > /dev/null 2>&1 || return $?
+}
+
+requirements_omnios_lib_available()
+{
+  pkg info -r "$1" > /dev/null 2>&1 || return $?
+}
+
+requirements_omnios_custom_lib_installed()
+{
+  pkginfo -q "$1" || return $?
+}
+
+requirements_omnios_libs_install()
+{
+  __rvm_try_sudo pkg install "$@" ||
+  {
+    typeset ret=$?
+    case $ret in
+      (4) return 0 ;; # means the package does not need updates
+    esac
+    return $ret
+  }
+}
+
+requirements_omnios_update_system()
+{
+  __rvm_try_sudo pkg refresh && __rvm_try_sudo pkg update ||
+  {
+    typeset ret=$?
+    case $ret in
+      (4) return 0 ;; # means nothing to install
+    esac
+    return $ret
+  }
+}
+
+requirements_omnios_check_custom()
+{
+  for lib in "$@"
+  do
+    [[ " ${packages_custom[*]} " =~ " $lib " ]] ||
+    requirements_omnios_custom_lib_installed "$lib" || __rvm_add_once packages_custom "$lib"
+  done
+  unset lib
+}
+
+requirements_omnios_check_opencsw_enabled()
+{
+  requirements_omnios_custom_lib_installed CSWpkgutil || return $?
+}
+
+requirements_omnios_enable_opencsw()
+{
+  __rvm_try_sudo pkgadd -a $rvm_path/config/solaris/noask -d http://get.opencsw.org/now CSWpkgutil > /dev/null 2>&1 || return $?
+}
+
+requirements_omnios_install_custom()
+{
+  requirements_omnios_check_opencsw_enabled || requirements_omnios_enable_opencsw
+  __rvm_try_sudo /opt/csw/bin/pkgutil -iy "$@" -t http://mirror.opencsw.org/opencsw/unstable || return $?
+}
+
+requirements_omnios_after()
+{
+  # https://www.illumos.org/issues/782
+  if ! __rvm_which automake >/dev/null 2>&1 && __rvm_which /usr/bin/automake-1.10 >/dev/null 2>&1
+  then ln -s /usr/bin/automake-1.10 "${rvm_bin_path}"/automake
+  fi
+  if ! __rvm_which aclocal >/dev/null 2>&1 && __rvm_which /usr/bin/aclocal-1.10 >/dev/null 2>&1
+  then ln -s /usr/bin/aclocal-1.10 "${rvm_bin_path}"/aclocal
+  fi
+}
+
+requirements_omnios_define()
+{
+  case "$1" in
+    (rvm)
+      requirements_check bash curl text/gnu-patch
+      ;;
+    (jruby*)
+      if
+        is_head_or_disable_binary "$1"
+      then
+        requirements_check jdk git
+        if is_jruby_post17 "$1"
+        then requirements_check_custom_after mvn=maven
+        else requirements_check apache-ant
+        fi
+      else
+        requirements_check jdk
+      fi
+      ;;
+    (ir*)
+      requirements_check mono
+      ;;
+    (opal)
+      requirements_check runtime/javascript/nodejs
+      ;;
+    (*-head)
+      requirements_check git
+      requirements_omnios_define "${1%-head}"
+      ;;
+    (*)
+      requirements_check_fallback \
+        developer/gcc47 developer/gcc-47 \
+        developer/gcc46 developer/gcc-46 \
+        developer/gcc44 developer/gcc-43 developer/gcc/gcc-43
+      requirements_check_fallback \
+        developer/build/automake \
+        developer/build/automake-111 \
+        developer/build/automake-110
+      requirements_check \
+        text/gnu-patch system/header developer/build/autoconf \
+        developer/build/libtool system/library/math/header-math \
+        file/gnu-coreutils developer/object-file developer/build/gnu-make
+      requirements_omnios_check_custom CSWlibyaml-dev
+      __rvm_update_configure_opt_dir "$1" "/opt/csw"
+      ;;
+  esac
+}
+
+requirements_omnios_after()
+{
+  case "${packages_installed[*]}" in
+    (*developer/gcc47*)
+      __rvm_update_configure_env CC="/opt/gcc-4.7.2/bin/gcc" ;;
+    (*developer/gcc-3*)
+      __rvm_update_configure_env CC="/usr/sfw/bin/gcc" ;;
+    (*)
+      return 1 ;;
+  esac
+}
+
+requirements_omnios_before()
+{
+  __lib_type=omnios
+}
