@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 
 # Query the rvm key-value database for a specific key
+# allow system specific overrides + warnings / errors
+__rvm_db_system()
+{
+  typeset __key __message
+  for __key in "${_system_name}_${_system_version}_$1" "${_system_name}_$1" "$1"
+  do
+    if __rvm_db "${__key}_error" __message
+    then rvm_error "${__message}"
+    fi
+    if __rvm_db "${__key}_warn" __message
+    then rvm_warn "${__message}"
+    fi
+    if __rvm_db "${__key}" "$2"
+    then return 0
+    fi
+  done
+  true # for OSX
+}
+
+# Query the rvm key-value database for a specific key
 # Allow overrides from user specifications in $rvm_user_path/db
 __rvm_db()
 {
@@ -8,6 +28,7 @@ __rvm_db()
   key="${1:-}"
   key="${key#go}" # Support for goruby - remove the go
   variable="${2:-}"
+  value=""
 
   if [[ -f "$rvm_user_path/db" ]]
   then value="$( __rvm_db_ "$rvm_user_path/db"   "$key" )"

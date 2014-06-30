@@ -347,7 +347,17 @@ __rvm_ruby_string()
   fi
 
   __rvm_ruby_string_parse || return $?
+  __rvm_ruby_string_find
 
+  # record the name for validation of -n option
+  detected_rvm_ruby_name="${rvm_ruby_name:-}"
+  # clean the name so it is not added again (rbx -n install problem)
+  rvm_ruby_name=""
+  true
+}
+
+__rvm_ruby_string_find()
+{
   if
     __rvm_ruby_string_installed
   then
@@ -358,14 +368,17 @@ __rvm_ruby_string()
     true # use the selected/detected rvm_ruby_string
   else
     __rvm_ruby_string_autodetect
+    if
+      [[ -z "${rvm_ruby_patch_level}" && -n "${rvm_ruby_version}" ]] &&
+      (( ${rvm_head_flag:-0} == 0 ))
+    then
+      # no patchlevel, recheck latest
+      __rvm_ruby_string_latest &&
+      __rvm_ruby_string_parse_ ||
+      return $?
+    fi
     rvm_ruby_string="${rvm_ruby_string}${rvm_ruby_name:+-}${rvm_ruby_name:-}"
   fi
-
-  # record the name for validation of -n option
-  detected_rvm_ruby_name="${rvm_ruby_name:-}"
-  # clean the name so it is not added again (rbx -n install problem)
-  rvm_ruby_name=""
-  true
 }
 
 __rvm_ruby_string_autodetect()
@@ -454,9 +467,9 @@ __rvm_ruby_string_autodetect()
       )"
     fi
     [[ -n "${rvm_ruby_patch_level:-""}" ]] ||
-    rvm_ruby_patch_level="$(
-      __rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level"
-    )"
+      __rvm_db_system \
+        "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level" \
+        rvm_ruby_patch_level
     if [[ -n "${rvm_ruby_patch_level:-""}" ]]
     then rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
     fi
