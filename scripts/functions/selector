@@ -112,8 +112,6 @@ __rvm_use_system() {
 
   unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
 
-  new_path="$(__rvm_remove_rvm_from_path ; printf "%b" "$PATH"):${rvm_bin_path}"
-
   if
     [[ -s "$rvm_path/config/system" ]]
   then
@@ -143,14 +141,14 @@ __rvm_use_system() {
   then rvm_log "Now using system ruby."
   fi
 
-  __rvm_remove_rvm_from_path
-  new_path="$PATH:${rvm_bin_path}"
+  __path_prefix=""
+  __path_suffix="${rvm_bin_path}"
   export rvm_ruby_string="system"
 }
 
 __rvm_use()
 {
-  typeset new_path binary full_binary_path rvm_ruby_gem_home
+  typeset binary full_binary_path rvm_ruby_gem_home __path_prefix __path_suffix
 
   __rvm_select "$@" || return $?
 
@@ -206,9 +204,10 @@ __rvm_use_()
     fi
 
     if [[ "$GEM_HOME" != "$rvm_ruby_global_gems_path" ]]
-    then new_path="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}:$(__rvm_remove_rvm_from_path ;printf "%b" "$PATH")"
-    else new_path="$GEM_HOME/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}:$(__rvm_remove_rvm_from_path ;printf "%b" "$PATH")"
+    then __path_prefix="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}"
+    else __path_prefix="$GEM_HOME/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}"
     fi
+    __path_suffix=""
 }
 
 __rvm_use_common()
@@ -216,13 +215,10 @@ __rvm_use_common()
   [[ -z "${rvm_ruby_string:-}" ]] || export rvm_ruby_string
   [[ -z "${rvm_gemset_name:-}" ]] || export rvm_gemset_name
 
-  if
-    [[ -n "$new_path" ]]
-  then
-    export PATH="$new_path"
-    unset new_path
-    builtin hash -r
-  fi
+  __rvm_remove_rvm_from_path
+  PATH="${__path_prefix:-}${__path_prefix:+:}$PATH${__path_suffix:+:}${__path_suffix:-}"
+  export PATH
+  builtin hash -r
 
   if
     [[ "$rvm_ruby_string" != "system" ]]
