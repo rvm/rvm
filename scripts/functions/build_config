@@ -207,6 +207,16 @@ __rvm_setup_compile_environment_architectures_Other()
     (*)      _architecture=( -march=${rvm_architectures[*]} ) ;;
   esac
   __rvm_update_configure_env_arch ${_architecture}
+
+  # Ruby 2+ supports also platform setting needed for different os/kernel architectures, see #2928
+  case "$1" in
+    ruby-2*|ruby-head*)
+      case  "${rvm_architectures[*]}" in
+        (32|i386)   rvm_configure_flags+=( --with-arch="i686"   ) ;;
+        (64|x86_64) rvm_configure_flags+=( --with-arch="x86_64" ) ;;
+      esac
+      ;;
+  esac
 }
 
 __rvm_setup_compile_environment_architectures()
@@ -260,7 +270,7 @@ __rvm_setup_compile_environment_flags_static_darwin()
   if
     [[ "${_system_type}" == "Darwin" ]]
   then
-    __rvm_update_configure_env CFLAGS="-fPIC -mmacosx-version-min=10.6" LDFLAGS="-fPIC" "$@"
+    __rvm_update_configure_env CFLAGS="-fPIC -mmacosx-version-min=10.7" LDFLAGS="-fPIC" "$@"
     rvm_configure_flags+=( --with-arch=x86_64 )
   fi
 }
@@ -347,7 +357,10 @@ __rvm_setup_compile_environment_flags_threads()
       if [[ "${_system_name}" == "FreeBSD" || "${_system_name}" == "DragonFly" ]]
       then rvm_make_flags+=( -B )
       fi
-      [[ " ${rvm_make_flags[*]}" =~ " -j" ]] || rvm_make_flags+=( -j$(__rvm_detect_max_threads) )
+      if [[ " ${rvm_make_flags[*]}" =~ " -j" ]]
+      then rvm_warn "Found user configured '-j' flag in 'rvm_make_flags', pleae note that RVM can detect number of CPU threads and set the '-j' flag automatically if you do not set it."
+      else rvm_make_flags+=( -j$(__rvm_detect_max_threads) )
+      fi
       ;;
   esac
 }
