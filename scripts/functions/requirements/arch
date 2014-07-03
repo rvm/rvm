@@ -5,6 +5,15 @@ requirements_arch_lib_installed_all_missing()
   pacman -T "$@" || true
 }
 
+requirements_arch_lib_installed() {
+  pacman -Qq "$1" >/dev/null 2>&1 || return $?
+}
+
+requirements_arch_lib_available()
+{
+  pacman -Ssq "^${1}$" >/dev/null 2>&1 || return $?
+}
+
 requirements_arch_libs_install()
 {
   __rvm_try_sudo pacman -Sy --needed --noconfirm "$@" || return $?
@@ -16,8 +25,19 @@ requirements_arch_update_system()
   requirements_arch_libs_install pacman || return $?
 }
 
+requirements_arch_define_check_raspberry_pi()
+{
+  if
+    [[ "${_system_arch}" == "arm"* ]]
+  then
+    # assuming all arm will need this fix
+    requirements_check ntp
+  fi
+}
+
 requirements_arch_define()
 {
+  requirements_arch_define_check_raspberry_pi
   case "$1" in
     (rvm)
       requirements_check bash curl patch
@@ -52,17 +72,37 @@ requirements_arch_define()
   esac
 }
 
+requirements_arch_service()
+{
+  systemctl $1 $3 >/dev/null ||
+  if __rvm_try_sudo systemctl $2 $3
+  then true
+  else
+    typeset __arch_status=$?
+    rvm_error "There was a problem running 'systemctl $2 $3' with exit status '$__arch_status'."
+    return $__arch_status
+  fi
+}
+
+requirements_arch_after_check_raspberry_pi()
+{
+  if
+    [[ "${_system_arch}" == "arm"* ]]
+  then
+    # assuming all arm will need this fix
+    requirements_arch_service is-enabled enable ntp &&
+    requirements_arch_service is-active  start  ntp ||
+    return $?
+  fi
+}
+
+requirements_arch_after()
+{
+  requirements_arch_after_check_raspberry_pi
+}
+
 requirements_manjaro_define()
 {
   __lib_type=arch
   requirements_arch_define "$@" || return $?
-}
-
-requirements_arch_lib_available()
-{
-  pacman -Ssq "^${1}$" >/dev/null 2>&1 || return $?
-}
-
-requirements_arch_lib_installed() {
-  pacman -Qq "$1" >/dev/null 2>&1 || return $?
 }

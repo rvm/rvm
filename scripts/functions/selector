@@ -112,8 +112,6 @@ __rvm_use_system() {
 
   unset GEM_HOME GEM_PATH MY_RUBY_HOME RUBY_VERSION IRBRC
 
-  new_path="$(__rvm_remove_rvm_from_path ; printf "%b" "$PATH"):${rvm_bin_path}"
-
   if
     [[ -s "$rvm_path/config/system" ]]
   then
@@ -143,14 +141,14 @@ __rvm_use_system() {
   then rvm_log "Now using system ruby."
   fi
 
-  __rvm_remove_rvm_from_path
-  new_path="$PATH:${rvm_bin_path}"
+  __path_prefix=""
+  __path_suffix="${rvm_bin_path}"
   export rvm_ruby_string="system"
 }
 
 __rvm_use()
 {
-  typeset new_path binary full_binary_path rvm_ruby_gem_home
+  typeset binary full_binary_path rvm_ruby_gem_home __path_prefix __path_suffix
 
   __rvm_select "$@" || return $?
 
@@ -206,9 +204,10 @@ __rvm_use_()
     fi
 
     if [[ "$GEM_HOME" != "$rvm_ruby_global_gems_path" ]]
-    then new_path="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}:$(__rvm_remove_rvm_from_path ;printf "%b" "$PATH")"
-    else new_path="$GEM_HOME/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}:$(__rvm_remove_rvm_from_path ;printf "%b" "$PATH")"
+    then __path_prefix="$GEM_HOME/bin:$rvm_ruby_global_gems_path/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}"
+    else __path_prefix="$GEM_HOME/bin:${rvm_ruby_binary%/*}:${rvm_bin_path}"
     fi
+    __path_suffix=""
 }
 
 __rvm_use_common()
@@ -216,13 +215,24 @@ __rvm_use_common()
   [[ -z "${rvm_ruby_string:-}" ]] || export rvm_ruby_string
   [[ -z "${rvm_gemset_name:-}" ]] || export rvm_gemset_name
 
+  typeset __save_PATH
+  __rvm_remove_rvm_from_path
+  __save_PATH=$PATH
   if
-    [[ -n "$new_path" ]]
+    [[ -n "${_OLD_VIRTUAL_PATH}" ]]
   then
-    export PATH="$new_path"
-    unset new_path
-    builtin hash -r
+    # _OLD_VIRTUAL_PATH means we deal with virtualenv - see #2585,
+    # PATH is saved in __save_PATH, use __rvm_remove_rvm_from_path to
+    # clean _OLD_VIRTUAL_PATH via PATH ... a trick so we can transform
+    # _OLD_VIRTUAL_PATH the same way like PATH for new ruby, from now on
+    # any virtualenv operations will be aware of rvm
+    PATH="${_OLD_VIRTUAL_PATH}"
+    __rvm_remove_rvm_from_path
+    _OLD_VIRTUAL_PATH="${__path_prefix:-}${__path_prefix:+:}${PATH}${__path_suffix:+:}${__path_suffix:-}"
   fi
+  PATH="${__path_prefix:-}${__path_prefix:+:}$__save_PATH${__path_suffix:+:}${__path_suffix:-}"
+  export PATH
+  builtin hash -r
 
   if
     [[ "$rvm_ruby_string" != "system" ]]
@@ -337,7 +347,17 @@ __rvm_ruby_string()
   fi
 
   __rvm_ruby_string_parse || return $?
+  __rvm_ruby_string_find
 
+  # record the name for validation of -n option
+  detected_rvm_ruby_name="${rvm_ruby_name:-}"
+  # clean the name so it is not added again (rbx -n install problem)
+  rvm_ruby_name=""
+  true
+}
+
+__rvm_ruby_string_find()
+{
   if
     __rvm_ruby_string_installed
   then
@@ -348,14 +368,17 @@ __rvm_ruby_string()
     true # use the selected/detected rvm_ruby_string
   else
     __rvm_ruby_string_autodetect
+    if
+      [[ -z "${rvm_ruby_patch_level}" && -n "${rvm_ruby_version}" ]] &&
+      (( ${rvm_head_flag:-0} == 0 ))
+    then
+      # no patchlevel, recheck latest
+      __rvm_ruby_string_latest &&
+      __rvm_ruby_string_parse_ ||
+      return $?
+    fi
     rvm_ruby_string="${rvm_ruby_string}${rvm_ruby_name:+-}${rvm_ruby_name:-}"
   fi
-
-  # record the name for validation of -n option
-  detected_rvm_ruby_name="${rvm_ruby_name:-}"
-  # clean the name so it is not added again (rbx -n install problem)
-  rvm_ruby_name=""
-  true
 }
 
 __rvm_ruby_string_autodetect()
@@ -444,9 +467,9 @@ __rvm_ruby_string_autodetect()
       )"
     fi
     [[ -n "${rvm_ruby_patch_level:-""}" ]] ||
-    rvm_ruby_patch_level="$(
-      __rvm_db "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level"
-    )"
+      __rvm_db_system \
+        "${rvm_ruby_interpreter}_${rvm_ruby_version}_patch_level" \
+        rvm_ruby_patch_level
     if [[ -n "${rvm_ruby_patch_level:-""}" ]]
     then rvm_ruby_string="${rvm_ruby_string}-${rvm_ruby_patch_level}"
     fi

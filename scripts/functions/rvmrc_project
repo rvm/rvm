@@ -22,10 +22,10 @@ __rvm_project_rvmrc()
     if
       [[ -z "$working_dir" || "$HOME" == "$working_dir" || "${rvm_prefix:-}" == "$working_dir" ]]
     then
-      if (( ${rvm_project_rvmrc_default:-0} == 1 ))
+      if (( ${rvm_project_rvmrc_default:-0} >= 1 ))
       then rvm_previous_environment=default
       fi
-      if [[ -n "${rvm_previous_environment:-""}" ]]
+      if [[ -n "${rvm_previous_environment:-""}" ]] && (( ${rvm_project_rvmrc_default:-0} < 2 ))
       then __rvm_load_environment "$rvm_previous_environment"
       fi
       __rvm_project_ruby_env_check_unload
@@ -132,7 +132,12 @@ __rvm_load_project_config()
         rvm_ruby_string="$( \tr -d '\r' <"$1" | __rvm_sed -n "s/ rescue nil$//; /^\s*ruby/ {s/^\s*ruby//; s/[ ()'\"]//g; p;}" | tail -n 1 )"
         [[ -n "${rvm_ruby_string}" ]] || return 2
       } #'
+      rvm_ruby_string="${rvm_ruby_string/,:patchlevel=>/-p}"
+      rvm_ruby_string="${rvm_ruby_string/,patchlevel:/-p}"
       rvm_gemset_name="$( \tr -d '\r' <"$1" | __rvm_sed -n '/^#ruby-gemset=/ {s/#ruby-gemset=//;p;}' | tail -n 1 )"
+      if [[ -z "${rvm_gemset_name:-}" && -f "${1%/*}/.ruby-gemset" ]]
+      then rvm_gemset_name="$( \tr -d '\r' <"${1%/*}/.ruby-gemset" )"
+      fi
       __rvmrc_warning_display_for_Gemfile "$1"
 
       rvm_create_flag=1 __rvm_use   || return 3

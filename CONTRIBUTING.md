@@ -32,7 +32,7 @@ RVM: https://github.com/wayneeseguin/rvm/issues/new
 
 *When in doubt as to whether your issue might relate to another simply file a new bug and
 we will mark it as duplicate if it needs to be.  It's always better to file a new ticket and
-let us sort it out than to accidently add noise to another ticket.*
+let us sort it out than to accidentally add noise to another ticket.*
 
 If you wish to file a bug, the only thing we ask is that you
 provide a [gist](https://gist.github.com) of the command you used and if you are on stable,
@@ -47,7 +47,7 @@ this means that each command and it's output should be in it's own code block.
 
 If you're joining the #rvm channel on [Freenode](http://freenode.net/) to get help with a problem,
 please let us know what's wrong and stick around. Someone will always respond in time.
-If you can't stick around, please file a bug on github or email us via the
+If you can't stick around, please file a bug on GitHub or email us via the
 [google group](https://groups.google.com/forum/?fromgroups#!forum/rubyversionmanager).
 
 ## Filing issues

@@ -36,7 +36,7 @@ you also need to do:
 
     $ rvm reload
 
-To get back to using orginal rvm installation run:
+To get back to using original rvm installation run:
 
     $ rvm switch ~/.rvm
 
@@ -55,7 +55,7 @@ It should fail.  Now repeat the following steps until the test passes:
     2. run `./install`
     3. re-run the test (you can also manually test via rvm commands on the CLI)
 
-Now `git commit`, `git push` to your github fork, then issue a pull
+Now `git commit`, `git push` to your GitHub fork, then issue a pull
 request, and if it is accepted then your place in hacker heaven is
 secured.
 
