@@ -117,6 +117,7 @@ install_rvm()
     migrate_old_gemsets
     migrate_defaults
     migrate_environments_and_wrappers
+    restore_missing_environments
     record_ruby_configs
     update_gemsets_install_rvm
     configure_autolibs
@@ -1308,6 +1309,37 @@ migrate_environments_and_wrappers()
     rvm_out "    Fixing environment for ${ruby_version}."
     __rvm_with "${ruby_version}" __rvm_ensure_has_environment_files
   done
+}
+
+restore_missing_environments()
+{
+  if
+    [[ -d "$rvm_path/rubies" ]]
+  then
+    [[ -d "$rvm_path/environments" ]] || mkdir -p "$rvm_path/environments"
+
+    for ruby_path in "$rvm_path"/rubies/*
+    do
+      ruby_version="${ruby_path##*/}"
+      environment_path="$rvm_path/environments/${ruby_version}"
+      if
+        [[ -e "$environment_path" ]]
+      then
+        true
+      elif
+        [[ -L "$ruby_path" ]]
+      then
+        ruby_target="$(readlink "$ruby_path")"
+        ruby_target="${ruby_target##*/}"
+        environment_tareget="$rvm_path/environments/${ruby_target}"
+        rvm_out "    Fixing environment link for ${ruby_version}."
+        \command \ln -nsf "$environment_tareget" "$environment_path"
+      else
+        rvm_out "    Fixing environment for ${ruby_version}."
+        __rvm_with "${ruby_version}" __rvm_ensure_has_environment_files
+      fi
+    done
+  fi
 }
 
 record_ruby_configs()
