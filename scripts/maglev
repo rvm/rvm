@@ -64,7 +64,7 @@ fi
 if [[ ! -w "." ]]
 then
   rvm_error "This script requires write permission on your current directory."
-  \ls -ld $PWD
+  \command \ls -ld $PWD
   exit 1
 fi
 
@@ -86,9 +86,9 @@ case "$system" in
     totalMemKB=$(__rvm_awk '/MemTotal:/{print($2);}' /proc/meminfo)
     totalMem=$(($totalMemKB * 1024))
     # Figure out the max shared memory segment size currently allowed
-    shmmax=$(\cat /proc/sys/kernel/shmmax)
+    shmmax=$(\command \cat /proc/sys/kernel/shmmax)
     # Figure out the max shared memory currently allowed
-    shmall=$(\cat /proc/sys/kernel/shmall)
+    shmall=$(\command \cat /proc/sys/kernel/shmall)
     ;;
 
   Darwin)
@@ -149,10 +149,10 @@ then
   rvm_log "Increasing max shared memory segment size to $shmmaxNewMB MB"
   case "${system}" in
     Darwin)
-      __rvm_sudo sysctl -w kern.sysv.shmmax=$shmmaxNew
+      __rvm_try_sudo sysctl -w kern.sysv.shmmax=$shmmaxNew
       ;;
     Linux)
-      __rvm_sudo bash -c "echo $shmmaxNew > /proc/sys/kernel/shmmax"
+      __rvm_try_sudo bash -c "echo $shmmaxNew > /proc/sys/kernel/shmmax"
       ;;
     SunOS)
       echo "[[Warning]] shmmax must be set manually on SunOS"
@@ -168,10 +168,10 @@ then
   rvm_log "Increasing max shared memory allowed to $shmallNewMB MB"
   case "${system}" in
     Darwin)
-      __rvm_sudo sysctl -w kern.sysv.shmall=$shmallNew
+      __rvm_try_sudo sysctl -w kern.sysv.shmall=$shmallNew
       ;;
     Linux)
-      __rvm_sudo bash -c "echo $shmallNew > /proc/sys/kernel/shmall"
+      __rvm_try_sudo bash -c "echo $shmallNew > /proc/sys/kernel/shmall"
       ;;
     SunOS)
       echo "[[Warning]]shmall must be set manually on SunOS"
@@ -188,15 +188,15 @@ then
   case "$system" in
     Linux)
       echo "# kernel.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
-      echo "kernel.shmmax=$(\cat /proc/sys/kernel/shmmax)" >> /tmp/sysctl.conf.$$
-      echo "kernel.shmall=$(\cat /proc/sys/kernel/shmall)" >> /tmp/sysctl.conf.$$
+      echo "kernel.shmmax=$(\command \cat /proc/sys/kernel/shmmax)" >> /tmp/sysctl.conf.$$
+      echo "kernel.shmall=$(\command \cat /proc/sys/kernel/shmall)" >> /tmp/sysctl.conf.$$
       ;;
     Darwin)
       # On Mac OS X Leopard, you must have all five settings in sysctl.conf
       # before they will take effect.
       echo "# kern.sysv.shm* settings added by MagLev installation" > /tmp/sysctl.conf.$$
       sysctl kern.sysv.shmmax kern.sysv.shmall kern.sysv.shmmin kern.sysv.shmmni \
-        kern.sysv.shmseg  | \tr ":" "=" | \tr -d " " >> /tmp/sysctl.conf.$$
+        kern.sysv.shmseg  | \command \tr ":" "=" | \command \tr -d " " >> /tmp/sysctl.conf.$$
       ;;
     SunOS)
       # Do nothing in SunOS since /etc/sysctl.conf is ignored on Solaris 10.
@@ -212,9 +212,9 @@ then
   if [[ "$system" != "SunOS" ]]
   then
     rvm_log "Adding the following section to /etc/sysctl.conf"
-    \cat /tmp/sysctl.conf.$$
-    __rvm_sudo bash -c "\cat /tmp/sysctl.conf.$$ >> /etc/sysctl.conf"
-    /bin/\rm -f /tmp/sysctl.conf.$$
+    \command \cat /tmp/sysctl.conf.$$
+    __rvm_try_sudo bash -c "\command \cat /tmp/sysctl.conf.$$ >> /etc/sysctl.conf"
+    /bin/\command \rm -f /tmp/sysctl.conf.$$
   fi
 else
   rvm_log "The following shared memory settings already exist in /etc/sysctl.conf"
@@ -227,7 +227,7 @@ rvm_log "Setting up GemStone netldi service port"
 if (( $(__rvm_grep -sc "^gs64ldi" /etc/services) == 0 ))
 then
   echo '[[Info]] Adding "gs64ldi  50378/tcp" to /etc/services'
-  __rvm_sudo bash -c 'echo "gs64ldi         50378/tcp        # Gemstone netldi"  >> /etc/services'
+  __rvm_try_sudo bash -c 'echo "gs64ldi         50378/tcp        # Gemstone netldi"  >> /etc/services'
 else
   rvm_log "GemStone netldi service port is already set in /etc/services"
   echo "To change it, remove the following line from /etc/services and rerun this script"

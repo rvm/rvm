@@ -117,6 +117,7 @@ install_rvm()
     migrate_old_gemsets
     migrate_defaults
     migrate_environments_and_wrappers
+    restore_missing_environments
     record_ruby_configs
     update_gemsets_install_rvm
     configure_autolibs
@@ -400,7 +401,7 @@ cleanse_old_entities()
   for script in utility array
   do
     if test -f "$rvm_path/scripts/${script}"
-    then \rm -f "$rvm_path/scripts/${script}"
+    then \command \rm -f "$rvm_path/scripts/${script}"
     fi
   done
   return 0
@@ -451,7 +452,7 @@ install_rvm_directories()
   do
     # Target is supposed to be a directory, remove if it is a file.
     if [[ -f "$rvm_path/$entry" ]]
-    then \rm -f "$rvm_path/$entry"
+    then \command \rm -f "$rvm_path/$entry"
     fi
     [[ -d "$rvm_path/$entry" ]] || mkdir -p "$rvm_path/$entry"
   done
@@ -470,7 +471,7 @@ install_rvm_files()
     if [[ -d "$rvm_path/$entry" ]]
     then __rvm_rm_rf "$rvm_path/$entry"
     fi
-    \cat < "$source_path/$entry" > "$rvm_path/$entry"
+    \command \cat < "$source_path/$entry" > "$rvm_path/$entry"
     if [[ -x "$source_path/$entry" && ! -x "$rvm_path/$entry" ]]
     then chmod +x "$rvm_path/$entry"
     fi
@@ -514,7 +515,7 @@ install_rvm_scripts()
       else rvm_log "    Can not update '$entry', it's a conflict between Zsh and multiuser installation, prefix the command with 'rvmsudo' to update this file."
       fi
     else
-      \cat < "$source_path/$entry" > "$rvm_path/$entry"
+      \command \cat < "$source_path/$entry" > "$rvm_path/$entry"
       chmod_if_needed "$source_path/$entry" "$rvm_path/$entry"
     fi
   done
@@ -544,7 +545,7 @@ install_rvm_hooks()
       __rvm_grep -E '^hooks/[[:alpha:]]+_[[:alpha:]]+$' >/dev/null <<<"$entry" &&
       ! __rvm_grep "$(basename ${entry})_\*" "$rvm_path/$entry" >/dev/null
     then
-      \mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
+      \command \mv -f "$rvm_path/$entry" "$rvm_path/${entry}_custom"
     fi
     hook_x_flag=0
     [[ -x "$rvm_path/$entry" ]] || hook_x_flag=$?
@@ -567,7 +568,7 @@ remove_old_hooks()
       [[ -f "$rvm_path/hooks/$entry" ]] &&
       __rvm_grep "after_${name}_\*" "$rvm_path/hooks/$entry" >/dev/null
     then
-      \rm -f "$rvm_path/hooks/$entry"
+      \command \rm -f "$rvm_path/hooks/$entry"
     fi
   done
 }
@@ -587,7 +588,7 @@ install_binaries()
   do
     if [[ -e "${rvm_bin_path}/${file}" ]] &&
     [[ ! -f "${rvm_bin_path}/${file}"  || -L "${rvm_bin_path}/${file}" ]]
-    then \rm -f "${rvm_bin_path}/${file}"
+    then \command \rm -f "${rvm_bin_path}/${file}"
     fi
 
     if
@@ -595,7 +596,7 @@ install_binaries()
     then
       ln -s "$( readlink "${source_path}/bin/${file}" )" "${rvm_bin_path}/${file}"
     else
-      \cat < "${source_path}/bin/${file}" > "${rvm_bin_path}/${file}"
+      \command \cat < "${source_path}/bin/${file}" > "${rvm_bin_path}/${file}"
     fi
 
     [[ -x "${rvm_bin_path}/${file}" ]] || chmod a+rx "${rvm_bin_path}/${file}"
@@ -606,9 +607,9 @@ install_binaries()
       if
         [[ "${system_bin}" != "${rvm_bin_path}" && -x "${system_bin}/${file}" ]]
       then
-        \rm -f "${system_bin}/${file}" 2>/dev/null ||
+        \command \rm -f "${system_bin}/${file}" 2>/dev/null ||
         rvm_out "!!! could not remove ${system_bin}/${file}, remove it manually with:
-!!! > sudo \rm -f ${system_bin}/${file}
+!!! > sudo \command \rm -f ${system_bin}/${file}
 "
       fi
     done
@@ -654,7 +655,7 @@ install_gemsets()
     then
       destination_path="${destination%/*}"
       [[ -d "$destination_path" ]] || mkdir -p "$destination_path"
-      \cat < "$gemset_file" > "$destination"
+      \command \cat < "$gemset_file" > "$destination"
     fi
   done
 
@@ -684,9 +685,9 @@ install_patchsets()
         [[ ! -s "$destination" || "${patchset_file##*/}" == "default" ]]
       then
         if [[ -d "$destination"    ]]
-        then \rm -f "$destination"
+        then \command \rm -f "$destination"
         fi
-        \cat < "$patchset_file" > "$destination"
+        \command \cat < "$patchset_file" > "$destination"
       fi
     done
   fi
@@ -723,15 +724,15 @@ setup_configuration_files()
   __rvm_cd "$rvm_path"
 
   if [[ -f config/user ]]
-  then \mv config/user user/db
+  then \command \mv config/user user/db
   fi
 
   if [[ -f config/installs ]]
-  then \mv config/installs user/installs
+  then \command \mv config/installs user/installs
   fi
 
   if [[ -s config/rvmrcs ]]
-  then \mv config/rvmrcs user/rvmrcs
+  then \command \mv config/rvmrcs user/rvmrcs
   fi
 
   [[ -s user/db ]] ||
@@ -743,7 +744,7 @@ setup_configuration_files()
 
   # Prune old (keyed-by-hash) trust entries
   __rvm_grep '^_' user/rvmrcs > user/rvmrcs.new || true
-  \mv user/rvmrcs.new user/rvmrcs
+  \command \mv user/rvmrcs.new user/rvmrcs
 
   __rvm_cd "${_save_dir}"
 }
@@ -833,8 +834,8 @@ setup_etc_profile()
 
 if
   [ -n \"\${BASH_VERSION:-}\" -o -n \"\${ZSH_VERSION:-}\" ] &&
-  test \"\`\ps -p \$\$ -o comm=\`\" != dash &&
-  test \"\`\ps -p \$\$ -o comm=\`\" != sh
+  test \"\`\\\\command \\\\ps -p \$\$ -o comm=\`\" != dash &&
+  test \"\`\\\\command \\\\ps -p \$\$ -o comm=\`\" != sh
 then
   [[ -n \"\${rvm_stored_umask:-}\" ]] || export rvm_stored_umask=\$(umask)
   # Load user rvmrc configurations, if exist
@@ -957,13 +958,13 @@ setup_etc_bashrc()
     ! __rvm_grep "PATH=.*${rvm_bin_path}" "${system_bashrc_file}" >/dev/null
   then
     new_content_path="$( mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX )"
-    [[ ! -f "${new_content_path}" ]] || \rm -f "${new_content_path}"
+    [[ ! -f "${new_content_path}" ]] || \command \rm -f "${new_content_path}"
     {
       print_etc_bashrc_change # prepend
       __rvm_grep -v "|| export PATH=\"\${PATH}:\"" < "${system_bashrc_file}"
       true
     } > "${new_content_path}" &&
-    \mv "${new_content_path}" "${system_bashrc_file}" 2>/dev/null ||
+    \command \mv "${new_content_path}" "${system_bashrc_file}" 2>/dev/null ||
       permissions_warning "could not update '${system_bashrc_file}'" $? ||
       return $?
   fi
@@ -1203,7 +1204,7 @@ cleanse_old_environments()
           __rvm_grep 'BUNDLE_PATH' "$file" >/dev/null 2>&1
         then
           __rvm_grep -v 'BUNDLE_PATH' "$file" > "$file.new" &&
-          \mv "$file.new" "$file"
+          \command \mv "$file.new" "$file"
         fi
         # regenerate when found broken path :/bin:/bin or missing $PATH
         if
@@ -1228,7 +1229,7 @@ migrate_old_gemsets()
       [[ -d "$gemset" ]] && [[ ! -d "$new_path" ]]
     then
       rvm_out "    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
-      \mv "$gemset" "$new_path"
+      \command \mv "$gemset" "$new_path"
     fi
   done
 
@@ -1239,7 +1240,7 @@ migrate_old_gemsets()
       [[ -d "$gemset" && ! -d "$new_path" ]]
     then
       rvm_out "    Renaming $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
-      \mv $gemset $new_path
+      \command \mv $gemset $new_path
     fi
   done
 
@@ -1250,7 +1251,7 @@ migrate_old_gemsets()
       [[ -d "$gemset" && ! -d "$new_path" ]]
     then
       rvm_out "    Fixing: $(basename "$gemset") to $(basename "$new_path") for new gemset separator."
-      \mv "$gemset" "$new_path"
+      \command \mv "$gemset" "$new_path"
     fi
   done
 }
@@ -1284,7 +1285,7 @@ migrate_environments_and_wrappers()
       [[ -f "$environment_file" && ! -L "$environment_file" && -d "${new_path%/*}" && ! -e "$new_path" ]]
     then
       rvm_out "    Migrating environment ${ruby_version} to use with 'gem-wrappers' gem."
-      \mv "$environment_file" "$new_path" && \ln -s "$new_path" "$environment_file"
+      \command \mv "$environment_file" "$new_path" && \command \ln -s "$new_path" "$environment_file"
     fi
   done
 
@@ -1296,7 +1297,7 @@ migrate_environments_and_wrappers()
       [[ -d "$wrappers_path" && ! -L "$wrappers_path" && -d "${new_path%/*}" && ! -e "$new_path" ]]
     then
       rvm_out "    Migrating wrappers ${ruby_version} to use with 'gem-wrappers' gem."
-      \mv "$wrappers_path" "$new_path" && \ln -snf "$new_path" "$wrappers_path"
+      \command \mv "$wrappers_path" "$new_path" && \command \ln -snf "$new_path" "$wrappers_path"
     fi
   done
 
@@ -1308,6 +1309,37 @@ migrate_environments_and_wrappers()
     rvm_out "    Fixing environment for ${ruby_version}."
     __rvm_with "${ruby_version}" __rvm_ensure_has_environment_files
   done
+}
+
+restore_missing_environments()
+{
+  if
+    [[ -d "$rvm_path/rubies" ]]
+  then
+    [[ -d "$rvm_path/environments" ]] || mkdir -p "$rvm_path/environments"
+
+    for ruby_path in "$rvm_path"/rubies/*
+    do
+      ruby_version="${ruby_path##*/}"
+      environment_path="$rvm_path/environments/${ruby_version}"
+      if
+        [[ -e "$environment_path" ]]
+      then
+        true
+      elif
+        [[ -L "$ruby_path" ]]
+      then
+        ruby_target="$(readlink "$ruby_path")"
+        ruby_target="${ruby_target##*/}"
+        environment_tareget="$rvm_path/environments/${ruby_target}"
+        rvm_out "    Fixing environment link for ${ruby_version}."
+        \command \ln -nsf "$environment_tareget" "$environment_path"
+      else
+        rvm_out "    Fixing environment for ${ruby_version}."
+        __rvm_with "${ruby_version}" __rvm_ensure_has_environment_files
+      fi
+    done
+  fi
 }
 
 record_ruby_configs()
@@ -1376,7 +1408,7 @@ configure_autolibs()
     then
       [[ -w "$rvmrc" ]] &&
       __rvm_sed '/rvm_autolibs_flag=/ d' < "$rvmrc" > "$rvmrc.backup" &&
-      \mv -f "$rvmrc.backup" "$rvmrc" ||
+      \command \mv -f "$rvmrc.backup" "$rvmrc" ||
       rvm_error "    Can not automatically remove lines with 'rvm_autolibs_flag=' from '$rvmrc', please clean it manually."
     fi
   done
@@ -1388,7 +1420,7 @@ configure_autolibs()
     export rvm_autolibs_flag="$( __rvm_awk -F'=' '/rvm_autolibs_flag=/{print $2}' <"$rvmrc" )"
     [[ -w "$rvmrc" ]] &&
     __rvm_sed '/rvm_autolibs_flag/ d' < "$rvmrc" > "$rvmrc.backup" &&
-    \mv -f "$rvmrc.backup" "$rvmrc" || true
+    \command \mv -f "$rvmrc.backup" "$rvmrc" || true
   fi
 
   # migrate SMF settings
@@ -1400,7 +1432,7 @@ configure_autolibs()
     export rvm_autolibs_flag=smf
     [[ -w "$rvmrc" ]] &&
     __rvm_sed '/rvm_configure_env/ d' < "$rvmrc" > "$rvmrc.backup" &&
-    \mv -f "$rvmrc.backup" "$rvmrc" || true
+    \command \mv -f "$rvmrc.backup" "$rvmrc" || true
   fi
 
   [[ -n "${rvm_autolibs_flag:-}" ]] || return 0
@@ -1451,7 +1483,7 @@ cleanup_tmp_files()
     (( ${#files[@]} > 0 ))
   then
     rvm_out "    Cleanup any .swp files."
-    \rm -f  "${files[@]}"
+    \command \rm -f  "${files[@]}"
   fi
 }
 

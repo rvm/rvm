@@ -63,13 +63,10 @@ __rvm_load_environment()
     # source the environment file
     \. "$rvm_environments_path/$1"
 
-    for __hook in "${rvm_path:-$HOME/.rvm}/hooks/after_use"*
-    do
-      if [[ -f "${__hook}" && -x "${__hook}" && -s "${__hook}" ]]
-      then \. "${__hook}" || true
-      fi
-    done
-
+    rvm_hook="after_use"
+    if [[ -n "${rvm_scripts_path:-}" || -n "${rvm_path:-}" ]]
+    then source "${rvm_scripts_path:-$rvm_path/scripts}/hook"
+    fi
     # clear the PATH cache
     builtin hash -r
   else
@@ -184,7 +181,7 @@ __rvm_unload_action()
   typeset -a _list
 
   IFS=$'\n'
-  _list=( $( \cat ${2:--} | sort -u ) )
+  _list=( $( \command \cat ${2:--} | sort -u ) )
   for _element in "${_list[@]}"
   do $1 "${_element}"
   done
@@ -241,7 +238,7 @@ __rvm_unload()
     if
       [[ -n "${_comp_dumpfile:-}" ]]
     then
-      \rm -f "$_comp_dumpfile"
+      \command \rm -f "$_comp_dumpfile"
       compinit -d "$_comp_dumpfile"
     fi
   else
@@ -277,10 +274,10 @@ __rvm_env_print()
   elif
     [[ "$rvm_cron_flag" == "1" || "$*" =~ "--cron" ]]
   then
-    \cat "$environment_file_path" |
+    \command \cat "$environment_file_path" |
       __rvm_grep -Eo "[^ ]+=[^;]+" |
       __rvm_sed -e 's/\$PATH/'"${PATH//\//\/}"'/' -e 's/\${PATH}/'"${PATH//\//\/}"'/'
   else
-    \cat "$environment_file_path"
+    \command \cat "$environment_file_path"
   fi
 }

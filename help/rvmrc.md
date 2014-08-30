@@ -1,7 +1,7 @@
     $ rvm rvmrc {trust,untrust,trusted,load,reset} [optional-path]
     $ rvm rvmrc create {ruby-version} [--rvmrc|--ruby-version|--versions-conf]
     $ rvm rvmrc warning [ignore|reset|list] [<optional-path>|all.rvmrcs|allGemfiles]
-    $ rvm rvmrc to [.]ruby-version
+    $ rvm rvmrc to ruby-version
 
 Tools for dealing with and loading the rvmrc trust for a given directory.
 All actions take an optional path to a directory to check.
