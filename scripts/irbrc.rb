@@ -42,7 +42,7 @@ rvm_ruby_string = ENV["rvm_ruby_string"] ||
     ENV['GEM_HOME'] &&
     ( path = ( File.realpath(ENV['GEM_HOME'].to_s) rescue nil ) ) &&
     ( path = $1 if path =~ /(.+)\/$/ ; true ) &&
-    path.split(/\//).last.split(/@/).first
+    String(String(path).split(/\//).last).split(/@/).first
   ) ||
   ("#{RUBY_VERSION}-p#{RUBY_PATCHLEVEL}" rescue nil) ||
   (RUBY_DESCRIPTION.split(" ")[1].sub('p', '-p') rescue nil ) ||
