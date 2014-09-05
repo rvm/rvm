@@ -1,5 +1,5 @@
 source "$rvm_path/scripts/rvm"
-rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
+rvm_scripts_path="$rvm_path/scripts" rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
 
 : test no error
 rvm use 2.1.1 --install   # status=0
@@ -9,12 +9,13 @@ rvm version
 
 : test GEM_HOME second
 rvm use 2.1.1             # status=0
-GEM_HOME=$GEM_HOME@global
+GEM_HOME=$GEM_HOME@global # env[GEM_HOME]=/2.1.1@global$/
 rvm version               # match=/is not at first place/
 
 : test GEM_HOME missing
 rvm use 2.1.1             # status=0
-GEM_HOME=$GEM_HOME@veve
+rvm gemset delete veve
+GEM_HOME=$GEM_HOME@veve   # env[GEM_HOME]=/2.1.1@veve$/
 rvm version               # match=/is not available/
 
 : rvm-shell check

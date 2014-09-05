@@ -1,6 +1,6 @@
 source "$rvm_path/scripts/rvm"
 source "$rvm_path/scripts/functions/rvmrc_project"
-rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
+rvm_scripts_path="$rvm_path/scripts" rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
 
 : prepare
 true TMPDIR:${TMPDIR:=/tmp}:
