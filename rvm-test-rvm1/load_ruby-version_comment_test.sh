@@ -12,7 +12,7 @@ PATH="$( echo $PATH | sed 's/^.*rvm[^:]*://' )" # env[PATH]!=/rvm/
 "$rvm_path/bin/rvm" alias create default 2.1.1  # status=0
 
 echo "2.0.0-p353" > .ruby-version
-echo "@test" > .ruby-gemset
+echo "test" > .ruby-gemset
 source "$rvm_path/scripts/rvm"
 # env[GEM_HOME]=/2.0.0-p353@test$/
 # env[PATH]=/2.0.0-p353@test/
