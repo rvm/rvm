@@ -1,32 +1,33 @@
 source "$rvm_path/scripts/rvm"
-rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
+rvm_scripts_path="$rvm_path/scripts" rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
 
 : test no error
-rvm use 1.9.3 --install   # status=0
+rvm use 2.1.1 --install   # status=0
 rvm version
 # match!=/is not at first place/
 # match!=/is not available/
 
 : test GEM_HOME second
-rvm use 1.9.3             # status=0
-GEM_HOME=$GEM_HOME@global
+rvm use 2.1.1             # status=0
+GEM_HOME=$GEM_HOME@global # env[GEM_HOME]=/2.1.1@global$/
 rvm version               # match=/is not at first place/
 
 : test GEM_HOME missing
-rvm use 1.9.3             # status=0
-GEM_HOME=$GEM_HOME@veve
+rvm use 2.1.1             # status=0
+rvm gemset delete veve
+GEM_HOME=$GEM_HOME@veve   # env[GEM_HOME]=/2.1.1@veve$/
 rvm version               # match=/is not available/
 
 : rvm-shell check
-rvm use 1.9.3             # status=0
+rvm use 2.1.1             # status=0
 GEM_HOME=$GEM_HOME@veve
-rvm-shell 1.9.3 -c 'true'
+rvm-shell 2.1.1 -c 'true'
 # match!=/is not at first place/
 # match!=/is not available/
 
 : test silencing
 export rvm_silence_path_mismatch_check_flag=1
-rvm use 1.9.3             # status=0
+rvm use 2.1.1             # status=0
 GEM_HOME=$GEM_HOME@veve
 rvm version
 # match!=/is not at first place/
@@ -40,7 +41,7 @@ rvm alias delete default
 true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-cd-rvmrc
 mkdir -p $d
-echo "rvm use 1.9.3@veve --create" >> $d/.rvmrc
+echo "rvm use 2.1.1@veve --create" >> $d/.rvmrc
 rvm rvmrc trust $d/.rvmrc
 
 : entering
@@ -57,7 +58,7 @@ cd ..
 
 : simulate 'rvm reload'
 cd
-rvm use 1.9.3@veve
+rvm use 2.1.1@veve
 # env[GEM_HOME]=/@veve$/
 # env[PATH]=/@veve/
 rvm_previous_environment="$(__rvm_env_string)"

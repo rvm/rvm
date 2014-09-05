@@ -1,12 +1,12 @@
 source "$rvm_path/scripts/rvm"
 source "$rvm_path/scripts/functions/rvmrc_project"
-rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
+rvm_scripts_path="$rvm_path/scripts" rvm_project_rvmrc=cd source "$rvm_path/scripts/cd"
 
 : prepare
 true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-ruby-env
 mkdir -p $d
-rvm use --install 1.9.3
+rvm use --install 2.1.1
 typeset -a __variables rvm_saved_env
 
 : simple file loading
@@ -72,7 +72,7 @@ __rvm_project_ruby_env_load $d/.env
 rvm_saved_env=()
 cd
 RAILS_ENV=""
-printf "1.9.3" > $d/.ruby-version
+printf "2.1.1" > $d/.ruby-version
 printf "RAILS_ENV=development" > $d/.ruby-env
 cd "$d"
 # env[RAILS_ENV]=/^development$/
@@ -86,7 +86,7 @@ rm $d/.ruby-version
 : cd + Gemfile
 cd
 RAILS_ENV="production"
-printf "\043ruby=1.9.3\n" > $d/Gemfile
+printf "\043ruby=2.1.1\n" > $d/Gemfile
 printf "\043ruby-env-RAILS_ENV=development\n" >> $d/Gemfile
 printf "gem 'rvm'\n" >> $d/Gemfile
 cd "$d"
@@ -101,7 +101,7 @@ rm $d/Gemfile
 : cd + .versions.conf
 cd
 RAILS_ENV="test"
-printf "ruby=1.9.3\n" > $d/.versions.conf
+printf "ruby=2.1.1\n" > $d/.versions.conf
 printf "env-RAILS_ENV=development\n" >> $d/.versions.conf
 cd "$d"
 # env[RAILS_ENV]=/^development$/

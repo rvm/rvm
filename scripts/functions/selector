@@ -131,15 +131,13 @@ __rvm_use_system() {
     (( ${rvm_default_flag:=0} == 1 ))
   then
     "$rvm_scripts_path/alias" delete default &> /dev/null
-    __rvm_find "${rvm_bin_path}" -maxdepth 0 -name 'default_*' -delete
+    __rvm_find "${rvm_bin_path}" -maxdepth 0 -name 'default_*' -exec rm '{}' \;
     \command \rm -f "$rvm_path/config/default"
     \command \rm -f "$rvm_environments_path/default"
     __rvm_rm_rf "$rvm_wrappers_path/default"
   fi
 
-  if (( ${rvm_verbose_flag:=0} == 1 ))
-  then rvm_log "Now using system ruby."
-  fi
+  rvm_verbose_log "Now using system ruby."
 
   __path_prefix=""
   __path_suffix="${rvm_bin_path}"
@@ -369,11 +367,14 @@ __rvm_ruby_string_find()
   else
     __rvm_ruby_string_autodetect
     if
-      [[ -z "${rvm_ruby_patch_level}" && -n "${rvm_ruby_version}" ]] &&
-      __rvm_version_compare "${rvm_ruby_version}" -lt 2.1.0 &&
-      (( ${rvm_head_flag:-0} == 0 ))
+      [[ "${rvm_ruby_interpreter}" == "ruby" &&
+        -n "${rvm_ruby_version}" &&
+        -z "${rvm_ruby_patch_level}" &&
+        ${rvm_head_flag:-0} -eq 0
+      ]] &&
+      __rvm_version_compare "${rvm_ruby_version}" -lt 2.1.0
     then
-      # no patchlevel, recheck latest, only bellow 2.1.0
+      # no patchlevel, recheck latest, only bellow 2.1.0 on mri
       __rvm_ruby_string_latest &&
       __rvm_ruby_string_parse_ ||
       return $?
