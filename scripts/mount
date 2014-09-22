@@ -489,7 +489,7 @@ make sure '${rvm_ruby_url}' is a valid binary ruby archive."
 external_import_validate_binary()
 {
   typeset IFS
-  typeset -a missing_libs
+  typeset -a found_libs missing_libs
   export _libdir
   _libdir="$( __rvm_ruby_config_get libdir "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" )"
 
@@ -509,26 +509,41 @@ external_import_validate_binary()
       ;;
   esac
 
-  missing_libs=( $(
-    case ${_system_type} in
-      (Linux|SunOS)
-        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}/${external_libdir}" -name '*.so' 2>/dev/null |
-          __rvm_xargs env LD_LIBRARY_PATH="${_libdir}" ldd 2>/dev/null |
+  missing_libs=()
+  case ${_system_type} in
+    (Linux|SunOS)
+      found_libs=( $(
+        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}/${external_libdir}" -name '*.so' 2>/dev/null
+      ) )
+      if
+        [[ -n "${found_libs[*]}" ]]
+      then
+        missing_libs=( $(
+          LD_LIBRARY_PATH="${_libdir}" ldd "${found_libs[@]}" 2>/dev/null |
           __rvm_awk '/not found/{print $1}' | sort -u
-        ;;
-      (Darwin)
-        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}/${external_libdir}" -name "*.bundle" 2>/dev/null |
-          __rvm_xargs env LD_LIBRARY_PATH="${_libdir}" otool -L 2>&1 |
+        ) )
+      fi
+      ;;
+    (Darwin)
+      found_libs=( $(
+        __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}/${external_libdir}" -name "*.bundle" 2>/dev/null
+      ) )
+      if
+        [[ -n "${found_libs[*]}" ]]
+      then
+        missing_libs=( $(
+          LD_LIBRARY_PATH="${_libdir}" otool -L "${found_libs[@]}" 2>&1 |
           __rvm_awk -F"[ :]" '{print $1}' |
           __rvm_sed 's#@executable_path#'"${rvm_rubies_path}/${rvm_ruby_string}"'/bin#' |
           __rvm_xargs ls -1 2>&1 1>/dev/null |
           __rvm_awk -F"[ :]" '{print $3}' | sort -u
-        ;;
-      (*)
-        rvm_warn "$(command uname) libraries validation not yet implemented" >&2
-        ;;
-    esac
-  ) )
+        ) )
+      fi
+      ;;
+    (*)
+      rvm_warn "$(command uname) libraries validation not yet implemented" >&2
+      ;;
+  esac
   unset _libdir
   [[ -z "${missing_libs[*]}" ]] || {
     IFS=","
