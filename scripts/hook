@@ -14,22 +14,34 @@ true rvm_verbose_flag:${rvm_verbose_flag:=${old_rvm_verbose_flag}} \
 if
   [[ -n "$rvm_hook" ]]
 then
-  hooks=( "$rvm_hooks_path")
-  [[ "$PWD/.rvm/hooks" == "$rvm_hooks_path" ]] ||
+  hooks=()
+  if
+    [[ -f "$rvm_hooks_path" ]]
+  then
+    hooks+=( "$rvm_hooks_path" )
+  fi
+  if
+    [[ "$PWD/.rvm/hooks" != "$rvm_hooks_path" && -f "$PWD/.rvm/hooks" ]]
+  then
     hooks+=( "$PWD/.rvm/hooks" )
+  fi
 
-  _hooks_list=($(
-    __rvm_find -L "${hooks[@]}" -iname "$rvm_hook*" -type f 2>/dev/null
-  ))
+  if
+    [[ -n "${hooks[*]}" ]]
+  then
+    _hooks_list=($(
+      __rvm_find -L "${hooks[@]}" -iname "$rvm_hook*" -type f 2>/dev/null || true
+    ))
 
-  for hook in "${_hooks_list[@]}"
-  do
-    if [[ -x "${hook}" || "${hook##*/}" == "$rvm_hook" ]]
-    then
-      rvm_debug "Running $hook"
-      __rvm_conditionally_do_with_env . "${hook}" >&2
-    fi
-  done
+    for hook in "${_hooks_list[@]}"
+    do
+      if [[ -x "${hook}" || "${hook##*/}" == "$rvm_hook" ]]
+      then
+        rvm_debug "Running $hook"
+        __rvm_conditionally_do_with_env . "${hook}" >&2
+      fi
+    done
+  fi
 fi
 
 unset rvm_hook hooks _hooks_list hook

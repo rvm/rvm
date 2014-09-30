@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Set RUBIES when sourced.
+RUBIES=($( ls -1d "$rvm_path/rubies"/* 2>/dev/null ))
+
 # Install rubies via rvm and reload RUBIES
 function mrvm()
 {

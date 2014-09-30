@@ -174,19 +174,19 @@ __variables_definition()
   )
 
   case "${__method}" in
-    (export) export -a "${__array_list[@]}" ;;
-    (unset)  unset     "${__array_list[@]}" ;;
+    (export) export -a "${__array_list[@]}" || true ;;
+    (unset)  unset     "${__array_list[@]}" || true ;;
     (*)
       rvm_error "Unknown action given to __variables_definition: ${__method}"
       return 1
       ;;
   esac
 
-  ${__method} "${__variables_list[@]}"
+  ${__method} "${__variables_list[@]}" || true
 
   # prevent errors with bash "set -a", see https://github.com/wayneeseguin/rvm/issues/2872
   if [[ -n "${BASH_VERSION:-}" ]]
-  then export -fn __rvm_select_version_variables __rvm_ruby_string_parse_ __rvm_rm_rf_verbose __rvm_parse_args 2>/dev/null
+  then export -fn __rvm_select_version_variables __rvm_ruby_string_parse_ __rvm_rm_rf_verbose __rvm_parse_args 2>/dev/null || true
   fi
 }
 
@@ -228,8 +228,7 @@ __rvm_setup()
 __rvm_teardown()
 {
   if builtin command -v __rvm_cleanup_tmp >/dev/null 2>&1
-  then
-    __rvm_cleanup_tmp
+  then __rvm_cleanup_tmp
   fi
 
   export __rvm_env_loaded
@@ -239,18 +238,18 @@ __rvm_teardown()
   : __rvm_env_loaded:${__rvm_env_loaded:=0}:
   # decrease load count counter
   : __rvm_env_loaded:$(( __rvm_env_loaded-=1 )):
+
   #skip teardown when already done or when not yet finished
   if [[ -z "${rvm_tmp_path:-}" ]] || (( __rvm_env_loaded > 0 ))
-  then
-    return 0
+  then return 0
   fi
 
   if [[ -n "${BASH_VERSION:-}" ]]
-  then
-    trap - 0 1 2 3 15 # Clear all traps, we do not want to go into an loop.
+  then trap - 0 1 2 3 15 # Clear all traps, we do not want to go into an loop.
   fi
 
-  if [[ -n "${ZSH_VERSION:-""}" ]]
+  if
+    [[ -n "${ZSH_VERSION:-""}" ]]
   then
     # If rvm_zsh_clobber is 0 then "setopt" contained "noclobber" before rvm performed "setopt clobber".
     (( rvm_zsh_clobber == 0 )) && setopt noclobber
@@ -260,10 +259,15 @@ __rvm_teardown()
     unset rvm_zsh_clobber rvm_zsh_nomatch
   fi
 
-  if [[ -n "${rvm_stored_umask:-}" ]]
+  if
+    [[ -n "${rvm_stored_umask:-}" ]]
   then
     umask ${rvm_stored_umask}
     unset rvm_stored_umask
+  fi
+
+  if builtin command -v __rvm_cleanup_download >/dev/null 2>&1
+  then __rvm_cleanup_download
   fi
 
   if [[ "${rvm_stored_errexit:-""}" == "1" ]]
@@ -271,11 +275,6 @@ __rvm_teardown()
   fi
 
   __variables_definition unset
-
-  if builtin command -v __rvm_cleanup_download >/dev/null 2>&1
-  then
-    __rvm_cleanup_download
-  fi
 
   return 0
 }
