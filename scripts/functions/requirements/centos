@@ -21,6 +21,11 @@ requirements_centos_version_list()
   rpm -q --whatprovides "$1" | sed -e "s#^$1-##"
 }
 
+requirements_centos_install_custom()
+{
+  requirements_rvm_pkg_libs_install "$@" || return $?
+}
+
 requirements_centos_libs_install()
 {
   __rvm_try_sudo yum install -y "$@" || return $?
@@ -44,6 +49,7 @@ or there was problem checking if libyaml-devel is available / installed."
 requirements_centos_update_system_check_epel()
 {
   [[ " ${packages_to_install[*]} " =~ " libyaml-devel " ]] || return 0
+  [[ "${_system_name} ${_system_version}" != "RedHat 7" ]] || return 0
   # if you change this, change the scripts/functions/pkg version too
   [[ -f /etc/yum.repos.d/epel.repo ]] ||
   requirements_centos_lib_installed libyaml-devel ||
@@ -113,9 +119,17 @@ requirements_centos_define()
       requirements_version_minimal autoconf 2.67
       ;;
     (*)
-      if [[ "${_system_name} ${_system_arch}" == "Mageia x86_64" ]]
-      then requirements_check lib64yaml-devel
-      else requirements_check libyaml-devel
+      if
+        [[ "${_system_name} ${_system_version}" == "RedHat 7" ]]
+      then
+        requirements_check pkg-config
+        requirements_rvm_pkg_lib_installed_custom yaml
+      elif
+        [[ "${_system_name} ${_system_arch}" == "Mageia x86_64" ]]
+      then
+        requirements_check lib64yaml-devel
+      else
+        requirements_check libyaml-devel
       fi
       if
         [[ "${_system_name_lowercase}" == "redhat" && ${_system_version:-0} -ge 6 ]] &&
@@ -137,6 +151,15 @@ Skipping installation of 'libffi-devel', in case you depend on FFI reinstall you
       requirements_check autoconf gcc-c++ glibc-devel patch readline readline-devel zlib zlib-devel openssl-devel make bzip2 automake libtool bison
       ;;
   esac
+}
+
+requirements_centos_after()
+{
+  if
+    [[ "${_system_name} ${_system_version}" == "RedHat 7" ]]
+  then
+    requirements_rvm_pkg_configure yaml
+  fi
 }
 
 requirements_fedora_before_update_cache()
