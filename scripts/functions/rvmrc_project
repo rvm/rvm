@@ -43,6 +43,7 @@ __rvm_project_rvmrc()
           {
             rvm_trustworthiness_result=$?
             PATH="${save_PATH}" # restore PATH if project file load failed
+            unset RVM_PROJECT_PATH
           }
         fi
         unset __rvm_project_rvmrc_lock
@@ -203,6 +204,16 @@ __rvm_load_project_config()
   fi
 }
 
+# Detect if project file is in given PATH,
+#
+# Usage:
+#   __rvm_project_dir_check <file_or_dir_to_check> [variable_name_to_set [default_value]]
+#
+# @param file_or_dir_to_check  file or directory to check if it's valid project file
+# @param variable_name_to_set  when project file is found - set this variable to it's location
+# @param default_value         when no project file found - set variable to this value
+# @return                      0 - found, >0 - not found
+# @env   RVM_PROJECT_PATH      unsets when not found, sets to project root when found
 __rvm_project_dir_check()
 {
   typeset _found_file path_to_check variable variable_default
@@ -236,7 +247,16 @@ __rvm_project_dir_check()
   then eval "$variable=\"\${_found_file:-$variable_default}\""
   fi
 
-  [[ -n "${_found_file:-$variable_default}" ]] || return $?
+  if
+    [[ -n "${_found_file:-$variable_default}" ]]
+  then
+    RVM_PROJECT_PATH="${_found_file:-$variable_default}"
+    RVM_PROJECT_PATH="${RVM_PROJECT_PATH}"
+  else
+    typeset __result=$?
+    unset RVM_PROJECT_PATH
+    return $__result
+  fi
 }
 
 __rvm_project_ruby_env_load_parse_file()
