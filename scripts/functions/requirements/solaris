@@ -1,17 +1,5 @@
 #!/usr/bin/env bash
 
-requirements_solaris_define()
-{
-  if
-    is_a_function requirements_solaris_${_system_version}_define
-  then
-    requirements_solaris_${_system_version}_define "$@" || return $?
-  else
-    rvm_error "Solaris ${_system_version} is not supported"
-    return 40
-  fi
-}
-
 requirements_solaris_lib_installed()
 {
   pkg info "$1" > /dev/null 2>&1 || return $?
@@ -46,7 +34,7 @@ requirements_solaris_update_system()
       return 0
       ;;
     (*)
-      __rvm_try_sudo pkg refresh && __rvm_try_sudo pkg update ||
+      __rvm_try_sudo pkg refresh ||
       {
         typeset ret=$?
         case $ret in
@@ -82,6 +70,49 @@ requirements_solaris_install_custom()
 {
   requirements_solaris_check_opencsw_enabled || requirements_solaris_enable_opencsw
   __rvm_try_sudo /opt/csw/bin/pkgutil -iy "$@" -t http://mirror.opencsw.org/opencsw/unstable || return $?
+}
+
+requirements_solaris_define()
+{
+  if
+    is_a_function requirements_solaris_${_system_version}_define
+  then
+    requirements_solaris_${_system_version}_define "$@" || return $?
+  else
+    rvm_error "Solaris ${_system_version} is not supported"
+    return 40
+  fi
+}
+
+requirements_solaris_11_update_after()
+{
+  __rvm_try_sudo pkg update "${packages_installed[@]}" ||
+  {
+    typeset ret=$?
+    case $ret in
+      (4) return 0 ;; # means nothing to install
+    esac
+    return $ret
+  }
+}
+
+requirements_solaris_after()
+{
+  case "${_system_version}" in
+    (10)
+      return 0
+      ;;
+    (*)
+      if
+        [[ -n "${packages_installed[*]}" ]]
+      then
+        rvm_requiremnts_fail_or_run_action 3 \
+          "Updating installed packages: ${packages_installed[*]}" \
+          requirements_solaris_11_update_after ||
+          return $?
+      fi
+      ;;
+  esac
 }
 
 requirements_solaris_10_define()
