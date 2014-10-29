@@ -25,7 +25,7 @@ rvm_install_initialize()
 }
 
 log()  { printf "%b\n" "$*"; }
-debug(){ [[ ${rvm_debug_flag:-0} -eq 0 ]] || printf "Running($#): $*"; }
+debug(){ [[ ${rvm_debug_flag:-0} -eq 0 ]] || printf "%b\n" "Running($#): $*"; }
 fail() { log "\nERROR: $*\n" ; exit 1 ; }
 
 rvm_install_commands_setup()
@@ -283,9 +283,10 @@ fetch_versions()
 
 install_release()
 {
-  typeset _source _sources _url _version
+  typeset _source _sources _url _version _verify_pgp
   _sources=(${!1})
   _version=$2
+  _verify_pgp=""
   debug "Downloading RVM version ${_version}"
   for _source in "${_sources[@]}"
   do
@@ -295,9 +296,10 @@ install_release()
         ;;
       (*)
         _url=https://${_source}/archive/${_version}.tar.gz
+        _verify_pgp=https://${_source}/releases/download/${_version}/${_version}.tar.gz.asc
         ;;
     esac
-    get_and_unpack ${_url} rvm-${_version}.tgz && return
+    get_and_unpack "${_url}" "rvm-${_version}.tgz" "$_verify_pgp" && return
   done
   return $?
 }
@@ -318,7 +320,7 @@ install_head()
         _url=https://${_source}/archive/${_branch}.tar.gz
         ;;
     esac
-    get_and_unpack ${_url} rvm-${_branch//\//_}.tgz && return
+    get_and_unpack "${_url}" "rvm-${_branch//\//_}.tgz" && return
   done
   return $?
 }
@@ -336,12 +338,11 @@ __rvm_cd()
   return $ret
 }
 
-get_and_unpack()
+get_package()
 {
-  typeset _url _file _patern _return
-  _url=$1
-  _file=$2
-
+  typeset _url _file
+  _url="$1"
+  _file="$2"
   log "Downloading ${_url}"
   __rvm_curl -sS ${_url} -o ${rvm_archives_path}/${_file} ||
   {
@@ -379,6 +380,71 @@ Could not download '${_url}'.
     esac
     return $_return
   }
+}
+
+rvm_install_gpg_setup()
+{
+  export rvm_gpg_command
+  rvm_gpg_command="$( \which gpg2 )"  ||
+    rvm_gpg_command="$( \which gpg )" ||
+    rvm_gpg_command=""
+  debug "Detected GPG program: '$rvm_gpg_command'"
+  [[ -n "$rvm_gpg_command" ]] || return $?
+}
+
+verify_package_pgp()
+{
+  if
+    ${rvm_gpg_command} --verify "$2" "$1"
+  then
+    log "GPG verified '$1'"
+  else
+    fail "GPG signature verification failed for '$1' - '$3'!
+try downloading the signatures:
+
+    gpg --keyserver hkp://keys.gnupg.net --recv-keys D39DC0E3 BF04FF17
+
+they can be compared with:
+
+    https://rvm.io/mpapis.asc
+    https://keybase.io/mpapis
+"
+  fi
+}
+
+verify_pgp()
+{
+  [[ -n "${1:-}" ]] ||
+  {
+    debug "No PGP url given, skipping."
+    return 0
+  }
+
+  get_package "$1" "$2.asc" ||
+  {
+    debug "PGP url given but does not exist: '$1'"
+    return 0
+  }
+
+  rvm_install_gpg_setup ||
+  {
+    log "Found PGP signature at: '$1',
+but no GPG software to exists to validate it, skipping."
+    return 0
+  }
+
+  verify_package_pgp "${rvm_archives_path}/$2" "${rvm_archives_path}/$2.asc" "$1" || return $?
+}
+
+get_and_unpack()
+{
+  typeset _url _file _patern _return _verify_pgp
+  _url="$1"
+  _file="$2"
+  _verify_pgp="$3"
+
+  get_package "$_url" "$_file" || return $?
+  verify_pgp "$_verify_pgp" "$_file" || return $?
 
   [[ -d "${rvm_src_path}/rvm" ]] || \mkdir -p "${rvm_src_path}/rvm"
   __rvm_cd "${rvm_src_path}/rvm" ||
@@ -597,14 +663,13 @@ rvm_install_parse_params()
         shift
         ;;
 
-      (head)
+      (head|master)
         version="head"
         branch="master"
         ;;
 
-      (stable|master)
-        version="head"
-        branch="$token"
+      (stable)
+        version="latest"
         ;;
 
       (latest|latest-*|+([[:digit:]]).+([[:digit:]]).+([[:digit:]]))
