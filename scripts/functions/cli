@@ -174,6 +174,94 @@ You can enable  auto-update  with:    echo rvm_autoupdate_flag=2 >> ~/.rvmrc
 "
 }
 
+# duplication marker flnglfdjkngjndkfjhsbdjgfghdsgfklgg
+rvm_install_gpg_setup()
+{
+  rvm_gpg_command="$( \which gpg2 )"  ||
+    rvm_gpg_command="$( \which gpg )" ||
+    rvm_gpg_command=""
+  rvm_debug "Detected GPG program: '$rvm_gpg_command'"
+  [[ -n "$rvm_gpg_command" ]] || return $?
+}
+
+# duplication marker rdjgndfnghdfnhgfdhbghdbfhgbfdhbn
+verify_package_pgp()
+{
+  if
+    ${rvm_gpg_command} --verify "$2" "$1"
+  then
+    rvm_log "GPG verified '$1'"
+  else
+    typeset _ret=$?
+    rvm_error "GPG signature verification failed for '$1' - '$3'!
+try downloading the signatures:
+
+    ${rvm_gpg_command##*/} --keyserver hkp://keys.gnupg.net --recv-keys D39DC0E3
+
+they can be compared with:
+
+    https://rvm.io/mpapis.asc
+    https://keybase.io/mpapis
+"
+    return _ret
+  fi
+}
+
+__rvm_cli_get_and_verify_pgp()
+{
+  typeset rvm_gpg_command
+  if
+    rvm_install_gpg_setup
+  then
+    pgp_signature_url="$( __rvm_curl -sSI https://get.rvm.io | \tr "\r" " " | __rvm_awk '/Location:/{print $2".asc"}' )"
+    rvm_log "Downloading $pgp_signature_url"
+    __rvm_curl -s "${pgp_signature_url}" -o "${rvm_archives_path}/rvm-installer.asc" ||
+      return $?
+    rvm_log "Verifying ${rvm_archives_path}/rvm-installer.asc"
+    verify_package_pgp "${rvm_archives_path}/rvm-installer" "${rvm_archives_path}/rvm-installer.asc" "$pgp_signature_url" ||
+      return $?
+  else
+    rvm_warn "No GPG software exists to validate rvm-installer, skipping."
+  fi
+}
+
+__rvm_cli_get_installer_cleanup()
+{
+  [[ -w "${rvm_archives_path}" ]] ||
+  {
+    rvm_error "Archives path '${rvm_archives_path}' not writable, aborting."
+    return 1
+  }
+  [[ ! -e "${rvm_archives_path}/rvm-installer" ]] ||
+  rm -f "${rvm_archives_path}/rvm-installer" ||
+  {
+    rvm_error "Previous installer '${rvm_archives_path}/rvm-installer' exists and can not be removed, aborting."
+    return 2
+  }
+}
+
+__rvm_cli_get_and_execute_installer()
+{
+  __rvm_cli_get_installer_cleanup || return $?
+
+  rvm_log "Downloading https://get.rvm.io"
+  __rvm_curl -s https://get.rvm.io -o "${rvm_archives_path}/rvm-installer" ||
+  {
+    typeset _ret=$?
+    rvm_error "Could not download rvm-installer, get some help at #rvm IRC channel at freenode servers."
+    return ${_ret}
+  }
+
+  __rvm_cli_get_and_verify_pgp || return $?
+
+  bash "${rvm_archives_path}/rvm-installer" "$@" ||
+  {
+    typeset _ret=$?
+    rvm_error "Could not update RVM, get some help at #rvm IRC channel at freenode servers."
+    return ${_ret}
+  }
+}
+
 __rvm_cli_rvm_get()
 {
   case "$1" in
@@ -186,13 +274,7 @@ if your intention was ruby installation use instead: rvm install $1
   esac
   case "$1" in
     (stable|master|head|branch|latest|latest-*|[0-9]*.[0-9]*.[0-9]*)
-      printf "%b" "Downloading https://get.rvm.io\n"
-      __rvm_curl -s https://get.rvm.io | bash -s -- "$@" ||
-      {
-        typeset _ret=$?
-        rvm_error "Could not update RVM, get some help at #rvm IRC channel at freenode servers."
-        return ${_ret}
-      }
+      __rvm_cli_get_and_execute_installer || return $?
 
       typeset -x rvm_hook
       rvm_hook="after_update"
