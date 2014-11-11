@@ -286,17 +286,17 @@ install_release()
   typeset _source _sources _url _version _verify_pgp
   _sources=(${!1})
   _version=$2
-  _verify_pgp=""
   debug "Downloading RVM version ${_version}"
   for _source in "${_sources[@]}"
   do
     case ${_source} in
       (bitbucket.org*)
-        _url=https://${_source}/get/${_version}.tar.gz
+        _url="https://${_source}/get/${_version}.tar.gz"
+        _verify_pgp="https://${_source}/downloads/${_version}.tar.gz.asc"
         ;;
       (*)
-        _url=https://${_source}/archive/${_version}.tar.gz
-        _verify_pgp=https://${_source}/releases/download/${_version}/${_version}.tar.gz.asc
+        _url="https://${_source}/archive/${_version}.tar.gz"
+        _verify_pgp="https://${_source}/releases/download/${_version}/${_version}.tar.gz.asc"
         ;;
     esac
     get_and_unpack "${_url}" "rvm-${_version}.tgz" "$_verify_pgp" && return
@@ -402,17 +402,27 @@ verify_package_pgp()
     log "GPG verified '$1'"
   else
     typeset _ret=$?
-    log "GPG signature verification failed for '$1' - '$3'!
+    log "\
+Warning, RVM 1.26.0 introduces signed releases and \
+automated check of signatures when GPG software found.
+Assuming you trust Michal Papis import the mpapis public \
+key (downloading the signatures).
+
+GPG signature verification failed for '$1' - '$3'!
 try downloading the signatures:
 
-    ${rvm_gpg_command##*/} --keyserver hkp://keys.gnupg.net --recv-keys D39DC0E3
+    ${SUDO_USER:+sudo }${rvm_gpg_command##*/} --keyserver hkp://keys.gnupg.net --recv-keys D39DC0E3
 
-they can be compared with:
+or if it fails:
+
+    command curl -sSL https://rvm.io/mpapis.asc | ${SUDO_USER:+sudo }${rvm_gpg_command##*/} --import -
+
+the key can be compared with:
 
     https://rvm.io/mpapis.asc
     https://keybase.io/mpapis
 "
-    return _ret
+    exit $_ret
   fi
 }
 
@@ -437,7 +447,7 @@ but no GPG software exists to validate it, skipping."
     return 0
   }
 
-  verify_package_pgp "${rvm_archives_path}/$2" "${rvm_archives_path}/$2.asc" "$1" || return $?
+  verify_package_pgp "${rvm_archives_path}/$2" "${rvm_archives_path}/$2.asc" "$1"
 }
 
 get_and_unpack()
@@ -769,35 +779,34 @@ follow this link for details how to fix:
 
 rvm_install_select_and_get_version()
 {
+  typeset _version_release
+
   for dir in "$rvm_src_path" "$rvm_archives_path"
   do
     [[ -d "$dir" ]] || mkdir -p "$dir"
   done
 
+  _version_release="${version}"
   case "${version}" in
     (head)
-      echo "${branch}" > "$rvm_path/RELEASE"
+      _version_release="${branch}"
       install_head sources[@] ${branch:-master} || exit $?
       ;;
 
     (latest)
-      echo "${version}" > "$rvm_path/RELEASE"
       install_release sources[@] $(fetch_version sources[@]) || exit $?
       ;;
 
     (latest-minor)
-      echo "${version}" > "$rvm_path/RELEASE"
       version="$(\cat "$rvm_path/VERSION")"
       install_release sources[@] $(fetch_version sources[@] ${version%.*}) || exit $?
       ;;
 
     (latest-*)
-      echo "${version}" > "$rvm_path/RELEASE"
       install_release sources[@] $(fetch_version sources[@] ${version#latest-}) || exit $?
       ;;
 
     (+([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
-      echo "version" > "$rvm_path/RELEASE"
       install_release sources[@] ${version} || exit $?
       ;;
 
@@ -805,6 +814,7 @@ rvm_install_select_and_get_version()
       fail "Something went wrong, unrecognized version '$version'"
       ;;
   esac
+  echo "${_version_release}" > "$rvm_path/RELEASE"
 }
 
 rvm_install_main()

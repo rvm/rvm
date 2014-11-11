@@ -351,7 +351,7 @@ external_import_configure()
   fi
 
   rvm_ruby_url="$1"
-  rvm_ruby_string="${2:-${rvm_ruby_url}}"
+  rvm_ruby_string="${2:-${rvm_ruby_name:-${rvm_ruby_url}}}"
 
   [[ -r "${rvm_ruby_url}" ]] ||
   case "${rvm_ruby_url}" in
@@ -429,7 +429,8 @@ external_import_validate_archive()
   typeset short_ruby_string
 
   __rvm_read_lines path_to_bin_ruby <(
-    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | __rvm_grep "bin/ruby$"
+    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | __rvm_grep "bin/ruby$" ||
+    __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | __rvm_grep "bin/jruby$"
   )
   __rvm_read_lines downloaded_names <(
     __rvm_package_list "$rvm_archives_path/${rvm_ruby_package_file}" | __rvm_awk -F/ '{print $1}' | sort -u
@@ -441,6 +442,7 @@ external_import_validate_archive()
   then
     __path_to_extract="${path_to_bin_ruby[*]}"
     __path_to_extract="${__path_to_extract%bin/ruby}"
+    __path_to_extract="${__path_to_extract%bin/jruby}"
   elif
     [[ "${short_ruby_string}" == "${downloaded_names[*]}" ]]
   then
@@ -512,9 +514,13 @@ external_import_validate_binary()
   esac
 
   missing_libs=()
+  found_libs=()
+  if [[ -x "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" ]]
+  then found_libs+=( "${rvm_rubies_path}/${rvm_ruby_string}/bin/ruby" )
+  fi
   case ${_system_type} in
     (Linux|SunOS)
-      found_libs=( $(
+      found_libs+=( $(
         __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}/${external_libdir}" -name '*.so' 2>/dev/null
       ) )
       if
@@ -527,7 +533,7 @@ external_import_validate_binary()
       fi
       ;;
     (Darwin)
-      found_libs=( $(
+      found_libs+=( $(
         __rvm_find "${rvm_rubies_path}/${rvm_ruby_string}/${external_libdir}" -name "*.bundle" 2>/dev/null
       ) )
       if
