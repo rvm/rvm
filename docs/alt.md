@@ -2,10 +2,11 @@
 
 Other implementations allowing to switch ruby environment:
 
+- https://github.com/postmodern/chruby
+- https://github.com/TomFreudenberg/rvm-mini
 - https://github.com/vertiginous/pik (Windows)
 - https://github.com/kwatch/versionswitcher
 - https://github.com/wilmoore/ruby-version
-- https://github.com/postmodern/chruby
 - https://bitbucket.org/jonforums/uru
 - https://github.com/sam/rb-switch
 - https://github.com/jayferd/ry
@@ -22,7 +23,6 @@ Other implementations allowing to switch ruby environment:
 - http://zentest.rubyforge.org/ZenTest/Multiruby.html (Ruby)
 - http://www.dribin.org/dave/blog/archives/2006/01/07/rails_encap/ (Tutorial)
 - http://www.mjwall.com/2008/08/multiple-versions-of-ruby-with-stow/ (Tutorial)
-- https://github.com/TomFreudenberg/rvm-mini
 
 
 # RVM is not the only Ruby Version Manager
@@ -31,12 +31,13 @@ Other implementations allowing to install ruby versions:
 
 - you can use your system to install ruby,
   most distributions come with ruby 1.8 already installed
+- https://github.com/postmodern/ruby-install
+- https://github.com/TomFreudenberg/rvm-mini
 - https://github.com/vertiginous/pik (Windows)
 - https://github.com/kwatch/versionswitcher
 - https://github.com/jayferd/ry
 - https://github.com/sstephenson/ruby-build
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
-- https://github.com/TomFreudenberg/rvm-mini
 
 
 # RVM IDE support
