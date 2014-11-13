@@ -22,6 +22,8 @@ Other implementations allowing to switch ruby environment:
 - http://zentest.rubyforge.org/ZenTest/Multiruby.html (Ruby)
 - http://www.dribin.org/dave/blog/archives/2006/01/07/rails_encap/ (Tutorial)
 - http://www.mjwall.com/2008/08/multiple-versions-of-ruby-with-stow/ (Tutorial)
+- https://github.com/TomFreudenberg/rvm-mini
+
 
 # RVM is not the only Ruby Version Manager
 
@@ -34,6 +36,7 @@ Other implementations allowing to install ruby versions:
 - https://github.com/jayferd/ry
 - https://github.com/sstephenson/ruby-build
 - https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
+- https://github.com/TomFreudenberg/rvm-mini
 
 
 # RVM IDE support
