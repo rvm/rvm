@@ -343,7 +343,7 @@ external_propose_name()
 
 external_import_configure()
 {
-  typeset platform architecture libc
+  typeset platform architecture libc __flags
 
   if (( ${rvm_install_flag:-0} > 0 ))
   then err_command=rvm_warn
@@ -354,26 +354,42 @@ external_import_configure()
   rvm_ruby_string="${2:-${rvm_ruby_name:-${rvm_ruby_url}}}"
   rvm_ruby_package_file=""
 
-  [[ -r "${rvm_ruby_url}" ]] ||
-  case "${rvm_ruby_url}" in
-    (http*)
+  # autodetect skips assignment of package name from URL
+  __flags="$*"
+
+  if
+    [[ -r "${rvm_ruby_url}" ]]
+  then
+    if
+      [[ "${__flags}" != *"autodetect"* ]]
+    then
       rvm_ruby_package_file="${rvm_ruby_url##*/}"
-      # lets hope nobody uses the same file name with ?version=...
-      rvm_ruby_package_file="${rvm_ruby_package_file%%\?*}"
-      ;;
-    (*)
-      __rvm_ruby_string
-      typeset __rvm_ruby_verify_download_flag
-      rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}" )"
-      IFS=: read __rvm_ruby_verify_download_flag rvm_ruby_url <<<"$rvm_ruby_url"
-      rvm_log "Found remote file ${rvm_ruby_url}"
-      if
-        (( ${__rvm_ruby_verify_download_flag:-0} > ${rvm_verify_downloads_flag_cli:-${rvm_verify_downloads_flag:-1}} ))
-      then
-        rvm_verify_downloads_flag=${__rvm_ruby_verify_download_flag}
-      fi
-      ;;
-  esac
+    fi
+  else
+    case "${rvm_ruby_url}" in
+      (http*)
+        if
+          [[ "${__flags}" != *"autodetect"* ]]
+        then
+          rvm_ruby_package_file="${rvm_ruby_url##*/}"
+          # lets hope nobody uses the same file name with ?version=...
+          rvm_ruby_package_file="${rvm_ruby_package_file%%\?*}"
+        fi
+        ;;
+      (*)
+        __rvm_ruby_string
+        typeset __rvm_ruby_verify_download_flag
+        rvm_ruby_url="$( __rvm_remote_server_path "${rvm_ruby_string}" )"
+        IFS=: read __rvm_ruby_verify_download_flag rvm_ruby_url <<<"$rvm_ruby_url"
+        rvm_log "Found remote file ${rvm_ruby_url}"
+        if
+          (( ${__rvm_ruby_verify_download_flag:-0} > ${rvm_verify_downloads_flag_cli:-${rvm_verify_downloads_flag:-1}} ))
+        then
+          rvm_verify_downloads_flag=${__rvm_ruby_verify_download_flag}
+        fi
+        ;;
+    esac
+  fi
 
   rvm_ruby_string="${rvm_ruby_string##*/}"
   rvm_ruby_string="${rvm_ruby_string/bin-/}"
