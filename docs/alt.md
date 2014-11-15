@@ -31,6 +31,7 @@ Other implementations allowing to install ruby versions:
 - https://github.com/TomFreudenberg/rvm-mini (Shell)
 - https://github.com/vertiginous/pik (Windows)
 - https://github.com/kwatch/versionswitcher (Python)
+- https://github.com/jayferd/ry (Shell)
 - https://github.com/sstephenson/ruby-build (Shell)
 - https://github.com/uninets/p5-Ruby-VersionManager (Perl)
 
