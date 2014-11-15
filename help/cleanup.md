@@ -1,6 +1,6 @@
 ## Usage:
 
-    rvm cleanup {all,archives,repos,sources,logs,gemsets,links}
+    rvm cleanup {all,archives,checksums,repos,sources,logs,gemsets,links}
 
 ## Description:
 
