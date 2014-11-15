@@ -2,26 +2,24 @@
 
 Other implementations allowing to switch ruby environment:
 
+- https://github.com/postmodern/chruby (Shell)
+- https://github.com/TomFreudenberg/rvm-mini (Shell)
 - https://github.com/vertiginous/pik (Windows)
-- https://github.com/kwatch/versionswitcher
-- https://github.com/wilmoore/ruby-version
-- https://github.com/postmodern/chruby
-- https://bitbucket.org/jonforums/uru
-- https://github.com/sam/rb-switch
-- https://github.com/jayferd/ry
+- https://github.com/kwatch/versionswitcher (Python)
+- https://bitbucket.org/jonforums/uru (Go)
+- https://github.com/jayferd/ry (Shell)
 - https://github.com/terlar/fry (Fish)
-- https://github.com/niw/rubies
-- https://github.com/hmans/rbfu (deprecated http://redd.it/196qri)
-- https://github.com/nmeum/rbi
-- https://github.com/brixen/mkruby
-- https://github.com/nkryptic/sandbox
-- https://github.com/regularfry/gemenv
-- https://github.com/sstephenson/rbenv
-- https://github.com/cpetschnig/switch-ruby
-- https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
-- http://zentest.rubyforge.org/ZenTest/Multiruby.html (Ruby)
+- https://github.com/niw/rubies (Shell)
+- https://github.com/nkryptic/sandbox (Ruby)
+- https://github.com/regularfry/gemenv (Ruby)
+- https://github.com/sstephenson/rbenv (Shell)
+- https://github.com/cpetschnig/switch-ruby (Ruby)
+- https://github.com/uninets/p5-Ruby-VersionManager (Perl)
+- https://github.com/seattlerb/zentest (Ruby)
 - http://www.dribin.org/dave/blog/archives/2006/01/07/rails_encap/ (Tutorial)
 - http://www.mjwall.com/2008/08/multiple-versions-of-ruby-with-stow/ (Tutorial)
+- https://github.com/hmans/rbfu (Deprecated)
+- https://github.com/wilmoore/ruby-version (Deprecated)
 
 # RVM is not the only Ruby Version Manager
 
@@ -29,12 +27,13 @@ Other implementations allowing to install ruby versions:
 
 - you can use your system to install ruby,
   most distributions come with ruby 1.8 already installed
+- https://github.com/postmodern/ruby-install (Shell)
+- https://github.com/TomFreudenberg/rvm-mini (Shell)
 - https://github.com/vertiginous/pik (Windows)
-- https://github.com/kwatch/versionswitcher
-- https://github.com/jayferd/ry
-- https://github.com/sstephenson/ruby-build
-- https://github.com/mugenken/p5-Ruby-VersionManager (Perl!)
-
+- https://github.com/kwatch/versionswitcher (Python)
+- https://github.com/jayferd/ry (Shell)
+- https://github.com/sstephenson/ruby-build (Shell)
+- https://github.com/uninets/p5-Ruby-VersionManager (Perl)
 
 # RVM IDE support
 

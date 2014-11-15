@@ -21,6 +21,17 @@ remove_or_log()
   }
 }
 
+empty_or_log()
+{
+  rvm_verbose_log " - emptying - $1"
+  chmod_unless_link "$1" &&
+  echo "" > "$1" ||
+  {
+    : $(( failed_counter+=1 ))
+    rvm_error " - failed emptying $1 - please check ownership and permissions"
+  }
+}
+
 cleanup_single()
 {
   typeset current_path entry
@@ -37,6 +48,12 @@ cleanup_single()
       remove_or_log "$entry"
     done
   fi
+}
+
+cleanup_checksums()
+{
+  empty_or_log "${rvm_user_path:-${rvm_path}/user}/md5"
+  empty_or_log "${rvm_user_path:-${rvm_path}/user}/sha512"
 }
 
 cleanup_gemsets()
@@ -111,7 +128,11 @@ cleanup()
   do
     rvm_log "Cleaning up rvm $1"
     case "$1" in
-      (gemsets|links)
+      (archives)
+        cleanup_checksums
+        cleanup_single $1
+        ;;
+      (checksums|gemsets|links)
         cleanup_$1
         ;;
       (logs)
@@ -130,7 +151,7 @@ cleanup()
 
 failed_counter=0
 case "$1" in
-  archives|repos|sources|tmp|gemsets|logs|links)
+  archives|checksums|repos|sources|tmp|gemsets|logs|links)
     cleanup "$1"
     ;;
   all)
