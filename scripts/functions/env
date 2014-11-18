@@ -91,8 +91,14 @@ __rvm_export()
 __rvm_unset_exports()
 {
   typeset wrap_name name value
-  while IFS== read -d "" wrap_name value
+  typeset -a __variables_list
+  __rvm_read_lines __variables_list <<<"$(
+    printenv | __rvm_sed '/=/ { s/=.*$//; p; }; d;'
+  )"
+
+  for wrap_name in "${__variables_list[@]}"
   do
+    eval "value=\"\${${wrap_name}}\""
     case "$wrap_name" in
       rvm_old_*)
         name=${wrap_name#rvm_old_}
@@ -103,7 +109,7 @@ __rvm_unset_exports()
         unset $wrap_name
         ;;
     esac
-  done < <(printenv_null)
+  done
 }
 
 __rvm_fix_path_from_gem_path()
@@ -210,26 +216,26 @@ __rvm_unload()
   fi
 
   # aliases
-  __rvm_unload_action unalias  <(
+  __rvm_unload_action unalias <<<"$(
     if [[ -n "${ZSH_VERSION:-}" ]]
     then alias | __rvm_awk -F"=" '/rvm/ {print $1}'
     else alias | __rvm_awk -F"[= ]" '/rvm/ {print $2}'
     fi
-  )
+  )"
 
   # variables
-  __rvm_unload_action unset <(
+  __rvm_unload_action unset <<<"$(
     set |
       __rvm_awk -F"=" 'BEGIN{v=0;} /^[a-zA-Z_][a-zA-Z0-9_]*=/{v=1;} v==1&&$2~/^['\''\$]/{v=2;}
         v==1&&$2~/^\(/{v=3;} v==2&&/'\''$/&&!/'\'\''$/{v=1;} v==3&&/\)$/{v=1;} v{print;} v==1{v=0;}' |
       __rvm_awk -F"=" '/^[^ ]*(RUBY|GEM|IRB|gem|rubies|rvm)[^ ]*=/ {print $1} /^[^ ]*=.*rvm/ {print $1}' |
       __rvm_grep -vE "^PROMPT|^prompt|^PS|^BASH_SOURCE"
-  )
+  )"
 
   # functions
-  __rvm_unload_action __function_unset <(
+  __rvm_unload_action __function_unset <<<"$(
     typeset -f | __rvm_awk '$2=="()" {fun=$1} /rvm/{print fun}' | sort -u | __rvm_grep -v __rvm_unload_action
-  )
+  )"
   if
     [[ -n "${ZSH_VERSION:-}" ]]
   then
@@ -268,11 +274,11 @@ __rvm_env_print()
   environment_file_path="$rvm_environments_path/$(__rvm_env_string)"
   # Echo the path or environment file.
   if
-    [[ "$rvm_path_flag" == "1" || "$*" =~ "--path" ]]
+    [[ "$rvm_path_flag" == "1" || "$*" == *"--path"* ]]
   then
     echo "$environment_file_path"
   elif
-    [[ "$rvm_cron_flag" == "1" || "$*" =~ "--cron" ]]
+    [[ "$rvm_cron_flag" == "1" || "$*" == *"--cron"* ]]
   then
     \command \cat "$environment_file_path" |
       __rvm_grep -Eo "[^ ]+=[^;]+" |
