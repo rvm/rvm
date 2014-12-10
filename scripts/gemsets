@@ -28,21 +28,16 @@ gemset_list_strings()
 gemset_update()
 {
 
-  if [[ -z "$rvm_ruby_strings" ]]
+  if
+    [[ -z "$rvm_ruby_strings" ]]
   then
     rvm_log "Running gem update for all rubies and gemsets."
-    rvm_ruby_strings="$(
-      __rvm_cd "${rvm_gems_path:-"$rvm_path/gems"}" ;
-      __rvm_find . -maxdepth 1 -mindepth 1 -type d -print 2>/dev/null |
-        __rvm_grep -v '^\(doc\|cache\|@\|system\)' | \command \tr '\n' ','
-    )"
-    rvm_ruby_strings="${rvm_ruby_strings/%,}"
-    rvm_ruby_strings="${rvm_ruby_strings//.\/}"
   else
     rvm_log "Running gem update for the specified rubies."
   fi
-  export rvm_ruby_strings
-  "$rvm_scripts_path/set" gem update
+  export rvm_ruby_strings="${rvm_ruby_strings:-all-gemsets}"
+  export rvm_verbose_flag=1
+  "$rvm_scripts_path/set" do gem update
   return $?
 }
 
@@ -255,9 +250,6 @@ gemset_delete()
 gemset_empty()
 {
   typeset gemdir entry
-  if [[ -z "${rvm_ruby_gem_home:-""}" ]]
-  then __rvm_use
-  fi
   if
     [[ -n "${GEM_HOME}" ]]
   then
@@ -655,12 +647,16 @@ case "$action" in
   export|dump)
     gemset_export "$@"
     ;;
+  empty)
+    __rvm_use "${1:+@}${1:-${GEM_HOME##*/}}"
+    gemset_$action "$@"
+    ;;
   create|initial|list)
     __rvm_select
     rvm_gemset_name="${rvm_gemset_name:-${rvm_expected_gemset_name:-}}"
     gemset_$action "$@"
     ;;
-  copy|delete|dir|empty|globalcache|list_all|list_strings|pristine|prune|rename|update|unpack|reset_env)
+  copy|delete|dir|globalcache|list_all|list_strings|pristine|prune|rename|update|unpack|reset_env)
     gemset_$action "$@"
     ;;
   name|string)
