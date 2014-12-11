@@ -62,6 +62,7 @@ upload_bitbucket()
 
 back_to_rvm_master()
 {
+  echo -e "\n------------"
   cd "$rvm_project_path"
   git checkout master
 }
