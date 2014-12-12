@@ -132,18 +132,19 @@ __rvm_array_prepend_or_ignore()
 
 __rvm_setup_statf_function()
 {
-  case ${_system_type} in
-    (Darwin|BSD)
-      __rvm_statf(){
-        __rvm_stat -f "$@"
-      }
-      ;;
-    (*)
-      __rvm_statf(){
-        __rvm_stat -c "$@"
-      }
-      ;;
-  case
+  if
+    [[ "${_system_type}" == Darwin || "${_system_type}" == BSD ]]
+  then
+    __rvm_statf()
+    {
+      __rvm_stat -f "$2" "$3"
+    }
+  else
+    __rvm_statf()
+    {
+      __rvm_stat -c "$1" "$3"
+    }
+  fi
 }
 
 __rvm_setup_statf_function || return $?
@@ -164,7 +165,7 @@ __rvm_sed_i()
   if [[ -x "${_filename}" ]]
   then _executable=true
   fi
-  _user="$( __rvm_statf "%u:%g" "${_filename}" )"
+  _user="$( __rvm_statf "%u:%g" "%u:%g" "${_filename}" )"
 
   {
     __rvm_sed "$@" < "${_filename}" > "${_filename}.new" &&
@@ -174,7 +175,7 @@ __rvm_sed_i()
   if [[ -n "${_executable:-}" && ! -x "${_filename}" ]]
   then chmod +x "${_filename}"
   fi
-  if [[ "$_user" != "$( __rvm_statf "%u" "${_filename}" )" ]]
+  if [[ "$_user" != "$( __rvm_statf "%u:%g" "%u:%g" "${_filename}" )" ]]
   then chown "$_user" "${_filename}"
   fi
 }
