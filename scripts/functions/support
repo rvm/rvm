@@ -130,11 +130,30 @@ __rvm_array_prepend_or_ignore()
   esac
 }
 
+__rvm_setup_statf_function()
+{
+  case ${_system_type} in
+    (Darwin|BSD)
+      __rvm_statf(){
+        __rvm_stat -f "$@"
+      }
+      ;;
+    (*)
+      __rvm_statf(){
+        __rvm_stat -c "$@"
+      }
+      ;;
+  case
+}
+
+__rvm_setup_statf_function || return $?
+
+
 # Drop in replacement for sed -i compatible with OpenBSD
 # Assumes that filename is the first argument, all others are passed onto sed
 __rvm_sed_i()
 {
-  typeset _filename _executable
+  typeset _filename _executable _user
   [[ -n "${1:-}" ]] || {
     rvm_debug "no file given for __rvm_sed_i"
     return 0
@@ -145,6 +164,7 @@ __rvm_sed_i()
   if [[ -x "${_filename}" ]]
   then _executable=true
   fi
+  _user="$( __rvm_statf "%u:%g" "${_filename}" )"
 
   {
     __rvm_sed "$@" < "${_filename}" > "${_filename}.new" &&
@@ -153,6 +173,9 @@ __rvm_sed_i()
 
   if [[ -n "${_executable:-}" && ! -x "${_filename}" ]]
   then chmod +x "${_filename}"
+  fi
+  if [[ "$_user" != "$( __rvm_statf "%u" "${_filename}" )" ]]
+  then chown "$_user" "${_filename}"
   fi
 }
 
