@@ -33,8 +33,8 @@ requirements_centos_libs_install()
 
 requirements_centos_before_check_yaml_missing_error()
 {
-  rvm_error "There is no 'libyaml-devel' package available for installation and RVM does not know how to make that happen,
-please tell us how to install 'libyaml-devel' on '${_system_name}-${_system_version}' here: https://github.com/wayneeseguin/rvm/issues"
+  rvm_error "There is no '$*' package available for installation and RVM does not know how to make that happen,
+please tell us how to install '$*' on '${_system_name}-${_system_version}' here: https://github.com/wayneeseguin/rvm/issues"
   return 49
 }
 
@@ -47,7 +47,7 @@ requirements_centos_before_check_rhn_channel()
       awk '/^rhel-'"${_system_arch}"'-(server|client|workstation)-[0-9]+$/{print gensub(/(-[0-9]+)$/, "-optional\\1", "g")}'
     )"
     rvm_requiremnts_fail_or_run_action 2 \
-      "It is not possible to enable optional repository for YAML, enable it using: rhn-channel -a -c ${__package_name}" \
+      "It is not possible to enable optional repository for $*, enable it using: rhn-channel -a -c ${__package_name}" \
       __rvm_log_command rhn_channel_enable_optional "Enabling optional repository" \
       __rvm_try_sudo rhn-channel -a -c "${__package_name}" ||
       return $?
@@ -71,6 +71,7 @@ or there was problem checking if libyaml-devel is available / installed."
 
 requirements_centos_before_check_epel()
 {
+  [[ " $* " == *" libyaml-devel "* ]] || return 0
   # if you change this, change the scripts/functions/pkg version too
   [[ -f /etc/yum.repos.d/epel.repo ]] ||
   {
@@ -80,7 +81,7 @@ requirements_centos_before_check_epel()
     if
       [[ -z "$epel_rpm" || -z "$epel_key" ]]
     then
-      requirements_centos_before_check_yaml_missing_error || return $?
+      requirements_centos_before_check_yaml_missing_error libyaml-devel || return $?
     fi
     rvm_requiremnts_fail_or_run_action 2 \
       "It is not possible to install EPEL repository for YAML, install it using: $epel_rpm" \
@@ -91,22 +92,28 @@ requirements_centos_before_check_epel()
 
 requirements_centos_before_check_yaml()
 {
-  [[ " ${packages_to_install[*]} " == *" libyaml-devel "* ]] || return 0
-  if
-    requirements_centos_lib_installed libyaml-devel ||
-    requirements_centos_lib_available_no_caching libyaml-devel
-  then
-    return 0
-  fi
+  typeset -a __missing_packages
+  typeset __package_name
+  for __package_name in libyaml-devel libffi-devel
+  do
+    if
+      [[ " ${packages_to_install[*]} " == *" ${__package_name} "* ]] &&
+      ! requirements_centos_lib_installed "${__package_name}" &&
+      ! requirements_centos_lib_available_no_caching "${__package_name}"
+    then
+      __missing_packages+=( "${__package_name}" )
+    fi
+  done
+  [[ ${#__missing_packages[*]} -eq 0 ]] ||
   case "${_system_name_lowercase}" in
     (redhat)
-      requirements_centos_before_check_rhn_channel || return $?
+      requirements_centos_before_check_rhn_channel "${__missing_packages[@]}" || return $?
       ;;
     (centos)
-      requirements_centos_before_check_epel || return $?
+      requirements_centos_before_check_epel "${__missing_packages[@]}" || return $?
       ;;
     (*)
-      requirements_centos_before_check_yaml_missing_error || return $?
+      requirements_centos_before_check_yaml_missing_error "${__missing_packages[@]}" || return $?
       ;;
   esac
 }
