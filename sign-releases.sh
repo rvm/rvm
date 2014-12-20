@@ -52,7 +52,7 @@ remove_extra_files()
 
 upload_github()
 {
-  echo "Upload ${last_release}.tar.gz.asc to: https://github.com/wayneeseguin/rvm/releases/new?tag=1.26.4"
+  echo "Upload ${last_release}.tar.gz.asc to: https://github.com/wayneeseguin/rvm/releases/new?tag=${last_release}"
 }
 
 upload_bitbucket()
