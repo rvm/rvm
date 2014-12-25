@@ -130,21 +130,36 @@ if
 then
   download_the_url ||
   {
-    typeset __fallback __default_ruby_url __iterator result=$?
+    typeset __fallback __default_url __default __iterator result=$?
     typeset -a __fallbacks
     __fallbacks=()
-    __default_ruby_url="$(__rvm_db ruby_url)"
+    for __default in ruby rubygems
+    do
+      __default_url="$(__rvm_db ${__default}_url)"
+      if
+        [[ "${url}" == "${__default_url}"* ]]
+      then
+        __iterator=1
+        while
+          __fallback="$(__rvm_db ${__default}_url_fallback_${__iterator})" &&
+          [[ -n "${__fallback}" ]]
+        do
+          __fallback_patern="$(__rvm_db ${__default}_url_fallback_${__iterator}_pattern)"
+          if
+            [[ -n "${__fallback_patern}" ]]
+          then
+            __fallbacks+=( "$(__rvm_sed -E "s#${__fallback_patern}#${__fallback}#" <<<"${url}")" )
+          else
+            __fallbacks+=( "${url/${__default_url}/${__fallback}}" )
+          fi
+          : $(( __iterator+=1 ))
+        done
+      fi
+    done
     if
-      [[ "${url}" == "${__default_ruby_url}"* ]]
+      [[ -n "${__fallbacks[*]}" ]] # already detected something
     then
-      __iterator=1
-      while
-        __fallback="$(__rvm_db ruby_url_fallback_${__iterator})" &&
-        [[ -n "${__fallback}" ]]
-      do
-        __fallbacks+=( "${url/${__default_ruby_url}/${__fallback}}" )
-        : $(( __iterator+=1 ))
-      done
+      true
     elif
       [[ "${url}" == "http://"* ]]
     then
