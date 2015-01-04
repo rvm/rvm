@@ -4,7 +4,7 @@
 
 __rvm_comp()
 {
-  typeset cur
+  \typeset cur
   cur="${COMP_WORDS[COMP_CWORD]}"
   COMPREPLY=($(compgen -W "$1" -- "$cur"))
   return 0
@@ -12,7 +12,7 @@ __rvm_comp()
 
 __rvm_subcommand()
 {
-  typeset word subcommand c
+  \typeset word subcommand c
   c=1
 
   while [[ $c -lt $COMP_CWORD ]] ; do
@@ -55,7 +55,7 @@ __rvm_known ()
 
 _rvm_commands ()
 {
-  typeset cur
+  \typeset cur
   cur=${COMP_WORDS[COMP_CWORD]}
 
   COMMANDS='\
@@ -108,7 +108,7 @@ _rvm_opts ()
 
 _rvm_use ()
 {
-  typeset _command
+  \typeset _command
   _command="${COMP_WORDS[COMP_CWORD-2]}"
 
   case "${_command}" in
@@ -119,7 +119,7 @@ _rvm_use ()
 
 _rvm_gemset ()
 {
-  typeset subcommand subcommands
+  \typeset subcommand subcommands
   subcommands="use create"
   subcommand="$(__rvm_subcommand "$subcommands")"
 
@@ -141,7 +141,7 @@ _rvm_install ()
 
 _rvm ()
 {
-  typeset prev
+  \typeset prev
   prev=${COMP_WORDS[COMP_CWORD-1]}
 
   case "${prev}" in
