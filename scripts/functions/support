@@ -2,7 +2,7 @@
 
 is_a_function()
 {
-  typeset -f $1 >/dev/null 2>&1 || return $?
+  \typeset -f $1 >/dev/null 2>&1 || return $?
 }
 
 # Functions RVM is built on
@@ -12,7 +12,7 @@ if
 then
   __rvm_string_match()
   {
-    typeset _string _search
+    \typeset _string _search
     _string="$1"
     shift
     while (( $# ))
@@ -32,7 +32,7 @@ then
 else
   __rvm_string_match()
   {
-    typeset _string
+    \typeset _string
     _string="$1"
     shift
     while (( $# ))
@@ -48,7 +48,7 @@ fi
 
 __rvm_array_contains()
 {
-  typeset _search _iterator
+  \typeset _search _iterator
   _search="$1"
   shift
   for _iterator
@@ -62,8 +62,8 @@ __rvm_array_contains()
 
 __rvm_array_add_or_update()
 {
-  typeset _array_name _variable _separator _value _local_value
-  typeset -a _array_value_old _array_value_new
+  \typeset _array_name _variable _separator _value _local_value
+  \typeset -a _array_value_old _array_value_new
 
   _array_name="$1"
   _variable="$2"
@@ -96,8 +96,8 @@ __rvm_array_add_or_update()
 
 __rvm_array_prepend_or_ignore()
 {
-  typeset _array_name _variable _separator _value _prefix _local_value
-  typeset -a _array_value_old _array_value_new
+  \typeset _array_name _variable _separator _value _prefix _local_value
+  \typeset -a _array_value_old _array_value_new
 
   _array_name="$1"
   _variable="$2"
@@ -130,31 +130,11 @@ __rvm_array_prepend_or_ignore()
   esac
 }
 
-__rvm_setup_statf_function()
-{
-  if
-    [[ "${_system_type}" == Darwin || "${_system_type}" == BSD ]]
-  then
-    __rvm_statf()
-    {
-      __rvm_stat -f "$2" "$3"
-    }
-  else
-    __rvm_statf()
-    {
-      __rvm_stat -c "$1" "$3"
-    }
-  fi
-}
-
-__rvm_setup_statf_function || return $?
-
-
 # Drop in replacement for sed -i compatible with OpenBSD
 # Assumes that filename is the first argument, all others are passed onto sed
 __rvm_sed_i()
 {
-  typeset _filename _executable _user
+  \typeset _filename _executable _user
   [[ -n "${1:-}" ]] || {
     rvm_debug "no file given for __rvm_sed_i"
     return 0
@@ -183,7 +163,7 @@ __rvm_sed_i()
 # Drop in cd which _doesnt't_ respect cdpath
 __rvm_cd()
 {
-    typeset old_cdpath ret
+    \typeset old_cdpath ret
     ret=0
     old_cdpath="${CDPATH}"
     CDPATH="."
@@ -194,8 +174,8 @@ __rvm_cd()
 
 __rvm_setup_utils_functions()
 {
-  typeset gnu_tools_path gnu_prefix gnu_util
-  typeset -a gnu_utils gnu_missing
+  \typeset gnu_tools_path gnu_prefix gnu_util
+  \typeset -a gnu_utils gnu_missing
   gnu_utils=( awk cp date find sed tail tar xargs )
   gnu_missing=()
 
@@ -255,10 +235,29 @@ __rvm_setup_utils_functions_Solaris()
     exit 200
   fi
 }
+
+__rvm_setup_utils_functions_OSX()
+{
+  if
+    [[ -x /usr/bin/stat ]]
+  then
+    __rvm_stat() { /usr/bin/stat "$@" || return $?; }
+  else
+    rvm_error "ERROR: Missing (executable) /usr/bin/stat. Falling back to '\\\\command \\\\stat' which might be something else."
+    __rvm_stat() { \command \stat "$@" || return $?; }
+  fi
+  __rvm_setup_utils_functions_common
+}
+
 __rvm_setup_utils_functions_Other()
 {
-  __rvm_grep() { GREP_OPTIONS="" \command \grep "$@" || return $?; }
   __rvm_stat() { \command \stat "$@" || return $?; }
+  __rvm_setup_utils_functions_common
+}
+
+__rvm_setup_utils_functions_common()
+{
+  __rvm_grep() { GREP_OPTIONS="" \command \grep "$@" || return $?; }
 
   if \command \which --skip-alias --skip-functions which >/dev/null 2>&1
   then __rvm_which() { \command \which --skip-alias --skip-functions "$@" || return $?; }
@@ -269,7 +268,7 @@ __rvm_setup_utils_functions_Other()
   elif \which which >/dev/null 2>&1
   then __rvm_which() { \which "$@" || return $?; }
   else
-    typeset __result=$?
+    \typeset __result=$?
     rvm_error "ERROR: Missing proper 'which' command. Make sure it is installed before using RVM!"
     return ${__result}
   fi
@@ -280,6 +279,29 @@ __rvm_setup_utils_functions_Other()
 }
 
 __rvm_setup_utils_functions || return $?
+
+# detect system after setting up __rvm_sed and before setting up __rvm_statf
+source "${rvm_scripts_path}/functions/db"
+source "${rvm_scripts_path}/functions/detect_system"
+
+__rvm_setup_statf_function()
+{
+  if
+    [[ "${_system_type}" == Darwin || "${_system_type}" == BSD ]]
+  then
+    __rvm_statf()
+    {
+      __rvm_stat -f "$2" "$3"
+    }
+  else
+    __rvm_statf()
+    {
+      __rvm_stat -c "$1" "$3"
+    }
+  fi
+}
+
+__rvm_setup_statf_function || return $?
 
 
 __rvm_setup_sudo_function()
@@ -394,7 +416,7 @@ __rvm_curl_output_control()
 # -S is automatically added to -s
 __rvm_curl()
 (
-  typeset curl_path
+  \typeset curl_path
   if
     [[ "${_system_name} ${_system_version}" == "Solaris 10" ]] &&
     ! __rvm_which curl >/dev/null 2>&1
@@ -409,7 +431,7 @@ __rvm_curl()
     return 200
   }
 
-  typeset -a __flags
+  \typeset -a __flags
   __flags=( --fail --location )
 
   # allow overriding default 30 minutes for download, but should be plenty of time
@@ -435,7 +457,7 @@ __rvm_curl()
 
 is_parent_of()
 {
-  typeset name pid ppid pname
+  \typeset name pid ppid pname
   name=$1
   pid=$2
   while [[ -n "$pid" && "$pid" != "0" ]]
@@ -466,7 +488,7 @@ is_parent_of()
 
 __rvm_string_includes()
 {
-  typeset __search __text="$1"
+  \typeset __search __text="$1"
   shift
   for __search in "$@"
   do
@@ -485,7 +507,7 @@ __function_on_stack()
 # read lines from file / stdin(-)
 __rvm_read_lines()
 {
-  typeset IFS
+  \typeset IFS
   # NEW LINE, BE CAREFUL
   IFS="
 "
@@ -516,7 +538,7 @@ __setup_lang_fallback()
 
 __rvm_ruby_config_save()
 {
-  typeset ruby_path
+  \typeset ruby_path
   ruby_path="${1:-$rvm_ruby_home/bin/ruby}"
   case "$ruby_path" in
     (*/mruby*)
@@ -535,7 +557,7 @@ __rvm_ruby_config_save_mruby()
 
 __rvm_ruby_config_save_generic()
 {
-  typeset config_path default_config_path
+  \typeset config_path default_config_path
   default_config_path="#{RbConfig::CONFIG[\"prefix\"]}/config"
   config_path="${1:-$default_config_path}"
   "$ruby_path" -rrbconfig -e '\
@@ -549,7 +571,7 @@ __rvm_ruby_config_save_generic()
 
 __rvm_record_ruby_configs()
 {
-  typeset __dir
+  \typeset __dir
   for __dir in "$rvm_path/rubies/"*
   do
     if
@@ -557,7 +579,7 @@ __rvm_record_ruby_configs()
     then
       __rvm_ruby_config_save "${__dir}/bin/ruby" "${__dir}/config" ||
       {
-        typeset string="${__dir##*/}"
+        \typeset string="${__dir##*/}"
         rvm_error "    Can not save config data for ruby: '${string}', most likely it is broken installation and you can:
     - try fix it: 'rvm reinstall ${string}', OR:
     - remove  it: 'rvm uninstall ${string} --gems'"
