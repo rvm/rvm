@@ -6,12 +6,12 @@ RUBIES=($( ls -1d "$rvm_path/rubies"/* 2>/dev/null ))
 # Install rubies via rvm and reload RUBIES
 function mrvm()
 {
-  typeset __result=0
+  \typeset __result=0
   # duplication marker jdgkjnfnkjdngjkfnd4fd
   if
     [[ -z "$rvm_path" ]]
   then
-    typeset reset_rvm_path=true
+    \typeset reset_rvm_path=true
     if [[ -n "${BASH_SOURCE:-$_}" && -f "${BASH_SOURCE:-$_}" ]]
     then
       export rvm_path="${BASH_SOURCE:-$_}"
