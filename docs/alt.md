@@ -1,6 +1,6 @@
 # RVM is not the only Ruby enVironment Manager
 
-Other implementations allowing to switch ruby environment:
+Other implementations allowing you to switch your Ruby environment:
 
 - https://github.com/postmodern/chruby (Shell)
 - https://github.com/TomFreudenberg/rvm-mini (Shell)
@@ -23,7 +23,7 @@ Other implementations allowing to switch ruby environment:
 
 # RVM is not the only Ruby Version Manager
 
-Other implementations allowing to install ruby versions:
+Other implementations allowing to install new Ruby versions:
 
 - you can use your system to install ruby,
   most distributions come with ruby 1.8 already installed
