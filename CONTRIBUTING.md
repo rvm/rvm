@@ -28,7 +28,7 @@ have found out that your problem is not resolved by the documentation then pleas
 ## Filing
 
 Documentation: https://github.com/rvm/rvm-site/issues/new<br />
-RVM: https://github.com/wayneeseguin/rvm/issues/new
+RVM: https://github.com/rvm/rvm/issues/new
 
 *When in doubt as to whether your issue might relate to another simply file a new bug and
 we will mark it as duplicate if it needs to be.  It's always better to file a new ticket and
@@ -60,4 +60,4 @@ rvm --debug [command]
 Make sure to include all mentioned log files.
 
 ## Coding guidelines
-https://github.com/wayneeseguin/rvm/blob/master/FORMATTING.md
+https://github.com/rvm/rvm/blob/master/FORMATTING.md

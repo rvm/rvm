@@ -64,6 +64,6 @@ Replace `google.com` with your server address
 
 ## Reporting bugs
 
-Please report issues to https://github.com/wayneeseguin/rvm/issues
+Please report issues to https://github.com/rvm/rvm/issues
 
 In case of security issues use rvm-internal@googlegroups.com
