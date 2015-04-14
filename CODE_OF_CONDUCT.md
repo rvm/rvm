@@ -10,6 +10,6 @@ Project maintainers have the right and responsibility to remove, edit, or reject
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue or contacting one or more of the project maintainers.
 
-If you want to contact us about any code of conduct issue, no matter how big or small, please get in touch with us on IRC, in the #rvm channel on the Freenode network, or via a new issue on the project page on Github.
+If you want to contact us about any code of conduct issue, no matter how big or small, please get in touch by emailing us at conduct@rvm.io, talking with us on IRC in the #rvm channel on the Freenode network, or by opening a new issue on the project page on Github.
 
 This Code of Conduct is adapted from the [Contributor Covenant](http:contributor-covenant.org), version 1.0.0, available at [http://contributor-covenant.org/version/1/0/0/](http://contributor-covenant.org/version/1/0/0/)
