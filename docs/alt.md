@@ -45,4 +45,4 @@ RVM is supported by the following IDE products:
 
 # Editing
 To add a new implementation click "Edit this file" here:
-https://github.com/wayneeseguin/rvm/blob/master/help/alt.md
+https://github.com/rvm/rvm/blob/master/help/alt.md

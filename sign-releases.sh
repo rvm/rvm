@@ -16,7 +16,7 @@ go_to_temp()
 download_from_github()
 {
   [[ -e ${last_release}.tar.gz ]] ||
-  curl -OL https://github.com/wayneeseguin/rvm/archive/${last_release}.tar.gz
+  curl -OL https://github.com/rvm/rvm/archive/${last_release}.tar.gz
 }
 
 download_from_bitbucket()
@@ -52,7 +52,7 @@ remove_extra_files()
 
 upload_github()
 {
-  echo "Upload ${last_release}.tar.gz.asc to: https://github.com/wayneeseguin/rvm/releases/new?tag=${last_release}"
+  echo "Upload ${last_release}.tar.gz.asc to: https://github.com/rvm/rvm/releases/new?tag=${last_release}"
 }
 
 upload_bitbucket()
