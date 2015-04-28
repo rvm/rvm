@@ -40,7 +40,7 @@ Update RVM
 ## Defaults
 
     branch: master
-    repo:   wayneeseguin
+    repo:   rvm
 
 ## Examples
 
