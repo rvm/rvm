@@ -95,9 +95,9 @@ setup ()
 
   export PID=$RAILS_ROOT/tmp/pids/unicorn.pid
   export OLD_PID="$PID.oldbin"
-  export RAILS_ENV=production
+  export RAILS_ENV=${RAILS_ENV-development}
 
-  CMD=( "$UNICORN" -c "${RAILS_ROOT}/config/unicorn.rb" -D )
+  CMD=( "$UNICORN" -E "${RAILS_ENV}" -c "${RAILS_ROOT}/config/unicorn.rb" -D )
 
   typeset __owner="$(stat -c "%U" "${RAILS_ROOT}")"
   if
