@@ -31,7 +31,7 @@ requirements_arch_define_check_raspberry_pi()
     [[ "${_system_arch}" == "arm"* ]]
   then
     # assuming all arm will need this fix
-    requirements_check ntp
+    requirements_check_fallback ntp openntpd chrony
   fi
 }
 
@@ -95,10 +95,26 @@ requirements_arch_after_check_raspberry_pi()
   if
     [[ "${_system_arch}" == "arm"* ]]
   then
-    # assuming all arm will need this fix
-    requirements_arch_service is-enabled enable ntpd &&
-    requirements_arch_service is-active  start  ntpd ||
-    return $?
+    ntp_servers=( ntpd systemd-timesyncd openntpd chronyd )
+    for ntp_server in "${ntp_servers[@]}"
+    do
+      if
+        systemctl list-unit-files | grep -Fq "$ntp_server.service" &&
+        systemctl is-active $ntp_server
+      then
+        return 0
+      fi
+    done
+    for ntp_server in "${ntp_servers[@]}"
+    do
+      if
+        systemctl list-unit-files | grep -Fq "$ntp_server.service"
+      then
+        requirements_arch_service is-enabled enable $ntp_server &&
+        requirements_arch_service is-active  start  $ntp_server ||
+        return $?
+      fi
+    done
   fi
 }
 
