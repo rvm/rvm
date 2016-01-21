@@ -6,6 +6,6 @@ with RVM and to let you simply specify a rvm ruby string.
 
 For more current updates, see:
 
-* [http://github.com/Sutto/hudson-rvmRuby-plugin](http://github.com/Sutto/hudson-rvmRuby-plugin)
-* [http://github.com/Sutto/hudson-rvmRake-plugin](http://github.com/Sutto/hudson-rvmRake-plugin)
-* [http://github.com/Sutto/hudson-rvmRubyMetrics-plugin](http://github.com/Sutto/hudson-rvmRubyMetrics-plugin)
+* [https://github.com/Sutto/hudson-rvmRuby-plugin](https://github.com/Sutto/hudson-rvmRuby-plugin)
+* [https://github.com/Sutto/hudson-rvmRake-plugin](https://github.com/Sutto/hudson-rvmRake-plugin)
+* [https://github.com/Sutto/hudson-rvmRubyMetrics-plugin](https://github.com/Sutto/hudson-rvmRubyMetrics-plugin)

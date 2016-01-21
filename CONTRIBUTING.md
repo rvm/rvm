@@ -45,7 +45,7 @@ this means that each command and it's output should be in it's own code block.
 
 ## IRC and Mailing List
 
-If you're joining the #rvm channel on [Freenode](http://freenode.net/) to get help with a problem,
+If you're joining the #rvm channel on [Freenode](https://freenode.net/) to get help with a problem,
 please let us know what's wrong and stick around. Someone will always respond in time.
 If you can't stick around, please file a bug on GitHub or email us via the
 [google group](https://groups.google.com/forum/?fromgroups#!forum/rubyversionmanager).
