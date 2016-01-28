@@ -1,11 +1,13 @@
 # Wrapper
 
-Generate links to wrappers to `$rvm_path/bin` for easier use.
+Show path to wrapper / to all wrappers and
+generate links to wrappers to `$rvm_path/bin` for easier use.
 
 Wrappers itself are generated always using <https://github.com/rvm/gem-wrappers>.
 
 ## Usage
 
+    rvm wrapper ruby_string show [binary]
     rvm wrapper ruby_string [wrapper_prefix|--no-prefix] [binary[ binary[ ...]]]
 
 where `ruby_string` is the ruby version and gemset combination to provide wrapper links for
