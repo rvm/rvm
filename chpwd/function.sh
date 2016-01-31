@@ -4,7 +4,6 @@ __zsh_like_cd()
   if
     builtin "$@"
   then
-    shift || true # remove the called method
     for __zsh_like_cd_hook in chpwd "${chpwd_functions[@]}"
     do
       if typeset -f "$__zsh_like_cd_hook" >/dev/null 2>&1
