@@ -13,6 +13,7 @@ Other implementations allowing you to switch your Ruby environment:
 - https://github.com/nkryptic/sandbox (Ruby)
 - https://github.com/regularfry/gemenv (Ruby)
 - https://github.com/sstephenson/rbenv (Shell)
+- https://github.com/HashNuke/asdf-ruby (Shell)
 - https://github.com/cpetschnig/switch-ruby (Ruby)
 - https://github.com/uninets/p5-Ruby-VersionManager (Perl)
 - https://github.com/seattlerb/zentest (Ruby)
@@ -33,6 +34,7 @@ Other implementations allowing to install new Ruby versions:
 - https://github.com/kwatch/versionswitcher (Python)
 - https://github.com/jayferd/ry (Shell)
 - https://github.com/sstephenson/ruby-build (Shell)
+- https://github.com/HashNuke/asdf-ruby (Shell)
 - https://github.com/uninets/p5-Ruby-VersionManager (Perl)
 
 # RVM IDE support
