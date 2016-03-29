@@ -28,7 +28,7 @@ have found out that your problem is not resolved by the documentation then pleas
 ## Filing
 
 Documentation: https://github.com/rvm/rvm-site/issues/new<br />
-RVM: https://github.com/wayneeseguin/rvm/issues/new
+RVM: https://github.com/rvm/rvm/issues/new
 
 *When in doubt as to whether your issue might relate to another simply file a new bug and
 we will mark it as duplicate if it needs to be.  It's always better to file a new ticket and
@@ -45,7 +45,7 @@ this means that each command and it's output should be in it's own code block.
 
 ## IRC and Mailing List
 
-If you're joining the #rvm channel on [Freenode](http://freenode.net/) to get help with a problem,
+If you're joining the #rvm channel on [Freenode](https://freenode.net/) to get help with a problem,
 please let us know what's wrong and stick around. Someone will always respond in time.
 If you can't stick around, please file a bug on GitHub or email us via the
 [google group](https://groups.google.com/forum/?fromgroups#!forum/rubyversionmanager).
@@ -60,4 +60,4 @@ rvm --debug [command]
 Make sure to include all mentioned log files.
 
 ## Coding guidelines
-https://github.com/wayneeseguin/rvm/blob/master/FORMATTING.md
+https://github.com/rvm/rvm/blob/master/FORMATTING.md

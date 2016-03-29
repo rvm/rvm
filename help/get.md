@@ -40,9 +40,9 @@ Update RVM
 ## Defaults
 
     branch: master
-    repo:   wayneeseguin
+    repo:   rvm
 
 ## Examples
 
-    rvm get branch shoes   # will fetch branch shoes  from wayneeseguin/rvm repo
+    rvm get branch shoes   # will fetch branch shoes  from rvm/rvm repo
     rvm get branch mpapis/ # will fetch branch master from mpapis/rvm       repo

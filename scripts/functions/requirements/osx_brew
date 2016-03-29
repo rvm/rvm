@@ -172,17 +172,9 @@ requirements_osx_brew_after()
 
 requirements_osx_brew_after_update_certs_openssl()
 {
-  \typeset brew_lib_prefix openssl_name
-  case "$1" in
-    (ruby-1.8*|ree*)
-      openssl_name=openssl098
-      ;;
-    (*)
-      openssl_name=openssl
-      ;;
-  esac
+  \typeset brew_lib_prefix
   if
-    requirements_osx_brew_lib_installed_prefix_check "${openssl_name}" &&
+    requirements_osx_brew_lib_installed_prefix_check openssl &&
     [[ -x "${brew_lib_prefix}/bin/openssl" ]]
   then
     requirements_osx_update_openssl_cert "${brew_lib_prefix}/bin/openssl" || return $?
@@ -268,14 +260,15 @@ requirements_osx_brew_libs_default()
   brew_libs=(
     autoconf automake libtool pkg-config
   )
+  brew_libs_conf=()
   # install gcc only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
   \typeset selected_compiler="$( __rvm_selected_compiler )"
   case "${selected_compiler:-}" in
     ("")
       case "$1" in
         (rbx*|rubinius*)
-          if requirements_osx_brew_lib_installed llvm
-          then brew_libs_conf=( llvm )
+          if ! requirements_osx_brew_lib_installed llvm
+          then brew_libs_conf+=( llvm )
           fi
           ;;
         (*)
@@ -293,16 +286,7 @@ requirements_osx_brew_libs_default()
       rvm_debug "No code to ensure that selected compiler: '${selected_compiler}' exists"
       ;;
   esac
-  brew_libs_conf=( libyaml readline libksba )
-  case "$1" in
-    (ruby-1.8*|ree*)
-      requirements_osx_brew_check_custom homebrew/versions
-      brew_libs_conf+=( openssl098 )
-      ;;
-    (*)
-      brew_libs_conf+=( openssl )
-      ;;
-  esac
+  brew_libs_conf+=( libyaml readline libksba openssl )
   requirements_check "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
 }
 
@@ -452,7 +436,7 @@ requirements_osx_brew_ensure_brew_available()
     \typeset __result=$?
     rvm_error "\
 Something went wrong during Homebrew installation,
-can not find 'brew' command, please report a bug: http://bit.ly/rvm-issues"
+can not find 'brew' command, please report a bug: https://bit.ly/rvm-issues"
     return $__result
   }
 }
