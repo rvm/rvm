@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+requirements_solus_lib_installed()
+{
+  eopkg li --no-color | __rvm_grep "^$1[[:space:]]\+" > /dev/null 2>&1 || return $?
+}
+
+requirements_solus_lib_available()
+{
+  eopkg la --no-color | __rvm_grep "^$1[[:space:]]\+" > /dev/null 2>&1 || return $?
+}
+
+requirements_solus_install_custom()
+{
+  requirements_rvm_pkg_libs_install "$@" || return $?
+}
+
+requirements_solus_libs_install()
+{
+  __rvm_try_sudo eopkg --no-color --yes-all it "$@" || return $?
+}
+
+requirements_solus_check_binary()
+{
+  __rvm_which "$1" >/dev/null || return $?
+}
+
+requirements_solus_define()
+{
+  case "$1" in
+    (rvm)
+      requirements_check bash curl patch ca-certs gawk bzip2
+      ;;
+    (jruby*)
+      if
+        is_head_or_disable_binary "$1"
+      then
+        requirements_solus_check_binary javac ||
+          requirements_check_fallback openjdk-8-devel
+        requirements_check git
+        if is_jruby_post17 "$1"
+        then requirements_check_custom_after mvn=maven
+        fi
+      else
+        requirements_solus_check_binary java ||
+          requirements_check_fallback openjdk-8
+      fi
+      ;;
+    (ir*)
+      true
+      ;;
+    (opal)
+      true
+      ;;
+    (*-head)
+      requirements_check git
+      requirements_solus_define "${1%-head}"
+      requirements_version_minimal autoconf 2.67
+      ;;
+    (*)
+      if [[ ${#rvm_patch_names[@]} -gt 0 ]]
+      then requirements_version_minimal autoconf 2.67
+      fi
+      requirements_check autoconf gcc g++ glibc-devel patch readline readline-devel \
+        zlib zlib-devel libffi-devel openssl-devel make bzip2 automake libtool \
+        bison sqlite3-devel yaml-devel gmp-devel pkg-config ncurses-devel binutils \
+        kernel-libc-devel
+      ;;
+  esac
+}
+
