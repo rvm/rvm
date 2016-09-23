@@ -1,10 +1,10 @@
-## RVM version
+## Description
 
-Paste the output for `rvm --version` below inside the backticks:
-``
 
-## Operating System info
 
+## Environment info
+
+  - RVM version:
   - Operating System:
   - Version/Release:
   - Shell:
