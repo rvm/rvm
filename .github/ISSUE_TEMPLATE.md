@@ -7,6 +7,7 @@ Paste the output for `rvm --version` below inside the backticks:
 
   - Operating System:
   - Version/Release:
+  - Shell:
 
 ## Expected behavior
 
