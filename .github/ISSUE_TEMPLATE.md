@@ -1,4 +1,4 @@
-## RVM Version
+## RVM version
 
 Paste the output for `rvm --version` below inside the backticks:
 ``
@@ -19,4 +19,4 @@ Paste the output for `rvm --version` below inside the backticks:
 ## Steps to reproduce
  1.
  2.
- 3. 
+ 3.
