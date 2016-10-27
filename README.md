@@ -1,17 +1,19 @@
-Stable [![Stable Build Status](https://travis-ci.org/rvm/rvm.svg?branch=stable)](https://travis-ci.org/rvm/rvm/branches)
-[![Funds Raised](https://api.bountysource.com/badge/team?team_id=506&style=raised)](https://www.bountysource.com/teams/rvm?utm_source=RVM&utm_medium=shield&utm_campaign=raised)
-&bull;
-Master [![Master Build Status](https://travis-ci.org/rvm/rvm.svg?branch=master)](https://travis-ci.org/rvm/rvm/branches)
+Stable
+<a href="https://travis-ci.org/rvm/rvm/branches"><img src="https://travis-ci.org/rvm/rvm.svg?branch=stable" align="center"></a>
+<a href="https://www.bountysource.com/teams/rvm?utm_source=RVM&utm_medium=shield&utm_campaign=raised"><img src="https://api.bountysource.com/badge/team?team_id=506&style=raised" align="center"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+Master
+<a href="https://travis-ci.org/rvm/rvm/branches"><img src="https://travis-ci.org/rvm/rvm.svg?branch=master" align="center"></a>
 
 # What's RVM
 
-RVM is the Ruby enVironment Manager (rvm). It manages Ruby application environments and enables switching between them.
+RVM is the acronym of Ruby enVironment Manager. It manages Ruby application environments and enables switching between them.
 
 Homepage and more info: https://rvm.io/
 
 ## Installation
 
-`curl -L https://get.rvm.io | bash -s stable --autolibs=enabled [--ruby] [--rails] [--trace]`
+`\curl -sSL https://get.rvm.io | bash -s stable --autolibs=enabled [--ruby] [--rails] [--trace]`
 
 * `stable`     - install stable RVM, good for servers
 * `--autolibs` - enable or disable autolibs - https://rvm.io/rvm/autolibs
