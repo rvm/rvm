@@ -19,7 +19,7 @@ RVM have dedicated Ubuntu package, so all you need is to run to install stable v
  
 `apt-get install rvm`
 
-If you need a different (newer) version of RVM, check [#Upgrading] section below.
+If you need a different (newer) version of RVM, check [Upgrading](#upgrading) section below.
 
 ### Any other operating system
 
