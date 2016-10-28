@@ -13,20 +13,41 @@ Homepage and more info: https://rvm.io/
 
 ## Installation
 
-`\curl -sSL https://get.rvm.io | bash -s VERSION OPTIONS`
+### Ubuntu
 
-* `VERSION` - specify desired version of RVM
-  * `stable`     - latest stable RVM (good for servers)
-  * `master`     - latest RVM (might not be stable)
-  * `branch /path/branch` - branched version of RVM (for testing new features or bugfixes)
-  
-* `OPTIONS` - specify additional installation options
-  * `--autolibs=[enabled|disabled]` - enable or disable autolibs - https://rvm.io/rvm/autolibs
-  * `--rails`    - install gem `rails` into default gemset (also installs ruby)        
-  * `--ruby`     - additionally install latest ruby version (MRI)                     
-  * `--trace`    - print trace of the installation
+RVM have dedicated Ubuntu package, so all you need is to run to install stable version of RVM:
+ 
+`apt-get install rvm`
 
-More details here: https://rvm.io/rvm/install/
+If you need a different (newer) version of RVM, check [#Upgrading] section below.
+
+### Any other operating system
+
+Make sure you have following required packages installed:
+
+* `curl`
+
+And then run:
+
+`\curl -sSL https://get.rvm.io | bash -s stable`
+
+### Additional installation options
+
+Additional installation options and details about the installation process are described here: https://rvm.io/rvm/install
+
+## Upgrading
+
+You can upgrade RVM any time by running:
+ 
+`rvm get VERSION`
+
+Where `VERSION` should be replaced by one of the following values:
+
+* `stable`              - latest stable RVM (good for servers)
+* `master`              - latest RVM (might not be stable)
+* `branch /path/branch` - branched version of RVM (for testing new features or bug fixes)
+
+Additional upgrading options are described here: https://rvm.io/rvm/upgrading
 
 ## Usage
 
