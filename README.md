@@ -11,15 +11,13 @@ RVM is the acronym of Ruby enVironment Manager. It manages Ruby application envi
 
 Homepage and more info: https://rvm.io/
 
-## Installation
+## Installing RVM
 
 ### Ubuntu
 
-RVM have dedicated Ubuntu package, so all you need is to run to install stable version of RVM:
+RVM have dedicated Ubuntu package, so please follow instructions posted here: https://github.com/rvm/ubuntu_rvm
  
-`apt-get install rvm`
-
-If you need a different (newer) version of RVM, check [Upgrading](#upgrading) section below.
+If you need a different (newer) version of RVM, after installing base version of RVM check the [Upgrading](#upgrading) section below. 
 
 ### Any other operating system
 
@@ -35,7 +33,7 @@ And then run:
 
 Additional installation options and details about the installation process are described here: https://rvm.io/rvm/install
 
-## Upgrading
+## Upgrading RVM
 
 You can upgrade RVM any time by running:
  
@@ -49,105 +47,131 @@ Where `VERSION` should be replaced by one of the following values:
 
 Additional upgrading options are described here: https://rvm.io/rvm/upgrading
 
-## Usage
+## Basic RVM usage
 
-`rvm COMMAND [INTERPRETER] OPTIONS`
+Basic RVM usage scenarios include installing and switching between different ruby versions.
 
-### Commands
+### Installing ruby
 
-More detailed information about commands listed below can be read after executing `rvm help COMMAND` or browsing documentation on RVM homepage https://rvm.io/.
+To install ruby you have to call `rvm install INTERPRETER[-VERSION] OPTIONS` 
 
-* `alias`                - lets you set shortcut strings for convenience with `rvm use` tasks
-* `autolibs`             - controls settings for automatically installing dependencies
-* `cleanup`              - lets you remove stale source folders / archives and other miscellaneous data associated with rvm
-* `config-get`           - display values for `RbConfig::CONFIG` variables
-* `cron`                 - manages setup for using ruby in cron
-* `current`              - print the current ruby version and the name of any gemset being used
-* `debug`                - show info plus additional information for common issues
-* `disk-usage`           - tells you how much disk space rvm install is using
-* `do`                   - runs an arbitrary command against specified and/or all rubies
-  * `--summary`            - print out a summary of the commands run
-  * `-S`                   - specify the script file to load and run
-* `docs`                 - tools to make installing ri and rdoc documentation easier
-* `export`               - temporarily set an environment variable in the current shell
-* `fetch`                - performs an archive / src fetch only of the selected ruby
-* `fix-permissions`      - repairs broken permissions (e.g. by sudo or chef)
-* `gemdir`               - display the path to the current gem directory (`GEM_HOME`)
-* `gemset`               - gemsets - https://rvm.io/gemsets/
-* `get`                  - `{head,stable,branch}` upgrades rvm to latest head, stable or branched version
-* `group`                - tools for managing groups in multiuser installations
-* `implode`              - removes the rvm installation completely. This means everything in `$rvm_path` (`~/.rvm` || `/usr/local/rvm`). This does not touch your profiles. However, this means that you must manually clean up your profiles and remove the lines which source RVM
-* `info`                 - show the environment information for current ruby
-* `install`              - install one or many ruby versions. See also: https://rvm.io/rubies/installing/
-  * `--32`                 - install 32-bit rubies
-  * `--64`                 - install 64-bit rubies (default)
-  * `--docs`               - generate ri after installation
-  * `--skip-gemsets`       - skip the installation of default gemsets
-  * `--quiet-curl`         - make `curl` silent when fetching data
-  * `--reconfigure`        - force `./configure` on install even if `Makefile` already exists
-  * `--force`              - remove old installation with sources and force install
-  * `--disable-binary`     - install from source instead of using binaries
-  * `--bin`                - path for binaries to be placed (default: `~/.rvm/bin/.`)
-  * `--patch`              - with MRI Rubies you may specify additional patches to apply before install - multiple patches should be comma separated `--patch a.patch[%prefix],b.patch` - `prefix` is an optional argument, which will be bypassed to the `-p` argument of the `patch` command and should be separated from patch file name with the `%` symbol.
-  * `--ree-options`        - options passed directly to ree's `./installer` on the command line
-  * `-C` | `--configure`   - custom configure options - multiple options can be specified, separated with comma
-  * `-l` | `--level`       - MRI ruby patch level
-* `list`                 - show currently installed rubies, interactive output - https://rvm.io/rubies/list/
-* `migrate`              - lets you migrate all gemsets from one ruby to another
-* `mount`                - install rubies from external locations
-* `notes`                - display notes with operating system specifics
-* `osx-ssl-certs`        - helps update certificates for OpenSSL installed by rvm on OSX
-* `patchset`             - tools related to managing ruby patchsets
-* `pkg`                  - install a dependency package `{readline,iconv,zlib,openssl}` - https://rvm.io/packages/
-* `reinstall`            - reinstall ruby and runs `gem pristine` on all gems. Make sure to read output. Use `all` for all rubies
-* `reload`               - reload rvm source itself (useful after changing rvm source).
-* `remove`               - uninstall one or many ruby versions and remove their sources
-  * `--gems`               - also removes gems installed for the removed ruby version
-  * `--archive`            - remove archives
-* `repair`               - lets you repair parts of your environment e.g. wrappers, env files and similar (e.g. general maintenance)
-* `requirements`         - installs additional OS specific dependencies/requirements for building various rubies (by default run by `install`)
-* `reset`                - remove current and stored default & system settings
-* `rubygems`             - switches the installed version of rubygems for the current ruby
-* `rvmrc`                - tools related to managing `.rvmrc` trust and loading
-* `snapshot`             - lets you backup / restore an rvm installation in a lightweight manner
-* `tools`                - provides general information about the ruby environment, primarily useful when scripting rvm
-* `unexport`             - undo changes made to the environment by `rvm export`
-* `uninstall`            - uninstall one or many ruby versions, keeping their sources
-  * `--gems`               - also removes gems installed for the removed ruby version
-* `upgrade`              - lets you upgrade from one version of a ruby to another, including migrating your gemsets semi-automatically
-* `usage`                - list available commands and their usage info (content of this README)
-* `use`                  - setup current shell to use a specific ruby version
-  * `--default`            - sets selected ruby as the default
-  * `-l` | `--level`       - MRI ruby patch level
-* `user`                 - tools for managing RVM mixed mode in multiuser installations
-* `version`              - display rvm version (equal to `rvm -v`) 
-* `wrapper`              - generates a set of wrapper executables for a given ruby with the specified ruby and gemset combination. Used under the hood for passenger support and the like
+When no version specified, RMV will install latest stable version or selected interpreter. If you omit to specify interpreter, RVM will assume
+that you wanted to install MRI ruby. Following examples would have exactly the same effect:    
 
-### Ruby Interpreters
+```
+rvm install ruby-2.3.1
+rvm install ruby-2.3
+rvm install 2.3.1
+rvm install 2.3
+```
 
-* **`ruby`**     - MRI/YARV Ruby (The Gold Standard)
-* `default`    - use the default ruby (or the system ruby if a default hasn't been set) - https://rvm.io/rubies/default/
-* `ironruby`   - IronRuby, NOT supported yet. Looking for volunteers to help.
-* `jruby`      - JRuby - Ruby interpreter on the Java Virtual Machine.
-* `macruby`    - MacRuby, insanely fast, can make real apps (Mac OS X Only).
-* `maglev`     - GemStone Ruby, awesome persistent ruby object store.
-* `rbx`        - Rubinius
-* `system`     - use the system ruby (eg. pre-rvm state)
+Passing additional `--default` option makes selected ruby your default. 
+
+We currently supported following ruby interpreters:
+
+* `ruby`       - MRI ruby (The Gold Standard)
+* `ironruby`   - a .NET ruby
+* `jruby`      - Java implementation of the ruby
+* `macruby`    - implementation of ruby 1.9 directly on top of macOS core technologies 
+* `maglev`     - 64-bit implementation on top of VMware's GemStone
+* `mruby`      - lightweight ruby
+* `opal`       - ruby to JavaScript compiler
+* `rbx`        - Rubinius - a next generation virtual machine VM for ruby
+* `topaz`      - high performance ruby, written in RPython
 
 Historical interpreters which you can still install with RVM, but are not anymore developed and supported by their authors:
 
 * `ree`        - Ruby Enterprise Edition - MRI Ruby with several custom patches for performance, stability, and memory
 
-### Additional options
+### Switching between ruby versions
+
+To switch between ruby versions you should call
+
+`rvm use INTERPRETER[-VERSION]`
+
+Same rules and options apply as for `install` command with two special _interpreters_. 
+
+* `default`    - [default](https://rvm.io/rubies/default/) ruby (or the system ruby if a default hasn't been set)
+* `system`     - system ruby (state before RVM was installed)
+
+Additionally you might want list your preferred ruby version in `.ruby-version` file stored in your project folder. This would cause automatic switch to selected ruby whenever you enter the folder.  
+
+### Other RVM commands
+
+RVM comes bundled with many different tools for managing your ruby environment. More detailed information about every commands listed below can be read after executing `rvm help COMMAND` or browsing documentation on RVM homepage https://rvm.io/.
+
+#### Installation
+
+* `implode`              - removes the rvm installation completely. This means everything in `$rvm_path` (`~/.rvm` || `/usr/local/rvm`). This does not touch your profiles. However, this means that you must manually clean up your profiles and remove the lines which source RVM
+* `install`              - [install](https://rvm.io/rubies/installing/) one or many ruby versions
+* `list`                 - show currently installed rubies, interactive output - https://rvm.io/rubies/list/
+* `mount`                - install rubies from external locations
+* `patchset`             - tools related to managing ruby patchsets
+* `pkg`                  - install a dependency package `{readline,iconv,zlib,openssl}` - https://rvm.io/packages/
+* `reinstall`            - reinstall ruby and runs `gem pristine` on all gems. Make sure to read output. Use `all` for all rubies
+* `reload`               - reload rvm source itself (useful after changing rvm source).
+* `remove`               - uninstall one or many ruby versions and remove their sources
+* `requirements`         - installs additional OS specific dependencies/requirements for building various rubies (by default run by `install`)
+* `reset`                - remove current and stored default & system settings
+* `snapshot`             - lets you backup / restore an rvm installation in a lightweight manner
+* `uninstall`            - uninstall one or many ruby versions, keeping their sources
+* `upgrade`              - lets you upgrade from one version of a ruby to another, including migrating your gemsets semi-automatically
+
+#### Running different ruby versions
+
+* `do`                   - runs an arbitrary command against specified and/or all rubies
+* `use`                  - setup current shell to use a specific ruby version
+
+#### Managing gemsets
+
+* `gemset`               - manage [gemsets](https://rvm.io/gemsets/) 
+* `migrate`              - lets you migrate all gemsets from one ruby to another
+
+#### Configuration
+
+* `alias`                - define aliases for `rvm use`
+* `autolibs`             - control settings for installing dependencies automatically
+* `current`              - print the current ruby version and the name of any gemset being used
+* `gemdir`               - display the path to the current gem directory (`GEM_HOME`)
+* `group`                - tools for managing groups in multiuser installations
+* `rvmrc`                - tools related to managing `.rvmrc` trust and loading
+* `wrapper`              - generates a set of wrapper executables for a given ruby with the specified ruby and gemset combination. Used under the hood for passenger support and the like
+
+#### Maintenance
+
+* `cleanup`              - remove stale source folders / archives and other miscellaneous data associated with rvm
+* `cron`                 - manage setup for using ruby in cron
+* `disk-usage`           - display disk space occupied by RVM
+* `docs`                 - tools to make installing ri and rdoc documentation easier
+* `fetch`                - download binary or sources for selected ruby version
+* `get`                  - upgrades RVM to latest head, stable or branched version
+* `osx-ssl-certs`        - helps update certificates for OpenSSL installed by rvm on OSX
+
+#### Troubleshooting
+
+* `config-get`           - display values for `RbConfig::CONFIG` variables
+* `debug`                - show additional information helping to discover common issues
+* `export`               - temporarily set an environment variable in the current shell
+* `fix-permissions`      - repairs broken permissions
+* `repair`               - lets you repair parts of your environment e.g. wrappers, env files and similar (e.g. general maintenance)
+* `rubygems`             - switches the installed version of rubygems for the current ruby
+* `tools`                - provides general information about the ruby environment, primarily useful when scripting rvm
+* `unexport`             - undo changes made to the environment by `rvm export`
+* `user`                 - tools for managing RVM mixed mode in multiuser installations
+
+#### Information and documentation
+
+* `info`                 - show the environment information for current ruby
+* `notes`                - display notes with operating system specifics
+* `usage`                - list available commands and their usage info (content of this README)
+* `version`              - display rvm version (equal to `rvm -v`) 
+
+### Additional global options
 
 * `--debug`           - toggle debug mode on for very verbose output
-* `--latest`          - with gemset `--dump` skips version strings for latest gem
 * `--trace`           - toggle trace mode on to see EVERYTHING rvm is doing
 * `--nice`            - process niceness (increase the value on slow computers, default `0`)
-* `--with-rubies`     - specifies a string for rvm to attempt to expand for set operations
-* `-e`                - execute code from the command line
 * `-v` | `--version`  - display rvm version loaded for current shell
-
 
 ## Contributing
 
