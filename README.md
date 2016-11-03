@@ -173,6 +173,45 @@ RVM comes bundled with many different tools for managing your ruby environment. 
 * `--nice`            - process niceness (increase the value on slow computers, default `0`)
 * `-v` | `--version`  - display rvm version loaded for current shell
 
+
+## Reporting issues
+
+Here at RVM we get a high amount of bug reports, and often they are connected 
+with specific environment settings which might be hard for us to replicate. 
+That's why we would kindly ask you to follow the steps below so we can maximize 
+our time helping you and minimize the time requesting more information.
+
+### Check documentation
+
+We know, you hear this over and over and be rest assured we are working hard to improve the
+usability of https://rvm.io but we must always ask that you first please check the documentation
+if you are requesting a feature or if you are not sure if you did it right.
+
+### Try again with latest RVM
+
+We try to release a new RVM as soon as we feel that we achieved certain stability. This might take
+a while and it could be the case that your issue has been already resolved in our development branch.
+Please get the latest RVM and try again:
+
+`rvm get master`
+
+### File an issue
+
+If the documentation is not clear, an error message is not clear or you are stuck with the problem,
+please do file a bug.
+
+When in doubt as to whether your issue might relate to another simply file a new bug and
+we will mark it as duplicate if it needs to be.  It's always better to file a new ticket and
+let us sort it out than to accidentally add noise to another ticket.
+
+When filling an issue we prepared a template for you tu use. Please try to fill all sections as best as you can.
+Always make sure to split up each command and it's output into it's own fenced code block. 
+If the output is long, please put it in a separate [gist](https://gist.github.com). 
+Otherwise it's hard for us to process all the information and respond quickly.
+
+Note that if there is a lot of `debug` or `trace` output you can redirect it to a file with the `>` 
+character like `rvm [command] > output.txt`.
+
 ## Contributing
 
 Any and all contributions offered in any form, past present or future, to the
