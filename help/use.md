@@ -40,6 +40,8 @@ To set a ruby as the user default, use the --default option.
 
     $ rvm use 1.9.3 --default
 
+To specify MRI patch level version use -l or --level option. 
+
 Please see documentation for further information:
 
   https://rvm.io/rvm/basics
