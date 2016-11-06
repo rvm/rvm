@@ -261,11 +261,12 @@ __rvm_project_ruby_env_load_parse_file()
   \typeset -a __sed_commands
   __sed_commands=()
   if [[ -n "${2:-}" ]]
-  then __sed_commands+=( -e "/^$2/ !d" -e "s/^$2//" ) # filter other content and remove prefix
-  else __sed_commands+=( -e "/^#/ d" )                # remove comments
+  then __sed_commands+=( -e "/^$2/ !d" -e "s/^$2//" )    # filter other content and remove prefix
+  else __sed_commands+=( -e "/^#/ d" )                   # remove comments
   fi
-  __sed_commands+=( -e 's/`/\\`/g' -e 's/$(/\\$(/g' ) # do not allow command execution `` / $()
-  __sed_commands+=( -e "/^$/ d" )                     # remove empty lines
+  __sed_commands+=( -e 's/`/\\`/g' -e 's/$(/\\$(/g' )    # do not allow command execution `` / $()
+  __sed_commands+=( -e 's/\\\(\\\(\\{2}\)*[$`]\)/\1/g' ) # fix escaping if it was already done
+  __sed_commands+=( -e "/^$/ d" )                        # remove empty lines
 
   __rvm_read_lines __variables <( { cat "$1"; echo ""; } | __rvm_sed "${__sed_commands[@]}" )
 }
@@ -279,21 +280,22 @@ __rvm_project_ruby_env_load_set_env()
   do
     __key="${__set%%=*}"
     __value="${__set#*=}"
-    # fix quoting
-    rvm_debug "key=$__key; value=$__value;"
     case "$__value" in
-      (""|"\""*"\""|"'"*"'")
-        true
+      (\"*\")
+        __value="${__value#\"}"
+        __value="${__value%\"}"
         ;;
-      (*)
-        __value="\"${__value//\"/\\\"}\""
+      (\'*\')
+        __value="${__value#\'}"
+        __value="${__value%\'}"
         ;;
     esac
+    rvm_debug "key=$__key; value=$__value;"
     if [[ -n "${__save_to}" ]]
     then eval "${__save_to}+=( \"\${__key}=\${${__key}}\" )"
     fi
     if [[ -n "${__value}" ]]
-    then eval "export \${__key}=${__value}"
+    then eval "export \${__key}=\"\${__value}\""
     else eval "unset \${__key}"
     fi
   done

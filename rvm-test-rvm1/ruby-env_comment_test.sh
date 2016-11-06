@@ -65,15 +65,32 @@ __rvm_project_ruby_env_check_unload
 : load from file no execution
 printf "a=\`uname\`\nb=\$(uname)\n" > $d/.env
 __rvm_project_ruby_env_load $d/.env
-# env[a]=/^`uname`$/
+# env[a]=/^\\`uname\\`$/
 # env[b]=/uname/
 
-: cd + .ruby-env
+: cd + .ruby-env + ';;'
 rvm_saved_env=()
 cd
 RAILS_ENV=""
 printf "2.1.1" > $d/.ruby-version
-printf "RAILS_ENV=development" > $d/.ruby-env
+printf "RAILS_ENV=development';echo bla>&2;'" > $d/.ruby-env
+cd "$d"
+# match!=/bla/
+# match[stderr]!=/bla/
+# env[RAILS_ENV]=/^development'/
+# env[rvm_saved_env][]=1
+# env[rvm_saved_env][0]=/^RAILS_ENV=$/
+cd
+# env[RAILS_ENV]=/^$/
+# env[rvm_saved_env][]=0
+rm $d/.ruby-version
+
+: cd + .ruby-env + ''
+rvm_saved_env=()
+cd
+RAILS_ENV=""
+printf "2.1.1" > $d/.ruby-version
+printf "RAILS_ENV='development'" > $d/.ruby-env
 cd "$d"
 # env[RAILS_ENV]=/^development$/
 # env[rvm_saved_env][]=1
@@ -83,11 +100,11 @@ cd
 # env[rvm_saved_env][]=0
 rm $d/.ruby-version
 
-: cd + Gemfile
+: cd + Gemfile + ""
 cd
 RAILS_ENV="production"
 printf "\043ruby=2.1.1\n" > $d/Gemfile
-printf "\043ruby-env-RAILS_ENV=development\n" >> $d/Gemfile
+printf "\043ruby-env-RAILS_ENV=\"development\"\n" >> $d/Gemfile
 printf "gem 'rvm'\n" >> $d/Gemfile
 cd "$d"
 # env[RAILS_ENV]=/^development$/
@@ -100,15 +117,29 @@ rm $d/Gemfile
 
 : cd + .versions.conf
 cd
-RAILS_ENV="test"
-printf "ruby=2.1.1\n" > $d/.versions.conf
-printf "env-RAILS_ENV=development\n" >> $d/.versions.conf
+BLA0="test"
+printf 'ruby=2.1.1\n' > $d/.versions.conf
+printf 'env-BLA0=`development`\n' >> $d/.versions.conf
+printf 'env-BLA1=\`development\`\n' >> $d/.versions.conf
+printf 'env-BLA2=\\`development\\`\n' >> $d/.versions.conf
+printf 'env-BLA3=\\\`development\\\`\n' >> $d/.versions.conf
+printf 'env-BLA4=\\\\`development\\\\`\n' >> $d/.versions.conf
+printf 'env-BLA5=\\\\\`development\\\\\`\n' >> $d/.versions.conf
+printf 'env-BLA6=\\\\\\`development\\\\\\`\n' >> $d/.versions.conf
 cd "$d"
-# env[RAILS_ENV]=/^development$/
-# env[rvm_saved_env][]=1
-# env[rvm_saved_env][0]=/^RAILS_ENV=test$/
+# match!=/bla/
+# match[stderr]!=/bla/
+# env[BLA0]=/^\\`development\\`$/
+# env[BLA1]=/^\\`development\\`$/
+# env[BLA2]=/^\\`development\\`$/
+# env[BLA3]=/^\\\\`development\\\\`$/
+# env[BLA4]=/^\\\\`development\\\\`$/
+# env[BLA5]=/^\\\\\\`development\\\\\\`$/
+# env[BLA6]=/^\\\\\\`development\\\\\\`$/
+# env[rvm_saved_env][]=7
+# env[rvm_saved_env][0]=/^BLA0=test$/
 cd
-# env[RAILS_ENV]=/^test$/
+# env[BLA0]=/^test$/
 # env[rvm_saved_env][]=0
 rm $d/.versions.conf
 
