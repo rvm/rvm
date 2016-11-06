@@ -29,16 +29,21 @@ then
   if
     [[ -n "${hooks[*]}" ]]
   then
-    _hooks_list=($(
+    __rvm_read_lines _hooks_list <(
       __rvm_find -L "${hooks[@]}" -iname "$rvm_hook*" -type f 2>/dev/null || true
-    ))
-
+    )
     for hook in "${_hooks_list[@]}"
     do
-      if [[ -x "${hook}" || "${hook##*/}" == "$rvm_hook" ]]
+      if
+        [[ -x "${hook}" || "${hook##*/}" == "$rvm_hook" ]]
       then
-        rvm_debug "Running $hook"
-        __rvm_conditionally_do_with_env . "${hook}" >&2
+        if
+          [[ "${hook}" == "$rvm_hooks_path/"* ]] ||   # trust internal hooks
+          __rvm_check_rvmrc_trustworthiness "${hook}" # ask user to trust other files
+        then
+          rvm_debug "Running $hook"
+          __rvm_conditionally_do_with_env . "${hook}" >&2
+        fi
       fi
     done
   fi
