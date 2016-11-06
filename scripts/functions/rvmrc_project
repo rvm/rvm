@@ -61,9 +61,8 @@ __rvm_project_rvmrc()
 __rvm_load_project_config()
 {
   rvm_debug "__rvm_load_project_config $1"
-  \typeset __gemfile __gem_names _gem _bundle_install __env_vars_prefix __env_vars_file
+  \typeset __gemfile _bundle_install __env_vars_prefix __env_vars_file
   __gemfile=""
-  __gem_names=""
   __env_vars_file=""
   rvm_previous_environment="$(__rvm_env_string)"
   : rvm_autoinstall_bundler_flag:${rvm_autoinstall_bundler_flag:=0}
@@ -97,8 +96,6 @@ __rvm_load_project_config()
       __env_vars_prefix="env-"
       __env_vars_file="$1"
 
-      __gem_names="$( \command \tr -d '\r' <"$1" | __rvm_sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' )"
-
       _bundle_install="$( \command \tr -d '\r' <"$1" | __rvm_sed -n '/^ruby-bundle-install=/ {s/ruby-bundle-install=//;p;}' )"
       if
         [[ -n "${_bundle_install}" ]] || [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
@@ -115,11 +112,6 @@ __rvm_load_project_config()
           [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
         then
           __gemfile="${1%/*}/Gemfile"
-        fi
-        if   [[ -z "${__gem_names:-}" ]]
-        then __gem_names=bundler
-        elif [[ ",${__gem_names:-}," != *",bundler,"* ]]
-        then __gem_names="${__gem_names:-},bundler"
         fi
       fi
       ;;
@@ -153,7 +145,6 @@ __rvm_load_project_config()
         [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
       then
         __gemfile="$1"
-        __gem_names=bundler
       fi
       ;;
 
@@ -185,7 +176,6 @@ __rvm_load_project_config()
         [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "${1%/*}/Gemfile" ]]
       then
         __gemfile="${1%/*}/Gemfile"
-        __gem_names=bundler
       fi
       ;;
 
@@ -198,13 +188,11 @@ __rvm_load_project_config()
   then __rvm_project_ruby_env_load "${__env_vars_file:-}" "${__env_vars_prefix:-}"
   fi
 
-  # TODO: add support for versions checking
-  for _gem in ${__gem_names//,/ }
-  do gem_install "${_gem}"
-  done
-
-  if [[ -n "${__gemfile:-}" && -f "${__gemfile:-}" ]]
-  then bundle install --gemfile="${__gemfile}" | __rvm_grep -vE '^Using|Your bundle is complete'
+  if
+    [[ -n "${__gemfile:-}" && -f "${__gemfile:-}" ]]
+  then
+    gem_install bundler
+    bundle install --gemfile="${__gemfile}" | __rvm_grep -vE '^Using|Your bundle is complete'
   fi
 }
 
