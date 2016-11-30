@@ -1,23 +1,20 @@
-= Changelog
+# Changelog
 
-
-
-
-== 1.7.2 (17 August 2011)
+## 1.7.2 (17 August 2011)
 * Remove playful jab.
 * Merge pull request #369 from thinkerbot/vbox-test
 * added vm test scaffold
 * Merge pull request #368 from benmoss/patch-1
 * Fix some typos
 
-== 1.7.1 (15 August 2011)
+## 1.7.1 (15 August 2011)
 * Merge branch 'master' of git.overnothing.com:rvm
 * Rake is now stable at 0.9.2, good default there.
 * Perhaps this will help solidus-river.
 * Merge pull request #366 from deryldoucette/master
 * Made NOTE: part green as well just to ensure people see it.
 * Fixed and color coded per-project rvmrc example.
-* Added information to 'rvm notes' about the >= 1.7.0 per-project .rvmrc toggle.
+* Added information to 'rvm notes' about the ># 1.7.0 per-project .rvmrc toggle.
 * Account for Lion default clang in packages also.
 * Bugfix for zsh, array indexing differences are always good for a certain kind of chuckle.
 * Turns out we already had a History.txt file :)
@@ -27,9 +24,9 @@
 * The redundency bothered me.
 * On long reflection, 90% of the issues I have seen are to do with rvm_path setting. If you are root, /usr/local/rvm If you are a user, $HOME/.rvm
 
-== 1.7.0
+## 1.7.0
 * Since this is not read anyway, I might as well have some fun with it!
-* Default rvm_project_rvmrc to off, set rvm_project_rvmrc=1 in ~/.rvmrc to enable. Oh wow, you mean you could toggle it??? Yes. Always could. Wow I should have asked!! Yes... yes you should have... Amazing how much you learn by simply asking a question...
+* Default rvm_project_rvmrc to off, set rvm_project_rvmrc#1 in ~/.rvmrc to enable. Oh wow, you mean you could toggle it??? Yes. Always could. Wow I should have asked!! Yes... yes you should have... Amazing how much you learn by simply asking a question...
 * Added missing example.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * RVM History, thanks be to Git.
@@ -91,7 +88,7 @@
 * tyop.
 * Really? Homebrew? Have another...
 
-== 1.6.32 (31 July 2011)
+## 1.6.32 (31 July 2011)
 * Ruby 1.9.3-preview1 is now default 1.9.3
 * Merge pull request #346 from amarshall/rbx-1.2.4
 * Rubinius 1.2.4
@@ -106,15 +103,15 @@
 * fix bunzip2 error
 * changed package to pkg on help text to correctly reflect real command
 
-== 1.6.31 (26 July 2011)
+## 1.6.31 (26 July 2011)
 * git it done man, git it done.
 * NO Effin Comment. I am with @joedamato on this one.
 * Allow 1.9 in dependency check for Rubinius, requiring MRI.
 
-== 1.6.30 (26 July 2011)
+## 1.6.30 (26 July 2011)
 * RubyGems 1.8.6 as default, w00t!!!
 
-== 1.6.29 (26 July 2011)
+## 1.6.29 (26 July 2011)
 * claening
 * restore jruby hook code, it is already disabled by default
 * Merge branch 'master' of github.com:wayneeseguin/rvm
@@ -123,17 +120,17 @@
 * fix reading db
 * Dismount.
 
-== 1.6.28 (25 July 2011)
-* "rvm refresh ..." => "rvm reinstall" as suggested by v0n
+## 1.6.28 (25 July 2011)
+* "rvm refresh ..." #> "rvm reinstall" as suggested by v0n
 * Feature: rvm refresh 1.9.2 ~ equivalent to rvm remove 1.9.2 ; rvm install 1.9.2
 
-== 1.6.27 (25 July 2011)
+## 1.6.27 (25 July 2011)
 * Removed ebuilds.
 * Also set CC on Darwin for 1.9 Rubies, for now.
 * Updated ebuild for latest release.
 
-== 1.6.26 (25 July 2011)
-* export CC="/usr/bin/gcc-4.2" if darwin11
+## 1.6.26 (25 July 2011)
+* export CC#"/usr/bin/gcc-4.2" if darwin11
 * Merge pull request #343 from telemachus/lion
 * Add a note/warning about gcc vs llvm on Lion
 * Merge branch 'master' of github.com:wayneeseguin/rvm
@@ -165,7 +162,7 @@
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * fix after
 
-== 1.6.25 (20 July 2011)
+## 1.6.25 (20 July 2011)
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * fix removing jruby functions
 * jruby hook enabled by default
@@ -205,7 +202,7 @@
 * Hook code cleanup.
 * Updated ebuild for latest release.
 
-== 1.6.24 (18 July 2011)
+## 1.6.24 (18 July 2011)
 * Merge pull request #331 from jrep/master
 * Always store project .rvmrc trust keyed by the full, only slightly munged, path Prune old-style md5-keyed entries during install Mention all this in notes
 * changed each option sequence. unexpected error won't occur to run 'package install zlib' on Mac OS X 10.6. "ERROR: Error running '/*/make install', please read /*/make.install.log"
@@ -216,7 +213,7 @@
 * yoda~ish logic from [not, else] to [if, then]
 * Updated ebuild for latest release.
 
-== 1.6.23 (15 July 2011)
+## 1.6.23 (15 July 2011)
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Ruby 1.9.2 p290 is now default.
 * Recall the checksum of a trusted project .rvmrc.
@@ -240,7 +237,7 @@
 * Fixed error message when you 'gemset create' before 'use ruby'.
 * Updated ebuild for latest release.
 
-== 1.6.22 (8 July 2011)
+## 1.6.22 (8 July 2011)
 * JRuby 1.6.3
 * Merge pull request #323 from andrew/master
 * Merge pull request #324 from mhorbul/master
@@ -257,7 +254,7 @@
 * fix capistrano :system for rvm 1.6.21
 * Updated ebuild for latest release.
 
-== 1.6.21 (6 July 2011)
+## 1.6.21 (6 July 2011)
 * Merge pull request #320 from koraktor/ruby-1.8.7-p352
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * make rvm ruby lib work properly with 1.9.2
@@ -341,7 +338,7 @@
 * Use RVM path.
 * Updated ebuild for latest release.
 
-== 1.6.20 (7 June 2011)
+## 1.6.20 (7 June 2011)
 * Updated ebuild for latest release.
 * Truncate logs so that logs reflect last run.
 * A tweaking we will go, a tweaking we will go...
@@ -353,7 +350,7 @@
 * rvm install rbx-2.0.0pre will work tomorrow ;)
 * Updated ebuild for latest release.
 
-== 1.6.19 (6 June 2011)
+## 1.6.19 (6 June 2011)
 * Bugfix, we have ruby at this point, might as well use it to generate a yaml output of the env ;).
 * Try that rboyd...
 * Move --no-same-owner inside.
@@ -403,12 +400,12 @@
 * Merge pull request #282 from MagLev/MagLev-25913
 * Updated ebuild for latest release.
 
-== 1.6.18
+## 1.6.18
 * Added lines for bundler users to generated rvmrc (rvm --create --rvmrc use X@Y)
 * Added a comment.
 * Updated ebuild for latest release.
 
-== 1.6.17
+## 1.6.17
 * More robust generated rvmrc files, better error handling.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * The proper thing to do is to use autoreconf, not autoconf. Learning autotools proper usage is highly recommended.
@@ -426,7 +423,7 @@
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Updated ebuild for latest release.
 
-== 1.6.16
+## 1.6.16
 * Source packages at the top.
 * Such tender love went into the making of this feature :)
 * Merge pull request #277 from arunagw/jruby_tests
@@ -437,14 +434,14 @@
 * JRuby 1.6.2, w00t!
 * Updated ebuild for latest release.
 
-== 1.6.15
+## 1.6.15
 * Merge pull request #276 from ilikepi/fix_missing_then
 * Add missing "then" to scripts/rubygems
 * Added DESTDIR
 * rubygems script cleanup.
 * Updated ebuild for latest release.
 
-== 1.6.14
+## 1.6.14
 * More installer fixes.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * I see stars!
@@ -453,7 +450,7 @@
 * I never thought that I would be doing this :)
 * Updated ebuild for latest release.
 
-== 1.6.13
+## 1.6.13
 * WHY was that not executable???
 * More progress cleaning up installer.
 * Look, the cure for stupidity consists of space!
@@ -469,11 +466,11 @@
 * If not connected to an interactive session, return.
 * Updated ebuild for latest release.
 
-== 1.6.12
+## 1.6.12
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Updated ebuild for latest release.
 
-== 1.6.11
+## 1.6.11
 * Merge pull request #271 from adevadeh/patch-1
 * Merge pull request #272 from yonahw/bad_taste_in_branch_naming_accepted_NOT_encouraged
 * Merge pull request #273 from MagLev/MagLev-25876
@@ -509,7 +506,7 @@
 * Thank yøu bhenderson.
 * Updated ebuild for latest release.
 
-== 1.6.9
+## 1.6.9
 * Fixed an assinine bug thanks to stepheneb.
 * Properly test for interactive mode.
 * Removed no longer necessary code.
@@ -522,7 +519,7 @@
 * Corrected ordering.
 * Updated ebuild for latest release.
 
-== 1.6.7
+## 1.6.7
 * Synchronizing the code repetition blocks.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Level the playing field.
@@ -530,7 +527,7 @@
 * Use cp -f and rm -f when dealing with /tmp/$$
 * Updated ebuild for latest release.
 
-== 1.6.6
+## 1.6.6
 * Updated to MagLev-25838
 * Only if prefix is nonempty.
 * Adjusted __rvm_project_rvmrc()
@@ -579,7 +576,7 @@
 * Fix user db overrides to use $rvm_user_path/db consistently.
 * Updated ebuild for latest release.
 
-== 1.6.5
+## 1.6.5
 * Using `git rev-parse` instead of `git log --no-color -1` to get the last sha1 commit on current branch so we can remove some treatment.
 * Ubuntu sucks arse through a straw.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
@@ -593,7 +590,7 @@
 * Correct and clarify resetting of zsh options.
 * Updated ebuild for latest release.
 
-== 1.6.4
+## 1.6.4
 * Wow... that was a brainfart.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Select if not selected.
@@ -633,7 +630,7 @@
 * Feature: rvm gemset search <gemname>
 * Updated ebuild for latest release.
 
-== 1.6.2
+## 1.6.2
 * Adjusted ps1_titlebar as recommended by @chrislwade.
 * Merge branch 'MagLev-25681' of https://github.com/MagLev/rvm into MagLev-MagLev-25681
 * F'n Solaris.
@@ -647,30 +644,30 @@
 * run autoconf if the configure script is older than configure.in
 * Updated ebuild for latest release.
 
-== 1.6.1
+## 1.6.1
 * Merge branch 'master' of https://github.com/MagLev/rvm into MagLev-master
 * Merge branch 'ps1_titlebar' of https://github.com/thecatwasnot/rvm into thecatwasnot-ps1_titlebar
 * Merge branch 'codegnome/issue-001' of https://github.com/CodeGnome/rvm into CodeGnome-codegnome/issue-001
 * Merge branch 'codegnome/issue-002' of https://github.com/CodeGnome/rvm into CodeGnome-codegnome/issue-002
 * Defaulting Rubygems version to 1.4.2 based on Evan Phoenix's recommendation.
 
-== MagLev-25665
+## MagLev-25665
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 * Updated ebuild for latest release.
 
-== 1.6.0 - https only.
+## 1.6.0 - https only.
 * https AAAAARRRRRGGGGGGHHHHHHHHHHHHHHH
 * __rvm_ask_to_trust(): Aligned 'yes or no' prompt.
 * Better user messages for __rvm_ask_to_trust().
 * Bumped minor version for HEAD.
 * Updated ebuild for latest release.
 
-== 1.5.4
-* rvm use 1.2.3 => rbx-1.2.3
+## 1.5.4
+* rvm use 1.2.3 #> rbx-1.2.3
 * Ensure extglob is on for r()
 * Updated ebuild for latest release.
 
-== 1.5.3
+## 1.5.3
 * Adding titlebar back for xterm in contrib/ps1_functions
 * Altered new git status ps1 feature to minimize external calls.
 * Merge branch 'git_status' of https://github.com/carlosgaldino/rvm into carlosgaldino-git_status
@@ -736,7 +733,7 @@
 * Adjust cap integration for the removal of system-wide.
 * Updated ebuild for latest release.
 
-== 1.5.2
+## 1.5.2
 * Ensure etc_profile_file is assigned.
 * Empty check.
 * Missed gems, environments and wrappers.
@@ -779,10 +776,10 @@
 * Merge branch 'master' of https://github.com/zendesk/rvm into zendesk-master
 * Loading rvmrc fits better in install_setup.
 
-== 1.5.1 - rvmrc files are now respected during installs.
+## 1.5.1 - rvmrc files are now respected during installs.
 * Respect main rvmrc files.
 
-== 1.5.0, anything less is UNSUPPORTED :)
+## 1.5.0, anything less is UNSUPPORTED :)
 * Sneeky buggars!
 * Updated update head script.
 * FI fi fo fum!
@@ -794,11 +791,11 @@
 * More root canal work.
 * RVM built in installer now handles root installation.
 
-== 1.3.2
+## 1.3.2
 * MacRuby 0.10, w00t!
 * Fixed an insanely daft bug.
 
-== 1.3.1
+## 1.3.1
 * Fuck you system wide, fuck you.
 * Explicitly do not load rvm.
 * Determine paths separately from loading RVM.
@@ -811,7 +808,7 @@
 * turn off die on error in tmp cleanup trap for shell scripts that enable set -e
 * Missed a spot :/
 
-== 1.3.0
+## 1.3.0
 * Switching to a far superior rubygems download url, w00t!!! Thanks kotique!
 * directory is now purple
 * Escape as we do not mean a unicode sequence :)
@@ -832,7 +829,7 @@
 * Fix ri generation
 * don't need to emerge libxml since it's ruby package in gentoo and required ruby 1.8.7 to be emerged
 
-== 1.2.9
+## 1.2.9
 * JRuby 1.6.0 is now default.
 * Added rbx-1.2.3
 * Update to MagLev-25439. Seaside works again.
@@ -903,7 +900,7 @@
 * Take that ye variable leech!
 * Bugfix: keep exports in cd until the last second.
 * Ensuring all vars are set for project rvmrc loading.
-* Reorganization and cleanup. scripts/utility => scripts/functions/*
+* Reorganization and cleanup. scripts/utility #> scripts/functions/*
 * Missed an exit.
 * Added help for install
 * Bugfix: hard exit when error occurs during ruby install.
@@ -974,7 +971,7 @@
 * Merge branch 'master' of git.overnothing.com:rvm
 * Updated manifest for only the gem release files.
 * Make scripts/migrate deal correctly with the base gemset
-* use -eq insetad of = for an integer test
+* use -eq insetad of # for an integer test
 * New release - MagLev 25239
 * Merge branch 'system-installer-rev-fix' of https://github.com/fnichol/rvm into fnichol-system-installer-rev-fix
 * Fetch more history in install-system-wide when called with --revision.
@@ -998,7 +995,7 @@
 * Act on Christian's suggestion to use new current_gemset function in info script.
 * Added Christian's function to utility.
 * Formatting.
-* 'rvm gemset list' now has a '=>' for the currently used gemset
+* 'rvm gemset list' now has a '#>' for the currently used gemset
 * Updated usage and help.
 * SANITYFIX: rvm upgrade [source] [destination]
 * added full path to usermod
@@ -1090,7 +1087,7 @@
 * Removed contentious comment.
 * Updated ebuild for latest release.
 
-== 1.2.6
+## 1.2.6
 * Feature: rvm rubygems remove.
 * Removed obsoltete items from README.
 * Bugfix: correct path to log.
@@ -1098,7 +1095,7 @@
 * Use builtin rubygems command to update to current during manage install.
 * Updated ebuild for latest release.
 
-== 1.2.5
+## 1.2.5
 * Added Rubygems 1.5.0 md5
 * Rubygems 1.5.0 is 1.9 compatible, w00t!!!
 * How the Eff did that happen???
@@ -1126,11 +1123,11 @@
 * force re-setting of GemStone url, otherwise downloads won't work, if the URL has already been set in the env
 * Updated ebuild for latest release.
 
-== 1.2.4
+## 1.2.4
 * WTSyntax?
 * Updated ebuild for latest release.
 
-== 1.2.3
+## 1.2.3
 * Added libxslt/libyaml to usage output.
 * Merge branch 'master' of https://github.com/sunteya/rvm into sunteya-master
 * Bugfix: tyop.
@@ -1141,7 +1138,7 @@
 * Merge branch 'rvm-current' of https://github.com/jcf/rvm into jcf-rvm-current
 * Second patch by lordzork + slight syntax cleanup twards the project standard.
 * Applied patch by lordzork.
-* Removed =~ usage for older shells, thanks to cosine.
+* Removed #~ usage for older shells, thanks to cosine.
 * Correct a typo in a comment within scripts/base
 * rvm current
 * Default rvm_path and rvm_prefix to exported environment variables then empty string. Thanks to agreif for pointing out the issue.
@@ -1167,10 +1164,10 @@
 * Only for ruby interpreter use svn like branch calculation.
 * Applying zenspider's patch
 * Account for possibility that rvm_path is not set.
-* Trust a .rvmrc file if rvm_always_trust_rvmrc=1 is set in ~/.rvmrc or /etc/rvmrc regardless of contents if it is trusted once. Thanks to yonahw for this!
+* Trust a .rvmrc file if rvm_always_trust_rvmrc#1 is set in ~/.rvmrc or /etc/rvmrc regardless of contents if it is trusted once. Thanks to yonahw for this!
 * Remove file before writing to it in gemset export.
 
-== 1.2.1
+## 1.2.1
 * Altering loading of override_gem.
 * Clear all traps upon successful teardown. Call rvm teardown on trap.
 * Merge branch 'master' of https://github.com/adammck/rvm into adammck
@@ -1185,11 +1182,11 @@
 * Bugfix: escape quotes inside .rvmrc template.
 * Updated ebuild for latest release.
 
-== 1.2.0
+## 1.2.0
 * Bugfix: ensure that .rvmrc files are output exactly as they are ignoring escape sequences.
 * Updated ebuild for latest release.
 
-== 1.1.13
+## 1.1.13
 * Fixed a daft tyop, thanks to El_Picador for pointing this out.
 * Be more verbose by default for users.
 * Increased verbosity and clarity of the .rvmrc file, also made it more DRY.
@@ -1197,7 +1194,7 @@
 * Bugfix: Nono RVM, Bad touch!
 * Updated ebuild for latest release.
 
-== 1.1.12
+## 1.1.12
 * Bugfix: tyop with syntax.
 * Ruby repository uses 'trunk' as 'master'
 * Install -head MRI Rubies via github.
@@ -1207,14 +1204,14 @@
 * Added libc6-dev to aptitude installation notes.
 * Updated ebuild for latest release.
 
-== 1.1.11
+## 1.1.11
 * Added *.rbc to gitignore.
 * Comment out archflags for now.
 * Updated rvm-get-latest
 * Bugfix: rvm get latest, variable correction.
 * Updated ebuild for latest release.
 
-== 1.1.10
+## 1.1.10
 * Merge branch 'archflags'
 * Swithed install head script to use https, install latest script now checks md5.
 * Archflags working on packages, not quite yet on rubies.
@@ -1222,7 +1219,7 @@
 * Removed extra trailing slashes
 * Updated ebuild for latest release.
 
-== 1.1.9
+## 1.1.9
 * Rubygems 1.4.1
 * Added newline as requested by daniely.
 * Merge branch 'master' of git.overnothing.com:rvm
@@ -1231,7 +1228,7 @@
 * Updated ebuild for latest release.
 * Adjusted rvm notes for JRuby on aptitude hosts.
 
-== 1.1.8
+## 1.1.8
 * Bugfix: rvm remove --gems X now uses full paths to avoid any possible CWD issues. Thanks to agrimm for bringing this to our attention.
 * Bugfix: unbound variable in cli.
 * Use rvm_promptless for the rvm-auto-ruby and the like to avoid hangs in things like TextMate
@@ -1239,7 +1236,7 @@
 * Added openssl-devel to yum distro notes.
 * Updated ebuild for latest release.
 
-== 1.1.7
+## 1.1.7
 * ruby-1.9.2-p136
 * ruby-1.8.7-p330
 * MagLev 24924
@@ -1260,7 +1257,7 @@
 * Append to file, thanks for the heads up cdunn2001.
 * Updated ebuild for latest release.
 
-== 1.1.6
+## 1.1.6
 * Updated post intsall message for the gem releases.
 * Solaris, why can you not play nice with others???
 * Altered the way PATH is cleaned to get things working on Solaris.
@@ -1270,7 +1267,7 @@
 * standardise the display of known rubies and their defaults eg.   macruby[-0.8] rather than   macruby-[0.8]
 * Updated ebuild for latest release.
 
-== 1.1.5
+## 1.1.5
 * MacRuby 0.8 is now default.
 * Added informational output when --static is used.
 * Bugfix: Allow rvm_static_flag to pass through.
@@ -1284,7 +1281,7 @@
 * Removed unused extra variable.
 * Updated ebuild for latest release.
 
-== 1.1.4
+## 1.1.4
 * Feature: 'rvm gemset list_all'. Thanks to jedmtnman.
 * Merge branch 'master' of https://github.com/blueboxgroup/rvm into blueboxgroup-master
 * Patch to resolve issues experienced with a missing rvm_path command.
@@ -1300,7 +1297,7 @@
 * rake install macruby via rvmsudo.
 * Updated ebuild for latest release.
 
-== 1.1.3
+## 1.1.3
 * Merged in a tweaked version of robotarmy's OPenBSD patch.
 * JRuby 1.5.6 is now default.
 * Acted upon Dreamcat4's recommendation.
@@ -1308,7 +1305,7 @@
 * Allow setting of rvm_tmp_path in ~/.rvmrc
 * Updated ebuild for latest release.
 
-== 1.1.2
+## 1.1.2
 * Merge branch 'master' of https://github.com/wingrunr21/rvm into wingrunr21-master
 * Merge branch 'darwin_notes_abandon_system_ruby' of https://github.com/billgathen/rvm into billgathen-darwin_notes_abandon_system_ruby
 * rvm install goruby
@@ -1322,12 +1319,12 @@
 * I usually run rvm interactively logged in as myself, but got a confusing error when I tried to have my webserver running as www-data source it to use in a setup script.  Hopefully this change will make it clearer to anyone trying to do the same thing.
 * Updated ebuild for latest release.
 
-== 1.1.1
+## 1.1.1
 * Egg enhancement.
 * Ensure that when using an RVM Ruby BUNDLE_PATH is unset.
 * rvm gemset import output is a bit nicer.
 * Merge error & log files into a single log file.
-* libreadline5 => libreadline6
+* libreadline5 #> libreadline6
 * s/git/git-core/ for ubuntu packages.
 * Added libyaml-dev to ruby deps on Ubantos.
 * Added after cd hook to latest zsh.
@@ -1351,19 +1348,19 @@
 * Bugfix: Remove destination path when updating from github.
 * Updated ebuild for latest release.
 
-== 1.1.0 (aka 1.0.23) discontinues use of BUNDLE_PATH and global gems are now picked up by Bundler (1.0.5+).
+## 1.1.0 (aka 1.0.23) discontinues use of BUNDLE_PATH and global gems are now picked up by Bundler (1.0.5+).
 * Updated ebuild for latest release.
 
-== 1.0.23. Bundlercats ho!!!
+## 1.0.23. Bundlercats ho!!!
 * No longer use BUNDLE_PATH. Three cheeers for team Bundler! w00t! w00t! w00t!
 * Indicated that rbx-head is default for rbx.
 * Add Rubinius 1.1.1
 * Fix build of macruby-nightly
 * Bugfix: default rvm_cd_complete_flag to 0
-* Changed rvm_trust_rvmrcs to rvm_trust_rvmrcs_flag=1, as it is a flag. Take Note Folks!
+* Changed rvm_trust_rvmrcs to rvm_trust_rvmrcs_flag#1, as it is a flag. Take Note Folks!
 * Updated ebuild for latest release.
 
-== 1.0.22 - The quirkey release.
+## 1.0.22 - The quirkey release.
 * Feature: rvm_cd_complete_flag for ~/.rvmrc.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Add bug fix for rvm tools path-identifier (and hence support in passenger).
@@ -1380,7 +1377,7 @@
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * More traditional behavior for './install --help'
 * Another string readability tweak.
-* See the diff, rvm install ree -C --with-readline-dir=$rvm_path/usr,--with-iconv-dir=$rvm_path/usr,--with-zlib-dir=$rvm_path/usr,--with-openssl-dir=$rvm_path/usr was oldskool, now it is rvm install ree --with-readline-dir=$rvm_path/usr --with-iconv-dir=$rvm_path/usr --with-zlib-dir=$rvm_path/usr --with-openssl-dir=$rvm_path/usr
+* See the diff, rvm install ree -C --with-readline-dir#$rvm_path/usr,--with-iconv-dir#$rvm_path/usr,--with-zlib-dir#$rvm_path/usr,--with-openssl-dir#$rvm_path/usr was oldskool, now it is rvm install ree --with-readline-dir#$rvm_path/usr --with-iconv-dir#$rvm_path/usr --with-zlib-dir#$rvm_path/usr --with-openssl-dir#$rvm_path/usr
 * bumping jruby to 1.5.5
 * Some cleanup of selector.
 * Bugfix: gemset name persisting after failed use issue. https://gist.github.com/607116 Thanks be to george.
@@ -1395,13 +1392,13 @@
 * Make sure you use the unaliased grep
 * Updated ebuild for latest release.
 
-== 1.0.21
+## 1.0.21
 * Bugfix: "rvm install 2.9.2" now fails as expected
 * Fixed possible format string vulnerability.
 * Fixes a problem where tab completion didn't work when a directory in the path contained a space.
 * Updated ebuild for latest release.
 
-== 1.0.20
+## 1.0.20
 * Bugfix: remove src dir if it already exists before moving extracted dir over.
 * Bugfix: unset rvm_ruby_package_file as well.
 * Patch by Darcy Laycock <sutto@sutto.net> "Convert to an array correctly."
@@ -1416,7 +1413,7 @@
 * Put some comments in info and add comments in the #use method
 * Add some example in list informations about environments
 * The #env_contents should return a array
-* Added some comments in env methods (It's better for rdoc =-)
+* Added some comments in env methods (It's better for rdoc #-)
 * Bugfix: 'rvm rubygems 1.3.7' thanks to Matthew McEachen (mrm_adgrok) w00t!
 * MagLev 24566
 * Stick to the most standard tool for Ruby in RVM default gemsets, users can add their own.
@@ -1426,7 +1423,7 @@
 * Updated update-head script
 * Updated ebuild for latest release.
 
-== 1.0.19
+## 1.0.19
 * Added scripts/get.
 * Bugfix: Turn off error tracing when done.
 * Features: 'rvm get latest' and 'rvm get head', Depreciated: 'rvm update' and 'rvm update --head'
@@ -1434,14 +1431,14 @@
 * Hardcode location of sysctl on OSX, thanks to shigeya@wide.ad.jp
 * Updated ebuild for latest release.
 
-== 1.0.18
+## 1.0.18
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * unsetting RUBYLIB / RUBYOPT thanks to suggestion by khaase
 * SHA should be short not long
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Updated ebuild for latest release.
 
-== 1.0.17
+## 1.0.17
 * I believe this is a bug fix
 * Further tweaked fetching user name.
 * Switched user name retrieval to "git config user.name", thanks cypher23
@@ -1458,7 +1455,7 @@
 * Bugfix: properly compute next token for --branch
 * Updated ebuild for latest release.
 
-== 0.1.16: The NYC.rb Release.
+## 0.1.16: The NYC.rb Release.
 * flags should be tested as integers and be sure to account for nil
 * Only trigger loading of rvmrc if in an interactive shell when sourced.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
@@ -1473,7 +1470,7 @@
 * Fixing rvm update.
 * Updated ebuild for latest release.
 
-== 0.1.15
+## 0.1.15
 * Trigger any cd hooks when sourced.
 * Removed rubyforge as a source for rubygems and the latest ruby enterprise.
 * Change git-core to git; git-core now deprecated in Ubuntu repo
@@ -1495,7 +1492,7 @@
 * Blasted formatting issues, thanks for the kick in the arse jacquesc.
 * Updated ebuild for latest release.
 
-== 1.0.14
+## 1.0.14
 * Added man/ to gem files.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Merged in patch by deliciousrobots, domo arrigato!!!
@@ -1515,14 +1512,14 @@
 * MacRuby 0.7 is now default.
 * Updated ebuild for latest release.
 
-== 1.0.13
+## 1.0.13
 * Bugfix: postpend not prepend rvm_path for selector for system case.
 * Slightly tweaked conditionally add bin path.
 * Missed a spot with rvm_gems_path.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Updated ebuild for latest release.
 
-== 1.0.12
+## 1.0.12
 * grab revision from the right argument
 * fix path bug in wrapper wrap()
 * make is also required by arch
@@ -1563,7 +1560,7 @@
 * Bugfix: rvm 1.9.2 gemset create testes now works as expectd, thanks cjbottaro!
 * Updated ebuild for latest release.
 
-== 1.0.11
+## 1.0.11
 * Added rvm_path/bin to mkdir list for install.
 * Added NOTE to --passenger flag about Passenger 3.
 * NEVER use backticks.
@@ -1635,7 +1632,7 @@
 * Altered the way that rvm_loaded_flag is set for byrnejb.
 * Updated ebuild for latest release.
 
-== 1.0.9
+## 1.0.9
 * Bugfix: Initial gemsets are now behaving.
 * Bugfix: Default log path to rvm_path/log
 * Still working on fixing initial gemset import, commented out while debugging.
@@ -1654,7 +1651,7 @@
 * Do not unset result.
 * Updated ebuild for latest release.
 
-== 1.0.8
+## 1.0.8
 * Fixed double or nothing bug.
 * Almost there, double or nothing eh?
 * This time I have Zsh to thank for finding a bug.
@@ -1694,7 +1691,7 @@
 * Safely strip rvm elements from the PATH.
 * Updated ebuild for latest release.
 
-== 1.0.7
+## 1.0.7
 * Bugfix: rvm gemset create X
 * Bugfix: ensure rvm reload you know... reloads?
 * Cleaned up installer some.
@@ -1724,7 +1721,7 @@
 * removed gemset separator from global initialize.
 * Updated ebuild for latest release.
 
-== 1.0.6
+## 1.0.6
 * Tweak bison detection.
 * Another performance tweak, this time to selector which is called neigh every time.
 * Much work with the loco locals.
@@ -1745,7 +1742,7 @@
 * Ensure ruby string is set.
 * Ever so slowly spreading my cheeks to remove my head...
 * Who stole my bloody quote? Cheap bastard...
-* Removing usages of =~ so as to not be "idiotic", by the power of GreyCat!!!
+* Removing usages of #~ so as to not be "idiotic", by the power of GreyCat!!!
 * Altered git detection.
 * Make configure flags immune to the mass cleanse.
 * Explicitely set rvm_ruby_configure_flags when possibly first used.
@@ -1756,7 +1753,7 @@
 * Bugfix: rvm update
 * Updated ebuild for latest release.
 
-== 1.0.5
+## 1.0.5
 * More hashtags
 * tyop fix, thanks eduardohl
 * The world is not yet ready for hardcore bondage...
@@ -1780,7 +1777,7 @@
 * Bugfix: Adjusted the way CLI arguments are parsed.
 * Updated ebuild for latest release.
 
-== 1.0.4
+## 1.0.4
 * Bugfix: rvm gemset use X
 * More installer cleanup.
 * Removed spinner and sleep from install. While they were neat, non-interactive installs did not like them ;)
@@ -1789,7 +1786,7 @@
 * Bugfix: tyop in CLI, thanks to RichGuk!
 * Updated ebuild for latest release.
 
-== 1.0.3
+## 1.0.3
 * Bugfix: Gemsets are now working as expected again.
 * Added pretty print to Upgrade notes.
 * Added rvm_pretty_print to rvm notes, thanks eregon.
@@ -1817,7 +1814,7 @@
 * Speed up scripts/log by using builtins. Removed stray xtrace off.
 * Added command locations for bash/zsh in rvm info.
 * __rvm_environment_identifier() is now using strictly shell builtins, should also work in more cases now.
-* Default all logging to terminal to not use colors. set "export rvm_pretty_print=1" in ~/.rvmrc to override this.
+* Default all logging to terminal to not use colors. set "export rvm_pretty_print#1" in ~/.rvmrc to override this.
 * Make that more of a sanity check until I track this bug.
 * Skip patching if it is not a file.
 * More headway with --patch.
@@ -1828,7 +1825,7 @@
 * Ensure we are calling a binary for gem in gem_install
 * Updated ebuild for latest release.
 
-== 1.0.2
+## 1.0.2
 * Bash completion for help subcommand.
 * Escape newlines for old shells.
 * Add known rubies completion for install subcommand
@@ -1859,7 +1856,7 @@
 * Bugfix: because some people are perfectionists ::cough:: dbussink ::cough::
 * Updated ebuild for latest release.
 
-== 1.0.1
+## 1.0.1
 * Missed a few spots.
 * Consolidated path cleanup code, removed paste as it is a high profile alias target. Some minor tweaks.
 * Copy across bundled gems as part of the jruby install process
@@ -1902,7 +1899,7 @@
 * And lo we fight the evil alias Hydra wherever a head may rear.
 * Updated ebuild for latest release.
 
-== 0.1.47
+## 0.1.47
 * Merge remote branch 'origin/generate-default-wrappers'
 * Merge remote branch 'origin/set-warning'
 * Make it generate default wrappers as expected
@@ -1945,7 +1942,7 @@
 * Use default rvm for rvm-auto-ruby
 * Updated ebuild for latest release.
 
-== 0.1.45
+## 0.1.45
 * Fix rvm_prefix correction logic
 * Refactor rvm migrate to take into account aliases and wrappers
 * Implement rvm upgrade
@@ -1974,7 +1971,7 @@
 * Add optional targets for the set operations
 * Updated ebuild for latest release.
 
-== 0.1.44
+## 0.1.44
 * Updated ebuild for latest release.
 * Implement rvm_ignore_rvmrc, to do installs without rvmrc files
 * Move __rvm_environment_identifier back to utility to avoid conflicts.
@@ -2024,14 +2021,14 @@
 * Set path variables with a check for valid path.
 * Updated ebuild for latest release.
 
-== 0.1.43
+## 0.1.43
 * Merging Darcys record-install-commands branch.
 * rvm_patches_path will be created by following lines
 * Implement strings on 'rvm tools'
 * Implement rvm snapshot {save,load}
 * Updated ebuild for latest release.
 
-== 0.1.42
+## 0.1.42
 * Add missing info functionality to api, fix list_strings output
 * Implement rvm load-rvmrc
 * Merge remote branch 'origin/rvm-usage'
@@ -2092,7 +2089,7 @@
 * Initial Ruby API, written by Darcy!!!
 * Updated ebuild for latest release.
 
-== 0.1.41
+## 0.1.41
 * Feature: Added 'rvm list known_strings', thanks to lenary for the idea.
 * Maglev 23767.
 * Do *not* use 1.9.1-p429. http://redmine.ruby-lang.org/issues/show/2404
@@ -2126,7 +2123,7 @@
 * fixes iconv bad url for curl
 * Updated ebuild for latest release.
 
-== 0.1.40
+## 0.1.40
 * Merge remote branch 'origin/list-fixes'
 * Fix rvm list for architecture wrt gemsets
 * Reimplement the global cache, controlled via rvm gemset globalcache
@@ -2260,7 +2257,7 @@
 * Make test/suites exit code reflect the result
 * Updated ebuild for latest release.
 
-== 0.1.38
+## 0.1.38
 * Tweak md5 slightly.
 * Update the order of calls that create the .rvmrc
 * Beginnings of .rvmrc create refactor.
@@ -2300,7 +2297,7 @@
 * 1.9.2 defaults to preview3
 * Updated install notes for p174 switch.
 * 0.1.36 version bump.
-* Default 1.8.7 p174: 2010-05-31 13:47 <@wayneeseguin> drako: OK .. what are you suggesting to put 174 as default? 2010-05-31 13:47 < drako> wayneeseguin: yes 2010-05-31 13:48 < drako> because is a p248 related bug 2010-05-31 13:48 < drako> in 1.9.1 and head-ruby rails3 works ok 2010-05-31 13:48 < drako> but rails 2.3.x wont work ok with ruby 1.8.7 >= p248 2010-05-31 13:48 < drako> and since its still the stable branch
+* Default 1.8.7 p174: 2010-05-31 13:47 <@wayneeseguin> drako: OK .. what are you suggesting to put 174 as default? 2010-05-31 13:47 < drako> wayneeseguin: yes 2010-05-31 13:48 < drako> because is a p248 related bug 2010-05-31 13:48 < drako> in 1.9.1 and head-ruby rails3 works ok 2010-05-31 13:48 < drako> but rails 2.3.x wont work ok with ruby 1.8.7 ># p248 2010-05-31 13:48 < drako> and since its still the stable branch
 * Add in log levels to shell log output lines.
 * allow for installing with a prefix
 * Merge branch 'gem-install-fixes'
@@ -2316,7 +2313,7 @@
 * Remove extra commented lines
 * Updated ebuild for latest release.
 
-== 0.1.35
+## 0.1.35
 * Merge branch 'set_refactoring'
 * Add newline after use statements
 * Refactor the way set works, using rvm_ruby_strings
@@ -2327,7 +2324,7 @@
 * Use rvm_ruby_strings in set and clean up the variable
 * Updated ebuild for latest release.
 
-== 0.1.34
+## 0.1.34
 * Change the way info is called, use the correct environment identifier
 * Fix the way ri generates doc, installing them into system
 * Update the notice for downloading rvm
@@ -2391,7 +2388,7 @@
 * Bugfix: JRuby gemsets now work properly, including 'rvm gemset list'. 'rvm gemset list' also is much improved.
 * Updated ebuild for latest release.
 
-== 0.1.32
+## 0.1.32
 * Added 1.9.2-head to list known now that there is a branch for it. Thanks altogether!
 * Bugfix: removed /bin from autoconf install path.
 * Beware the user aliases... Thanks be to ice799!!!
@@ -2405,11 +2402,11 @@
 * Hooks may now alter the current environment.  Please be very careful what you place in them :)
 * Updated ebuild for latest release.
 
-== 0.1.31 - JRuby 1.5.0 fix for readers of RubyInside.
+## 0.1.31 - JRuby 1.5.0 fix for readers of RubyInside.
 * Sortof Bugfix: Adjust rake for a minor relase issue. Thanks to haruki_zaemon for notifying me of this issue.
 * Updated ebuild for latest release.
 
-== 0.1.30
+## 0.1.30
 * JRuby 1.5.0 w00t!!!
 * Updated install message for && return. Thanks to panaggio.
 * Updated ArchLinux MRI deps.
@@ -2509,7 +2506,7 @@
 * Bugfix: Rubinius is now able to use gemsets also :) Thank you luislavena!
 * Dumbass. It's like you never awk'd before...
 * When called with only one ruby, allow no args.
-* Now can set rvm_verbose_flag=0 to silence set log.
+* Now can set rvm_verbose_flag#0 to silence set log.
 * Made progress on IronRuby during coderpath interview.
 * Bugfix: don't relink caches anymore.
 * Improved output for gemset empty.
@@ -2522,7 +2519,7 @@
 * Bugfix, grab the gemdir properly for destination in copy.
 * Updated ebuild for latest release.
 
-== 0.1.27
+## 0.1.27
 * Remove .ext/rdoc if it exists, for those having trouble with it when installing 1.9.2-head.
 * Applied jhsu's patch.
 * Updated rvm-prompt tests to run rvm prompt in correct directory. Also updated 1.9.1 and 1.8.6 tests to use the correct 'head' versions
@@ -2557,7 +2554,7 @@
 * Bugfix ;)
 * Updated ebuild for latest release.
 
-== 0.1.25
+## 0.1.25
 * Feature: gemset now displays in info. Bugfix: 'rvm gemset clear' now works as expected.
 * Added unicode char for head. Thanks khaase!
 * Bugfix: install gemset renaming ready for next release.
@@ -2568,14 +2565,14 @@
 * Bugfix: If rvm_ruby_gem_home is not set, attempt to set it.
 * Bugfix: Removed extraneous }
 * Bugfix: Properly extract the ruby string for gemset use.
-* Feature: rvm_gemset_separator. Now with '+' as default. Install renames old gemsets. To keep old '%' then export rvm_gemset_separator='%' in ~/.rvmrc.
+* Feature: rvm_gemset_separator. Now with '+' as default. Install renames old gemsets. To keep old '%' then export rvm_gemset_separator#'%' in ~/.rvmrc.
 * Bugfix: slow the insane logic down.
 * Performance: Use GEM_HOME instead of going through gem in rvm-prompt to gain gemset. Thanks priit!
 * Bugfix: 'rvm benchmark myscript.rb' works again.
 * Added --gems flag for uninstall/remove.
 * Updated ebuild for latest release.
 
-== 0.1.24
+## 0.1.24
 * Bugfix: Available packages are now detected correctly, thanks apotonick && NilsH for letting me know about it.
 * Removed global caching scheme in preparation for something sweet.
 * MagLev now 1.8.7 w00t! (23082)
@@ -2605,7 +2602,7 @@
 * Bugfix: only chmod when installed as user.
 * Updated ebuild for latest release.
 
-== 0.1.23
+## 0.1.23
 * Bugfix: Ensure PATH includes gemset path when gemset is used.
 * Bumped MagLev version.
 * Moved the root check up higher.
@@ -2616,17 +2613,17 @@
 * Tarball not zipball.
 * Updated ebuild for latest release.
 
-== 0.1.22
+## 0.1.22
 * Bugfix: Check for rvm_ruby_gem_home and set accordingly. Additionlly don't append %gemset to the existence check, it will already be in the gem home.  Thanks mattdenner.
 * Updated ebuild for latest release.
 
-== 0.1.21 - Many gemset bugfixes.
+## 0.1.21 - Many gemset bugfixes.
 * Bugfix: rvm gemset delete now works as expected.
 * Bugfix: 'rvm gems use X' now properly sets up all env vars.
 * Bugfix: 'rvm gemset delete X' now works again.
 * Bugfix: 'rvm gems use X' uses X again :)
 * Bugfix: 'rvm gemset use X' will not double X. Bugfix: 'rvm gemset use Y' will no longer display an error message about the ruby string.
-* Feature: rvm_gemset_create_on_use_flag=1 in ~/.rvmrc
+* Feature: rvm_gemset_create_on_use_flag#1 in ~/.rvmrc
 * Bugfix: s/gems/gemset/ in error messages.
 * More ironruby progress.
 * Or maybe not.
@@ -2644,7 +2641,7 @@
 * Bugfix: 'rvm package ....' under zsh.
 * Updated ebuild for latest release.
 
-== 0.1.19
+## 0.1.19
 * Updated mono package function.
 * Rounded out new package feature.
 * New API: 'rvm package {install,uninstall} {openssl,zlib,readline,iconv,etc...}'
@@ -2685,7 +2682,7 @@
 * Bugfix: Show gemset for do actions.
 * Adding ebuild for rvm-0.1.18
 
-== 0.1.18
+## 0.1.18
 * Renamed sticky-gems to sticky
 * Removed rvm_path code from installer which should not be set during install. Install is 'black and white'
 * Feature: Now you can empty any gem dir, not just for a gemset.
@@ -2705,7 +2702,7 @@
 * Added installation warning when 'return' is detected in .bashrc.
 * Adding ebuild for rvm-0.1.17
 
-== 0.1.17
+## 0.1.17
 * Added latest maglev md5's
 * Bump maglev version to 22891.
 * Do not install rubygems for ruby-head.
@@ -2714,7 +2711,7 @@
 * 'rvm update' no longer attempts to install from a gem. Now downloads and installsthe latest stable release tarball.
 * Adding ebuild for rvm-0.1.16
 
-== 0.1.16
+## 0.1.16
 * Bugfix for the last Bugfix ;)
 * Bugfix: Search global path for 'do' actions.
 * FreeBSD deviates from the norm just like OSX :)
@@ -2731,7 +2728,7 @@
 * Bugfix: better gem command detection.
 * Adding ebuild for rvm-0.1.14
 
-== 0.1.14
+## 0.1.14
 * Bugfix: careful now.
 * Stricter checking.
 * Bugfix: Missed a spot for global gem cache.
@@ -2743,7 +2740,7 @@
 * Feature: 'rvm X --rvmrc'.
 * Adding ebuild for rvm-0.1.13
 
-== 0.1.13
+## 0.1.13
 * Adjusted install message to be more explicit about the return. Adjusted rbx's installer.
 * Turns out it was the previous 1.8.7 install that was jacked, not the rbx installer.
 * Bugfix: remove spaces in filenames for rvm gems load.
@@ -2775,16 +2772,16 @@
 * Bugfix for 'rvm gem install X' dealing with GEM_PATH setting.
 * Added proxy ability for rubies fetching. Thanks Jadefalkner.
 
-== 0.1.11
+## 0.1.11
 
-== 0.1.10
+## 0.1.10
 * Bugfix: Fixed tyop in variable name. Fixed extra space issue.
 * Bugfix: PATH correction. Thanks UnderpantsGnome.
 * Bugfix: Fixing the last Bugfix correctly.
 * Bugfix for zsh on gems load. Began adding 'rvm install mono' - not done.
 * Bugfix: Macruby 0.5
 
-== 0.1.9
+## 0.1.9
 * Bugfix: 'rvm install macruby' now installs 0.5 instead of nightly build.
 * Is a direcotory and not a symlink.
 * Fixed pathing for mput.
@@ -2792,7 +2789,7 @@
 * Bugfix: globbing in zsh is unsettling.
 * Documentation updates.
 
-== 0.1.8
+## 0.1.8
 * Bugfix: Separate directory and symlink logic.
 * 1.8.6-p399 now default.
 * Removed tracing.
@@ -2802,7 +2799,7 @@
 * Updated CLI help with more information. Bugfix: rvm gems load now works again. Feature: rvm gems load now installs gems very fast from cache.
 * Added shell to output.
 
-== 0.1.7
+## 0.1.7
 * p398 is now default for 1.8.6. Thanks Kirk Haines.
 * Removed '--no-rdoc --no-ri' as default. Set rvm_gem_options in .rvmrc if desired.
 * Added ebuild for 0.1.6.
@@ -2810,7 +2807,7 @@
 * Bugfix: Use the proper variable for global gems paths.
 * Bugfix: Removed extra slash from shebang for hooks, thanks haruki_zaemon
 
-== 0.1.6
+## 0.1.6
 * Update default 1.8.7 to p249.
 * Thank you Pete Nicholls.
 * Bugfix: Ensure that cache directory exists.
@@ -2818,7 +2815,7 @@
 * Merge branch 'master' into ebuilds-nice
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 
-== 0.1.5
+## 0.1.5
 * Careful not to nuke system gems cache.
 * No! the other left!
 * Bugfix: So system rubies matter? ;)
@@ -2830,7 +2827,7 @@
 * Bugfix: fun with zsh ;)
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 
-== 0.1.4
+## 0.1.4
 * Added filesystem permissions check to rvm debug.
 * Ensure that %global gets into path.
 * Tweaked verbage.
@@ -2868,7 +2865,7 @@
 * Added rvm irbrc processing to post_install.
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 
-== 0.1.3
+## 0.1.3
 * Added ebuild for version 0.1.2.
 * Added Maglev 22780 checksums.
 * Added MagLev 22780 Added rubygems update when new ruby gem home is created.
@@ -2877,7 +2874,7 @@
 * Merge branch 'master' of github.com:Pistos/rvm
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 
-== 0.1.2
+## 0.1.2
 * Site update.
 * Bugfix: better handle ruby log paths.
 * Bugfix: Append to log when running a command.
@@ -2898,7 +2895,7 @@
 * Bugfix: don't exit out when mostly done with MagLev install.
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 
-== 0.1.1 - bugfixes.
+## 0.1.1 - bugfixes.
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 * Removed sourcing of .rvmrc / etc/rvmrc.
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
@@ -2941,7 +2938,7 @@
 * More MagLev tweaking. Now workign on getting 'maglev-head' working proper.
 * Added maglev-22725 sha1.
 
-== 0.1.0
+## 0.1.0
 * Added maglev to usage output and list.
 * Updated installation notice
 * Silly rabbit... debugs are for developers...
@@ -2963,7 +2960,7 @@
 * Update 1.9.1 to default to p378.
 * Bugfix: removed z in tar's where piping through gunzip. Thanks to jfsworld.
 * Added 1.8.7-p248 md5.
-* If rvm_project_rvmrc=0 then don't even hijack cd.
+* If rvm_project_rvmrc#0 then don't even hijack cd.
 * Fixed maglev gemstone extraction
 * For now always nab gemstone.
 * Removed extra }
@@ -2986,13 +2983,13 @@
 * Bugfix: rvm gems load for path to gem file no longer emits an awk error.
 * Thank you very much, Robert Hunter!
 
-== 0.999, getting very close to 0.1.0
+## 0.999, getting very close to 0.1.0
 * Added some exit points to rbx install for error cases.
 * Site updates.
 * Upgraded rbx. Several other fixes and patches. Thanks awesome users!
 * Site Updates.
 * Removed the --jit from usage which is no longer used. Use --enable-llvm instead.
-* Feature: sticky gem sets are now disabled by default. Set 'rvm_sticky_gemsets=1' in ~/.rvmrc to enable.
+* Feature: sticky gem sets are now disabled by default. Set 'rvm_sticky_gemsets#1' in ~/.rvmrc to enable.
 * Bugfix: rvm gems delete should now work. Thanks jfsworld!
 * Bugfix: MY_RUBY_HOME in default file greps were adjusted since export was moved to beginning of line. Thanks jfsworld.
 * Bugfix: rvm install rbx/rbx-head.
@@ -3025,7 +3022,7 @@
 * Thank you Jonathan Palardy.
 * Added git-core to apt based hosts notes message. Thanks racan.
 
-== 0.0.99
+## 0.0.99
 * Added rvm source script test for website.
 * Adjusted formatting of 'rvm list'.
 * More tweaks to install message.
@@ -3057,7 +3054,7 @@
 * Attempting to fix the detection of an installed gem.
 * Tweaked gem installed test.
 
-== 0.0.98
+## 0.0.98
 * Added optional trailing slash. Thanks dreamcat4.
 * Removed quotes from regex.
 * Working on adjusting the installer with dreamcat4
@@ -3069,7 +3066,7 @@
 * Tweaked initializer based on dreamcat4 suggestions and some cleanup.
 * Added messages for IronRuby to install notes.
 * Added IronRuby to the README.
-* Support for building and installing IronRuby from the official git repository (Mono >= 2.6 is required).
+* Support for building and installing IronRuby from the official git repository (Mono ># 2.6 is required).
 * Merge branch 'master' of git.overnothing.com:rvm
 * Feature: rvmsudo X for executing X in context of current rvm selection.
 * Bugfix: adding HOME .profile to correct zshenv.
@@ -3097,10 +3094,10 @@
 * Bugfix: Adjusted ruby string interpreter matcher.
 * Added debug messages to gems actions.
 * Bugfix: properly restore rbx's ruby string.
-* Bugfix: rvm_install_on_use_flag=1 in ~/.rvmrc works again.
+* Bugfix: rvm_install_on_use_flag#1 in ~/.rvmrc works again.
 * switch from $interpreter/$versin to $ruby_string for gem dirs.
 
-== 0.0.97
+## 0.0.97
 * Documentatino updates.
 * Bugfix: 'rvm X gem install Y' now works, w00t
 * Yes folks, zsh IS better at emitting a stack trace :)
@@ -3117,7 +3114,7 @@
 * switch .profile and rvm sourcing order
 * re-feature: Added back the sourcing of .profile if it exists. Began cleaning up bash scripts.
 
-== 0.0.96
+## 0.0.96
 * Features: rvm X --editor : creates rvm_path/bin/editor_X symlinks rvm X --passenger : creates rvm_path/bin/passenger_X symlinks rvm X --symlinks smurf : creates rvm_path/bin/smurf_X symlinks
 * Merge remote branch 'origin/fix_rvm_ruby_do' into fix_rvm_ruby_do
 * fixed 'File Not Exist' error, when rvm_do.
@@ -3130,13 +3127,13 @@
 * Bugfix: silence error output from ls.
 * Thank you Scott Clausen!
 
-== 0.0.95
+## 0.0.95
 * Feature: rvm now behaves the same way when logged in as root and user. To set a system wide default ruby now do 'rvm X --default' when logged in as root
 * Bugfix: --enable-shared not --enable_shared, thanks saimon!
 * Minor version bump.
 * No longer run irbrc on select.
 * Minor adjustment, --enable-shared.
-* Default compile flag is now --enable-shared=yes unless overridden with -C ...
+* Default compile flag is now --enable-shared#yes unless overridden with -C ...
 * Bugfix: 'rvm list' now shows proper architecture strings.
 * Bugfix: silence another which ruby call and also test for executable  on system ruby.
 * Bugfix: Check proper directory and script for root install, additionally ensure rvm_path is a directory before attempting to load rvm.
@@ -3145,7 +3142,7 @@
 * Bugfix: 'rvm gem install X' works again after extracting gem actions to a external script.
 * Have gems load use current set / exported environment.
 
-== 0.0.92
+## 0.0.92
 * red is the new green ;)
 * Only call colors once per color. Set rvm_ruby_gem_home if it is not set.
 * Set gem_args.
@@ -3161,10 +3158,10 @@
 * Feature: Added post-gem-install message. Thanks tmm1!
 * Default Change: per-project rvmrc code to switch to default/system on exit is now opt-in instead of opt-out.
 
-== 0.0.91
+## 0.0.91
 * Bugfix: 'rvm update' now tries current ruby first. Bugfix: 'rvm install' does not imbecillically use the same code as initialize and startup.
 
-== 0.0.90
+## 0.0.90
 * Bugfix: rvm gems(et) commands now work again.
 * Site Updates.
 * Bugfix: rvm install X for libraries now works again, broken in 0.0.89
@@ -3172,7 +3169,7 @@
 * Over zealous
 * Attempting to improve rvm_path logic.
 
-== 0.0.89
+## 0.0.89
 * Feature: Monitor files in lib/ and app/ directories. This might need some more polish.
 * Feature: md5 checksums now happen so that archives are not re-downloaded.
 * Bugfix: rvm scripts path looks around now before gettings set if not already set.
@@ -3186,7 +3183,7 @@
 * Added rvm/usr path detection.
 * Added 1.9.1-p376 to rvm list --all
 * fixed 'File Not Exist' error, when rvm_do.
-* If rvm_archflags=1 then set rvm_make_flags_flag.
+* If rvm_archflags#1 then set rvm_make_flags_flag.
 * Bugfix: rvm runs extract even if archive already exists.
 * Made __rvm_make_flags opt-in via rvm_make_flags_flag
 * Updated 1.9.1 default patchlevel to 376.
@@ -3227,7 +3224,7 @@
 * In Darwin, explicitly use system's "basename" command.
 * Feature: rvm_symlink_path now overridable and defaults to /usr/local/bin
 * Extracted cd to sorced script.
-* Feature: Project specific rvmrc files now switch back to default and/or system rubies when exiting a project directory. Additionally they can now be toggled off by placing 'rvm_project_rvmrc_default=0' and/or 'rvm_project_rvmrc=0' in the ~/.rvmrc file
+* Feature: Project specific rvmrc files now switch back to default and/or system rubies when exiting a project directory. Additionally they can now be toggled off by placing 'rvm_project_rvmrc_default#0' and/or 'rvm_project_rvmrc#0' in the ~/.rvmrc file
 * Bugfix: rbx_url
 * Site updates.
 * Removed debugging flags.
@@ -3237,7 +3234,7 @@
 * Bugfix: break in case? Really? ...
 * Initial thoughts on patch support.
 
-== 0.0.86
+## 0.0.86
 * Added a simple bootstrap script to the documentation.
 * scripts/hash now executable in preparation for future use.
 * Bugfix: system for rvm list now shows up properly when exists.
@@ -3281,7 +3278,7 @@
 * Bugfix: Account for the case where there is no current ruby.
 * Bugfix: Account for the case where there is no current ruby.
 
-== 0.0.82
+## 0.0.82
 * Added site/tmp/dependencies to gitignore.
 * Bugfix: installer loading logic.
 * Site updates.
@@ -3347,12 +3344,12 @@
 * Bugfix: (sorta) ignore calling self when $* matches completion-
 * Minor version bump.
 
-== 0.0.77
+## 0.0.77
 * Bugfix: 'rvm gem uninstall X' no longer errors on --no-rdoc
 * Feature: 'rvm install ree-1.8.6' on Darwin now injects --no-tcmalloc
-* Removed usage of =~ for now :/
+* Removed usage of #~ for now :/
 * Switched shebang lines to use /usr/bin/env.
-* Feature: 'rvm install curl'. (For use with curb for example: 'rvm ree ; rvm install curb -- --with-curl-dir=/Users/wayne/.rvm/usr/'). Thanks foca.
+* Feature: 'rvm install curl'. (For use with curb for example: 'rvm ree ; rvm install curb -- --with-curl-dir#/Users/wayne/.rvm/usr/'). Thanks foca.
 * Minor Version Bump.
 * Feature: Detection of scripts directory vs rvm path.
 * Bugfix: 'rvm gemdir', 'rvm gemdir system', 'rvm gemdir user', etc... now all work as expected.
@@ -3364,7 +3361,7 @@
 * Merge branch 'master' of github.com:wayneeseguin/rvm
 * Site Updates.
 * fixed symlink path for default-irb/default-gem
-* Feature: Have 'rvm use X' be verbose and output 'now using ruby X' while 'rvm X' not be verbose for scripting (by default). This can be overridden by placing rvm_verbose_flag=1 in ~/.rvmrc to always be verbose.
+* Feature: Have 'rvm use X' be verbose and output 'now using ruby X' while 'rvm X' not be verbose for scripting (by default). This can be overridden by placing rvm_verbose_flag#1 in ~/.rvmrc to always be verbose.
 * Feature: Cleaned up rvm list, added some color.
 * Bugfix: clear all gems flags when cleaning up variables.
 * Initial SysAdmin root level support -- specficially targeted to hosting environments.
@@ -3382,7 +3379,7 @@
 * Bugfix: 'rvm install 1.9.2' no longer tries to install 'ppreview1' :)
 * Minor version bump after 0.0.73 release.
 
-== 0.0.73.
+## 0.0.73.
 * jruby 1.4.0 is now default. macruby now only shows up in all list if system is OSX.
 * Minor version bump after 0.0.72 release.
 * Initial jruby-head support.
@@ -3397,7 +3394,7 @@
 * Bugfix: adjust svn urls for new ruby string logic.
 * Minor version bump.
 
-== 0.0.71: Added macruby & rbx to rvm list. Initial (simple) ruby support.
+## 0.0.71: Added macruby & rbx to rvm list. Initial (simple) ruby support.
 * Feature: rbx and macruby now both show up under rvm list.
 * rvm Release 0.0.70: Initial macruby support.
 * Feature: 'rvm macruby' now defaults to the 'nightly' version.
@@ -3434,7 +3431,7 @@
 * Rewrote __rvm_ruby_string to be a) flexible b) handle errors better and c) far less complex! Thanks for the idea, Chrononaut!
 * Site update.
 
-== 0.0.66
+## 0.0.66
 * Bugfix: 'rvm 1.8.7%gemset' now works again (broken in last commit).
 * Bugfix: 'rvm 1.8.7-p160' now works.
 * Bugfix: 'rvm 1.9.1,ree,jruby benchmark some_code.rb'
@@ -3495,7 +3492,7 @@
 * Regex adjustment.
 * Switching to safer sed patterns.
 
-== 0.0.60: gems(et) and other bugfixes.
+## 0.0.60: gems(et) and other bugfixes.
 * Bugfix: 'rvm 1.8.7-p160' works as intended. 50 tests, 351 assertions, 351 passed, 0 failed
 * Bugfix: install should not replace rvm-prompt location :)
 * Added 2 tests with assertions to cover the last feature checked in.
@@ -3527,13 +3524,13 @@
 * Switched code to use preferred subshell method.
 * Made test clauses safer from bad input.
 
-== 0.0.57: Bugfixes.
+## 0.0.57: Bugfixes.
 * Bugfix: 'rvm ruby' and 'rvm gem' with no arguments now properly issue an error message.
 * Bugfix: 'rvm update' now works again.
 * Remove debug.
 * Bugfix: nasty recursive gem home bug.
 
-== 0.0.56. 'rvm gems X', X in {<set name>, load,dump,delete,name,dir,list}
+## 0.0.56. 'rvm gems X', X in {<set name>, load,dump,delete,name,dir,list}
 * Feature(s): 'rvm gems X'. 52 tests, 443 assertions, 443 passed, 0 failed. ::grin:: w00t
 * Bugfix: basename: missing operand.
 * Fixed the tests.
@@ -3553,11 +3550,11 @@
 * Minor config tweak.
 * Site update
 
-== 0.0.55: Gemset Bugfix.
+## 0.0.55: Gemset Bugfix.
 
-== 0.0.55: Gemset Bugfix.
+## 0.0.55: Gemset Bugfix.
 
-== 0.0.55: Gemset Bugfix.
+## 0.0.55: Gemset Bugfix.
 * Bumped 1.8.5 patchlevel to 231.
 * Bugfix: gemsets no longer default to version :-p
 * rvm Release 0.0.54: 'rvm jruby 1.4.1' (currently RC1)
@@ -3577,7 +3574,7 @@
 * Shift if 'use ruby' sequenece to avoid the ruby triggering do.
 * Summary output is now more readable.
 
-== 0.0.53
+## 0.0.53
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 * Bugfix: 'rvm benchmark increment.rb' now works with jruby. Site Updates.
 * Added Maz's installer patch. Added imajes rvm_loaded_flag idea.
@@ -3589,11 +3586,11 @@
 * Site modification, switch to haml (yay).
 * Feature: --json,--yaml only output those. Bugfix: Downloader for installs.
 
-== 0.0.51: ree 1.8.7
+## 0.0.51: ree 1.8.7
 * ree 1.8.7 is now default.
 * Feature: ree 1.8.7.
 
-== 0.0.50: Progress.
+## 0.0.50: Progress.
 * Bugfix: rvm list.
 * Some more tweaking on macruby.
 * Smoothing out the installs & configuring.
@@ -3606,7 +3603,7 @@
 * Fixed some paths, thanks Pistos.
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 
-== 0.0.49.
+## 0.0.49.
 * Some rubinius tweeks.
 * Feature: 'rvm ree 1.8.7 --head'
 * Indent notes.
@@ -3636,9 +3633,9 @@
 * Feature: rvm restores selected ruby after performing a multi action. Bugfix: unset rvm_ruby_selector when cleaning up variables.
 * Site update.
 * Site updates.
-* Bugfix: s/=true// for --enable-shared. Thanks Maz.
+* Bugfix: s/#true// for --enable-shared. Thanks Maz.
 
-== 0.0.48. Site updates.
+## 0.0.48. Site updates.
 * Feature: 'rvm install/uninstall/remove X,Y,Z...' Updated usage & CLI.
 * Feature: 'rvm system --default'
 * Slowly forward with jruby...
@@ -3646,7 +3643,7 @@
 * Removed stray __rvm_select
 * Bugfix: rvm install A,B,C now works.
 
-== 0.0.47: jruby + rubydo bugfixes.
+## 0.0.47: jruby + rubydo bugfixes.
 * jruby ::twitch:: jruby ::twitch:: ... working ...
 * After much mental aerobics JRuby is now working.
 * Bugfix: jruby shebang now properly set, yay.
@@ -3657,7 +3654,7 @@
 * Merge branch 'master' of git@github.com:Pistos/rvm
 * Bugfix: /bin/bash instead of just 'bash' in case bash is not in path.
 
-== Release: 0.0.46 Essential installer and other bugfixes.
+## Release: 0.0.46 Essential installer and other bugfixes.
 * Removed pointless warnings.
 * Patch: For curl, detects if server does not support range command, delete archive, and retry download. Thanks Maz.
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
@@ -3680,12 +3677,12 @@
 * Feature: Removed path from system snapshot. Bugfix: test for file in post-install.
 * s/sync/gemsync/g
 
-== 0.0.45
+## 0.0.45
 * JSON output reformatted and workign in zsh as well.
 * Bugfix: Zsh yaml fix.
 * Feature: 'rvm install X,Y,'Z works as intended. Bugfix: 'rvm install jruby'
 * Make rvm debug slightly more useful when helping people.
-* Bugfix: 'rvm do' === 'rvm rubydo'
+* Bugfix: 'rvm do' ### 'rvm rubydo'
 * Fun with popsicles.
 * Bugfix: gemsync actually works now. Thanks bosie.
 * Bugfix: gemsync :)
@@ -3697,12 +3694,12 @@
 * Silence pushes & pops, thanks darkhelmet & bosie.
 * rbx binary wrappers for gem and rake.
 
-== 0.0.44: Install Bugfix, thanks Maz.
+## 0.0.44: Install Bugfix, thanks Maz.
 * cp -Rf /
 * cp -Rf :)
 * cp -R
 
-== 0.0.43. Features: 'rvm benchmark code.rb', 'rvm rake <task>'
+## 0.0.43. Features: 'rvm benchmark code.rb', 'rvm rake <task>'
 * Bugfix: 'rvm system' works again with rvm-prompt.
 * Bugfix: 'rvm gemdup system'. Bugfix: 'rvm gemdup user'
 * Unearthed gem of a gem, gem features.
@@ -3712,9 +3709,9 @@
 * Feature: --json Summary.
 * Feature: 'rvm benchmark rubyfile.rb' :). Feature: Summary as yaml 'rvm --yaml rake -T'.
 
-== 0.0.42.
+## 0.0.42.
 * Feature: 'rvm rake -T' (doesn't have to be just -T ;))
-* s/--enable-pthread=true/--enable-pthread/g
+* s/--enable-pthread#true/--enable-pthread/g
 * Bugfix: patchlevel should respect 'head' and 'trunk' values. Thanks Yehuda.
 * Feature: 'rvm remove' and 'rvm uninstall' are now split.
 * re-enabled macruby against git head.
@@ -3733,7 +3730,7 @@
 * ::twitch::
 * grumble... I just pushed a release :/
 
-== 0.0.41: Bugfixes. Thank you community awesome.
+## 0.0.41: Bugfixes. Thank you community awesome.
 * Bugfix: rake gets installed to gem_home/bin :)
 * Site Updates.
 * Bugfix: ruby_string grep should check rev at beginning.
@@ -3755,15 +3752,15 @@
 * Fun with flags.
 * Search rvm gems cache directories for gem files before hitting the 'series of tubes'.
 * Bugfix: gemset load, thanks bosie.
-* if [ 'zsh' = 'daft' ] ; then s/parameters/configure_parameters/g
+* if [ 'zsh' # 'daft' ] ; then s/parameters/configure_parameters/g
 * Send STDERR to /dev/null for cache check with gemset load
-* if [ 'zsh' = 'daft' ] ; do sed -i s/status/result/g ; done
+* if [ 'zsh' # 'daft' ] ; do sed -i s/status/result/g ; done
 * Bugfix: Patchlevel sanity checks, thanks sfpyra.
 * rvm Release 0.0.40: Ruby Install Bugfix.
-* setn enable-shared=true
+* setn enable-shared#true
 * Ensure that --enable-shared is used with configure :/
 
-== 0.0.39
+## 0.0.39
 * Only use rvm readline if it exists.
 * Silence Z grep
 * Features: ~/.bin/ruby,gem,irb,default-ruby symlinks on --default.
@@ -3777,7 +3774,7 @@
 * Feature: 'rvm update --rubygems' now installs rubygems for the currently selected ruby.
 * Bugfix: 'rvm gemdir system user' now works. Site Updates.
 
-== Release: the .38 special.
+## Release: the .38 special.
 * moving forward with readline.
 * Doc updates, thanks anita-kun.
 * flash messages.
@@ -3821,7 +3818,7 @@
 * Simply load, not copy user's .irbrc, thanks brainopia.
 * Site Update, prompt.
 
-== 0.0.37: Bug! Bug!... Squish!!!
+## 0.0.37: Bug! Bug!... Squish!!!
 * Made the currently selected ruby more... obvious.
 * Updated 'rvm list' to include a '*' in front of the currently selected ruby.
 * Inject blank line just before injecting source lines during install.
@@ -3841,7 +3838,7 @@
 * Added scripts/rvm-aliases and scripts/rvm-functions for 'extra' features. Added gemdo usage doc. Added rake to binaries list. Added initial --dump and --load for use with gemsets.
 * Site Updates.
 
-== 0.0.36
+## 0.0.36
 * BugFix: rubydo if interpreter is actually a ruby version number, thanks aaalex.
 * Fix for rubydo, all case.
 * Use current user path instead of default path.
@@ -3882,19 +3879,19 @@
 * Adding blank space to irbrc.
 * Bugfix: Added 'current' to selector.
 
-== 0.0.34: Bugfix: log_file_name... is a variable :)
+## 0.0.34: Bugfix: log_file_name... is a variable :)
 * Syntax check, aisle 3
 * Adjusted default system checks to check if ruby is installed, thanks Maz. Bugfix: log_file_name... is a variable :)
 
-== 0.0.33: Bugfix: autoconf logic.
+## 0.0.33: Bugfix: autoconf logic.
 * Bugfix: autoconf.
 * Bugfix: Correctly handle autoconf.
 * Site update.
 
-== 0.0.32: Bugfix: PATH to include user's default path now.
+## 0.0.32: Bugfix: PATH to include user's default path now.
 * Adjusted binary file paths to include the user's default path.
 
-== 0.0.31: Feature: rvm list --all Feature: Adjusted rvm_ruby_configure. Feature: rvm update Feature: reset so that system ruby (1.8) is used to build rubinius, which requires parsetree. Thanks manveru. Feature: env/path injection to executables. Feature: Added wget support. Feature: rvm_run function. Added update --head. Bugfix: Exit out of push'd directory when encountering a failure. Bugfix: Made trimming the last : in the path more shell agnostic. Bugfix: Moved logs outside eval.  Thank you metaskills. Bugfix: Adjusted default configure options. Updated some site docs. Thanks mr-interweb. Bugfix: don't shift on use if 2nd parameter is empty thanks mr-interweb.
+## 0.0.31: Feature: rvm list --all Feature: Adjusted rvm_ruby_configure. Feature: rvm update Feature: reset so that system ruby (1.8) is used to build rubinius, which requires parsetree. Thanks manveru. Feature: env/path injection to executables. Feature: Added wget support. Feature: rvm_run function. Added update --head. Bugfix: Exit out of push'd directory when encountering a failure. Bugfix: Made trimming the last : in the path more shell agnostic. Bugfix: Moved logs outside eval.  Thank you metaskills. Bugfix: Adjusted default configure options. Updated some site docs. Thanks mr-interweb. Bugfix: don't shift on use if 2nd parameter is empty thanks mr-interweb.
 * Feature: rvm list --all
 * Bugfix: Exit out of push'd directory when encountering a failure.
 * Added wget support.
@@ -3913,7 +3910,7 @@
 * Applying patch from ujihisa: Fixed installer's behavior. See the details below.
 * Moved svn url block inside the svn if.
 
-== 0.0.30 Feature: 1.8.6-p383 is now default. Feature: --set-prompt option for prepending ruby version to prompt (opt-in). Feature: GEM_HOME/PATH to: gem, irb, erb, ri, rdoc, testrb, rake. Feature: install --force option Feature: git support to ruby-install-source. Bugfix: unset variables in default file if not set by default. Feature: rvm_prompt added to defaults file. Bugfix: Path fix. Feature: Ruby Wrapper Script. Bugfix: Log path error messages. Typos in docs. Bugfix: usage to be more clear for --configure option, thanks mikeg1a. Feature: alias '--trace' for '--debug' for rake lovers :)
+## 0.0.30 Feature: 1.8.6-p383 is now default. Feature: --set-prompt option for prepending ruby version to prompt (opt-in). Feature: GEM_HOME/PATH to: gem, irb, erb, ri, rdoc, testrb, rake. Feature: install --force option Feature: git support to ruby-install-source. Bugfix: unset variables in default file if not set by default. Feature: rvm_prompt added to defaults file. Bugfix: Path fix. Feature: Ruby Wrapper Script. Bugfix: Log path error messages. Typos in docs. Bugfix: usage to be more clear for --configure option, thanks mikeg1a. Feature: alias '--trace' for '--debug' for rake lovers :)
 * Update 1.8.6 to use 383 as default.
 * Added --set-prompt option for prepending ruby version to prompt (opt-in).
 * Added GEM_HOME/PATH to: gem, irb, erb, ri, rdoc, testrb, rake.
@@ -3931,23 +3928,23 @@
 * Typo fixes for docs. Working on MacRuby with help from lukeredpath.
 * Updated usage to be more clear for --configure option, thanks mikeg1a. Added alias '--trace' for '--debug' for rake lovers :)
 
-== 0.0.29: rvm Passenger Support. (with a gemspec :)
+## 0.0.29: rvm Passenger Support. (with a gemspec :)
 
-== 0.0.29: rvm Passenger Support.
+## 0.0.29: rvm Passenger Support.
 * Bugfix for $@ with passenger, thanks lukeredpath.
 * Added Passenger Support. Bugfix for error log location notification during installs.
 
-== 0.0.28: Reverted installation bin scripts. Two bug fixes.
+## 0.0.28: Reverted installation bin scripts. Two bug fixes.
 * Bugfix for '--configure' thanks Scyllinice
 * Updated site.
 * Updated website.
 * Added unset of rvm_prompt on reset, thanks zmack
 * Reverted the bin/rvm-* scripts to their previous state.
 
-== 0.0.27 Feature 'rvm implode' Feature --jit flag to tell Rubinius to build with JIT (RBX_LLVM=1). Bugfix reset should select system only after doing some cleanup. Feature missing variable namespaces Feature exits when install goes badly. Feature  for use with PS1 Feature support for inclusion of user's irbrc, if it exists.
+## 0.0.27 Feature 'rvm implode' Feature --jit flag to tell Rubinius to build with JIT (RBX_LLVM#1). Bugfix reset should select system only after doing some cleanup. Feature missing variable namespaces Feature exits when install goes badly. Feature  for use with PS1 Feature support for inclusion of user's irbrc, if it exists.
 * Added 'rvm implode'
 * Webssite Update.
-* Added --jit flag to tell Rubinius to build with JIT (RBX_LLVM=1).
+* Added --jit flag to tell Rubinius to build with JIT (RBX_LLVM#1).
 * Reset should select system only after doing some cleanup.
 * Added missing variable namespaces
 * Adding exits when install goes badly.
@@ -3955,7 +3952,7 @@
 * Tweaked user's irbrc inclusion to be more efficient (no variable).
 * Added support for inclusion of user's irbrc, if it exists.
 
-== 0.0.26: Several bugfixes. 'rvm default' now uses the current set default or system. 'rvm system' now uses system. Adjusted namespace to be even more discreet. Added rbx for rubinius. Cleaned up usage. Removed install all feature. Made rvm_prompt opt-in via env variable.
+## 0.0.26: Several bugfixes. 'rvm default' now uses the current set default or system. 'rvm system' now uses system. Adjusted namespace to be even more discreet. Added rbx for rubinius. Cleaned up usage. Removed install all feature. Made rvm_prompt opt-in via env variable.
 * Gem install/update tweak. Updated setdefault docs page.
 * 'rvm default' now uses the current set default or system. 'rvm system' now uses system. Added bugfix for install/update, thanks Maz.
 * Adjusted namespace to be even more discreet. Updated site docs some more.
@@ -3971,7 +3968,7 @@
 * Tweaked install all. Updated site docs some.
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 
-== 0.0.25. 'Major Nerdon'
+## 0.0.25. 'Major Nerdon'
 * jruby HEAD working.
 * Finished initial revision of rubydo.
 * Added an extra line to the output.
@@ -4035,9 +4032,9 @@
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 * Added awesome sed-fu patch by Chrononaut.
 
-== 0.0.24: Quick, hide before she sees!
+## 0.0.24: Quick, hide before she sees!
 
-== 0.0.23: It works!
+## 0.0.23: It works!
 * Completely separated out rvm's gems from system 1.8.
 * Added support for bin_path.
 * ree now works with it's own rubygems again. Seeing some oddities with 1.9.2.
@@ -4068,14 +4065,14 @@
 * Merge branch 'english-changes'
 * Merge branch 'master' of git://github.com/wayneeseguin/rvm
 
-== 0.0.22: Let it Snow Leopards
+## 0.0.22: Let it Snow Leopards
 * Merge commit 'a8e55b29195f15b773dd698beb236493f372efdd'; branch 'site'
 * Credit Pistos, add patch by Caius Durling.
 * Merge branch 'master' into site
 
-== 0.0.21. Is there a cure for stupidity?
+## 0.0.21. Is there a cure for stupidity?
 
-== 0.0.20. Bugfix: zsh using curl. Bugfix: REE Uninstall.
+## 0.0.20. Bugfix: zsh using curl. Bugfix: REE Uninstall.
 * Fixed ree uninstall bug.
 * 'Ignore built gems.' -- Pistos
 * 'Added evals to  calls, to satisfy zsh' -- Pistos
@@ -4093,7 +4090,7 @@
 * Unset GEM_HOME and MY_RUBY_HOME on default switch.
 * gemdup getting there...
 
-== 0.0.18.
+## 0.0.18.
 * Adjusted rvm debug.
 * Parital gemdup functionality (default & system).
 * Added system default ruby to rvm list.
@@ -4101,21 +4098,21 @@
 * Adding rvm-update.
 * Added rvm reset feature.
 
-== 0.0.16. Many documentation typo fixes. Added Install section to usage. Added more thank you's. Added curl detection (for Ubuntu). Added force to symlinks. Fixed gemdir system/user. Added both shells option to install. Improved wording of rvm-install script.
+## 0.0.16. Many documentation typo fixes. Added Install section to usage. Added more thank you's. Added curl detection (for Ubuntu). Added force to symlinks. Fixed gemdir system/user. Added both shells option to install. Improved wording of rvm-install script.
 * Bugfix on source pat.
 * Installer now prompts for manual install and is much more forthcoming and helpful.
 
-== 0.0.14. Bitten by RubyGems.
+## 0.0.14. Bitten by RubyGems.
 
-== 0.0.13. Bugfix in mkdir for source dirs.
+## 0.0.13. Bugfix in mkdir for source dirs.
 * Namespaced logging functions.
 * Refined debug.
 
-== 0.0.11. rvm gemdir functional.
+## 0.0.11. rvm gemdir functional.
 * Updated Readme.
 * rvm gemdir now functions.
 
-== 0.0.10. rvm default and switching now work properly with the path. Began prepairing for abstraction.
+## 0.0.10. rvm default and switching now work properly with the path. Began prepairing for abstraction.
 * Label gemdup TODO
 * Updated README
 * Added rvm list.
@@ -4123,20 +4120,20 @@
 * Uninstall now works.
 * Added sanity check for rvm-install to deny installation as root.
 
-== 0.0.8
+## 0.0.8
 * Debug switch now works. Added root sanity check.
 
-== 0.0.7
+## 0.0.7
 * Addded gemdup example. Fixed a rather embarassing typo.
 
-== 0.0.6
+## 0.0.6
 * Installations are now verbose and clean. REE now works properly. rvm -v|--version alone now displays the version of rvm.
 * Updated usage & readme.
 * When not specifying implementation and version, set to default.
 * Added Credits & Website
 * Added version and author line and updated wording for usage/docs. Removed rubinius plans for now.
 * Don't depend on uninstall.
-* Added default task => :gem
+* Added default task #> :gem
 * Updated rake gem
 * Added initial zsh support.
 * un-DRY curl.
