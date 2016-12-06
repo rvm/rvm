@@ -1,41 +1,37 @@
-_When filling an issue please make sure to follow instructions described in https://github.com/rvm/rvm#reporting-issues_
+_When filing an issue, please make sure to follow the instructions described in https://github.com/rvm/rvm#reporting-issues._
 
 ## Description
 
-_Describe in short words the nature of your problem_
+_Briefly describe the nature of your problem._
 
 
 ## Steps to reproduce
 
-_List all your specific environment settings, actions taken and commands run required to replicate the problem_
+_List all of your specific environment settings, actions taken, and commands run — everything required to replicate the problem._
 
- 1.
- 2.
- 3.
+ 1. ...
+ 2. ...
+ 3. ...
 
 ## Expected behavior
 
-
+_Briefly explain what you expected to see._
 
 ## Actual behavior
 
-_Please include [gist](https://gist.github.com) with the output of the command you have run_
+_Please include a [gist](https://gist.github.com) with the output of the command(s) you ran._
 
 * [command](https://gist.github.com/...)
 * [config.log](https://gist.github.com/...) - only for issues with `install`
 * [make.log](https://gist.github.com/...) - only for issues with `install`
 
-_When above output does not seem to include meaningful error message you might want to additionally attached output of the same commands run with --debug switch_ 
+_When the above output does not seem to include a meaningful error message, you might want to additionally attach the output of the same command(s) run with the `--debug` switch._
 
-* Debug mode:
-** [command](https://gist.github.com/...)
-** [config.log](https://gist.github.com/...) - only for issues with `install`
-** [make.log](https://gist.github.com/...) - only for issues with `install`
+**Debug mode**:
+* [command](https://gist.github.com/...)
+* [config.log](https://gist.github.com/...) - only for issues with `install`
+* [make.log](https://gist.github.com/...) - only for issues with `install`
 
 ## Environment info
 
-_Paste below the output of_
-
-```
-rvm info 
-```
+_Paste below the output of the `rvm info` command._
