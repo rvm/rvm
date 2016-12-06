@@ -200,12 +200,12 @@ Please get the latest RVM and try again:
 If the documentation is not clear, an error message is not clear or you are stuck with the problem,
 please do file a bug.
 
-When in doubt as to whether your issue might relate to another simply file a new bug and
+When in doubt as to whether your issue might relate to another, simply file a new bug, and
 we will mark it as duplicate if it needs to be.  It's always better to file a new ticket and
 let us sort it out than to accidentally add noise to another ticket.
 
-When filling an issue we prepared a template for you tu use. Please try to fill all sections as best as you can.
-Always make sure to split up each command and it's output into it's own fenced code block. 
+For filing issues, we have prepared a template for you to use. Please try to fill all sections as best as you can.
+Always make sure to split up each command and its output into its own fenced code block. 
 If the output is long, please put it in a separate [gist](https://gist.github.com). 
 Otherwise it's hard for us to process all the information and respond quickly.
 
