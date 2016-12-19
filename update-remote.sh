@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 echo "Linking: OSX binaries"
-ssh rvm@rvm.io -C ./site/bin/rvm-link-binaries.sh osx 10.9
+ssh rvm@ssh.rvm.io -C ./site/bin/rvm-link-binaries.sh osx 10.9
 
 echo "Processing: remote - all"
-ssh rvm@rvm.io -C ./site/bin/rvm-list-binary.sh remote | sort > config/remote
+ssh rvm@ssh.rvm.io -C ./site/bin/rvm-list-binary.sh remote | sort > config/remote
 
 for type in md5 sha512
 do
-  ssh rvm@rvm.io ./site/bin/rvm-list-binary.sh $type | while IFS="=" read name value
+  ssh rvm@ssh.rvm.io ./site/bin/rvm-list-binary.sh $type | while IFS="=" read name value
   do
     echo "Processing: $type - $name"
     if \grep "^$name=" config/$type >/dev/null

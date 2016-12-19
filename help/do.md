@@ -22,6 +22,9 @@ out extra rvm information.
 - `--summary` - hide output and display summary of failures/success list only
 - `--yaml`    - hide output and display yaml summary of failures/success list only
 - `--json`    - hide output and display json summary of failures/success list only
+- `--summary` - print out a summary of the commands run
+- `-S`        - specify the script file to load and run
+
 
 ## Examples:
 

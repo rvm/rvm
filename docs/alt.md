@@ -43,8 +43,3 @@ RVM is supported by the following IDE products:
 
 - [RubyMine](http://www.jetbrains.com/ruby/)
 - Vim [rvm.vim](https://github.com/tpope/vim-rvm)
-
-
-# Editing
-To add a new implementation click "Edit this file" here:
-https://github.com/rvm/rvm/blob/master/help/alt.md

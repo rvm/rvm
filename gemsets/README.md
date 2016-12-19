@@ -1,5 +1,5 @@
 It is important to keep `default.gems` and `global.gems` even empty to
-triger automatic addition of gems to this files.
+trigger automatic addition of gems to this files.
 
 Every type of ruby, version and patchlevel can have its own file for
 `default.gems` or `global.gems`. The longest path takes precedence and
