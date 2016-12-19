@@ -1,5 +1,11 @@
 # Change Log
 
+## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
+
+[Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
+
+...
+
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
 19 December 2016 - [Full Changelog](https://github.com/rvm/rvm/compare/1.27.0...1.28.0)
@@ -8,7 +14,7 @@
 * Feedback when switching gemset with/without use [\#3780](https://github.com/rvm/rvm/issues/3780)
 * Require OpenJDK 1.8.0 (with fallback to 1.7.0) for JRuby on CentOS/Fedora [\#3741](https://github.com/rvm/rvm/pull/3741) and Ubuntu [\#3719](https://github.com/rvm/rvm/pull/3719)
 * Updated README including information about dedicated Ubuntu package
-* Add support for Solus linux [\#3728](https://github.com/rvm/rvm/pull/3728) ([mspaulding06](https://github.com/mspaulding06))
+* Add support for Solus linux [\#3728](https://github.com/rvm/rvm/pull/3728)
 
 #### Bug fixes:
 * Can't download rvm; curl returned status '23' [\#3785](https://github.com/rvm/rvm/issues/3785)
