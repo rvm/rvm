@@ -4,7 +4,8 @@
 
 [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
 
-...
+#### Bug fixes:
+* $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
