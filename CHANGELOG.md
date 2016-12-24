@@ -4,6 +4,9 @@
 
 [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
 
+#### New features:
+* Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
+
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
 
