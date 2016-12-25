@@ -5,6 +5,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
 
 #### New features:
+* Add support of ruby 2.4.0
 * Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
 
 #### Bug fixes:
