@@ -43,7 +43,6 @@ To test a local copy of RVM for development purposes simply enter the folder wit
  
 ```
 ./install && rvm reload
-
 ```
 
 If you don't want to destroy your working environment, you can select a different destination folder and easily switch between them:
