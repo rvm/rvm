@@ -5,7 +5,8 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
 
 #### New features:
-* Add support of ruby 2.4.0
+* Add support of ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
+* Added railsexpress patches for ruby-2.3.3 [\#3852](https://github.com/rvm/rvm/pull/3852)
 * Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
 * Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851) 
 
