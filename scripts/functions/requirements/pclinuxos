@@ -26,6 +26,18 @@ requirements_pclinuxos_libs_install()
   __rvm_try_sudo synaptic install -y "$@" || return $?
 }
 
+requirements_pclinuxos_libyaml_version()
+{
+  case "${_system_arch}" in
+    (*x86_64)
+      \typeset __pclinuxos_libyaml="lib64yaml-devel"
+      ;;
+    (*)
+      \typeset __pclinuxos_libyaml="libyaml-devel"
+      ;;
+  esac
+}
+
 requirements_pclinuxos_update_system_install_epel()
 {
   "${rvm_scripts_path}/fetch" "${epel_key}"
@@ -45,11 +57,12 @@ or there was problem checking if libyaml-devel is available / installed."
 # not sure if this one is needed for pclinuxos, copied from centos
 requirements_pclinuxos_update_system_check_epel()
 {
-  [[ " ${packages_to_install[*]} " == *" libyaml-devel "* ]] || return 0
+  [[ " ${packages_to_install[*]} " == *" ${__pclinuxos_libyaml} "* ]] || return 0
+
   # if you change this, change the scripts/functions/pkg version too
   [[ -f /etc/synaptic.repos.d/epel.repo ]] ||
-  requirements_pclinuxos_lib_installed libyaml-devel ||
-  requirements_pclinuxos_lib_available_no_caching libyaml-devel ||
+  requirements_pclinuxos_lib_installed "${__pclinuxos_libyaml}" ||
+  requirements_pclinuxos_lib_available_no_caching "${__pclinuxos_libyaml}" ||
   {
     \typeset version="${_system_version%%.*}"
     __rvm_db "epel${version}_key" "epel_key"
@@ -57,8 +70,8 @@ requirements_pclinuxos_update_system_check_epel()
     if
       [[ -z "$epel_rpm" || -z "$epel_key" ]]
     then
-      rvm_error "There is no 'libyaml-devel' package available for installation and RVM does not know how to make that happen,
-please tell us how to install 'libyaml-devel' on '${_system_name}-${_system_version}' here: https://github.com/rvm/rvm/issues"
+      rvm_error "There is no '${__pclinuxos_libyaml}' package available for installation and RVM does not know how to make that happen,
+please tell us how to install '${__pclinuxos_libyaml}' on '${_system_name}-${_system_version}' here: https://github.com/rvm/rvm/issues"
       return 49
     fi
     rvm_requiremnts_fail_or_run_action 2 \
@@ -118,9 +131,10 @@ requirements_pclinuxos_define()
       then requirements_version_minimal autoconf 2.67
       else requirements_check autoconf
       fi
+
       requirements_check gcc-c++ make bzip2 automake libtool bison patch \
         readline zlib glibc-devel glibc-headers-devel libffi-devel \
-        libyaml-devel readline-devel zlib-devel openssl-devel
+        readline-devel zlib-devel openssl-devel "${__pclinuxos_libyaml}"
       ;;
   esac
 }
