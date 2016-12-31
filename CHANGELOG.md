@@ -12,7 +12,8 @@
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
-* RVM incorrectly tries to install llvm 3.5 when trying to install Rubinius 3  [\#3848](https://github.com/rvm/rvm/pull/3848), 
+* RVM incorrectly tries to install llvm 3.5 when trying to install Rubinius 3 [\#3848](https://github.com/rvm/rvm/pull/3848) 
+* Missing libyaml-devel on PCLinuxOS 64-bit [\#3703](https://github.com/rvm/rvm/issues/3703) 
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
