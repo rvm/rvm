@@ -49,17 +49,25 @@ requirements_osx_brew_lib_available()
   brew search | __rvm_grep "^${1}$" >/dev/null || return $?
 }
 
+requirements_osx_brew_libs_error()
+{
+    rvm_warn "There were package ${1} errors, make sure to read the log.
+
+Try \`brew tap --repair\` and make sure \`brew doctor\` looks reasonable.
+
+Check Homebrew requirements https://github.com/Homebrew/homebrew/wiki/Installation"
+}
+
+}
 requirements_osx_brew_libs_install()
 {
   brew unlink  "$@" || true # ignore: Error: No such keg: /usr/local/Cellar/automake
   brew install "$@" ||
   {
     \typeset ret=$?
-    rvm_warn "There were package installation errors, make sure to read the log.
 
-Try \`brew tap --repair\` and make sure \`brew doctor\` looks reasonable.
+    requirements_osx_brew_libs_error "installation"
 
-Check Homebrew requirements https://github.com/Homebrew/homebrew/wiki/Installation"
     case "$_system_version" in
       (10.6)
         rvm_warn "
@@ -67,6 +75,19 @@ On OSX 10.6 instead of command line tools install:
     https://github.com/downloads/kennethreitz/osx-gcc-installer/GCC-10.6.pkg"
         ;;
     esac
+    return $ret
+  }
+}
+
+requirements_osx_brew_libs_remove()
+{
+  brew unlink  "$@" || true # ignore: Error: No such keg: /usr/local/Cellar/automake
+  brew remove "$@" ||
+  {
+    \typeset ret=$?
+
+    requirements_osx_brew_libs_error "removal"
+
     return $ret
   }
 }
@@ -289,6 +310,8 @@ requirements_osx_brew_libs_default()
   brew_libs_conf+=( libyaml readline libksba openssl )
 
   requirements_osx_brew_check_custom homebrew/dupes # for: zlib
+
+  undesired_check openssl098
 
   requirements_check "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
 }
