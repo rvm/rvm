@@ -12,7 +12,8 @@
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
-* RVM incorrectly tries to install llvm 3.5 when trying to install Rubinius 3  [\#3848](https://github.com/rvm/rvm/pull/3848), 
+* RVM incorrectly tries to install llvm 3.5 when trying to install Rubinius 3 [\#3848](https://github.com/rvm/rvm/pull/3848)
+* Failing openssl.patch for Ruby 1.9.3 [\#3831](https://github.com/rvm/rvm/issues/3831) 
 * RVM hardcodes number of compile threads [\#3856](https://github.com/rvm/rvm/pull/3856)
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
