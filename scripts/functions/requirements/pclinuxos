@@ -26,65 +26,9 @@ requirements_pclinuxos_libs_install()
   __rvm_try_sudo synaptic install -y "$@" || return $?
 }
 
-requirements_pclinuxos_libyaml_version()
-{
-  case "${_system_arch}" in
-    (*x86_64)
-      \typeset __pclinuxos_libyaml="lib64yaml-devel"
-      ;;
-    (*)
-      \typeset __pclinuxos_libyaml="libyaml-devel"
-      ;;
-  esac
-}
-
-requirements_pclinuxos_update_system_install_epel()
-{
-  "${rvm_scripts_path}/fetch" "${epel_key}"
-  "${rvm_scripts_path}/fetch" "${epel_rpm}"
-  __rvm_try_sudo rpm --import   "${rvm_archives_path}/${epel_key##*/}"
-  __rvm_try_sudo rpm --quiet -i "${rvm_archives_path}/${epel_rpm##*/}" &&
-  __rvm_try_sudo synaptic-config-manager -q --enable epel ||
-  {
-    \typeset __ret=$?
-    rvm_error "Error installing EPEL, it is required for ${__pclinuxos_libyaml},
-either there was an error installing EPEL package,
-or there was problem checking if ${__pclinuxos_libyaml} is available / installed."
-    return ${__ret}
-  }
-}
-
-# not sure if this one is needed for pclinuxos, copied from centos
-requirements_pclinuxos_update_system_check_epel()
-{
-  [[ " ${packages_to_install[*]} " == *" ${__pclinuxos_libyaml} "* ]] || return 0
-
-  # if you change this, change the scripts/functions/pkg version too
-  [[ -f /etc/synaptic.repos.d/epel.repo ]] ||
-  requirements_pclinuxos_lib_installed "${__pclinuxos_libyaml}" ||
-  requirements_pclinuxos_lib_available_no_caching "${__pclinuxos_libyaml}" ||
-  {
-    \typeset version="${_system_version%%.*}"
-    __rvm_db "epel${version}_key" "epel_key"
-    __rvm_db "epel${version}_rpm" "epel_rpm"
-    if
-      [[ -z "$epel_rpm" || -z "$epel_key" ]]
-    then
-      rvm_error "There is no '${__pclinuxos_libyaml}' package available for installation and RVM does not know how to make that happen,
-please tell us how to install '${__pclinuxos_libyaml}' on '${_system_name}-${_system_version}' here: https://github.com/rvm/rvm/issues"
-      return 49
-    fi
-    rvm_requiremnts_fail_or_run_action 2 \
-      "It is not possible to install EPEL repository for YAML, install it using: $epel_rpm" \
-      __rvm_log_command pclinuxos_install_epel "Installing EPEL repository" requirements_pclinuxos_update_system_install_epel ||
-      return $?
-  }
-}
-
 requirements_pclinuxos_update_system()
 {
-  requirements_pclinuxos_libyaml_version
-  requirements_pclinuxos_update_system_check_epel || return $?
+  true
 }
 
 requirements_pclinuxos_check_binary()
@@ -108,7 +52,9 @@ requirements_pclinuxos_define()
       then
         requirements_pclinuxos_check_binary javac ||
           requirements_check_fallback java-1.7.0-openjdk-devel java-devel
+
         requirements_check git
+
         if is_jruby_post17 "$1"
         then requirements_check_custom_after mvn=maven
         fi
@@ -133,9 +79,17 @@ requirements_pclinuxos_define()
       else requirements_check autoconf
       fi
 
-      requirements_check gcc-c++ make bzip2 automake libtool bison patch \
-        readline zlib glibc-devel glibc-headers-devel libffi-devel \
-        readline-devel zlib-devel openssl-devel "${__pclinuxos_libyaml}"
+      case "${_system_arch}" in
+        (x86_64)
+          requirements_check lib64yaml-devel lib64readline lib64ffi-devel lib64readline-devel lib64openssl-devel
+          ;;
+        (*)
+          requirements_check libyaml-devel readline libffi-devel readline-devel openssl-devel
+          ;;
+      esac
+
+      requirements_check automake bison bzip2 gcc-c++ glibc-devel glibc-headers-devel libtool make patch \
+         zlib zlib-devel
       ;;
   esac
 }
