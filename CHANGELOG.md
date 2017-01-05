@@ -9,7 +9,7 @@
 * Added railsexpress patches for ruby-2.3.3 [\#3852](https://github.com/rvm/rvm/pull/3852)
 * Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
 * Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851)
-* Ubuntu x64 binary for ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/pull/3867)
+* Ubuntu x64 binary for ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
