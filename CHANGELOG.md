@@ -16,7 +16,8 @@
 * Failing openssl.patch for Ruby 1.9.3 [\#3831](https://github.com/rvm/rvm/issues/3831) 
 * RVM hardcodes number of compile threads [\#3856](https://github.com/rvm/rvm/pull/3856)
 * Cannot build rbx-2.5.2 on ArchLinux [\#3497](https://github.com/rvm/rvm/issues/3497)
-* Remove incompatible version of openssl098 [\#3844](https://github.com/rvm/rvm/issues/3844)  
+* Remove incompatible version of openssl098 [\#3844](https://github.com/rvm/rvm/issues/3844) 
+* Failed to fetch the gpg key from keys.gnupg.net [\#3544](https://github.com/rvm/rvm/issues/3544)
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
