@@ -55,7 +55,7 @@ Basic RVM usage scenarios include installing and switching between different rub
 
 To install ruby you have to call `rvm install INTERPRETER[-VERSION] OPTIONS` 
 
-When no version specified, RMV will install latest stable version or selected interpreter. If you omit to specify interpreter, RVM will assume
+When no version specified, RVM will install latest stable version or selected interpreter. If you omit to specify interpreter, RVM will assume
 that you wanted to install MRI ruby. Following examples would have exactly the same effect:    
 
 ```
