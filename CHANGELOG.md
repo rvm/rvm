@@ -8,16 +8,20 @@
 * Add support of ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
 * Added railsexpress patches for ruby-2.3.3 [\#3852](https://github.com/rvm/rvm/pull/3852)
 * Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
-* Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851) 
+* Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851)
+* Ubuntu x64 binary for ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
+* Mention in PATH warnings about ability to silence them [\#3336](https://github.com/rvm/rvm/issues/3336)
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
 * RVM incorrectly tries to install llvm 3.5 when trying to install Rubinius 3 [\#3848](https://github.com/rvm/rvm/pull/3848)
-* Failing openssl.patch for Ruby 1.9.3 [\#3831](https://github.com/rvm/rvm/issues/3831) 
+* Failing openssl.patch for Ruby 1.9.3 [\#3831](https://github.com/rvm/rvm/issues/3831)
 * RVM hardcodes number of compile threads [\#3856](https://github.com/rvm/rvm/pull/3856)
 * Cannot build rbx-2.5.2 on ArchLinux [\#3497](https://github.com/rvm/rvm/issues/3497)
 * Remove incompatible version of openssl098 [\#3844](https://github.com/rvm/rvm/issues/3844)  
 * Missing libyaml-devel on PCLinuxOS 64-bit [\#3703](https://github.com/rvm/rvm/issues/3703) 
+* Failed to fetch the gpg key from keys.gnupg.net [\#3544](https://github.com/rvm/rvm/issues/3544)
+* Filtering Travis binaries for OSX for non Travis env (they are statically linked and not movable) [\#3690](https://github.com/rvm/rvm/issues/3690) 
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
@@ -63,7 +67,7 @@
 
 #### Binaries:
 * Ruby 2.3.0, 2.3.1 [\#3774](https://github.com/rvm/rvm/issues/3774), 2.3.3 [\#3822](https://github.com/rvm/rvm/issues/3822) binaries for Debian 8 x86_64
-* Ruby 2.0.0-p648, 2.1.5, 2.1.9, 2.2.5, 2.3.0 [\#3693](https://github.com/rvm/rvm/issues/3693), 2.2.6 and 2.3.2 [\#3809](https://github.com/rvm/rvm/issues/3809), 2.3.3 [\#3820](https://github.com/rvm/rvm/issues/3820) binaries for Ubuntu 16.04 
+* Ruby 2.0.0-p648, 2.1.5, 2.1.9, 2.2.5, 2.3.0 [\#3693](https://github.com/rvm/rvm/issues/3693), 2.2.6 and 2.3.2 [\#3809](https://github.com/rvm/rvm/issues/3809), 2.3.3 [\#3820](https://github.com/rvm/rvm/issues/3820) binaries for Ubuntu 16.04
 * Ruby 2.3.1 for Centos 6.6 [\#3712](https://github.com/rvm/rvm/issues/3712)
 * Install CentOS binaries on both RedHat and CentOS machines [\#3735](https://github.com/rvm/rvm/issues/3735)
 
