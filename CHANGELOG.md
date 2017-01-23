@@ -25,6 +25,9 @@
 * Remove kernel-libc-devel dependency on Solus [\#3881](https://github.com/rvm/rvm/pull/3881)
 * Speed up loading rubies - gem version compatibility check
 
+#### Upgraded Ruby interpreters:
+* Upgrade RubyGems to 2.6.9 [\#3885](https://github.com/rvm/rvm/pull/3885)
+
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
 19 December 2016 - [Full Changelog](https://github.com/rvm/rvm/compare/1.27.0...1.28.0)
