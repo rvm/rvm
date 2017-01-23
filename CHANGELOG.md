@@ -12,6 +12,7 @@
 * Ubuntu x64 binary for Ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
 * Mention in PATH warnings about ability to silence them [\#3336](https://github.com/rvm/rvm/issues/3336)
 * Add support of JRuby 9.1.7.0 [\#3878](https://github.com/rvm/rvm/pull/3878)
+* Upgrade RubyGems to 2.6.9 [\#3885](https://github.com/rvm/rvm/pull/3885)
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
