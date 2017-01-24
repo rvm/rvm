@@ -12,6 +12,7 @@
 * Ubuntu x64 binary for Ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
 * Mention in PATH warnings about ability to silence them [\#3336](https://github.com/rvm/rvm/issues/3336)
 * Add support of JRuby 9.1.7.0 [\#3878](https://github.com/rvm/rvm/pull/3878)
+* Upgrade RubyGems to 2.6.10
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
@@ -23,6 +24,7 @@
 * Failed to fetch the gpg key from keys.gnupg.net [\#3544](https://github.com/rvm/rvm/issues/3544)
 * Filtering Travis binaries for OSX for non Travis env (they are statically linked and not movable) [\#3690](https://github.com/rvm/rvm/issues/3690)
 * Remove kernel-libc-devel dependency on Solus [\#3881](https://github.com/rvm/rvm/pull/3881)
+* Speed up loading rubies - gem version compatibility check
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
