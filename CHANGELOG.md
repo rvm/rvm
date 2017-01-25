@@ -5,14 +5,10 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
 
 #### New features:
-* Add support of Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
 * Added railsexpress patches for Ruby 2.3.3 [\#3852](https://github.com/rvm/rvm/pull/3852)
 * Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
 * Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851)
-* Ubuntu x64 binary for Ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
 * Mention in PATH warnings about ability to silence them [\#3336](https://github.com/rvm/rvm/issues/3336)
-* Add support of JRuby 9.1.7.0 [\#3878](https://github.com/rvm/rvm/pull/3878)
-* Upgrade RubyGems to 2.6.10
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
@@ -26,6 +22,16 @@
 * Remove kernel-libc-devel dependency on Solus [\#3881](https://github.com/rvm/rvm/pull/3881)
 * Speed up loading rubies - gem version compatibility check
 * Installation of rbx-3.69 on macOS fails because llvm35 formula can't be found [\#3884](https://github.com/rvm/rvm/issues/3884)
+
+#### Upgraded Ruby interpreters:
+* Add support for Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
+* Add support for JRuby 9.1.7.0 [\#3878](https://github.com/rvm/rvm/pull/3878)
+* Add support for Rubinius 3.70 [\#3889](https://github.com/rvm/rvm/pull/3889)
+* Upgrade RubyGems to 2.6.10
+
+#### Binaries:
+* Ubuntu x64 binary for Ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
+
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
