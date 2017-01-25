@@ -25,6 +25,7 @@
 * Filtering Travis binaries for OSX for non Travis env (they are statically linked and not movable) [\#3690](https://github.com/rvm/rvm/issues/3690)
 * Remove kernel-libc-devel dependency on Solus [\#3881](https://github.com/rvm/rvm/pull/3881)
 * Speed up loading rubies - gem version compatibility check
+* RVM install fail on macOS Yosemite due expired curl's SSL certificate [\#3886](https://github.com/rvm/rvm/issues/3886)
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
