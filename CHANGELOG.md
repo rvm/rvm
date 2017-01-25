@@ -23,10 +23,10 @@
 * Speed up loading rubies - gem version compatibility check
 
 #### Upgraded Ruby interpreters:
-* Add support of Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
-* Add support of JRuby 9.1.7.0 [\#3878](https://github.com/rvm/rvm/pull/3878)
+* Add support for Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
+* Add support for JRuby 9.1.7.0 [\#3878](https://github.com/rvm/rvm/pull/3878)
+* Add support for Rubinius 3.70 [\#3889](https://github.com/rvm/rvm/pull/3889)
 * Upgrade RubyGems to 2.6.10
-* Add support for Rubinius 3.70
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
