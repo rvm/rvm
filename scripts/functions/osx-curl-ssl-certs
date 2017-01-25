@@ -2,14 +2,20 @@
 
 __rvm_osx_curl_certs_run()
 {
-  curl_path="/opt/local/share/curl"
+  \typeset curl_path="/opt/local/share/curl"
 
   if [ -d "$curl_path" ] && [ -x "$curl_path" ]; then
+    \typeset now=`date +%Y%m%d%H%M%S`
+    \typeset target=`mktemp ${TMPDIR:-/tmp}/tmp.XXXXXXXXXXXXXXXXXX`
+    \typeset url="https://curl.haxx.se/ca/cacert.pem"
+
     rvm_log "Updating certificates in $curl_path"
 
-    wget https://curl.haxx.se/ca/cacert.pem --output-document="${rvm_tmp_path}/cacert.pem"
-
-     __rvm_try_sudo mv "${curl_path}/curl-ca-bundle.crt" "${curl_path}/curl-ca-bundle.crt-original"
-     __rvm_try_sudo mv cacert.pem "${curl_path}/curl-ca-bundle.crt"
+    if wget "$url" -q --output-document="${target}"; then
+      __rvm_try_sudo mv "${curl_path}/curl-ca-bundle.crt" "${curl_path}/curl-ca-bundle.crt${now}"
+      __rvm_try_sudo mv "$target" "${curl_path}/curl-ca-bundle.crt"
+    else
+      rvm_warn "Failed to fetch certificate from $url"
+    fi
   fi
 }
