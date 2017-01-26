@@ -9,6 +9,7 @@
 * Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
 * Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851)
 * Mention in PATH warnings about ability to silence them [\#3336](https://github.com/rvm/rvm/issues/3336)
+* Expose `autolibs` setting in `rvm info` output [\#3892](https://github.com/rvm/rvm/pull/3892)
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
