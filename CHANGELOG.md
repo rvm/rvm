@@ -23,6 +23,7 @@
 * Remove kernel-libc-devel dependency on Solus [\#3881](https://github.com/rvm/rvm/pull/3881)
 * Speed up loading rubies - gem version compatibility check
 * Missing cygwin32-readline package on Windows [\#3812](https://github.com/rvm/rvm/pull/3812)
+* Installation of rbx-3.69 on macOS fails because llvm35 formula can't be found [\#3884](https://github.com/rvm/rvm/issues/3884)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
