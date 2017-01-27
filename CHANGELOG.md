@@ -9,6 +9,7 @@
 * Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
 * Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851)
 * Mention in PATH warnings about ability to silence them [\#3336](https://github.com/rvm/rvm/issues/3336)
+* Expose `autolibs` setting in `rvm info` output [\#3892](https://github.com/rvm/rvm/pull/3892)
 
 #### Bug fixes:
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
@@ -21,6 +22,7 @@
 * Filtering Travis binaries for OSX for non Travis env (they are statically linked and not movable) [\#3690](https://github.com/rvm/rvm/issues/3690)
 * Remove kernel-libc-devel dependency on Solus [\#3881](https://github.com/rvm/rvm/pull/3881)
 * Speed up loading rubies - gem version compatibility check
+* Missing cygwin32-readline package on Windows [\#3812](https://github.com/rvm/rvm/pull/3812)
 * Installation of rbx-3.69 on macOS fails because llvm35 formula can't be found [\#3884](https://github.com/rvm/rvm/issues/3884)
 
 #### Upgraded Ruby interpreters:
