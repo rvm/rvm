@@ -220,6 +220,6 @@ Any and all contributions offered in any form, past present or future are unders
 
 ## License
 
-Copyright (C) Piotr Kuczynski (2016), Michal Papis (2011-2016), Wayne E. Seguin (2009-2011) 
+Copyright (C) Michal Papis (2011-2017), Piotr Kuczynski (2016-2017), Wayne E. Seguin (2009-2011) 
 
 Licensed under the [Apache License](LICENSE), Version 2.0
