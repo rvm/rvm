@@ -1,4 +1,10 @@
-_When filing an issue, please make sure to follow the instructions described in https://github.com/rvm/rvm#reporting-issues._
+_Before filling a new issue please verify if your problem still exists with latest RVM. We constantly apply fixes but only release new stable versions once a month._
+
+```
+rvm get master
+```
+
+_If your problem still persist, please follow instructions described in [Reporting Issues](https://github.com/rvm/rvm#reporting-issues)._
 
 ## Description
 
