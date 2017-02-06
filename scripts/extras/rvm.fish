@@ -1,7 +1,7 @@
 #!/usr/bin/env fish
 
 function load_env_file
-  eval (sed -e "s/export\(.*\);\(.*\)=/set -x \1 /" -e "s/export\(.*\)=/set -x \1 /" -e 's/unset/set -e /' -e "/ PATH / s/[\"':]/ /g" -e 's/$/; /' < $argv)
+  sed -e "s/export\(.*\);\(.*\)=/set -x \1 /" -e "s/export\(.*\)=/set -x \1 /" -e 's/unset/set -e /' -e "/ PATH / s/[\"':]/ /g" -e 's/$/; /' < $argv | source
 end
 
 load_env_file ~/.rvm/environments/default
