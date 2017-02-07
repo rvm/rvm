@@ -27,6 +27,7 @@
 * Missing cygwin32-readline package on Windows [\#3812](https://github.com/rvm/rvm/pull/3812)
 * Installation of rbx-3.69 on macOS fails because llvm35 formula can't be found [\#3884](https://github.com/rvm/rvm/issues/3884)
 * OpenSSL vs libressl conflict installing ruby-2.4.0 on openSUSE Tumbleweed [\#3906](https://github.com/rvm/rvm/issues/3906)
+* Missing `libgmp3-dev` for Ruby 2.2 on Debian 6 [\#3675](https://github.com/rvm/rvm/issues/3675)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
