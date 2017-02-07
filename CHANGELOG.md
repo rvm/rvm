@@ -10,6 +10,7 @@
 * Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851)
 * Mention in PATH warnings about ability to silence them [\#3336](https://github.com/rvm/rvm/issues/3336)
 * Expose `autolibs` setting in `rvm info` output [\#3892](https://github.com/rvm/rvm/pull/3892)
+* Detect `noexec` mount mode for partition hosting RVM home [\#3832](https://github.com/rvm/rvm/pull/3832)
 
 #### Bug fixes:
 * Changed `eval` to `source` for fish 2.5.0 compatibility [fish-shell\#3809](https://github.com/fish-shell/fish-shell/issues/3809)
@@ -25,6 +26,7 @@
 * Speed up loading rubies - gem version compatibility check
 * Missing cygwin32-readline package on Windows [\#3812](https://github.com/rvm/rvm/pull/3812)
 * Installation of rbx-3.69 on macOS fails because llvm35 formula can't be found [\#3884](https://github.com/rvm/rvm/issues/3884)
+* OpenSSL vs libressl conflict installing ruby-2.4.0 on openSUSE Tumbleweed [\#3906](https://github.com/rvm/rvm/issues/3906)
 * Missing `libgmp3-dev` for Ruby 2.2 on Debian 6 [\#3675](https://github.com/rvm/rvm/issues/3675)
 
 #### Upgraded Ruby interpreters:
