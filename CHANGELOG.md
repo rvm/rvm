@@ -29,6 +29,7 @@
 * Ruby 2.3.x and older are not compatible with OpenSSL 1.1.x on Debian [\#3862](https://github.com/rvm/rvm/issues/3862)
 * OpenSSL vs libressl conflict installing ruby-2.4.0 on openSUSE Tumbleweed [\#3906](https://github.com/rvm/rvm/issues/3906)
 * Missing `libgmp3-dev` for Ruby 2.2 on Debian 6 [\#3675](https://github.com/rvm/rvm/issues/3675)
+* JRuby on Arch is missing Java requirements [\#3539](https://github.com/rvm/rvm/issues/3539)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
