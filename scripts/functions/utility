@@ -163,10 +163,20 @@ __rvm_detect_xcode_version_at_least()
   true # for OSX
 }
 
-# TODO: better semver support
 __rvm_version_sort()
 {
-  LC_ALL=C \command \sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n
+  \command \awk -F'[.-]' -v OFS=. '{       # split on "." and "-", merge back with "."
+    original=$0                            # save original to preserve it before the line is changed
+    for (n=1; n<10; n++) {                 # iterate through max 9 components of version
+      $n=tolower($n)                       # ignore case for sorting
+      if ($n=="")         $n="0"           # treat non existing parts as 0
+      if ($n ~ /^p[0-9]/) $n=substr($n, 2) # old ruby -p notation
+      if ($n ~ /^[a-z]/)  $n=" "$n         # names go before numbers thanks to space
+    }
+    print $0"\t"original                   # print the transformed version and original separated by \t so we can extract original after sorting
+  }'  \
+  | LC_ALL=C \sort -t. -k 1,1d -k 2,2n -k 3,3n -k 4,4n -k 5,5n -k 6,6n -k 7,7n -k 8,8n -k 9,9n \
+  | \awk -F'\t' '{print $2}'
 }
 
 __rvm_version_compare()
