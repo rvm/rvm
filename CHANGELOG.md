@@ -10,6 +10,7 @@
 * Allow to remove undesired libraries breaking the ruby build [\#3851](https://github.com/rvm/rvm/issues/3851)
 * Mention in PATH warnings about ability to silence them [\#3336](https://github.com/rvm/rvm/issues/3336)
 * Expose `autolibs` setting in `rvm info` output [\#3892](https://github.com/rvm/rvm/pull/3892)
+* Detect `noexec` mount mode for partition hosting RVM home [\#3832](https://github.com/rvm/rvm/pull/3832)
 
 #### Bug fixes:
 * Changed `eval` to `source` for fish 2.5.0 compatibility [fish-shell\#3809](https://github.com/fish-shell/fish-shell/issues/3809)
@@ -29,6 +30,7 @@
 * OpenSSL vs libressl conflict installing ruby-2.4.0 on openSUSE Tumbleweed [\#3906](https://github.com/rvm/rvm/issues/3906)
 * Missing `libgmp3-dev` for Ruby 2.2 on Debian 6 [\#3675](https://github.com/rvm/rvm/issues/3675)
 * JRuby on Arch is missing Java requirements [\#3539](https://github.com/rvm/rvm/issues/3539)
+* `rvm install 2.4` installs 2.4.0-rc1 instead of 2.4.0 [\#3866](https://github.com/rvm/rvm/issues/3866)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
