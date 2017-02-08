@@ -1,41 +1,47 @@
-_When filling an issue please make sure to follow instructions described in https://github.com/rvm/rvm#reporting-issues_
+<!--
+
+IMPORTANT:
+
+Before filling a new issue please verify if your problem still exists with latest RVM. We constantly apply fixes but only release new stable versions once a month.
+
+    rvm get master
+
+If your problem still persist, please follow instructions described in https://github.com/rvm/rvm#reporting-issues.
+
+-->
 
 ## Description
 
-_Describe in short words the nature of your problem_
+<!-- Briefly describe the nature of your problem. -->
 
 
 ## Steps to reproduce
 
-_List all your specific environment settings, actions taken and commands run required to replicate the problem_
+<!-- List all of your specific environment settings, actions taken, and commands run — everything required to replicate the problem. -->
 
- 1.
- 2.
- 3.
+ 1. ...
+ 2. ...
+ 3. ...
 
 ## Expected behavior
 
-
+<!-- Briefly explain what you expected to see. -->
 
 ## Actual behavior
 
-_Please include [gist](https://gist.github.com) with the output of the command you have run_
+<!-- Please include a gist (https://gist.github.com) with the output of the command(s) you ran. -->
 
 * [command](https://gist.github.com/...)
 * [config.log](https://gist.github.com/...) - only for issues with `install`
 * [make.log](https://gist.github.com/...) - only for issues with `install`
 
-_When above output does not seem to include meaningful error message you might want to additionally attached output of the same commands run with --debug switch_ 
+<!-- When the above output does not seem to include a meaningful error message, you might want to additionally attach the output of the same command(s) run with the `--debug` switch. -->
 
-* Debug mode:
-** [command](https://gist.github.com/...)
-** [config.log](https://gist.github.com/...) - only for issues with `install`
-** [make.log](https://gist.github.com/...) - only for issues with `install`
+**Debug mode**:
+* [command](https://gist.github.com/...)
+* [config.log](https://gist.github.com/...) - only for issues with `install`
+* [make.log](https://gist.github.com/...) - only for issues with `install`
 
 ## Environment info
 
-_Paste below the output of_
-
-```
-rvm info 
-```
+<!-- Paste below the output of the `rvm info` command. -->

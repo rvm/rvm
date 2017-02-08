@@ -55,7 +55,7 @@ Basic RVM usage scenarios include installing and switching between different rub
 
 To install ruby you have to call `rvm install INTERPRETER[-VERSION] OPTIONS` 
 
-When no version specified, RMV will install latest stable version or selected interpreter. If you omit to specify interpreter, RVM will assume
+When no version specified, RVM will install latest stable version or selected interpreter. If you omit to specify interpreter, RVM will assume
 that you wanted to install MRI ruby. Following examples would have exactly the same effect:    
 
 ```
@@ -200,12 +200,12 @@ Please get the latest RVM and try again:
 If the documentation is not clear, an error message is not clear or you are stuck with the problem,
 please do file a bug.
 
-When in doubt as to whether your issue might relate to another simply file a new bug and
+When in doubt as to whether your issue might relate to another, simply file a new bug, and
 we will mark it as duplicate if it needs to be.  It's always better to file a new ticket and
 let us sort it out than to accidentally add noise to another ticket.
 
-When filling an issue we prepared a template for you tu use. Please try to fill all sections as best as you can.
-Always make sure to split up each command and it's output into it's own fenced code block. 
+For filing issues, we have prepared a template for you to use. Please try to fill all sections as best as you can.
+Always make sure to split up each command and its output into its own fenced code block. 
 If the output is long, please put it in a separate [gist](https://gist.github.com). 
 Otherwise it's hard for us to process all the information and respond quickly.
 
@@ -214,23 +214,12 @@ character like `rvm [command] > output.txt`.
 
 ## Contributing
 
-Any and all contributions offered in any form, past present or future, to the
-RVM project are understood to be in complete agreement and acceptance with the
-Apache License v2.0.
+You are very warmly welcome to help. Please follow our [contribution guidelines](CONTRIBUTING.md) 
+
+Any and all contributions offered in any form, past present or future are understood to be in complete agreement and acceptance with the [Apache License](LICENSE) v2.0.
 
 ## License
 
-Copyright (c) 2009-2011 Wayne E. Seguin
-Copyright (c) 2011-2016 Michal Papis
+Copyright (C) Michal Papis (2011-2017), Piotr Kuczynski (2016-2017), Wayne E. Seguin (2009-2011) 
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Licensed under the [Apache License](LICENSE), Version 2.0
