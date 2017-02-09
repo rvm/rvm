@@ -751,7 +751,7 @@ rvm_install_validate_rvm_path()
   case "$rvm_path" in
     (*[[:space:]]*)
       printf "%b" "
-It looks you are one of the happy *space* users(in home dir name),
+It looks you are one of the happy *space* users (in home dir name),
 RVM is not yet fully ready for it, use this trick to fix it:
 
     sudo mkdir -p /${USER// /_}.rvm
@@ -779,6 +779,36 @@ follow this link for details how to fix:
   if [[ "$rvm_path" != "/"* ]]
   then fail "The rvm install path must be fully qualified. Tried $rvm_path"
   fi
+}
+
+rvm_install_validate_volume_mount_mode()
+{
+  \typeset path partition
+
+  path=$rvm_path
+
+  # $rvm_path might not exists at this point so we need to traverse the directory tree upwards
+  # to find the name of the partition and then check if it has not been mount with noexec mode
+  while [[ -n "$path" ]]
+  do
+      if [[ -d $path ]]
+      then
+        partition=`df -P $path | awk 'END{print $1}'`
+
+        if mount | grep "$partition .*noexec.*" >/dev/null 2>&1
+        then
+          printf "%b" "
+It looks that partition holding RVM destination location ${rvm_path}
+is mounted in *noexec* mode, which prevents RVM from working correctly.
+Please re-mount partition ${partition} without the noexec option."
+          exit 2
+        fi
+
+        break
+      fi
+
+      path=${path%/*}
+  done
 }
 
 rvm_install_select_and_get_version()
@@ -879,6 +909,7 @@ rvm_install()
   rvm_install_default_settings
   rvm_install_parse_params "$@"
   rvm_install_validate_rvm_path
+  rvm_install_validate_volume_mount_mode
   rvm_install_select_and_get_version
   rvm_install_main
   rvm_install_ruby_and_gems
