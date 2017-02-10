@@ -32,6 +32,7 @@
 * JRuby on Arch is missing Java requirements [\#3539](https://github.com/rvm/rvm/issues/3539)
 * `rvm install 2.4` installs 2.4.0-rc1 instead of 2.4.0 [\#3866](https://github.com/rvm/rvm/issues/3866)
 * Use `libreadline-dev` instead of `libreadline6-dev` on Debian (≥stretch) [\#3824](https://github.com/rvm/rvm/issues/3824)
+* Warning: openssl is a keg-only and another version is linked to opt [\#3724](https://github.com/rvm/rvm/issues/3724)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
