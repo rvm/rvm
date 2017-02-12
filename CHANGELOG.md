@@ -16,6 +16,7 @@
 * Changed `eval` to `source` for fish 2.5.0 compatibility [fish-shell\#3809](https://github.com/fish-shell/fish-shell/issues/3809)
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
 * RVM incorrectly tries to install llvm 3.5 when trying to install Rubinius 3 [\#3848](https://github.com/rvm/rvm/pull/3848)
+* Missing libyaml-devel on PCLinuxOS 64-bit [\#3703](https://github.com/rvm/rvm/issues/3703) 
 * Failing openssl.patch for Ruby 1.9.3 [\#3831](https://github.com/rvm/rvm/issues/3831)
 * RVM hardcodes number of compile threads [\#3856](https://github.com/rvm/rvm/pull/3856)
 * Cannot build rbx-2.5.2 on ArchLinux [\#3497](https://github.com/rvm/rvm/issues/3497)
