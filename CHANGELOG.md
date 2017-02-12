@@ -4,6 +4,17 @@
 
 [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
 
+#### Security fixes:
+* add trusting working directory hooks
+* add trusting project files with environment variables
+* prevent executing code when loading variables from project files
+* remove posibility to install gems from .versions.conf
+* do not 'bundle install' if no rvm_autoinstall_bundler_flag=1
+* install bundler only from remote server
+* handle spaces in working directory hook names
+* avoid double escaping of envirtonment variables
+* avoid extra quotation if it was used in the project file
+
 #### New features:
 * Added railsexpress patches for Ruby 2.3.3 [\#3852](https://github.com/rvm/rvm/pull/3852)
 * Add support for KDE neon [\#3828](https://github.com/rvm/rvm/pull/3828)
