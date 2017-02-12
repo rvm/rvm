@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+undesired_check()
+{
+  \typeset _package_name
+
+  if
+    is_a_function "requirements_${__lib_type}_lib_installed"
+  then
+    for _package_name in "$@"
+    do __rvm_filter_undesired_package_check "requirements_${__lib_type}_lib_installed" "${_package_name}"
+    done
+  else
+    echo "RVM does not support checking for undesired packages for this platform (${_system_name})"
+    exit 1
+  fi
+
+  true
+}
+
+__rvm_filter_undesired_package_check()
+{
+  if
+    "$1" "$2"
+  then
+    case "$rvm_autolibs_flag_number" in
+      (0|1|2) __rvm_add_once packages_undesired "$2" ;; # just ignore
+      (*)     __rvm_add_once packages_to_remove "$2" ;; # 2+
+    esac
+  fi
+}
+
+__rvm_requirements_run_remove()
+{
+  (( ${#packages_to_remove[@]} )) || return 0
+  if
+    is_a_function requirements_${__lib_type}_lib_remove
+  then
+    \typeset __package
+    for __package in "${packages_to_remove[@]}"
+    do
+      __rvm_log_command package_remove_${__package} "Removing undesired package: ${__package}" \
+        "requirements_${__lib_type}_lib_remove" "${__package}" ||
+      {
+        \typeset __status=$?
+        _list="${packages_to_remove[*]}"
+        rvm_warn "Failed package removal: ${__package} of: ${_list// /, }."
+        return ${__status}
+      }
+    done
+  elif
+    is_a_function requirements_${__lib_type}_libs_remove
+  then
+    _list="${packages_to_remove[*]}"
+    __rvm_log_command package_remove_${_list// /_} "Removing undesired packages: ${_list// /, }" \
+      "requirements_${__lib_type}_libs_remove" "${packages_to_remove[@]}" ||
+      return $?
+  else
+    rvm_error "\nRVM does not support removing undesired packages for this platform (${_system_name})"
+    rvm_error "You need to manually uninstall following packages before continue:\n\n\t${packages_to_remove}\n"
+    exit 1
+  fi
+}

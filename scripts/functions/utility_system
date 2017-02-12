@@ -61,13 +61,29 @@ __rvm_ruby_package_file()
   esac
 }
 
+__rvm_include_travis_binaries()
+{
+  if [[ $rvm_remote_server_url == *"travis"* && $TRAVIS != true && $_system_name_lowercase == "osx" ]]
+  then
+      rvm_debug "Travis binaries for OSX are not movable and can't be used outside of Travis environment. \
+Skip that source."
+      return 1
+  fi
+
+  return 0
+}
+
 __rvm_calculate_remote_file()
 {
   rvm_remote_server_url="$( __rvm_db "rvm_remote_server_url${3:-}" )"
+
   [[ -n "$rvm_remote_server_url" ]] || {
     rvm_debug "rvm_remote_server_url${3:-} not found"
     return $1
   }
+
+  __rvm_include_travis_binaries || return $1
+
   __rvm_system_path "" "${3:-}"
   __rvm_ruby_package_file "${4:-}"
   __remote_file="${rvm_remote_server_url}/${rvm_remote_server_path}${rvm_ruby_package_file}"
@@ -113,11 +129,15 @@ __list_remote_all()
 {
   \typeset _iterator rvm_remote_server_url rvm_remote_server_path
   _iterator=""
+
   while
     __rvm_db "rvm_remote_server_url${_iterator:-}" rvm_remote_server_url
   do
+    __rvm_include_travis_binaries || continue
+
     __rvm_system_path "" "${_iterator}"
     rvm_debug "__list_remote_all${_iterator:-} $rvm_remote_server_url $rvm_remote_server_path"
+
     __list_remote_for "${rvm_remote_server_url}" "$rvm_remote_server_path"
     : $(( _iterator+=1 ))
   done | \command \sort -u | __rvm_version_sort

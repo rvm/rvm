@@ -28,7 +28,7 @@ __rvm_project_rvmrc()
       if [[ -n "${rvm_previous_environment:-""}" ]] && (( ${rvm_project_rvmrc_default:-0} < 2 ))
       then __rvm_load_environment "$rvm_previous_environment"
       fi
-      __rvm_project_ruby_env_check_unload
+      __rvm_file_env_check_unload
       unset rvm_current_rvmrc rvm_previous_environment
       break
     else
@@ -61,10 +61,10 @@ __rvm_project_rvmrc()
 __rvm_load_project_config()
 {
   rvm_debug "__rvm_load_project_config $1"
-  \typeset __gemfile __gem_names _gem _bundle_install __env_vars_prefix __env_vars_file
+  \typeset __gemfile _bundle_install
+  \typeset -a __file_env_variables
+  __file_env_variables=()
   __gemfile=""
-  __gem_names=""
-  __env_vars_file=""
   rvm_previous_environment="$(__rvm_env_string)"
   : rvm_autoinstall_bundler_flag:${rvm_autoinstall_bundler_flag:=0}
   case "$1" in
@@ -94,32 +94,15 @@ __rvm_load_project_config()
       rvm_gemset_name="$( \command \tr -d '\r' <"$1" | __rvm_sed -n '/^ruby-gemset=/ {s/ruby-gemset=//;p;}' | tail -n 1 )"
       rvm_create_flag=1 __rvm_use   || return 3
 
-      __env_vars_prefix="env-"
-      __env_vars_file="$1"
-
-      __gem_names="$( \command \tr -d '\r' <"$1" | __rvm_sed -n '/^ruby-gem-install=/ {s/ruby-gem-install=//;p;}' )"
+      __rvm_file_load_env_and_trust "$1" "env-"
 
       _bundle_install="$( \command \tr -d '\r' <"$1" | __rvm_sed -n '/^ruby-bundle-install=/ {s/ruby-bundle-install=//;p;}' )"
       if
-        [[ -n "${_bundle_install}" ]] || [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
+        [[ -n "${_bundle_install}" ]]
       then
-        if
-          [[ "${_bundle_install}" == true ]] # prevent file named true for Gemfile
-        then
-          __gemfile="${1%/*}/Gemfile"
-        elif
-          [[ -f "${_bundle_install}" ]]
-        then
-          __gemfile="${_bundle_install}"
-        elif
-          [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 ]]
-        then
-          __gemfile="${1%/*}/Gemfile"
-        fi
-        if   [[ -z "${__gem_names:-}" ]]
-        then __gem_names=bundler
-        elif [[ ",${__gem_names:-}," != *",bundler,"* ]]
-        then __gem_names="${__gem_names:-},bundler"
+        if [[ -f "${_bundle_install}" ]]
+        then __gemfile="${_bundle_install}"
+        else __gemfile="${1%/*}/Gemfile"
         fi
       fi
       ;;
@@ -147,14 +130,8 @@ __rvm_load_project_config()
 
       rvm_create_flag=1 __rvm_use   || return 3
 
-      __env_vars_prefix="#ruby-env-"
-      __env_vars_file="$1"
-      if
-        [[ "${rvm_autoinstall_bundler_flag:-0}" == "1" ]]
-      then
-        __gemfile="$1"
-        __gem_names=bundler
-      fi
+      __rvm_file_load_env_and_trust "$1" "#ruby-env-"
+      __gemfile="$1"
       ;;
 
     (*/.ruby-version|*/.rbfu-version|*/.rbenv-version)
@@ -170,23 +147,10 @@ __rvm_load_project_config()
       else rvm_gemset_name=""
       fi
       rvm_create_flag=1 __rvm_use || return 3
-      if
-        [[ -f "${1%/*}/.ruby-env" ]]
-      then
-        __env_vars_prefix=""
-        __env_vars_file="${1%/*}/.ruby-env"
-      elif
-        [[ -f "${1%/*}/.rbenv-vars" ]]
-      then
-        __env_vars_prefix=""
-        __env_vars_file="${1%/*}/.rbenv-vars"
-      fi
-      if
-        [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -f "${1%/*}/Gemfile" ]]
-      then
-        __gemfile="${1%/*}/Gemfile"
-        __gem_names=bundler
-      fi
+
+      __rvm_file_load_env_and_trust "${1%/*}/.ruby-env"
+      __rvm_file_load_env_and_trust "${1%/*}/.rbenv-vars"
+      __gemfile="${1%/*}/Gemfile"
       ;;
 
     (*)
@@ -194,17 +158,15 @@ __rvm_load_project_config()
       return 1
       ;;
   esac
-  if [[ -n "${__env_vars_file:-}" && -f "${__env_vars_file:-}" ]]
-  then __rvm_project_ruby_env_load "${__env_vars_file:-}" "${__env_vars_prefix:-}"
-  fi
 
-  # TODO: add support for versions checking
-  for _gem in ${__gem_names//,/ }
-  do gem_install "${_gem}"
-  done
+  __rvm_file_set_env
 
-  if [[ -n "${__gemfile:-}" && -f "${__gemfile:-}" ]]
-  then bundle install --gemfile="${__gemfile}" | __rvm_grep -vE '^Using|Your bundle is complete'
+  if
+    [[ "${rvm_autoinstall_bundler_flag:-0}" == 1 && -n "${__gemfile:-}" && -f "${__gemfile:-}" ]]
+  then
+    __rvm_which bundle >/dev/null 2>&1 ||
+      gem install --remote bundler
+    bundle install --gemfile="${__gemfile}" | __rvm_grep -vE '^Using|Your bundle is complete'
   fi
 }
 
@@ -266,63 +228,4 @@ __rvm_project_dir_check()
     unset RVM_PROJECT_PATH
     return $__result
   fi
-}
-
-__rvm_project_ruby_env_load_parse_file()
-{
-  \typeset -a __sed_commands
-  __sed_commands=()
-  if [[ -n "${2:-}" ]]
-  then __sed_commands+=( -e "/^$2/ !d" -e "s/^$2//" ) # filter other content and remove prefix
-  else __sed_commands+=( -e "/^#/ d" )                # remove comments
-  fi
-  __sed_commands+=( -e 's/`/\\`/g' -e 's/$(/\\$(/g' ) # do not allow command execution `` / $()
-  __sed_commands+=( -e "/^$/ d" )                     # remove empty lines
-
-  __rvm_read_lines __variables <( { cat "$1"; echo ""; } | __rvm_sed "${__sed_commands[@]}" )
-}
-
-__rvm_project_ruby_env_load_set_env()
-{
-  \typeset __save_to __set __key __value
-  __save_to="$1"
-  shift
-  for __set in "$@"
-  do
-    __key="${__set%%=*}"
-    __value="${__set#*=}"
-    # fix quoting
-    rvm_debug "key=$__key; value=$__value;"
-    case "$__value" in
-      (""|"\""*"\""|"'"*"'")
-        true
-        ;;
-      (*)
-        __value="\"${__value//\"/\\\"}\""
-        ;;
-    esac
-    if [[ -n "${__save_to}" ]]
-    then eval "${__save_to}+=( \"\${__key}=\${${__key}}\" )"
-    fi
-    if [[ -n "${__value}" ]]
-    then eval "export \${__key}=${__value}"
-    else eval "unset \${__key}"
-    fi
-  done
-}
-
-__rvm_project_ruby_env_load()
-{
-  \typeset -a __variables
-  __rvm_project_ruby_env_check_unload
-  __rvm_project_ruby_env_load_parse_file "$@"
-  __rvm_project_ruby_env_load_set_env "rvm_saved_env" "${__variables[@]}"
-}
-
-__rvm_project_ruby_env_check_unload()
-{
-  if (( ${#rvm_saved_env[@]} > 0 ))
-  then __rvm_project_ruby_env_load_set_env "" "${rvm_saved_env[@]}"
-  fi
-  rvm_saved_env=()
 }

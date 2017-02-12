@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/detect_system_debian"
+
 __rvm_detect_system()
 {
   unset  _system_type _system_name _system_version _system_arch
@@ -16,6 +18,13 @@ __rvm_detect_system()
       if
         [[ -f /etc/lsb-release ]] &&
         GREP_OPTIONS="" \command \grep "DISTRIB_ID=Ubuntu"    /etc/lsb-release >/dev/null
+      then
+        _system_name="Ubuntu"
+        _system_version="$(awk -F'=' '$1=="DISTRIB_RELEASE"{print $2}' /etc/lsb-release | head -n 1)"
+        _system_arch="$( dpkg --print-architecture )"
+      elif
+        [[ -f /etc/lsb-release ]] &&
+        GREP_OPTIONS="" \command \grep "DISTRIB_ID=neon" /etc/lsb-release >/dev/null
       then
         _system_name="Ubuntu"
         _system_version="$(awk -F'=' '$1=="DISTRIB_RELEASE"{print $2}' /etc/lsb-release | head -n 1)"
@@ -57,6 +66,14 @@ __rvm_detect_system()
         _system_name="Debian"
         _system_version="$(\command \cat /etc/debian_version | \command \awk -F. '{print $1}' | head -n 1)"
         _system_arch="$( dpkg --print-architecture )"
+        __rvm_detect_debian_major_version_from_codename
+      elif
+        [[ -f /etc/os-release ]] &&
+        GREP_OPTIONS="" \command \grep "ID=pclinuxos" /etc/os-release >/dev/null
+      then
+        _system_name="PCLinuxOS"
+        _system_version="$(GREP_OPTIONS="" \command \grep -Eo '[0-9\.]+' /etc/redhat-release  | \command \awk -F. '{print $1}' | head -n 1)"
+        _system_arch="$( uname -m )"
       elif
        [[ -f /etc/devuan_version ]]
       then
@@ -68,8 +85,9 @@ __rvm_detect_system()
         GREP_OPTIONS="" \command \grep "ID=debian" /etc/os-release >/dev/null
       then
         _system_name="Debian"
-        _system_version="$(awk -F'=' '$1=="VERSION_ID"{gsub(/"/,"");print $2}' /etc/os-release | \command \awk -F. '{print $1}' | head -n 1)" #'
+        _system_version="$(awk -F'=' '$1=="VERSION_ID"{gsub(/"/,"");print $2}' /etc/os-release | \command \awk -F. '{print $1}' | head -n 1)"
         _system_arch="$( dpkg --print-architecture )"
+        __rvm_detect_debian_major_version_from_codename
       elif
         [[ -f /etc/system-release ]] &&
         GREP_OPTIONS="" \command \grep "Amazon Linux AMI" /etc/system-release >/dev/null
@@ -106,10 +124,11 @@ __rvm_detect_system()
         [[ -f /etc/redhat-release ]]
       then
         _system_name="$(
-          GREP_OPTIONS="" \command \grep -Eo 'CentOS|ClearOS|Mageia|PCLinuxOS|Scientific|ROSA Desktop|OpenMandriva' /etc/redhat-release 2>/dev/null | \command \head -n 1 | \command \sed "s/ //"
+          GREP_OPTIONS="" \command \grep -Eo 'CentOS|PCLinuxOS|ClearOS|Mageia|Scientific|ROSA Desktop|OpenMandriva' /etc/redhat-release 2>/dev/null | \command \head -n 1 | \command \sed "s/ //"
         )"
         _system_name="${_system_name:-CentOS}"
         _system_version="$(GREP_OPTIONS="" \command \grep -Eo '[0-9\.]+' /etc/redhat-release  | \command \awk -F. 'NR==1{print $1}' | head -n 1)"
+        _system_arch="$( uname -m )"
       elif
         [[ -f /etc/centos-release ]]
       then
