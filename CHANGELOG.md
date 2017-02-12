@@ -26,6 +26,7 @@
 * Ruby 2.3/4 compilation fix for GCC 7 [\#4080](https://github.com/rvm/rvm/issues/4080) [\#4115](https://github.com/rvm/rvm/issues/4115)
 * Add warning for sudo users [\#4009](https://github.com/rvm/rvm/issues/4009)
 * Allows running RVM shell function in Bash with `set -o nounset` [\#4013](https://github.com/rvm/rvm/issues/4013)
+* Ensure rvm_hooks_path is set [\#3902](https://github.com/rvm/rvm/issues/3902)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
