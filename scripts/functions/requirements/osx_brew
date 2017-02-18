@@ -180,26 +180,27 @@ requirements_osx_brew_after()
   requirements_osx_brew_libs_default_check_gcc42                    || return $?
   requirements_osx_brew_libs_set_path       "${brew_libs[@]}"       || return $?
   requirements_osx_brew_libs_configure "$1" "${brew_libs_conf[@]}"  || return $?
-  unset brew_libs brew_libs_conf
 
   case "$1" in
     (jruby*) true ;;
     (*) requirements_osx_brew_after_update_certs_openssl "$1" ;;
   esac
+
+  unset brew_libs brew_libs_conf brew_openssl_package
 }
 
 requirements_osx_brew_after_update_certs_openssl()
 {
   \typeset brew_lib_prefix
   if
-    requirements_osx_brew_lib_installed_prefix_check openssl &&
+    requirements_osx_brew_lib_installed_prefix_check "$brew_openssl_package" &&
     [[ -x "${brew_lib_prefix}/bin/openssl" ]]
   then
     requirements_osx_update_openssl_cert "${brew_lib_prefix}/bin/openssl" || return $?
   else
     rvm_requiremnts_fail_always 2 \
       "Somehow it happened there is no executable 'openssl',
-run 'brew doctor' and make sure latest '${openssl_name}' is installed properly." ||
+run 'brew doctor' and make sure latest '$brew_openssl_package' is installed properly." ||
       return 12 # passing by 127 could be read as missing rvm.
   fi
 }
@@ -315,13 +316,14 @@ requirements_osx_brew_libs_default()
   # OpenSSL version depends on the version of Ruby being installed
   case "$1" in
     (ruby-2.3*|ruby-2.2*|ruby-2.1*|ruby-2.0*|ruby-1.9*)
-      brew_libs_conf+=( openssl )
+      brew_openssl_package="openssl"
       ;;
 
     (*)
-      brew_libs_conf+=( openssl@1.1 )
+      brew_openssl_package="openssl@1.1"
       ;;
   esac
+  brew_libs_conf+=( "$brew_openssl_package" )
 
   undesired_check openssl098 || return $?
 
