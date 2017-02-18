@@ -12,6 +12,7 @@
 #### Bug fixes:
 * Fix Ruby/Openssl installation on OSX [\#3923](https://github.com/rvm/rvm/issues/3923)
 * Fix rvm info to be yaml compatible [\#3924](https://github.com/rvm/rvm/issues/3924)
+* Fix detecting openssl path for ruby24 [\#3928](https://github.com/rvm/rvm/issues/3928)
 
 ## [1.29.0](https://github.com/rvm/rvm/tag/1.29.0)
 
