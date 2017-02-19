@@ -10,6 +10,7 @@
 18 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.0...1.29.1)
 
 #### Bug fixes:
+* Fix using ruby from current dir when no params [\#3880](https://github.com/rvm/rvm/issues/3880)
 * Fix Ruby/Openssl installation on OSX [\#3923](https://github.com/rvm/rvm/issues/3923)
 * Fix rvm info to be yaml compatible [\#3924](https://github.com/rvm/rvm/issues/3924)
 * Add explicit architecture check for debian/ubuntu [\#3927](https://github.com/rvm/rvm/issues/3927)
