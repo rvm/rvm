@@ -7,7 +7,7 @@
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
-18 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.0...1.29.1)
+19 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.0...1.29.1)
 
 #### Bug fixes:
 * Fix using ruby from current dir when no params [\#3880](https://github.com/rvm/rvm/issues/3880)
