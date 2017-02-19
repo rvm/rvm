@@ -2,7 +2,23 @@
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
 
-[Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.1...HEAD)
+
+
+## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
+
+19 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.0...1.29.1)
+
+#### Bug fixes:
+* Fix using ruby from current dir when no params [\#3880](https://github.com/rvm/rvm/issues/3880)
+* Fix Ruby/Openssl installation on OSX [\#3923](https://github.com/rvm/rvm/issues/3923)
+* Fix rvm info to be yaml compatible [\#3924](https://github.com/rvm/rvm/issues/3924)
+* Add explicit architecture check for debian/ubuntu [\#3927](https://github.com/rvm/rvm/issues/3927)
+* Fix detecting openssl path for ruby24 [\#3928](https://github.com/rvm/rvm/issues/3928)
+
+## [1.29.0](https://github.com/rvm/rvm/tag/1.29.0)
+
+12 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...1.29.0)
 
 #### Security fixes:
 * add trusting working directory hooks
