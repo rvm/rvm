@@ -783,7 +783,7 @@ follow this link for details how to fix:
 
 rvm_install_validate_volume_mount_mode()
 {
-  \typeset path partition
+  \typeset path partition test_exec
 
   path=$rvm_path
 
@@ -793,10 +793,14 @@ rvm_install_validate_volume_mount_mode()
   do
       if [[ -d $path ]]
       then
+        test_exec=$(mktemp $path/rvm-exec-test.XXXXXX)
+        echo '#!/bin/sh' > "$test_exec"
+        chmod +x "$test_exec"
         partition=`df -P $path | awk 'END{print $1}'`
 
-        if mount | grep "$partition .*noexec.*" >/dev/null 2>&1
+        if ! "$test_exec"
         then
+          rm -f "$test_exec"
           printf "%b" "
 It looks that partition holding RVM destination location ${rvm_path}
 is mounted in *noexec* mode, which prevents RVM from working correctly.
@@ -804,6 +808,7 @@ Please re-mount partition ${partition} without the noexec option."
           exit 2
         fi
 
+        rm -f "$test_exec"
         break
       fi
 
