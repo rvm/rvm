@@ -5,7 +5,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.1...HEAD)
 
 #### Bug fixes:
-* Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3832](https://github.com/rvm/rvm/issues/3832)
+* Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
