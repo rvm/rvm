@@ -8,7 +8,7 @@
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 
 #### Upgraded Ruby interpreters:
-* Add support for Rubinius 3.72
+* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934)
 
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
