@@ -7,6 +7,10 @@
 #### Bug fixes:
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 
+#### Upgraded Ruby interpreters:
+* Add support for Rubinius 3.72
+
+
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
 19 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.0...1.29.1)
@@ -17,6 +21,7 @@
 * Fix rvm info to be yaml compatible [\#3924](https://github.com/rvm/rvm/issues/3924)
 * Add explicit architecture check for debian/ubuntu [\#3927](https://github.com/rvm/rvm/issues/3927)
 * Fix detecting openssl path for ruby24 [\#3928](https://github.com/rvm/rvm/issues/3928)
+
 
 ## [1.29.0](https://github.com/rvm/rvm/tag/1.29.0)
 
