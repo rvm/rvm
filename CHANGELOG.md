@@ -4,6 +4,9 @@
 
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.1...HEAD)
 
+#### New features:
+* Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935) 
+
 #### Bug fixes:
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 
