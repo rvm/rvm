@@ -55,3 +55,12 @@ run our code - trust our keys.
 4. signing release (follow on screen instructions):
 
         bash sign-releases.sh
+
+
+5. places to update when adding new developer key:
+
+    * <https://github.com/rvm/rvm-site/tree/master/content> - add public key (`gpg --armor --export developer_name > developer_name.asc`)
+    * <https://github.com/rvm/rvm-site/blob/master/content/index.haml> - section: `Install RVM`
+    * <https://github.com/rvm/rvm-site/blob/master/content/rvm/install.md> - beginning
+    * <https://github.com/rvm/rvm/blob/master/binscripts/rvm-installer> - function: `verify_package_pgp`
+    * <https://github.com/rvm/rvm/blob/master/scripts/functions/cli> - function: `verify_package_pgp`
