@@ -2,7 +2,46 @@
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
 
-[Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.1...HEAD)
+
+#### New features:
+* Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935) 
+
+#### Bug fixes:
+* Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
+* "Unknown ruby string (do not know how to handle)" when specifying Ruby version w/a gemset [\#3292](https://github.com/rvm/rvm/issue/3292)
+* RVM install fail on macOS Yosemite due expired curl's SSL certificate [\#3886](https://github.com/rvm/rvm/issues/3886)
+
+#### Upgraded Ruby interpreters:
+* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934)
+
+
+## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
+
+19 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.0...1.29.1)
+
+#### Bug fixes:
+* Fix using ruby from current dir when no params [\#3880](https://github.com/rvm/rvm/issues/3880)
+* Fix Ruby/Openssl installation on OSX [\#3923](https://github.com/rvm/rvm/issues/3923)
+* Fix rvm info to be yaml compatible [\#3924](https://github.com/rvm/rvm/issues/3924)
+* Add explicit architecture check for debian/ubuntu [\#3927](https://github.com/rvm/rvm/issues/3927)
+* Fix detecting openssl path for ruby24 [\#3928](https://github.com/rvm/rvm/issues/3928)
+
+
+## [1.29.0](https://github.com/rvm/rvm/tag/1.29.0)
+
+12 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...1.29.0)
+
+#### Security fixes:
+* add trusting working directory hooks
+* add trusting project files with environment variables
+* prevent executing code when loading variables from project files
+* remove posibility to install gems from .versions.conf
+* do not 'bundle install' if no rvm_autoinstall_bundler_flag=1
+* install bundler only from remote server
+* handle spaces in working directory hook names
+* avoid double escaping of envirtonment variables
+* avoid extra quotation if it was used in the project file
 
 #### New features:
 * Added railsexpress patches for Ruby 2.3.3 [\#3852](https://github.com/rvm/rvm/pull/3852)
@@ -16,6 +55,7 @@
 * Changed `eval` to `source` for fish 2.5.0 compatibility [fish-shell\#3809](https://github.com/fish-shell/fish-shell/issues/3809)
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
 * RVM incorrectly tries to install llvm 3.5 when trying to install Rubinius 3 [\#3848](https://github.com/rvm/rvm/pull/3848)
+* Missing libyaml-devel on PCLinuxOS 64-bit [\#3703](https://github.com/rvm/rvm/issues/3703) 
 * Failing openssl.patch for Ruby 1.9.3 [\#3831](https://github.com/rvm/rvm/issues/3831)
 * RVM hardcodes number of compile threads [\#3856](https://github.com/rvm/rvm/pull/3856)
 * Cannot build rbx-2.5.2 on ArchLinux [\#3497](https://github.com/rvm/rvm/issues/3497)
@@ -32,12 +72,14 @@
 * JRuby on Arch is missing Java requirements [\#3539](https://github.com/rvm/rvm/issues/3539)
 * `rvm install 2.4` installs 2.4.0-rc1 instead of 2.4.0 [\#3866](https://github.com/rvm/rvm/issues/3866)
 * Use `libreadline-dev` instead of `libreadline6-dev` on Debian (≥stretch) [\#3824](https://github.com/rvm/rvm/issues/3824)
-* RVM install fail on macOS Yosemite due expired curl's SSL certificate [\#3886](https://github.com/rvm/rvm/issues/3886)
+* Warning: openssl is a keg-only and another version is linked to opt [\#3724](https://github.com/rvm/rvm/issues/3724)
+* Fix trusting paths with duplicated //
+* Fix rvm do in relative paths
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.4.0 [\#3849](https://github.com/rvm/rvm/pull/3849)
 * Add support for JRuby 9.1.7.0 [\#3878](https://github.com/rvm/rvm/pull/3878)
-* Add support for Rubinius 3.70 [\#3889](https://github.com/rvm/rvm/pull/3889)
+* Add support for Rubinius 3.70 [\#3889](https://github.com/rvm/rvm/pull/3889) and 3.71
 * Upgrade RubyGems to 2.6.10
 
 #### Binaries:
