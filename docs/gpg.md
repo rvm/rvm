@@ -2,7 +2,7 @@
 
 At RVM we use GPG to sign files/releases - for security.
 This docs is a placeholder where we will be adding information on how to
-setup and use GPP, both for developers and users.
+setup and use GPG, both for developers and users.
 
 #### Note: gpg vs. gpg2
 
