@@ -41,6 +41,9 @@ run our code - trust our keys.
         \bash rvm-installer
 
 
+5. RVM automates GPG for updates to ensure security, no manual steps are needed after installation.
+
+
 ## For developers
 
 1. [Creating GPG Keys](https://alexcabal.com/creating-the-perfect-gpg-keypair/)
