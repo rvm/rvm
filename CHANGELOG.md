@@ -5,15 +5,18 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.1...HEAD)
 
 #### New features:
-* Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935) 
+* Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
+* Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 
 #### Bug fixes:
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
+* "Unknown ruby string (do not know how to handle)" when specifying Ruby version w/a gemset [\#3292](https://github.com/rvm/rvm/issue/3292)
+* Fix the required openssl version for ruby 1.8 on OSX [\#3955](https://github.com/rvm/rvm/issue/3955)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934)
+* Add support for JRuby 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952)
 * Upgrade RubyGems to 2.6.11
-
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
@@ -54,11 +57,11 @@
 * Changed `eval` to `source` for fish 2.5.0 compatibility [fish-shell\#3809](https://github.com/fish-shell/fish-shell/issues/3809)
 * $PATH become empty after __rvm_unload executed [\#3847](https://github.com/rvm/rvm/pull/3847)
 * RVM incorrectly tries to install llvm 3.5 when trying to install Rubinius 3 [\#3848](https://github.com/rvm/rvm/pull/3848)
-* Missing libyaml-devel on PCLinuxOS 64-bit [\#3703](https://github.com/rvm/rvm/issues/3703) 
+* Missing libyaml-devel on PCLinuxOS 64-bit [\#3703](https://github.com/rvm/rvm/issues/3703)
 * Failing openssl.patch for Ruby 1.9.3 [\#3831](https://github.com/rvm/rvm/issues/3831)
 * RVM hardcodes number of compile threads [\#3856](https://github.com/rvm/rvm/pull/3856)
 * Cannot build rbx-2.5.2 on ArchLinux [\#3497](https://github.com/rvm/rvm/issues/3497)
-* Remove incompatible version of openssl098 [\#3844](https://github.com/rvm/rvm/issues/3844) 
+* Remove incompatible version of openssl098 [\#3844](https://github.com/rvm/rvm/issues/3844)
 * Failed to fetch the gpg key from keys.gnupg.net [\#3544](https://github.com/rvm/rvm/issues/3544)
 * Filtering Travis binaries for OSX for non Travis env (they are statically linked and not movable) [\#3690](https://github.com/rvm/rvm/issues/3690)
 * Remove kernel-libc-devel dependency on Solus [\#3881](https://github.com/rvm/rvm/pull/3881)
