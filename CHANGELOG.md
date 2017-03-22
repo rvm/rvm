@@ -12,7 +12,7 @@
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 * "Unknown ruby string (do not know how to handle)" when specifying Ruby version w/a gemset [\#3292](https://github.com/rvm/rvm/issue/3292)
 * Fix the required openssl version for ruby 1.8 on OSX [\#3955](https://github.com/rvm/rvm/issue/3955)
-* Fix spurious warning about not sourcing `.profile` from bash startup files when it is being sourced using the `.` syntax [\#3960](https://github.com/rvm/rvm/issues/3960)
+* Detect `.` as an alternative to `source` in bash profile warning [\#3960](https://github.com/rvm/rvm/issues/3960)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934)
