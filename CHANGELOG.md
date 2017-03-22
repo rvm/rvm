@@ -12,6 +12,7 @@
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934)
+* Upgrade RubyGems to 2.6.11
 
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
