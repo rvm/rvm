@@ -19,6 +19,9 @@
 * Add support for JRuby 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952)
 * Add support for Ruby 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
 
+#### Binaries:
+* Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
+
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
