@@ -23,6 +23,7 @@
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
+* Ubuntu x64 binary for Ruby 2.2.7 [\#3971](https://github.com/rvm/rvm/issues/3971)
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
