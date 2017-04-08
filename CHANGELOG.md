@@ -11,11 +11,21 @@
 #### Bug fixes:
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 * "Unknown ruby string (do not know how to handle)" when specifying Ruby version w/a gemset [\#3292](https://github.com/rvm/rvm/issue/3292)
+* Fix the required openssl version for ruby 1.8 on OSX [\#3955](https://github.com/rvm/rvm/issue/3955)
+* Detect `.` as an alternative to `source` in bash profile warning [\#3960](https://github.com/rvm/rvm/issues/3960)
+* Allow users to specify irb history file using IRB.conf[:HISTORY_FILE] [\#3969](https://github.com/rvm/rvm/pull/3969)
 
 #### Upgraded Ruby interpreters:
-* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934)
+* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934) and 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979)
 * Add support for JRuby 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952)
+* Add support for Ruby 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
+* Upgrade RubyGems to 2.6.11 [\#3962](https://github.com/rvm/rvm/pull/3962)
+* Add support for Ruby 2.2.7 [\#3970](https://github.com/rvm/rvm/pull/3970)
+* Add support for Ruby 2.3.4 [\#3973](https://github.com/rvm/rvm/pull/3973)
 
+#### Binaries:
+* Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
+* Ubuntu x64 binary for Ruby 2.2.7 [\#3971](https://github.com/rvm/rvm/issues/3971)
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
