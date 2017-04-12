@@ -18,6 +18,7 @@
 *	Architecture detection using uname instead of dpkg [\#3948](https://github.com/rvm/rvm/issues/3948)
 * Help section of the rvm.io page points to irc.freenode.net instead of github [\#3939](https://github.com/rvm/rvm/issues/3939)
 * Make sure stderr output is printed on console and not captured into log files (No ticket)
+* Failing openssl.patch for Ruby 2.2.4 and 2.2.5 [\#3988](https://github.com/rvm/rvm/issues/3988)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934) and 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979)
