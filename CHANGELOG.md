@@ -35,7 +35,9 @@
 * Integrating RVM with Bash on Ubuntu on Windows 10 [\#304](https://github.com/rvm/rvm-site/pull/304)
 * Troubleshooting SSL certificate problem: unable to get local issuer certificate [\#3984](https://github.com/rvm/rvm/issue/3984)
 * Automatically generated Integration section on Index page [\#305](https://github.com/rvm/rvm-site/pull/305)
-* Add info about Ubuntu installation package [\#306](https://github.com/rvm/rvm-site/pull/306) 
+* Add info about Ubuntu installation package [\#306](https://github.com/rvm/rvm-site/pull/306)
+* Remove subversion as a prerequisite for installing rubies [\#277](https://github.com/rvm/rvm-site/issue/277)
+* Added missing information that user should have sudo rights to install rubies [\#307](https://github.com/rvm/rvm-site/pull/307)
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
