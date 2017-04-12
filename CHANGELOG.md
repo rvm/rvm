@@ -31,6 +31,12 @@
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
 * Ubuntu x64 binary for Ruby 2.2.7 [\#3971](https://github.com/rvm/rvm/issues/3971)
 
+#### Documentation:
+* Integrating RVM with Bash on Ubuntu on Windows 10 [\#304](https://github.com/rvm/rvm-site/pull/304)
+* Troubleshooting SSL certificate problem: unable to get local issuer certificate [\#3984](https://github.com/rvm/rvm/issue/3984)
+* Automatically generated Integration section on Index page [\#305](https://github.com/rvm/rvm-site/pull/305)
+* Add info about Ubuntu installation package [\#306](https://github.com/rvm/rvm-site/pull/306) 
+
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
 19 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.0...1.29.1)
