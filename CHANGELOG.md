@@ -30,6 +30,7 @@
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
 * Ubuntu x64 binary for Ruby 2.2.7 [\#3971](https://github.com/rvm/rvm/issues/3971)
+* Ubuntu x64 binary for Ruby 2.3.4 [\#3985](https://github.com/rvm/rvm/issues/3985)
 
 #### Documentation:
 * Integrating RVM with Bash on Ubuntu on Windows 10 [\#304](https://github.com/rvm/rvm-site/pull/304)
