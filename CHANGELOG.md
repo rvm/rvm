@@ -17,8 +17,8 @@
 * Prefer github issues over IRC support [\#3939](https://github.com/rvm/rvm/issues/3939)
 *	Architecture detection using uname instead of dpkg [\#3948](https://github.com/rvm/rvm/issues/3948)
 * Help section of the rvm.io page points to irc.freenode.net instead of github [\#3939](https://github.com/rvm/rvm/issues/3939)
-* Make sure stderr output is printed on console and not captured into log files (No ticket)
-* Clean up errors output, show only log file name (No ticket)
+* Make sure stderr output is printed on console and not captured into log files [\#3990](https://github.com/rvm/rvm/issues/3990)
+* Clean up errors output, show only log file name [\#3990](https://github.com/rvm/rvm/issues/3990)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934) and 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979)
