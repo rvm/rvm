@@ -17,8 +17,10 @@
 * Prefer github issues over IRC support [\#3939](https://github.com/rvm/rvm/issues/3939)
 *	Architecture detection using uname instead of dpkg [\#3948](https://github.com/rvm/rvm/issues/3948)
 * Help section of the rvm.io page points to irc.freenode.net instead of github [\#3939](https://github.com/rvm/rvm/issues/3939)
-* Make sure stderr output is printed on console and not captured into log files (No ticket)
-* Failing openssl.patch for Ruby 2.2.4 and 2.2.5 [\#3988](https://github.com/rvm/rvm/issues/3988)
+* Make sure stderr output is printed on console and not captured into log files [\#3990](https://github.com/rvm/rvm/issues/3990)
+* Clean up errors output, show only log file name [\#3990](https://github.com/rvm/rvm/issues/3990)
+* RVM install fail on macOS Yosemite due expired curl's SSL certificate [\#3886](https://github.com/rvm/rvm/issues/3886)
+* Fix failing openssl.patch for Ruby 2.2.4 and 2.2.5 [\#3988](https://github.com/rvm/rvm/issues/3988)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934) and 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979)
@@ -32,6 +34,7 @@
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
 * Ubuntu x64 binary for Ruby 2.2.7 [\#3971](https://github.com/rvm/rvm/issues/3971)
 * Ubuntu x64 binary for Ruby 2.3.4 [\#3985](https://github.com/rvm/rvm/issues/3985)
+* Ubuntu 16.10 x64 binaries for Ruby 1.9.3-p551, 2.0.0-p648, 2.1.5, 2.1.6, 2.1.8, 2.1.9, 2.2.4, 2.2.5, 2.2.6, 2.3.0, 2.3.1, 2.3.2 and 2.3.3 [\#3823](https://github.com/rvm/rvm/issues/3823)
 
 #### Documentation:
 * Integrating RVM with Bash on Ubuntu on Windows 10 [\#304](https://github.com/rvm/rvm-site/pull/304)
@@ -109,7 +112,6 @@
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
-
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 
