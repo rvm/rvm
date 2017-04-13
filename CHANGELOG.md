@@ -20,6 +20,7 @@
 * Make sure stderr output is printed on console and not captured into log files [\#3990](https://github.com/rvm/rvm/issues/3990)
 * Clean up errors output, show only log file name [\#3990](https://github.com/rvm/rvm/issues/3990)
 * RVM install fail on macOS Yosemite due expired curl's SSL certificate [\#3886](https://github.com/rvm/rvm/issues/3886)
+* Fix failing openssl.patch for Ruby 2.2.4 and 2.2.5 [\#3988](https://github.com/rvm/rvm/issues/3988)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934) and 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979)
