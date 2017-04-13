@@ -24,6 +24,7 @@ If you need a different (newer) version of RVM, after installing base version of
 Make sure you have following required packages installed:
 
 * `curl`
+* `gpg2`
 
 And then run:
 
