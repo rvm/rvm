@@ -28,7 +28,7 @@ Make sure you have following required packages installed:
 
 And then run:
 
-`\curl -sSL https://get.rvm.io | bash -s stable`
+`curl -sSL https://get.rvm.io | bash -s stable`
 
 ### Additional installation options
 
