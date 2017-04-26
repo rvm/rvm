@@ -24,7 +24,7 @@
 * Do not unset rvm_pretty_print_flag [\#3946](https://github.com/rvm/rvm/issues/3946)
 
 #### Upgraded Ruby interpreters:
-* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979) and 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994)
+* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994) and 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002)
 * Add support for JRuby 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952)
 * Add support for Ruby 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
 * Upgrade RubyGems to 2.6.11 [\#3962](https://github.com/rvm/rvm/pull/3962)
