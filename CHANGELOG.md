@@ -6,6 +6,7 @@
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
+* Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999) 
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 
 #### Bug fixes:
