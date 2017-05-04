@@ -10,6 +10,7 @@
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 
 #### Bug fixes:
+* Patch Ruby 2.3.4 with missing rb_thread_fd_close [\#4008](https://github.com/rvm/rvm/issues/4008)
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 * "Unknown ruby string (do not know how to handle)" when specifying Ruby version w/a gemset [\#3292](https://github.com/rvm/rvm/issue/3292)
 * Fix the required openssl version for ruby 1.8 on OSX [\#3955](https://github.com/rvm/rvm/issue/3955)
