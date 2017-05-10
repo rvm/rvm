@@ -10,7 +10,6 @@
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 
 #### Bug fixes:
-* Patch Ruby 2.3.4 with missing rb_thread_fd_close [\#4008](https://github.com/rvm/rvm/issues/4008)
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 * "Unknown ruby string (do not know how to handle)" when specifying Ruby version w/a gemset [\#3292](https://github.com/rvm/rvm/issue/3292)
 * Fix the required openssl version for ruby 1.8 on OSX [\#3955](https://github.com/rvm/rvm/issue/3955)
@@ -24,6 +23,7 @@
 * RVM install fail on macOS Yosemite due expired curl's SSL certificate [\#3886](https://github.com/rvm/rvm/issues/3886)
 * Fix failing openssl.patch for Ruby 2.2.4 and 2.2.5 [\#3988](https://github.com/rvm/rvm/issues/3988)
 * Do not unset rvm_pretty_print_flag [\#3946](https://github.com/rvm/rvm/issues/3946)
+* Patch Ruby 2.3.4 with missing rb_thread_fd_close [\#4008](https://github.com/rvm/rvm/issues/4008)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994) and 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002)
