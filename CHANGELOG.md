@@ -6,17 +6,47 @@
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
+* Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999) 
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 
 #### Bug fixes:
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
 * "Unknown ruby string (do not know how to handle)" when specifying Ruby version w/a gemset [\#3292](https://github.com/rvm/rvm/issue/3292)
 * Fix the required openssl version for ruby 1.8 on OSX [\#3955](https://github.com/rvm/rvm/issue/3955)
+* Detect `.` as an alternative to `source` in bash profile warning [\#3960](https://github.com/rvm/rvm/issues/3960)
+* Allow users to specify irb history file using IRB.conf[:HISTORY_FILE] [\#3969](https://github.com/rvm/rvm/pull/3969)
+* Prefer github issues over IRC support [\#3939](https://github.com/rvm/rvm/issues/3939)
+*	Architecture detection using uname instead of dpkg [\#3948](https://github.com/rvm/rvm/issues/3948)
+* Help section of the rvm.io page points to irc.freenode.net instead of github [\#3939](https://github.com/rvm/rvm/issues/3939)
+* Make sure stderr output is printed on console and not captured into log files [\#3990](https://github.com/rvm/rvm/issues/3990)
+* Clean up errors output, show only log file name [\#3990](https://github.com/rvm/rvm/issues/3990)
+* RVM install fail on macOS Yosemite due expired curl's SSL certificate [\#3886](https://github.com/rvm/rvm/issues/3886)
+* Fix failing openssl.patch for Ruby 2.2.4 and 2.2.5 [\#3988](https://github.com/rvm/rvm/issues/3988)
+* Do not unset rvm_pretty_print_flag [\#3946](https://github.com/rvm/rvm/issues/3946)
 
 #### Upgraded Ruby interpreters:
-* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934)
+* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994) and 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002)
 * Add support for JRuby 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952)
+* Add support for Ruby 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
 * Upgrade RubyGems to 2.6.11 [\#3962](https://github.com/rvm/rvm/pull/3962)
+* Add support for Ruby 2.2.7 [\#3970](https://github.com/rvm/rvm/pull/3970)
+* Add support for Ruby 2.3.4 [\#3973](https://github.com/rvm/rvm/pull/3973)
+
+#### Binaries:
+* Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
+* Ubuntu x64 binary for Ruby 2.2.7 [\#3971](https://github.com/rvm/rvm/issues/3971)
+* Ubuntu x64 binary for Ruby 2.3.4 [\#3985](https://github.com/rvm/rvm/issues/3985)
+* Ubuntu 16.10 x64 binaries for Ruby 1.9.3-p551, 2.0.0-p648, 2.1.5, 2.1.6, 2.1.8, 2.1.9, 2.2.4, 2.2.5, 2.2.6, 2.3.0, 2.3.1, 2.3.2 and 2.3.3 [\#3823](https://github.com/rvm/rvm/issues/3823)
+
+#### Documentation:
+* Integrating RVM with Bash on Ubuntu on Windows 10 [\#304](https://github.com/rvm/rvm-site/pull/304)
+* Troubleshooting SSL certificate problem: unable to get local issuer certificate [\#3984](https://github.com/rvm/rvm/issue/3984)
+* Automatically generated Integration section on Index page [\#305](https://github.com/rvm/rvm-site/pull/305)
+* Add info about Ubuntu installation package [\#306](https://github.com/rvm/rvm-site/pull/306)
+* Remove subversion as a prerequisite for installing rubies [\#277](https://github.com/rvm/rvm-site/issue/277)
+* Added missing information that user should have sudo rights to install rubies [\#307](https://github.com/rvm/rvm-site/pull/307)
+* Better explanation for `apt-get update` failing with 404 Not Found errors [\#3411](https://github.com/rvm/rvm/issue/3411)
+* Ruby 2.1 is no more maintained [\#3997](https://github.com/rvm/rvm/pull/3997)
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
@@ -86,7 +116,6 @@
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
-
 
 ## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
 

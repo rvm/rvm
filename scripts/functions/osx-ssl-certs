@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 
-requirements_osx_update_openssl_cert_old() [[ ! -f "$cert_file" ||
-  "$cert_file" -ot /Library/Keychains/System.keychain ||
-  "$cert_file" -ot /System/Library/Keychains/SystemRootCertificates.keychain
-]]
+requirements_osx_update_openssl_cert_is_old()
+{
+  [[ ! -f "$cert_file" ||
+    "$cert_file" -ot /Library/Keychains/System.keychain ||
+    "$cert_file" -ot /System/Library/Keychains/SystemRootCertificates.keychain
+  ]] || (( ${rvm_force_flag:-0} > 0 ))
+}
 
 requirements_osx_update_openssl_cert_create_dir_sudo()
 {
@@ -79,7 +82,7 @@ requirements_osx_update_openssl_cert_run()
     return 1
   fi
 
-  rvm_log "Updating certificates in '$cert_file'."
+  rvm_log "Updating certificates bundle '$cert_file'"
 
   requirements_osx_update_openssl_cert_create_dir      || return $?
   requirements_osx_update_openssl_cert_target_select   || return $?
@@ -98,7 +101,7 @@ requirements_osx_update_openssl_cert()
 
   case "${rvm_autolibs_flag_number}" in
     (0)
-      rvm_debug "Skipping update of certificates in '$cert_file', to force update run:
+      rvm_debug "Skipping update of certificates bundle '$cert_file', to force update run:
     rvm osx-ssl-certs update ${cert_file}
 "
       return 0
@@ -106,16 +109,16 @@ requirements_osx_update_openssl_cert()
   esac
 
   if
-    requirements_osx_update_openssl_cert_old
+    requirements_osx_update_openssl_cert_is_old
   then
     rvm_requiremnts_fail_or_run_action 2 \
-      "Skipping update of certificates in '$cert_file', to force update run:
+      "Skipping update of certificates bundle '$cert_file', to force update run:
     rvm osx-ssl-certs update ${cert_file}
 " \
       requirements_osx_update_openssl_cert_run ||
       return $?
   else
-    rvm_log "Certificates in '$cert_file' are already up to date."
+    rvm_log "Certificates bundle '$cert_file' is already up to date."
   fi
   requirements_osx_update_openssl_cert_ensure_readable || return $?
 }
@@ -127,10 +130,10 @@ __rvm_osx_ssl_certs_update_for_path()
   ssl_dir="${cert_file%/*}"
 
   if (( ${rvm_silent_flag:-0} == 0 ))
-  then printf "%b" "Updating certificates for ${cert_file}: "
+  then printf "%b" "Updating certificates bundle ${cert_file}: "
   fi
   if
-    requirements_osx_update_openssl_cert_old
+    requirements_osx_update_openssl_cert_is_old
   then
     if
       requirements_osx_update_openssl_cert_run
@@ -160,10 +163,10 @@ __rvm_osx_ssl_certs_status_for_path()
   cert_file="$1"
   ssl_dir="${cert_file%/*}"
 
-  printf "%b" "Certificates for ${cert_file}: "
-  if requirements_osx_update_openssl_cert_old
-  then printf "%b" "Old.\n"
-  else printf "%b" "Up to date.\n"
+  printf "%b" "Certificates bundle ${cert_file} is "
+  if requirements_osx_update_openssl_cert_is_old
+  then printf "%b" "old.\n"
+  else printf "%b" "up to date.\n"
   fi
 }
 
@@ -180,17 +183,16 @@ __rvm_osx_ssl_certs_ensure_for_ruby()
   cert_file="$( __rvm_osx_ssl_certs_file_for_ruby "$1" )"
   ssl_dir="${cert_file%/*}"
   if
-    requirements_osx_update_openssl_cert_old
+    requirements_osx_update_openssl_cert_is_old
   then
     rvm_requiremnts_fail_or_run_action 2 \
-      "Skipping update of certificates in '$cert_file'." \
+      "Skipping update of certificates bundle '$cert_file'." \
       requirements_osx_update_openssl_cert_run ||
       true # Ignore failure - ruby is already installed
   fi
   requirements_osx_update_openssl_cert_ensure_readable || return $?
   true # for osx
 }
-
 
 __rvm_osx_ssl_certs_file_from_openssl()
 {
