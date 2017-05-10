@@ -23,6 +23,7 @@
 * RVM install fail on macOS Yosemite due expired curl's SSL certificate [\#3886](https://github.com/rvm/rvm/issues/3886)
 * Fix failing openssl.patch for Ruby 2.2.4 and 2.2.5 [\#3988](https://github.com/rvm/rvm/issues/3988)
 * Do not unset rvm_pretty_print_flag [\#3946](https://github.com/rvm/rvm/issues/3946)
+* Patch Ruby 2.3.4 with missing rb_thread_fd_close [\#4008](https://github.com/rvm/rvm/issues/4008)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994), 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002), 3.76 and 3.77 [\#4016](https://github.com/rvm/rvm/pull/4016)
@@ -31,6 +32,7 @@
 * Upgrade RubyGems to 2.6.11 [\#3962](https://github.com/rvm/rvm/pull/3962)
 * Add support for Ruby 2.2.7 [\#3970](https://github.com/rvm/rvm/pull/3970)
 * Add support for Ruby 2.3.4 [\#3973](https://github.com/rvm/rvm/pull/3973)
+* Upgrade RubyGems to 2.6.12 [\#4018](https://github.com/rvm/rvm/pull/4018)
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
