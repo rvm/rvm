@@ -44,5 +44,5 @@ Update RVM
 
 ## Examples
 
-    rvm get branch shoes   # will fetch branch shoes  from rvm/rvm repo
-    rvm get branch mpapis/ # will fetch branch master from mpapis/rvm       repo
+    rvm get branch shoes   # will fetch branch shoes from rvm/rvm repo
+    rvm get branch mpapis/ # will fetch branch master from mpapis/rvm repo
