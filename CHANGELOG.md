@@ -34,6 +34,7 @@
 * Add support for Ruby 2.2.7 [\#3970](https://github.com/rvm/rvm/pull/3970)
 * Add support for Ruby 2.3.4 [\#3973](https://github.com/rvm/rvm/pull/3973)
 * Upgrade RubyGems to 2.6.12 [\#4018](https://github.com/rvm/rvm/pull/4018)
+* Add support for JRuby 1.7.27 [\#4026](https://github.com/rvm/rvm/pull/4026)
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
