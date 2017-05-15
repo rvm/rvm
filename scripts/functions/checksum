@@ -2,6 +2,8 @@
 
 __rvm_md5_calculate()
 {
+  rvm_debug "Calculate md5 checksum for $@"
+
   \typeset _sum
   if
     builtin command -v md5 > /dev/null 2>&1
@@ -52,6 +54,8 @@ __rvm_md5_calculate()
 
 __rvm_sha__calculate()
 {
+  rvm_debug "Calculate sha512 checksum for $@"
+
   \typeset bits _sum
   bits=${1:-512}
   shift
@@ -94,6 +98,8 @@ __rvm_sha__calculate()
 # ENV out: _checksum_md5 _checksum_sha512
 __rvm_checksum_calculate_file()
 {
+  rvm_debug "Calculate checksums for file ${1}"
+
   _checksum_md5="$(    __rvm_md5_calculate      "${1:-}" )"
   _checksum_sha512="$( __rvm_sha__calculate 512 "${1:-}" )"
 }
@@ -117,17 +123,48 @@ __rvm_checksum_all()
 # ENV in: _checksum_md5 _checksum_sha512
 __rvm_checksum_validate_file()
 {
-  __rvm_checksum_any || return 1
+  rvm_debug "Validating checksums for file ${1}"
+
+  if
+    __rvm_checksum_any
+  then
+    rvm_debug "    ...checksums found in db"
+  else
+    rvm_debug "    ...checksums not found in db"
+    return 1
+  fi
+
+  # Validate md5 checksum
   if
     [[ -n "${_checksum_md5:-}" ]]
   then
-    [[ "$(__rvm_md5_calculate "${1:-}")" == "${_checksum_md5:-}" ]] || return 2
+    rvm_debug "Validating md5 checksum"
+    if
+      [[ "$(__rvm_md5_calculate "${1:-}")" == "${_checksum_md5:-}" ]]
+    then
+      rvm_debug "    ...md5 checksum is valid!"
+    else
+      rvm_debug "    ...md5 checksum is not valid!!!"
+      return 2
+    fi
   fi
+
+  # Validate sha512 checksum
   if
     [[ -n "${_checksum_sha512:-}" ]]
   then
-    [[ "$(__rvm_sha__calculate 512 "${1:-}")" == "${_checksum_sha512:-}" ]] || return 3
+    rvm_debug "Validating sha15 checksum"
+
+    if
+      [[ "$(__rvm_sha__calculate 512 "${1:-}")" == "${_checksum_sha512:-}" ]]
+    then
+      rvm_debug "    ...sha512 checksum is valid!"
+    else
+      rvm_debug "    ...sha512 checksum is not valid!!!"
+      return 3
+    fi
   fi
+
   return 0
 }
 
@@ -139,6 +176,8 @@ __rvm_checksum_validate_file()
 # ENV in/out: _checksum_md5 _checksum_sha512
 __rvm_checksum_read()
 {
+  rvm_debug "Load checksums for $1"
+
   __rvm_checksum_none || return 0
   \typeset _type _value _name
   \typeset -a _list
@@ -167,6 +206,7 @@ __rvm_checksum_read()
     __rvm_checksum_none || return 0
   done
 
+  rvm_debug "    ...checksums not found"
   return 1 # not found
 }
 
