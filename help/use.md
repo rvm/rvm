@@ -18,7 +18,7 @@ For creating a project .rvmrc file - From within the app's root_dir:
 Above commands can be also combined to do it all in one pass:
 
     $ rvm --rvmrc --create use 1.9.2@funky
-  Using /home/mpapis/.rvm/gems/ruby-1.9.2-p290 with gemset funky
+  Using /home/user/.rvm/gems/ruby-1.9.2-p290 with gemset funky
 
 Do not forget to check the generated .rvmrc file - it contains many useful
 comments.  Note you must still 'rvm rvmrc trust' the newly created .rvmrc
@@ -49,10 +49,10 @@ Please see documentation for further information:
 Also, you can combine the new flags --ruby-version and --version-conf
 
     $ rvm --create --ruby-version use 1.9.2@funky
-  Using /home/mpapis/.rvm/gems/ruby-1.9.2-p290 with gemset funky
+  Using /home/user/.rvm/gems/ruby-1.9.2-p290 with gemset funky
 
     $ rvm --create --versions-conf use 1.9.2@funky
-  Using /home/mpapis/.rvm/gems/ruby-1.9.2-p290 with gemset funky
+  Using /home/user/.rvm/gems/ruby-1.9.2-p290 with gemset funky
 
 These files do not need to be trusted, however, if a .rvmrc file
 exists, it will override the use of .ruby-version or .versions.conf!
