@@ -8,6 +8,7 @@
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
 * Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999) 
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
+* Use fuzzy version match for `rvm remove` [\#4028](https://github.com/rvm/rvm/pull/4028)
 * Add support for Kali (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958) 
 
 #### Bug fixes:
@@ -29,7 +30,7 @@
 * Skip rubygems install for ruby-head [\#4022](https://github.com/rvm/rvm/pull/4022)
 
 #### Upgraded Ruby interpreters:
-* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994), 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002), 3.76 and 3.77 [\#4016](https://github.com/rvm/rvm/pull/4016)
+* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994), 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002), 3.76 and 3.77 [\#4016](https://github.com/rvm/rvm/pull/4016), 3.78
 * Add support for JRuby 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952)
 * Add support for Ruby 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
 * Upgrade RubyGems to 2.6.11 [\#3962](https://github.com/rvm/rvm/pull/3962)
