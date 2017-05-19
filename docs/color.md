@@ -13,6 +13,8 @@ To change default colors use following variables in ~/.rvmrc:
     rvm_warn_color=yellow
     rvm_debug_color=magenta
     rvm_notify_color=green
+    rvm_code_color=iwhite
+    rvm_comment_color=iblack
 
 Available colors are:
 
