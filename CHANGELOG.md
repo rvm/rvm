@@ -54,7 +54,7 @@
 * Added missing information that user should have sudo rights to install rubies [\#307](https://github.com/rvm/rvm-site/pull/307)
 * Better explanation for `apt-get update` failing with 404 Not Found errors [\#3411](https://github.com/rvm/rvm/issue/3411)
 * Ruby 2.1 is no more maintained [\#3997](https://github.com/rvm/rvm/pull/3997)
-* Display deprecation notice for `rvm usage`
+* Display deprecation notice for `rvm usage` [\#4047](https://github.com/rvm/rvm/pull/4047)
 
 ## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
 
