@@ -10,6 +10,7 @@
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 * Use fuzzy version match for `rvm remove` [\#4028](https://github.com/rvm/rvm/pull/4028)
 * Simplify and cleanup of `rvm help` output [\#4029](https://github.com/rvm/rvm/pull/4029)
+* Add support for Kali Linux (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958) 
 
 #### Bug fixes:
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
