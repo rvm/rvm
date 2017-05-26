@@ -11,6 +11,7 @@
 * Use fuzzy version match for `rvm remove` [\#4028](https://github.com/rvm/rvm/pull/4028)
 * Simplify and cleanup of `rvm help` output [\#4029](https://github.com/rvm/rvm/pull/4029)
 * Add support for Kali Linux (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958) 
+* Railsexpress patches for 2.4.0, 2.4.1 and 2.4-head [\#4050](https://github.com/rvm/rvm/pull/4050)
 
 #### Bug fixes:
 * Use actual executable test instead of mount|grep noexec for robust noexec detection [\#3933](https://github.com/rvm/rvm/pull/3933)
