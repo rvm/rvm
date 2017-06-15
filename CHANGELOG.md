@@ -31,18 +31,13 @@
 * Patch Ruby 2.3.4 with missing rb_thread_fd_close [\#4008](https://github.com/rvm/rvm/issues/4008)
 * Unknown subcommand `rvm gemset clear` [\#4004](https://github.com/rvm/rvm/issues/4004)
 * Skip rubygems install for ruby-head [\#4022](https://github.com/rvm/rvm/pull/4022)
+* Fix match MacPorts in non standard location [\#4051](https://github.com/rvm/rvm/pull/4051)
 
 #### Upgraded Ruby interpreters:
-* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994), 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002), 3.76 and 3.77 [\#4016](https://github.com/rvm/rvm/pull/4016), 3.78
-* Add support for JRuby 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952)
-* Add support for Ruby 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
-* Upgrade RubyGems to 2.6.11 [\#3962](https://github.com/rvm/rvm/pull/3962)
-* Add support for Ruby 2.2.7 [\#3970](https://github.com/rvm/rvm/pull/3970)
-* Add support for Ruby 2.3.4 [\#3973](https://github.com/rvm/rvm/pull/3973)
+* Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994), 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002), 3.76 and 3.77 [\#4016](https://github.com/rvm/rvm/pull/4016), 3.78, 3.79, 3.80, 3.81
+* Add support for Ruby 2.2.7 [\#3970](https://github.com/rvm/rvm/pull/3970), 2.3.4 [\#3973](https://github.com/rvm/rvm/pull/3973) and 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
 * Upgrade RubyGems to 2.6.12 [\#4018](https://github.com/rvm/rvm/pull/4018)
-* Add support for JRuby 1.7.27 [\#4026](https://github.com/rvm/rvm/pull/4026)
-* Add support for JRuby 9.1.9.0 [\#4036](https://github.com/rvm/rvm/pull/4036)
-* Add support for JRuby 9.1.10.0 [\#4049](https://github.com/rvm/rvm/pull/4049)
+* Add support for JRuby 1.7.27 [\#4026](https://github.com/rvm/rvm/pull/4026), 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952), 9.1.9.0 [\#4036](https://github.com/rvm/rvm/pull/4036), 9.1.10.0 [\#4049](https://github.com/rvm/rvm/pull/4049) and 9.1.11 [\#4064](https://github.com/rvm/rvm/issues/4064)
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
