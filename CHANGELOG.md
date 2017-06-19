@@ -32,6 +32,7 @@
 * Skip rubygems install for ruby-head [\#4022](https://github.com/rvm/rvm/pull/4022)
 * Fix match MacPorts in non standard location [\#4051](https://github.com/rvm/rvm/pull/4051)
 * ruby-2.3.3 doesn't compile on Debian 8.3 [\#4000](https://github.com/rvm/rvm/issues/4000)
+* Ruby < 2.4 fail to build on Fedora 26 [\#4057](https://github.com/rvm/rvm/issues/4057)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994), 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002), 3.76 and 3.77 [\#4016](https://github.com/rvm/rvm/pull/4016), 3.78, 3.79, 3.80, 3.81
