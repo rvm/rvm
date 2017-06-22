@@ -2,7 +2,10 @@
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
 
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.1...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...HEAD)
+
+
+[1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
