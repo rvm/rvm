@@ -5,7 +5,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...HEAD)
 
 #### New features:
-* Add missing bash shell completion commands [\#4078](https://github.com/rvm/rvm/pull/4078)
+* Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
 
 
 [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
