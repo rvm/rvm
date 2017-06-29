@@ -6,6 +6,7 @@
 
 #### New features:
 * Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
+* Railsexpress patches for 2.3.4 and 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084)
 
 
 [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
