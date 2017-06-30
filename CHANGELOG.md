@@ -7,6 +7,9 @@
 #### New features:
 * Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
 
+#### Bug fixes:
+* Fix an error message displayed on some commands [\#4085](https://github.com/rvm/rvm/pull/4085)
+
 
 [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
 
