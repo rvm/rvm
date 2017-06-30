@@ -2,7 +2,17 @@
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
 
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.1...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...HEAD)
+
+#### New features:
+* Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
+* Railsexpress patches for 2.3.4 and 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084)
+
+#### Bug fixes:
+* Command not found `__rvm_remote_version` error [\#4085](https://github.com/rvm/rvm/pull/4085)
+
+
+[1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
@@ -33,6 +43,7 @@
 * Skip rubygems install for ruby-head [\#4022](https://github.com/rvm/rvm/pull/4022)
 * Fix match MacPorts in non standard location [\#4051](https://github.com/rvm/rvm/pull/4051)
 * ruby-2.3.3 doesn't compile on Debian 8.3 [\#4000](https://github.com/rvm/rvm/issues/4000)
+* Ruby < 2.4 fail to build on Fedora 26 [\#4057](https://github.com/rvm/rvm/issues/4057)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.72 [\#3934](https://github.com/rvm/rvm/pull/3934), 3.73 [\#3979](https://github.com/rvm/rvm/pull/3979), 3.74 [\#3994](https://github.com/rvm/rvm/pull/3994), 3.75 [\#4002](https://github.com/rvm/rvm/pull/4002), 3.76 and 3.77 [\#4016](https://github.com/rvm/rvm/pull/4016), 3.78, 3.79, 3.80, 3.81
