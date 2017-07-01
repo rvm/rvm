@@ -11,6 +11,9 @@
 #### Bug fixes:
 * Command not found `__rvm_remote_version` error [\#4085](https://github.com/rvm/rvm/pull/4085)
 
+#### Upgraded Ruby interpreters:
+* Add support for Rubinius 3.82
+
 
 [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
 
