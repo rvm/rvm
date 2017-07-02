@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/version"
+
 case "`date +%s:%N`" in
   (*:%N)
     __install_time()
@@ -1019,222 +1021,151 @@ setup_user_profile_check()
 setup_user_profile_detect()
 {
   etc_profile_file="/etc/profile.d/rvm.sh"
-  search_list_mksh=( "$HOME/.mkshrc" "$HOME/.profile" )
-  search_list_bash=( "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.bash_login" )
-  search_list_zsh=( "${ZDOTDIR:-${HOME}}/.zshenv" "${ZDOTDIR:-${HOME}}/.zprofile" "${ZDOTDIR:-${HOME}}/.zshrc" "${ZDOTDIR:-${HOME}}/.zlogin" )
-  search_list=( "${search_list_mksh[@]}" "${search_list_bash[@]}" "${search_list_zsh[@]}" )
 
-  target_rc=( "$HOME/.profile" "$HOME/.mkshrc" "$HOME/.bashrc" "${ZDOTDIR:-${HOME}}/.zshrc" )
+  profile_rc=( "$HOME/.profile" "$HOME/.mkshrc" "$HOME/.bashrc" "${ZDOTDIR:-${HOME}}/.zshrc" )
 
-  target_login=( "$HOME/.profile" )
-  pick_a_file target_login "$HOME/.bash_profile" "$HOME/.bash_login"
-  target_login+=( "${ZDOTDIR:-${HOME}}/.zlogin" )
+  profile_login=( "$HOME/.profile" )
+  pick_a_file profile_login "$HOME/.bash_profile" "$HOME/.bash_login"
+  profile_login+=( "${ZDOTDIR:-${HOME}}/.zlogin" )
 
-  target_info=(` for t in "${target_rc[@]}" "${target_login[@]}"; do echo "$t"; done | sort -u `)
-
-  for profile_file in "${search_list[@]}"
-  do
-    if
-      [[ -f "$profile_file" ]]
-    then
-      if
-        __rvm_grep "RVM.*added following lines" "$profile_file" >/dev/null
-      then
-        found_info+=( "$profile_file" )
-      fi
-
-      if
-        __rvm_grep "^(#+) RVM" "$profile_file" >/dev/null
-      then
-        found_info_closing+=( "$profile_file" )
-      fi
-
-      if
-        __rvm_grep PATH=.*$local_rvm_path/bin "$profile_file" >/dev/null
-      then
-        found_rc+=( "$profile_file" )
-      fi
-
-      if
-        __rvm_grep \..*scripts/rvm "$profile_file" >/dev/null
-      then
-        found_login+=( "$profile_file" )
-      elif
-        __rvm_grep source.*scripts/rvm "$profile_file" >/dev/null
-      then
-        found_login+=( "$profile_file" )
-      fi
-    fi
-  done
+  profile_all=(` for t in "${profile_rc[@]}" "${profile_login[@]}"; do echo "$t"; done | sort -u `)
 }
 
-setup_user_profile_summary()
+setup_user_profile_delete_duplicate_blank_lines()
 {
-  eval "\typeset __list_found=\"\${${1}[*]}\""
-  \typeset __target="$2"
-  rvm_log "    RVM ${__target} line found in ${__list_found}."
-
-  \typeset __bash_included=0
-  \typeset  __zsh_included=0
-  __rvm_string_includes "${__list_found}" "${search_list_bash[@]}" || __bash_included=$?
-  __rvm_string_includes "${__list_found}" "${search_list_zsh[@]}"  ||  __zsh_included=$?
-
-  \typeset __missing=""
-  if (( __bash_included>0 && __zsh_included>0  ))
-  then __missing="Bash or Zsh"
-  elif (( __bash_included>0 ))
-  then __missing="Bash"
-  elif (( __zsh_included>0 ))
-  then __missing="Zsh"
-  fi
-  if [[ -n "${__missing}" ]]
-  then rvm_warn "    RVM ${__target} line not found for ${__missing}, rerun this command with '--auto-dotfiles' flag to fix it."
-  fi
+  __rvm_sed_i "${1}" -e '/^\s*$/{ N; /^\n$/ D; };'
 }
 
 setup_user_profile_info()
 {
-  if
-    (( rvm_auto_dotfiles_flag == 1 && ${#found_info[@]} > 0 ))
-  then
-    rvm_debug "Removing RVM info line from ${found_info[*]}"
+  for file in "${profile_all[@]}"
+  do
+    # Remove old entries
+    if
+      [[ -f "$file" ]]
+    then
+      if
+        __rvm_grep "RVM BEGIN" "$file" >/dev/null
+      then
+        rvm_debug "Removing RVM info line from ${file}"
+        __rvm_sed_i "$file" -e '/RVM BEGIN$/,/RVM END$/d'
+        setup_user_profile_delete_duplicate_blank_lines "$file"
+      fi
+    fi
 
-    for profile_file in "${found_info[@]}"
-    do
-      __rvm_sed_i "${profile_file}" -e '/(#*\n)*RVM.*added following lines(\n#.*)*/ d;'
-      # also delete duplicate blank lines
-      __rvm_sed_i "${profile_file}" -e '/^\s*$/{ N; /^\n$/ D; };'
-    done
-    found_info=()
-  fi
+    # Add new entries
+    rvm_debug "Adding RVM info line to $file"
 
-  if
-    (( rvm_auto_dotfiles_flag == 1 || ${#found_info[@]} == 0 ))
-  then
-    rvm_debug "Adding RVM info line to ${target_info[*]}"
-    
-    for profile_file in "${target_info[@]}"
-    do
-      touch "$profile_file"
-      printf "%b" "
-###############################################################################
-# At $(date +"%Y-%m-%d %T") RVM ${rvm_version} added following lines.
+    touch "$file"
+    printf "%b" "
+##################################################################### RVM BEGIN
+# At $(date +"%Y-%m-%d %T") RVM added following lines.
 # It might have also created this file, if it did not existed before.
-
-" >> "$profile_file"
-    done
-  fi
-}
-
-setup_user_profile_rc()
-{
-  if
-    (( rvm_auto_dotfiles_flag == 1 && ${#found_rc[@]} > 0 ))
-  then
-    rvm_debug "    Removing line adding RVM to the PATH in ${found_rc[*]}"
-
-    for profile_file in "${found_rc[@]}"
-    do
-      __rvm_sed_i "${profile_file}" -e '/(# Include RVM in the PATH.*\n)*PATH=.*'"$local_rvm_path_sed"'\/bin/ d;'
-      # also delete duplicate blank lines
-      __rvm_sed_i "${profile_file}" -e '/^\s*$/{ N; /^\n$/ D; };'
-    done
-    found_rc=()
-  fi
-
-  if
-    (( rvm_auto_dotfiles_flag == 1 || ${#found_rc[@]} == 0 ))
-  then
-    rvm_out "    Adding RVM to the PATH in ${target_rc[*]}"
-
-    for profile_file in "${target_rc[@]}"
-    do
-      touch "$profile_file"
-      printf "%b" "
-# Include RVM in the PATH. Ensure it is always at the end of the PATH.
-export PATH=\"\$PATH:$local_rvm_path/bin\"
-" >> "$profile_file"
-    done
-  else
-    setup_user_profile_summary found_rc "PATH"
-  fi
-}
-
-setup_user_profile_login()
-{
-  if
-    (( rvm_auto_dotfiles_flag == 1 && ${#found_login[@]} > 0 ))
-  then
-    rvm_debug "Removing rvm loading line from ${found_login[*]}"
-
-    for profile_file in "${found_login[@]}"
-    do
-      __rvm_sed_i "${profile_file}" -e '/(# Load the default \.profile\n)*source.*\.profile/ d;'
-      __rvm_sed_i "${profile_file}" -e '/(# Load RVM.*\n)*source.*scripts\/rvm/ d; /\. .*scripts\/rvm/ d;'
-      # also delete duplicate blank lines
-      __rvm_sed_i "${profile_file}" -e '/^\s*$/{ N; /^\n$/ D; };'
-    done
-    found_login=()
-  fi
-
-  if
-    (( rvm_auto_dotfiles_flag == 1 || ${#found_login[@]} == 0 ))
-  then
-    rvm_out "    Loading RVM in ${target_login[*]}"
-    
-    for profile_file in "${target_login[@]}"
-    do
-      [[ -f "$profile_file" ]] ||
-      {
-        touch "$profile_file"
-        if
-          [[ "$profile_file" == "$HOME/.bash_"* && -f "$HOME/.profile" ]]
-        then
-          printf "%b" "
-# Load the default .profile
-[[ -s \"\$HOME/.profile\" ]] && source \"\$HOME/.profile\"
-" >> "$profile_file"
-        fi
-      }
-      printf "%b" "
-# Load RVM into a shell session *as a function*
-[[ -s \"$local_rvm_path/scripts/rvm\" ]] && source \"$local_rvm_path/scripts/rvm\"
-" >> "$profile_file"
-    done
-  else
-    setup_user_profile_summary found_login "sourcing"
-  fi
+#
+# Feel free to comment out or remove any of the lines between RVM BEGIN and END.
+# Keep in mind that this markers help us to maintain RVM terminal integration
+# and everything between them will be replaced on the next RVM installation
+# with '--auto-dotfiles'
+" >> "$file"
+  done
 }
 
 setup_user_profile_info_closing()
 {
-  if
-    (( rvm_auto_dotfiles_flag == 1 && ${#found_info_closing[@]} > 0 ))
-  then
-    rvm_debug "Removing RVM info closing line from ${found_info_closing[*]}"
+  for file in "${profile_all[@]}"
+  do
+    printf "%b" "
+####################################################################### RVM END
+" >> "$file"
+  done
+}
 
-    for profile_file in "${found_info[@]}"
-    do
-      __rvm_sed_i "${profile_file}" -e '/^(#+) RVM/ d;'
-      # also delete duplicate blank lines
-      __rvm_sed_i "${profile_file}" -e '/^\s*$/{ N; /^\n$/ D; };'
-    done
-    found_info_closing=()
-  fi
+setup_user_profile_rc()
+{
+  rvm_out "    Adding RVM to the PATH in ${profile_rc[@]}"
 
-  if
-    (( rvm_auto_dotfiles_flag == 1 || ${#found_info_closing[@]} == 0 ))
-  then
-    rvm_debug "Adding RVM info line to ${target_info[*]}"
-    
-    for profile_file in "${target_info[@]}"
-    do
-      touch "$profile_file"
-      printf "%b" "
-########################################################################### RVM
-" >> "$profile_file"
-    done
-  fi
+  for file in "${profile_rc[@]}"
+  do
+    # Remove old style entries (added by RVM up to 1.29.2)
+    if
+      [[ -f "$file" ]]
+    then
+      if
+        __rvm_grep PATH=.*$local_rvm_path/bin "$file" >/dev/null
+      then
+        rvm_debug "Removing line adding RVM to the PATH in ${file}"
+        __rvm_sed_i "${file}" -e '/PATH=.*'"$local_rvm_path_sed"'\/bin/ d;'
+        setup_user_profile_delete_duplicate_blank_lines "${file}"
+      fi
+    fi
+
+    # Add new entries
+    printf "%b" "
+# Include RVM in the PATH. Ensure it is always at the end of the PATH.
+export PATH=\"\$PATH:$local_rvm_path/bin\"
+" >> "$file"
+  done
+}
+
+setup_user_profile_login()
+{
+  rvm_out "    Loading RVM in ${profile_login[*]}"
+
+  for file in "${profile_login[@]}"
+  do
+    # Remove old style entries (added by RVM up to 1.29.2)
+    if
+      [[ -f "$file" ]]
+    then
+      if
+        __rvm_grep scripts/rvm "$file" >/dev/null
+      then
+        rvm_debug "Removing RVM loading line from ${file}"
+        __rvm_sed_i "${file}" -e '/source.*scripts\/rvm/ d; /\. .*scripts\/rvm/ d;'
+        setup_user_profile_delete_duplicate_blank_lines "$file"
+      fi
+    fi
+
+    # Add new entries
+    [[ -f "$file" ]] ||
+    {
+      touch "$file"
+      if
+        [[ "$file" == "$HOME/.bash_"* && -f "$HOME/.profile" ]]
+      then
+        printf "%b" "
+# Load the default .profile
+[[ -s \"\$HOME/.profile\" ]] && source \"\$HOME/.profile\"
+" >> "$file"
+      fi
+    }
+
+    printf "%b" "
+# Load RVM into a shell session *as a function*
+[[ -s \"$local_rvm_path/scripts/rvm\" ]] && source \"$local_rvm_path/scripts/rvm\"
+" >> "$file"
+  done
+}
+
+setup_user_profile_verify()
+{
+  for file in "${profile_rc[@]}"
+  do
+    if
+      ! __rvm_grep PATH=.*$local_rvm_path/bin "$file" >/dev/null
+    then
+      rvm_warn "    RVM PATH line not found in ${file}, rerun this command with '--auto-dotfiles' flag to fix it."
+    fi
+  done
+
+  for file in "${profile_login[@]}"
+  do
+    if
+      ! __rvm_grep scripts/rvm "$file" >/dev/null
+    then
+      rvm_warn "    RVM sourcing line not found in ${file}, rerun this command with '--auto-dotfiles' flag to fix it."
+    fi
+  done
 }
 
 setup_user_profile()
@@ -1242,18 +1173,23 @@ setup_user_profile()
   setup_user_profile_check || return 0
 
   export user_profile_file
-  \typeset -a search_list search_list_mksh search_list_bash search_list_zsh
-  \typeset -a target_info target_rc target_login found_info found_info_closing found_rc found_login
+  \typeset -a profile_all profile_rc profile_login
   \typeset etc_profile_file profile_file local_rvm_path local_rvm_path_sed
   local_rvm_path="${rvm_path/#$HOME/\$HOME}"
   local_rvm_path_sed="\\${local_rvm_path//\./\\.}"
   local_rvm_path_sed="${local_rvm_path_sed//\//\/}"
 
-  setup_user_profile_detect
-  setup_user_profile_info
-  setup_user_profile_rc
-  setup_user_profile_login
-  setup_user_profile_info_closing
+  if
+    (( rvm_auto_dotfiles_flag == 1 ))
+  then
+    setup_user_profile_detect
+    setup_user_profile_info
+    setup_user_profile_rc
+    setup_user_profile_login
+    setup_user_profile_info_closing
+  fi
+
+  setup_user_profile_verify
 
   true # for osx
 }
