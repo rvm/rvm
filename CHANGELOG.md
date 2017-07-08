@@ -13,6 +13,7 @@
 * Infinite loop in `gemset_create` [\#4102](https://github.com/rvm/rvm/issues/4102)
 * Command not found `__rvm_remote_version` error [\#4085](https://github.com/rvm/rvm/pull/4085)
 * Fix path of version script in `environment` [\#4117](https://github.com/rvm/rvm/pull/4117)
+* Update gem-wrappers to 1.3.1: Avoid warnings for missing ruby binaries [\#4104](https://github.com/rvm/rvm/issues/4104)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
