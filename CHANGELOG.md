@@ -14,6 +14,8 @@
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83
 
+### Documentation
+* Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
 
 [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
 

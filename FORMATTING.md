@@ -1,18 +1,18 @@
 # general
 
-1. Try to make code readable, it's the most important rule,
-turn your eyes away from code and look on it again,
-can you really fast understand it - if no - reformat to make it better.
+1. Try to make code readable. This is the most important rule.
+Turn your eyes away from code and look on it again.
+If you cannot quickly understand the code, reformat to make it better.
 
-2. Avoid semicolons, just because they make code harder to read (look rule 1).
+2. Avoid semicolons, just because they make code harder to read (see rule 1).
 
 # variables
 
 ## defining
 ```bash
-typeset var          # avid local - it breaks code in some rare cases
+typeset var          # avoid local - it breaks code in some rare cases
 typeset -a arr
-arr=()               # define and reset array, required for arr+=( ... )
+arr=()               # define and reset array. required for arr+=( ... )
 typeset -x important # the same export, just for consistency
 ```
 
@@ -20,7 +20,7 @@ Variables defined in one local in function are available in all other functions 
 
 ## numeric variables comparison
 ```bash
-: variable:${variable:=0} # make sure it is set and simplifies debugging
+: variable:${variable:=0} # Ensures it is set and simplifies debugging
 (( variable ))      # when not zero
 (( variable == 0 )) # when zero
 : $(( variable++ )) # increase
