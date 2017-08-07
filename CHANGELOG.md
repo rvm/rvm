@@ -15,7 +15,7 @@
 * Fix path of version script in `environment` [\#4117](https://github.com/rvm/rvm/pull/4117)
 
 #### Upgraded Ruby interpreters:
-* Add support for Rubinius 3.82, 3.83
+* Add support for Rubinius 3.82, 3.83, 3.84
 * Add support for mruby 1.3.0
 
 ### Documentation
