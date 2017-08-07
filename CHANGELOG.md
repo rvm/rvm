@@ -7,6 +7,7 @@
 #### New features:
 * Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
 * Railsexpress patches for 2.3.4 and 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084)
+* Improve clarity of dotfile edits [\#4053](https://github.com/rvm/rvm/issues/4053)
 
 #### Bug fixes:
 * Infinite loop in `gemset_create` [\#4102](https://github.com/rvm/rvm/issues/4102)
