@@ -15,6 +15,7 @@
 * Fix path of version script in `environment` [\#4117](https://github.com/rvm/rvm/pull/4117)
 * Define cd(), pushd() and popd() properly when using zsh [\#4132](https://github.com/rvm/rvm/pull/4132)
 * Update gem-wrappers to 1.3.1: Avoid warnings for missing ruby binaries [\#4104](https://github.com/rvm/rvm/issues/4104)
+* Fix path to version script in rvm-installer [\#4134](https://github.com/rvm/rvm/pull/4134)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
