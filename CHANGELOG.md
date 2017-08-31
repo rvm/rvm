@@ -28,11 +28,11 @@
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
-* Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999) 
+* Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999)
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 * Use fuzzy version match for `rvm remove` [\#4028](https://github.com/rvm/rvm/pull/4028)
 * Simplify and cleanup of `rvm help` output [\#4029](https://github.com/rvm/rvm/pull/4029)
-* Add support for Kali Linux (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958) 
+* Add support for Kali Linux (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958)
 * Railsexpress patches for 2.4.0, 2.4.1 and 2.4-head [\#4050](https://github.com/rvm/rvm/pull/4050)
 
 #### Bug fixes:
@@ -61,6 +61,7 @@
 * Add support for Ruby 2.2.7 [\#3970](https://github.com/rvm/rvm/pull/3970), 2.3.4 [\#3973](https://github.com/rvm/rvm/pull/3973) and 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
 * Upgrade RubyGems to 2.6.12 [\#4018](https://github.com/rvm/rvm/pull/4018)
 * Add support for JRuby 1.7.27 [\#4026](https://github.com/rvm/rvm/pull/4026), 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952), 9.1.9.0 [\#4036](https://github.com/rvm/rvm/pull/4036), 9.1.10.0 [\#4049](https://github.com/rvm/rvm/pull/4049), 9.1.11 [\#4064](https://github.com/rvm/rvm/issues/4064) and 9.1.12.0 [\#4066](https://github.com/rvm/rvm/issues/4066)
+* Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
