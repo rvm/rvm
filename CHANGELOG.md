@@ -20,6 +20,7 @@
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
 * Add support for mruby 1.3.0
+* Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
 
 ### Documentation
 * Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
@@ -61,7 +62,6 @@
 * Add support for Ruby 2.2.7 [\#3970](https://github.com/rvm/rvm/pull/3970), 2.3.4 [\#3973](https://github.com/rvm/rvm/pull/3973) and 2.4.1 [\#3963](https://github.com/rvm/rvm/pull/3963)
 * Upgrade RubyGems to 2.6.12 [\#4018](https://github.com/rvm/rvm/pull/4018)
 * Add support for JRuby 1.7.27 [\#4026](https://github.com/rvm/rvm/pull/4026), 9.1.8.0 [\#3952](https://github.com/rvm/rvm/pull/3952), 9.1.9.0 [\#4036](https://github.com/rvm/rvm/pull/4036), 9.1.10.0 [\#4049](https://github.com/rvm/rvm/pull/4049), 9.1.11 [\#4064](https://github.com/rvm/rvm/issues/4064) and 9.1.12.0 [\#4066](https://github.com/rvm/rvm/issues/4066)
-* Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
 
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.1 [\#3965](https://github.com/rvm/rvm/issues/3965)
