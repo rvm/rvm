@@ -18,10 +18,12 @@
 * Handles :engine=> and :engine_version=> in Gemfile
 * Makes $rvm_ruby_string is not installed searchable by adding a fixed keyword
 * Correctly quotes suggested install command
+* Fix path to version script in rvm-installer [\#4134](https://github.com/rvm/rvm/pull/4134)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
 * Add support for mruby 1.3.0
+* Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
 
 ### Documentation
 * Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
@@ -30,11 +32,11 @@
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
-* Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999) 
+* Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999)
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 * Use fuzzy version match for `rvm remove` [\#4028](https://github.com/rvm/rvm/pull/4028)
 * Simplify and cleanup of `rvm help` output [\#4029](https://github.com/rvm/rvm/pull/4029)
-* Add support for Kali Linux (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958) 
+* Add support for Kali Linux (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958)
 * Railsexpress patches for 2.4.0, 2.4.1 and 2.4-head [\#4050](https://github.com/rvm/rvm/pull/4050)
 
 #### Bug fixes:
