@@ -18,6 +18,7 @@
 * Update gem-wrappers to 1.3.1: Avoid warnings for missing ruby binaries [\#4104](https://github.com/rvm/rvm/issues/4104)
 * Fix path to version script in rvm-installer [\#4134](https://github.com/rvm/rvm/pull/4134)
 * Fix rvm autolibs status, fix [\#4123](https://github.com/rvm/rvm/issues/4123)
+* Ruby 2.3.x and older are not compatible with OpenSSL 1.1.x on Arch [\#4006](https://github.com/rvm/rvm/issues/4006)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
@@ -56,7 +57,7 @@
 * Unknown subcommand `rvm gemset clear` [\#4004](https://github.com/rvm/rvm/issues/4004)
 * Skip rubygems install for ruby-head [\#4022](https://github.com/rvm/rvm/pull/4022)
 * Fix match MacPorts in non standard location [\#4051](https://github.com/rvm/rvm/pull/4051)
-* ruby-2.3.3 doesn't compile on Debian 8.3 [\#4000](https://github.com/rvm/rvm/issues/4000)
+* Ruby 2.3.3 doesn't compile on Debian 8.3 [\#4000](https://github.com/rvm/rvm/issues/4000)
 * Ruby < 2.4 fail to build on Fedora 26 [\#4057](https://github.com/rvm/rvm/issues/4057)
 
 #### Upgraded Ruby interpreters:
