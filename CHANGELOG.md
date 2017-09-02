@@ -8,6 +8,7 @@
 * Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
 * Railsexpress patches for 2.3.4 and 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084)
 * Update gem-wrappers to 1.3.0: Show warnings when the target binary is missing or is not executable [gem-wrappers \#9](https://github.com/rvm/gem-wrappers/issues/9)
+* Detect Zorin OS as Ubuntu [\#4140](https://github.com/rvm/rvm/issues/4140)
 
 #### Bug fixes:
 * Infinite loop in `gemset_create` [\#4102](https://github.com/rvm/rvm/issues/4102)
@@ -19,6 +20,8 @@
 * Makes $rvm_ruby_string is not installed searchable by adding a fixed keyword
 * Correctly quotes suggested install command
 * Fix path to version script in rvm-installer [\#4134](https://github.com/rvm/rvm/pull/4134)
+* Fix rvm autolibs status, fix [\#4123](https://github.com/rvm/rvm/issues/4123)
+* Ruby 2.3.x and older are not compatible with OpenSSL 1.1.x on Arch [\#4006](https://github.com/rvm/rvm/issues/4006)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
@@ -57,7 +60,7 @@
 * Unknown subcommand `rvm gemset clear` [\#4004](https://github.com/rvm/rvm/issues/4004)
 * Skip rubygems install for ruby-head [\#4022](https://github.com/rvm/rvm/pull/4022)
 * Fix match MacPorts in non standard location [\#4051](https://github.com/rvm/rvm/pull/4051)
-* ruby-2.3.3 doesn't compile on Debian 8.3 [\#4000](https://github.com/rvm/rvm/issues/4000)
+* Ruby 2.3.3 doesn't compile on Debian 8.3 [\#4000](https://github.com/rvm/rvm/issues/4000)
 * Ruby < 2.4 fail to build on Fedora 26 [\#4057](https://github.com/rvm/rvm/issues/4057)
 
 #### Upgraded Ruby interpreters:
