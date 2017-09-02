@@ -16,6 +16,9 @@
 * Fix path of version script in `environment` [\#4117](https://github.com/rvm/rvm/pull/4117)
 * Define cd(), pushd() and popd() properly when using zsh [\#4132](https://github.com/rvm/rvm/pull/4132)
 * Update gem-wrappers to 1.3.1: Avoid warnings for missing ruby binaries [\#4104](https://github.com/rvm/rvm/issues/4104)
+* Handles :engine=> and :engine_version=> in Gemfile
+* Makes $rvm_ruby_string is not installed searchable by adding a fixed keyword
+* Correctly quotes suggested install command
 * Fix path to version script in rvm-installer [\#4134](https://github.com/rvm/rvm/pull/4134)
 * Fix rvm autolibs status, fix [\#4123](https://github.com/rvm/rvm/issues/4123)
 * Ruby 2.3.x and older are not compatible with OpenSSL 1.1.x on Arch [\#4006](https://github.com/rvm/rvm/issues/4006)
