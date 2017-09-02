@@ -7,21 +7,36 @@
 #### New features:
 * Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
 * Railsexpress patches for 2.3.4 and 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084)
+* Update gem-wrappers to 1.3.0: Show warnings when the target binary is missing or is not executable [gem-wrappers \#9](https://github.com/rvm/gem-wrappers/issues/9)
+* Detect Zorin OS as Ubuntu [\#4140](https://github.com/rvm/rvm/issues/4140)
 
 #### Bug fixes:
+* Infinite loop in `gemset_create` [\#4102](https://github.com/rvm/rvm/issues/4102)
 * Command not found `__rvm_remote_version` error [\#4085](https://github.com/rvm/rvm/pull/4085)
+* Fix path of version script in `environment` [\#4117](https://github.com/rvm/rvm/pull/4117)
+* Define cd(), pushd() and popd() properly when using zsh [\#4132](https://github.com/rvm/rvm/pull/4132)
+* Update gem-wrappers to 1.3.1: Avoid warnings for missing ruby binaries [\#4104](https://github.com/rvm/rvm/issues/4104)
+* Fix path to version script in rvm-installer [\#4134](https://github.com/rvm/rvm/pull/4134)
+* Fix rvm autolibs status, fix [\#4123](https://github.com/rvm/rvm/issues/4123)
 * Ruby 2.3.x and older are not compatible with OpenSSL 1.1.x on Arch [\#4006](https://github.com/rvm/rvm/issues/4006)
 
+#### Upgraded Ruby interpreters:
+* Add support for Rubinius 3.82, 3.83, 3.84
+* Add support for mruby 1.3.0
+* Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
+
+### Documentation
+* Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
 
 [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
-* Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999) 
+* Add support for Deepin (based on Debian) [\#3999](https://github.com/rvm/rvm/issues/3999)
 * Simplified OS detection mechanism [\#3938](https://github.com/rvm/rvm/pull/3938)
 * Use fuzzy version match for `rvm remove` [\#4028](https://github.com/rvm/rvm/pull/4028)
 * Simplify and cleanup of `rvm help` output [\#4029](https://github.com/rvm/rvm/pull/4029)
-* Add support for Kali Linux (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958) 
+* Add support for Kali Linux (based on Debian) [\#3958](https://github.com/rvm/rvm/issues/3958)
 * Railsexpress patches for 2.4.0, 2.4.1 and 2.4-head [\#4050](https://github.com/rvm/rvm/pull/4050)
 
 #### Bug fixes:
@@ -123,7 +138,7 @@
 * Missing `libgmp3-dev` for Ruby 2.2 on Debian 6 [\#3675](https://github.com/rvm/rvm/issues/3675)
 * JRuby on Arch is missing Java requirements [\#3539](https://github.com/rvm/rvm/issues/3539)
 * `rvm install 2.4` installs 2.4.0-rc1 instead of 2.4.0 [\#3866](https://github.com/rvm/rvm/issues/3866)
-* Use `libreadline-dev` instead of `libreadline6-dev` on Debian (≥stretch) [\#3824](https://github.com/rvm/rvm/issues/3824)
+* Use `libreadline-dev` instead of `libreadline6-dev` on Debian (???stretch) [\#3824](https://github.com/rvm/rvm/issues/3824)
 * Warning: openssl is a keg-only and another version is linked to opt [\#3724](https://github.com/rvm/rvm/issues/3724)
 * Fix trusting paths with duplicated //
 * Fix rvm do in relative paths
