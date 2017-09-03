@@ -1,0 +1,39 @@
+diff --git a/include/ruby/ruby.h b/include/ruby/ruby.h
+index 6144c67234..4aa388849b 100644
+--- a/include/ruby/ruby.h
++++ b/include/ruby/ruby.h
+@@ -536,7 +536,11 @@ static inline int rb_type(VALUE obj);
+ 
+ #ifdef __GNUC__
+ #define RB_GC_GUARD(v) \
+-    (*__extension__ ({volatile VALUE *rb_gc_guarded_ptr = &(v); rb_gc_guarded_ptr;}))
++    (*__extension__ ({ \
++       volatile VALUE *rb_gc_guarded_ptr = &(v); \
++       __asm__("" : : "m"(rb_gc_guarded_ptr)); \
++       rb_gc_guarded_ptr; \
++    }))
+ #elif defined _MSC_VER
+ #pragma optimize("", off)
+ static inline volatile VALUE *rb_gc_guarded_ptr(volatile VALUE *ptr) {return ptr;}
+diff --git a/marshal.c b/marshal.c
+index a9926acf56..7e16d0b024 100644
+--- a/marshal.c
++++ b/marshal.c
+@@ -1026,7 +1026,7 @@ rb_marshal_dump_limited(VALUE obj, VALUE port, int limit)
+     struct dump_arg *arg;
+     VALUE wrapper; /* used to avoid memory leak in case of exception */
+ 
+-    wrapper = TypedData_Make_Struct(rb_cData, struct dump_arg, &dump_arg_data, arg);
++    wrapper = TypedData_Make_Struct(0, struct dump_arg, &dump_arg_data, arg);
+     arg->dest = 0;
+     arg->symbols = st_init_numtable();
+     arg->data    = rb_init_identtable();
+@@ -2053,7 +2053,7 @@ rb_marshal_load_with_proc(VALUE port, VALUE proc)
+     else {
+        io_needed();
+     }
+-    wrapper = TypedData_Make_Struct(rb_cData, struct load_arg, &load_arg_data, arg);
++    wrapper = TypedData_Make_Struct(0, struct load_arg, &load_arg_data, arg);
+     arg->infection = infection;
+     arg->src = port;
+     arg->offset = 0;

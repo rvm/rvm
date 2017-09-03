@@ -23,6 +23,7 @@
 * Fix rvm autolibs status, fix [\#4123](https://github.com/rvm/rvm/issues/4123)
 * Ruby 2.3.x and older are not compatible with OpenSSL 1.1.x on Arch [\#4006](https://github.com/rvm/rvm/issues/4006)
 * Allow comments after ruby directive in Gemfile [\#4056](https://github.com/rvm/rvm/issues/4056)
+* Ruby 2.3/4 compilation fix for GCC 7 [\#4080](https://github.com/rvm/rvm/issues/4080) [\#4115](https://github.com/rvm/rvm/issues/4115)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
