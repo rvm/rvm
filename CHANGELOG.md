@@ -27,6 +27,7 @@
 * Add support for Rubinius 3.82, 3.83, 3.84
 * Add support for mruby 1.3.0
 * Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
+* Add support for JRuby 9.1.13.0 [\#4147](https://github.com/rvm/rvm/pull/4147)
 
 ### Documentation
 * Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
