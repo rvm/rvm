@@ -28,6 +28,7 @@
 * Allows running RVM shell function in Bash with `set -o nounset` [\#4013](https://github.com/rvm/rvm/issues/4013)
 * Ensure rvm_hooks_path is set [\#3902](https://github.com/rvm/rvm/issues/3902)
 * Allow building static ruby with --disbale-shared [\#4091](https://github.com/rvm/rvm/issues/4091)
+* Restore detection of `gpg` command for veryfication of signatures [\#4059](https://github.com/rvm/rvm/issues/4059)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
