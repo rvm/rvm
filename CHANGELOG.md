@@ -2,7 +2,12 @@
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
 
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...HEAD)
+
+###
+
+[1.29.2](https://github.com/rvm/rvm/tag/1.29.3)
+10 September 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...1.29.3)
 
 #### New features:
 * Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
