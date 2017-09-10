@@ -9,6 +9,7 @@
 * Railsexpress patches for 2.3.4 and 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084)
 * Update gem-wrappers to 1.3.0: Show warnings when the target binary is missing or is not executable [gem-wrappers \#9](https://github.com/rvm/gem-wrappers/issues/9)
 * Detect Zorin OS as Ubuntu [\#4140](https://github.com/rvm/rvm/issues/4140)
+* Railsexpress patches for 2.2.5 and 2.2.6 [\#4153](https://github.com/rvm/rvm/pull/4153)
 
 #### Bug fixes:
 * Infinite loop in `gemset_create` [\#4102](https://github.com/rvm/rvm/issues/4102)
