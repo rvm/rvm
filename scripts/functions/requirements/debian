@@ -1,1 +1,193 @@
-ubuntu
+#!/usr/bin/env bash
+
+# AMD64, i386, ARM - this is differenet from _system_arch as it's not translated.
+requirements_debian_arch()
+{
+  __architecture="$(dpkg --print-architecture)"
+}
+
+# Queries the dpkg system for packages that are installed only asking about
+# the package name and it's arch.  This package will fall back to :all for
+# cases where we cannot get an arch specific package (such is the case
+# for a few packages.)
+
+requirements_debian_lib_installed()
+{
+  dpkg-query -s "${1}:${__architecture}" >/dev/null 2>&1 ||
+  dpkg-query -s "${1}:all"               >/dev/null 2>&1 ||
+  dpkg-query -s "$1" 2>/dev/null | __rvm_grep "Architecture: ${__architecture}" >/dev/null ||
+  dpkg-query -s "$1" 2>/dev/null | __rvm_grep "Architecture: all"               >/dev/null ||
+  return $?
+}
+
+# Informs us if a package is even available on the distro we are working
+# with, this is more of a transitional method kind of like Ubuntu
+# has a transitional git-core package right now.  This will allow us
+# to continue to support older versions of Ubuntu while enforcing newer
+# packages on newer Ubuntu.
+
+requirements_debian_lib_available()
+{
+  apt-cache show "$1" >/dev/null 2>&1 || return $?
+}
+
+requirements_debian_libs_install()
+{
+  __rvm_try_sudo apt-get --no-install-recommends --yes install "$@" || return $?
+}
+
+requirements_debian_libs_remove()
+{
+  __rvm_try_sudo apt-get --yes remove "$@" || return $?
+}
+
+requirements_debian_update_system()
+{
+  __rvm_try_sudo apt-get --quiet --yes update ||
+  {
+    \typeset __ret=$?
+    case ${__ret} in
+      (100)
+        rvm_error "There has been an error while updating your system using \`apt-get\`.
+It seems that there are some 404 Not Found errors for repositories listed in:
+
+    /etc/apt/sources.list
+    /etc/apt/sources.list.d/*.list
+
+Make sure that all repositories are available from your system and verify your setup by running manually:
+
+    sudo apt-get update
+
+Make sure that it works correctly before proceeding with RVM.
+
+If you are working from the GUI instead of the terminal, you might want to verify and fix broken
+repositories using \"Software & Updates\" application.
+"
+        ;;
+    esac
+    return ${__ret}
+  }
+}
+
+requirements_debian_define_libgmp()
+{
+  if [[ "${_system_version}" == 6* ]]
+  then
+    requirements_check libgmp3-dev
+  else
+    requirements_check libgmp-dev
+  fi
+}
+
+requirements_debian_define_libreadline()
+{
+  if [[ "${_system_version}" -ge "9" ]]
+  then
+    requirements_check libreadline-dev
+  else
+    requirements_check libreadline6-dev
+  fi
+}
+
+requirements_debian_define_libssl()
+{
+  case "$1" in
+    (ruby-2.3*|ruby-2.2*|ruby-2.1*|ruby-2.0*|ruby-1.9*)
+      if [[ "${_system_version}" -ge "9" ]]
+      then
+        # legacy libssl-dev required by older version of ruby has been renamed to libssl1.0-dev
+        # starting from Debian 9 (Stretch)
+        undesired_check libssl-dev
+        requirements_check libssl1.0-dev
+      else
+        requirements_check libssl-dev
+      fi
+      ;;
+
+    (*)
+      requirements_check libssl-dev
+      ;;
+  esac
+}
+
+requirements_debian_define_base()
+{
+  requirements_check "$@" \
+    make libc6-dev patch openssl ca-certificates \
+    curl zlib1g zlib1g-dev libyaml-dev \
+    libsqlite3-dev sqlite3 autoconf libgmp-dev \
+    libgdbm-dev libncurses5-dev automake libtool bison pkg-config libffi-dev
+
+  requirements_${_system_name_lowercase}_define_libgmp
+  requirements_${_system_name_lowercase}_define_libreadline
+}
+
+requirements_debian_define_java()
+{
+  update-alternatives --list ${1:-java} >/dev/null 2>&1 ||
+    requirements_check_fallback \
+      openjdk-8-jre-headless openjdk-8-jdk oracle-j2sdk1.8 \
+      openjdk-7-jre-headless openjdk-7-jdk oracle-j2sdk1.7 \
+      openjdk-6-jre-headless opendjk-6-jdk oracle-j2sdk1.6
+}
+
+requirements_debian_define()
+{
+  \typeset __architecture
+  requirements_debian_arch
+
+  case "$1" in
+    (rvm)
+      requirements_check bash curl patch bzip2 ca-certificates gawk
+      ;;
+
+    (jruby*)
+      requirements_check g++
+      if
+        is_head_or_disable_binary "$1"
+      then
+        requirements_debian_define_java javac
+        requirements_check_fallback git git-core
+        if is_jruby_post17 "$1"
+        then __rvm_which mvn >/dev/null || requirements_check_fallback maven maven2
+        else __rvm_which ant >/dev/null || requirements_check ant
+        fi
+      else
+        requirements_debian_define_java java
+      fi
+      ;;
+
+    (ir*)
+      requirements_check curl mono-2.0-devel
+      ;;
+
+    (opal)
+      requirements_check nodejs npm
+      ;;
+
+    (rbx*head|rubinius*head)
+      requirements_check_fallback git git-core
+      requirements_debian_define_base clang-3.5 llvm-3.5 llvm-3.5-dev
+      requirements_${_system_name_lowercase}_define_libssl "$1"
+
+      rvm_configure_flags+=( --cc=clang --cxx=clang++ )
+      ;;
+
+    (rbx*|rubinius*)
+      requirements_debian_define_base clang-3.5 llvm-3.5 llvm-3.5-dev libedit-dev
+      requirements_${_system_name_lowercase}_define_libssl "$1"
+      rvm_configure_flags+=( --cc=clang --cxx=clang++ )
+      ;;
+
+    (*-head)
+      requirements_check_fallback git git-core
+      requirements_debian_define_base g++ gcc
+      requirements_${_system_name_lowercase}_define_libssl "$1"
+      ;;
+
+    (*)
+      requirements_debian_define_base g++ gcc
+      requirements_${_system_name_lowercase}_define_libssl "$1"
+      ;;
+  esac
+}

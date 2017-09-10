@@ -9,7 +9,7 @@ Master
 
 RVM is the acronym of Ruby enVironment Manager. It manages Ruby application environments and enables switching between them.
 
-Homepage and more info: https://rvm.io/
+Homepage and more info at [https://rvm.io](https://rvm.io)
 
 ## Installing RVM
 
@@ -24,6 +24,7 @@ If you need a different (newer) version of RVM, after installing base version of
 Make sure you have following required packages installed:
 
 * `curl`
+* `gpg2`
 
 And then run:
 
@@ -98,81 +99,7 @@ Additionally you might want list your preferred ruby version in `.ruby-version` 
 
 ### Other RVM commands
 
-RVM comes bundled with many different tools for managing your ruby environment. More detailed information about every commands listed below can be read after executing `rvm help COMMAND` or browsing documentation on RVM homepage https://rvm.io/.
-
-#### Installation
-
-* `implode`              - removes the rvm installation completely. This means everything in `$rvm_path` (`~/.rvm` || `/usr/local/rvm`). This does not touch your profiles. However, this means that you must manually clean up your profiles and remove the lines which source RVM
-* `install`              - [install](https://rvm.io/rubies/installing/) one or many ruby versions
-* `list`                 - show currently installed rubies, interactive output - https://rvm.io/rubies/list/
-* `mount`                - install rubies from external locations
-* `patchset`             - tools related to managing ruby patchsets
-* `pkg`                  - install a dependency package `{readline,iconv,zlib,openssl}` - https://rvm.io/packages/
-* `reinstall`            - reinstall ruby and runs `gem pristine` on all gems. Make sure to read output. Use `all` for all rubies
-* `reload`               - reload rvm source itself (useful after changing rvm source).
-* `remove`               - uninstall one or many ruby versions and remove their sources
-* `requirements`         - installs additional OS specific dependencies/requirements for building various rubies (by default run by `install`)
-* `reset`                - remove current and stored default & system settings
-* `snapshot`             - lets you backup / restore an rvm installation in a lightweight manner
-* `uninstall`            - uninstall one or many ruby versions, keeping their sources
-* `upgrade`              - lets you upgrade from one version of a ruby to another, including migrating your gemsets semi-automatically
-
-#### Running different ruby versions
-
-* `do`                   - runs an arbitrary command against specified and/or all rubies
-* `use`                  - setup current shell to use a specific ruby version
-
-#### Managing gemsets
-
-* `gemset`               - manage [gemsets](https://rvm.io/gemsets/) 
-* `migrate`              - lets you migrate all gemsets from one ruby to another
-
-#### Configuration
-
-* `alias`                - define aliases for `rvm use`
-* `autolibs`             - control settings for installing dependencies automatically
-* `current`              - print the current ruby version and the name of any gemset being used
-* `gemdir`               - display the path to the current gem directory (`GEM_HOME`)
-* `group`                - tools for managing groups in multiuser installations
-* `rvmrc`                - tools related to managing `.rvmrc` trust and loading
-* `wrapper`              - generates a set of wrapper executables for a given ruby with the specified ruby and gemset combination. Used under the hood for passenger support and the like
-
-#### Maintenance
-
-* `cleanup`              - remove stale source folders / archives and other miscellaneous data associated with rvm
-* `cron`                 - manage setup for using ruby in cron
-* `disk-usage`           - display disk space occupied by RVM
-* `docs`                 - tools to make installing ri and rdoc documentation easier
-* `fetch`                - download binary or sources for selected ruby version
-* `get`                  - upgrades RVM to latest head, stable or branched version
-* `osx-ssl-certs`        - helps update certificates for OpenSSL installed by rvm on OSX
-
-#### Troubleshooting
-
-* `config-get`           - display values for `RbConfig::CONFIG` variables
-* `debug`                - show additional information helping to discover common issues
-* `export`               - temporarily set an environment variable in the current shell
-* `fix-permissions`      - repairs broken permissions
-* `repair`               - lets you repair parts of your environment e.g. wrappers, env files and similar (e.g. general maintenance)
-* `rubygems`             - switches the installed version of rubygems for the current ruby
-* `tools`                - provides general information about the ruby environment, primarily useful when scripting rvm
-* `unexport`             - undo changes made to the environment by `rvm export`
-* `user`                 - tools for managing RVM mixed mode in multiuser installations
-
-#### Information and documentation
-
-* `info`                 - show the environment information for current ruby
-* `notes`                - display notes with operating system specifics
-* `usage`                - list available commands and their usage info (content of this README)
-* `version`              - display rvm version (equal to `rvm -v`) 
-
-### Additional global options
-
-* `--debug`           - toggle debug mode on for very verbose output
-* `--trace`           - toggle trace mode on to see EVERYTHING rvm is doing
-* `--nice`            - process niceness (increase the value on slow computers, default `0`)
-* `-v` | `--version`  - display rvm version loaded for current shell
-
+RVM comes bundled with many different tools for managing your ruby environment. More detailed information about every commands listed below can be read after executing `rvm help COMMAND` or browsing documentation on RVM homepage [https://rvm.io](https://rvm.io).
 
 ## Reporting issues
 
@@ -216,7 +143,7 @@ character like `rvm [command] > output.txt`.
 
 You are very warmly welcome to help. Please follow our [contribution guidelines](CONTRIBUTING.md) 
 
-Any and all contributions offered in any form, past present or future are understood to be in complete agreement and acceptance with the [Apache License](LICENSE) v2.0.
+Any and all contributions offered in any form, past present or future are understood to be in complete agreement and acceptance with our [Apache License](LICENSE) v2.0.
 
 ## License
 
