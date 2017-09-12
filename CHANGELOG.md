@@ -4,7 +4,8 @@
 
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...HEAD)
 
-###
+### Bug fixes:
+* ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
 
 [1.29.2](https://github.com/rvm/rvm/tag/1.29.3)
 10 September 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...1.29.3)
