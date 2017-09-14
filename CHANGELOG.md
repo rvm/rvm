@@ -7,7 +7,10 @@
 ### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
 
-[1.29.2](https://github.com/rvm/rvm/tag/1.29.3)
+#### Upgraded Ruby interpreters:
+* Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
+
+## [1.29.3](https://github.com/rvm/rvm/tag/1.29.3)
 10 September 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...1.29.3)
 
 #### New features:
@@ -43,12 +46,11 @@
 * Add support for mruby 1.3.0
 * Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
 * Add support for JRuby 9.1.13.0 [\#4147](https://github.com/rvm/rvm/pull/4147)
-* Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
 
 ### Documentation
 * Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
 
-[1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
+## [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
