@@ -1,10 +1,9 @@
 # Change Log
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
-
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...HEAD)
 
-### Bug fixes:
+#### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
 
 #### Upgraded Ruby interpreters:
@@ -47,7 +46,7 @@
 * Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
 * Add support for JRuby 9.1.13.0 [\#4147](https://github.com/rvm/rvm/pull/4147)
 
-### Documentation
+#### Documentation
 * Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
 
 ## [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
