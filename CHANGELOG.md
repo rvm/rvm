@@ -5,6 +5,7 @@
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
+* Add missing random.c patch for Ruby 2.3.2 [\#4165](https://github.com/rvm/rvm/issues/4165)
 * Set back IRB history default to HOME [\#4158](https://github.com/rvm/rvm/issues/4158)
 
 #### Upgraded Ruby interpreters:
