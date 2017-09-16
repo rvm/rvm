@@ -3,6 +3,9 @@
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...HEAD)
 
+#### New features:
+* Railsexpress patches for 2.2.8, 2.3.5 and 2.4.2 [\#4167](https://github.com/rvm/rvm/pull/4167)
+
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
 * Add missing random.c patch for Ruby 2.3.2 [\#4165](https://github.com/rvm/rvm/issues/4165)
