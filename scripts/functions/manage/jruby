@@ -14,7 +14,7 @@ jruby_install_build_nailgun()
   __rvm_make "${rvm_make_flags[@]}"
 }
 
-jruby_install_upto17()
+jruby_install_ant()
 {
   __rvm_log_command "ant.jar" "$rvm_ruby_string - #ant jar" __rvm_ant jar || return $?
 
@@ -44,18 +44,32 @@ about not returning non zero status in case of errors."
   return $?
 }
 
-jruby_install_post17()
+jruby_install_mvn_command()
 {
-  \typeset mvnw="${rvm_src_path}/$rvm_ruby_string/mvnw"
+  __rvm_log_command "$mvn_label" "$rvm_ruby_string - #$mvn_label" "${mvn_command[@]}" || return $?
+}
 
-  __rvm_log_command "mvnw" "$rvm_ruby_string - #$mvnw" "$mvnw" || return $?
+jruby_install_mvn()
+{
+  \typeset -a mvn_command
+  \typeset mvn_label
+  mvn_command=( "${1:-mvn}" )
+  mvn_label="{1:-mvn}"
+  mvn_label="${mvn_command##*/}"
+
+  jruby_install_mvn_command || return $?
   if
     (( ${#rvm_configure_flags[@]} ))
   then
-    __rvm_log_command "mvn_flags" "$rvm_ruby_string - #$mvnw ${rvm_configure_flags[*]}" \
-      $mvnw "${rvm_configure_flags[@]}" ||
-      return $?
+    mvn_command+=( "${rvm_configure_flags[@]}" )
+    mvn_label+="_flags"
+    jruby_install_mvn_command || return $?
   fi
+}
+
+jruby_install_mvnw()
+{
+  jruby_install_mvn "${rvm_src_path}/$rvm_ruby_string/mvnw" || return $?
 }
 
 jruby_install_check_java()
@@ -116,10 +130,9 @@ jruby_install()
 
   __rvm_apply_patches
 
-  if is_jruby_post17 "${rvm_ruby_string}" "${rvm_ruby_version}"
-  then jruby_install_post17 || return $?
-  else jruby_install_upto17 || return $?
-  fi
+  \typeset method
+  method=$( jruby_installation_method  "${rvm_ruby_string}" "${rvm_ruby_version}" )  || return $?
+  jruby_install_$method  || return $?
 
   __rvm_rm_rf "$rvm_ruby_home" && \command \mkdir -p "$rvm_ruby_home" &&
   __rvm_log_command "install" "$rvm_ruby_string - #installing to $rvm_ruby_home" \
