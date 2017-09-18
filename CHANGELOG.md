@@ -12,6 +12,7 @@
 * Add missing random.c patch for Ruby 2.3.2 [\#4165](https://github.com/rvm/rvm/issues/4165)
 * Set back IRB history default to HOME [\#4158](https://github.com/rvm/rvm/issues/4158)
 * Do not require libyaml-devel on Redhat/Centos when it's not needed [\#2998](https://github.com/rvm/rvm/issues/2998)
+* Restore mvn installation for JRuby 1.7 [\#4166](https://github.com/rvm/rvm/issues/4166)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
