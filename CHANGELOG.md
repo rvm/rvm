@@ -13,6 +13,7 @@
 * Set back IRB history default to HOME [\#4158](https://github.com/rvm/rvm/issues/4158)
 * Do not require libyaml-devel on Redhat/Centos when it's not needed [\#2998](https://github.com/rvm/rvm/issues/2998)
 * Restore mvn installation for JRuby 1.7 [\#4166](https://github.com/rvm/rvm/issues/4166)
+* ree-1.8.7 requires old version of OpenSSL 1.0.2 [\#4110](https://github.com/rvm/rvm/issues/4110)
 * libreadline6-dev is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172) 
 
 #### Upgraded Ruby interpreters:
