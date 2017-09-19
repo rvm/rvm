@@ -15,6 +15,7 @@
 * Restore mvn installation for JRuby 1.7 [\#4166](https://github.com/rvm/rvm/issues/4166)
 * ree-1.8.7 requires old version of OpenSSL 1.0.2 [\#4110](https://github.com/rvm/rvm/issues/4110)
 * libreadline6-dev is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172) 
+* libdb version fix for OpenSuSE tumbleweed [\#4178](https://github.com/rvm/rvm/issues/4178)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
