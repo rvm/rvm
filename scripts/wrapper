@@ -1,146 +1,31 @@
 #!/usr/bin/env bash
 
-default_flag="$rvm_default_flag"
-
-# Prevent recursion
-unset rvm_default_flag rvm_wrapper_name prefix
+unset rvm_default_flag
 
 source "$rvm_scripts_path/base"
 
-# Empty ruby string: show usage and exit.
-[[ -n "${1:-}" ]] ||
-{
-  rvm_help wrapper "$@"
-  exit 1
-}
-
-ruby_string="$1"
-shift
-prefix="${1:-}"
-(( $# == 0 )) || shift
-
-case "${prefix:-}" in
-  (--no-links)
-    rvm_error "Used '--no-links' this no operation as wrappers only creates links now."
-    exit 1
-    ;;
-esac
-
-if (( $# ))
-then binaries=("$@")
-else binaries=(ruby gem irb ri rdoc rake erb testrb)
-fi
-
-override_check=0
-(( ${rvm_default_flag:-0} == 0 )) || prefix="default"
-
-# Use the correct ruby.
-__rvm_become "$ruby_string" || {
-  rvm_error "Could not load ruby $ruby_string."
+[[ -n "${MY_RUBY_HOME:-}" ]] || __rvm_become default
+[[ -n "${MY_RUBY_HOME:-}" ]] || {
+  rvm_error "No ruby used, try 'rvm use ruby' or 'rvm ruby do rvm wrapper $*'"
   exit 3
 }
 
-# strip trailing / so we can use ${...%/*} to get parent
-rvm_bin_path="${rvm_bin_path%/}"
-rvm_wrappers_path="${rvm_wrappers_path%/}"
-if
-  [[   -d "$rvm_bin_path" && ! -w "$rvm_bin_path"      ]] ||
-  [[ ! -d "$rvm_bin_path" && ! -w "${rvm_bin_path%/*}" ]]
-then
-  # can not write currently set location, try to switch relatively to wrappers path
-  rvm_error "No bin path suitable for linking wrapper. Try setting 'rvm_bin_path'."
-  exit 4
-fi
-[[ -d "$rvm_bin_path" ]] || mkdir -p "$rvm_bin_path"
-
-environment_identifier="$(__rvm_env_string)"
-
-case "${prefix:-}" in
-  (show)
-    ls "${rvm_wrappers_path}/${environment_identifier}/"${1:-*}
-    exit $?
+case "${1:-}" in
+  (show|regenerate)
+    run_gem_wrappers "$@"
+    ;;
+  (help)
+    shift
+    rvm_help wrapper "$@"
+    ;;
+  (*)
+    if
+      [[ -x "$1" ]]
+    then
+      run_gem_wrappers "$@"
+    else
+      rvm_help wrapper "$@"
+      exit 1
+    fi
     ;;
 esac
-
-__rvm_log_command "gemset.wrappers.$ruby_string" \
-  "Regenerating $environment_identifier wrappers" \
-  run_gem_wrappers_regenerate 2>/dev/null || true
-
-__rvm_ensure_has_environment_files
-if [[ -d "$rvm_rubies_path/$ruby_string" ]]
-then environment_source="$ruby_string"
-else environment_source="$environment_identifier"
-fi
-
-find_all_wrappers()
-{
-  \typeset -a search_paths
-  \typeset _path
-  search_paths=()
-  for _path in \
-    "$rvm_gems_path/${environment_identifier}"/bin/ \
-    "$rvm_gems_path/${environment_identifier%%@*}@global"/bin/ \
-    "$rvm_rubies_path/${environment_identifier%%@*}"/bin/
-  do
-    if [[ -d "${_path}" ]]
-    then search_paths+=( "${_path}" )
-    fi
-  done
-  (( ${#search_paths[@]} )) || return 0
-  __rvm_find "${search_paths[@]}" -type f -perm -u=x | __rvm_awk -F/ '{print $NF}'
-}
-
-if
-  [[ " ${binaries[*]} " == *" --all "* ]]
-then
-  old_binaries=( "${binaries[@]}" )
-  __rvm_read_lines binaries <(
-    for binary_name in "${old_binaries[@]}"
-    do
-      if
-        [[ "$binary_name" == "--all" ]]
-      then
-        find_all_wrappers "${environment_identifier}"
-      else
-        echo "${binary_name}"
-      fi
-    done | sort -u
-  )
-fi
-
-# For each binary, we want to generate the wrapper / symlink
-# it to the existing wrapper if needed.
-for binary_name in "${binaries[@]}"
-do
-  file_name="$rvm_wrappers_path/${environment_source}/${binary_name##*\/}"
-  file_name=${file_name// /_}
-  if
-    [[ -f "$file_name" || -f "$binary_name" ]] ||
-    __rvm_which "$binary_name"
-  then
-    if [[ ! -f "$file_name" && -f "$binary_name" ]]
-    then gem wrappers "$binary_name"
-    fi
-    case "${prefix:-}" in
-      (--no-prefix) destination="$rvm_bin_path/${binary_name##*\/}" ;;
-      ("")          destination="$rvm_bin_path/${binary_name##*\/}-${environment_identifier}" ;;
-      (*)           destination="$rvm_bin_path/${prefix}_${binary_name##*\/}" ;;
-    esac
-  else
-    rvm_warn "Could not find file '$binary_name' nor '$file_name'."
-    destination=""
-  fi
-  if
-    [[ -n "$destination" ]]
-  then
-    destination="${destination// /_}"
-    destination="${destination//ruby-ruby-/ruby-}"
-    if
-      [[ -s "$destination" ]]
-    then
-      \command \rm -f "$destination"
-    fi
-    ln -sf "$file_name" "$destination"
-    rvm_verbose_log "Saved wrapper: $destination"
-  fi
-done
