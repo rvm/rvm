@@ -7,7 +7,7 @@
 * Railsexpress patches for 2.2.8, 2.3.5 and 2.4.2 [\#4167](https://github.com/rvm/rvm/pull/4167)
 * Improved CPU count detection [\#4171](https://github.com/rvm/rvm/pull/4171)
 * Simplified wrapper subcommand [\#4180](https://github.com/rvm/rvm/issues/4180)
-* Extend aliases to gems directories
+* Extend aliases to gems directories [\#4189](https://github.com/rvm/rvm/pull/4189)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
