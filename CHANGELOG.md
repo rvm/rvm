@@ -23,6 +23,7 @@
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
+* Add support for Rubinius 3.85
 
 #### Binaries:
 * Ubuntu 16.04 x64 binaries for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161)
