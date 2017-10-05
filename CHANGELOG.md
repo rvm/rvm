@@ -8,7 +8,7 @@
 * Improved CPU count detection [\#4171](https://github.com/rvm/rvm/pull/4171)
 * Simplified wrapper subcommand [\#4180](https://github.com/rvm/rvm/issues/4180)
 * Extend aliases to gems directories [\#4189](https://github.com/rvm/rvm/pull/4189)
-* Implement DNF package manager for Fedora 22+
+* Implement DNF package manager for Fedora 22+ [\#4198](https://github.com/rvm/rvm/pull/4198)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
