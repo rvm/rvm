@@ -9,6 +9,7 @@
 * Simplified wrapper subcommand [\#4180](https://github.com/rvm/rvm/issues/4180)
 * Extend aliases to gems directories [\#4189](https://github.com/rvm/rvm/pull/4189)
 * Support for Debian Buster (10) [\#4199](https://github.com/rvm/rvm/pull/4199)
+* float_warnings patchsets for Railsexpressuby 2.0.0p64[5 7 8], 2.1.[8 9 10], 2.2.[4 5 6 7 8], 2.3.[0 1 2 3 4 5] and 2.4.[0 1 2] [\#4201](https://github.com/rvm/rvm/pull/4201)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
