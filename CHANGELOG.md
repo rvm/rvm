@@ -10,15 +10,16 @@
 * Extend aliases to gems directories [\#4189](https://github.com/rvm/rvm/pull/4189)
 * Support for Debian Buster (10) [\#4199](https://github.com/rvm/rvm/pull/4199)
 * Implement DNF package manager for Fedora 22+ [\#4198](https://github.com/rvm/rvm/pull/4198)
+* `float_warnings` patches for Ruby 2.0.0p64[5 7 8], 2.1.[8 9 10], 2.2.[4 5 6 7 8], 2.3.[0 1 2 3 4 5] and 2.4.[0 1 2] [\#4201](https://github.com/rvm/rvm/pull/4201)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
-* Add missing random.c patch for Ruby 2.3.2 [\#4165](https://github.com/rvm/rvm/issues/4165)
+* Add missing `random.c` patch for Ruby 2.3.2 [\#4165](https://github.com/rvm/rvm/issues/4165)
 * Set back IRB history default to HOME [\#4158](https://github.com/rvm/rvm/issues/4158)
-* Do not require libyaml-devel on Redhat/Centos when it's not needed [\#2998](https://github.com/rvm/rvm/issues/2998)
+* Do not require `libyaml-devel` on Redhat/Centos when it's not needed [\#2998](https://github.com/rvm/rvm/issues/2998)
 * Restore mvn installation for JRuby 1.7 [\#4166](https://github.com/rvm/rvm/issues/4166)
 * ree-1.8.7 requires old version of OpenSSL 1.0.2 [\#4110](https://github.com/rvm/rvm/issues/4110)
-* libreadline6-dev is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172)
+* `libreadline6-dev` is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172)
 * Require libdb-4.8 for OpenSuSE Tumbleweed [\#4178](https://github.com/rvm/rvm/issues/4178)
 * Require make for JRuby 9 [\#4058](https://github.com/rvm/rvm/issues/4058)
 * Fix support for zsh 5.4.1 [bash_zsh_support \#6](https://github.com/mpapis/bash_zsh_support/pull/6)
@@ -37,16 +38,15 @@
 
 #### New features:
 * Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
-* Railsexpress patches for 2.3.4 and 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084)
-* Update gem-wrappers to 1.3.0: Show warnings when the target binary is missing or is not executable [gem-wrappers \#9](https://github.com/rvm/gem-wrappers/issues/9)
+* Railsexpress patches for 2.3.4, 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084), 2.2.5 and 2.2.6 [\#4153](https://github.com/rvm/rvm/pull/4153)
+* Update `gem-wrappers` to 1.3.0: Show warnings when the target binary is missing or is not executable [gem-wrappers \#9](https://github.com/rvm/gem-wrappers/issues/9)
 * Detect Zorin OS as Ubuntu [\#4140](https://github.com/rvm/rvm/issues/4140)
-* Railsexpress patches for 2.2.5 and 2.2.6 [\#4153](https://github.com/rvm/rvm/pull/4153)
 
 #### Bug fixes:
 * Infinite loop in `gemset_create` [\#4102](https://github.com/rvm/rvm/issues/4102)
 * Command not found `__rvm_remote_version` error [\#4085](https://github.com/rvm/rvm/pull/4085)
 * Fix path of version script in `environment` [\#4117](https://github.com/rvm/rvm/pull/4117)
-* Define cd(), pushd() and popd() properly when using zsh [\#4132](https://github.com/rvm/rvm/pull/4132)
+* Define `cd()`, `pushd()` and `popd()` properly when using zsh [\#4132](https://github.com/rvm/rvm/pull/4132)
 * Update gem-wrappers to 1.3.1: Avoid warnings for missing ruby binaries [\#4104](https://github.com/rvm/rvm/issues/4104)
 * Handles :engine=> and :engine_version=> in Gemfile
 * Makes $rvm_ruby_string is not installed searchable by adding a fixed keyword
@@ -58,10 +58,10 @@
 * Ruby 2.3/4 compilation fix for GCC 7 [\#4080](https://github.com/rvm/rvm/issues/4080) [\#4115](https://github.com/rvm/rvm/issues/4115)
 * Add warning for sudo users [\#4009](https://github.com/rvm/rvm/issues/4009)
 * Allows running RVM shell function in Bash with `set -o nounset` [\#4013](https://github.com/rvm/rvm/issues/4013)
-* Ensure rvm_hooks_path is set [\#3902](https://github.com/rvm/rvm/issues/3902)
-* Allow building static ruby with --disbale-shared [\#4091](https://github.com/rvm/rvm/issues/4091)
+* Ensure `rvm_hooks_path` is set [\#3902](https://github.com/rvm/rvm/issues/3902)
+* Allow building static ruby with `--disbale-shared` [\#4091](https://github.com/rvm/rvm/issues/4091)
 * Restore detection of `gpg` command for veryfication of signatures [\#4059](https://github.com/rvm/rvm/issues/4059)
-* Update gem-wrappers to 1.3.2: Avoid nested chdir warnings [gem-wrappers \#11](https://github.com/rvm/gem-wrappers/pull/11)
+* Update `gem-wrappers` to 1.3.2: Avoid nested chdir warnings [gem-wrappers \#11](https://github.com/rvm/gem-wrappers/pull/11)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
