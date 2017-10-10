@@ -17,7 +17,7 @@
 * Do not require libyaml-devel on Redhat/Centos when it's not needed [\#2998](https://github.com/rvm/rvm/issues/2998)
 * Restore mvn installation for JRuby 1.7 [\#4166](https://github.com/rvm/rvm/issues/4166)
 * ree-1.8.7 requires old version of OpenSSL 1.0.2 [\#4110](https://github.com/rvm/rvm/issues/4110)
-* libreadline6-dev is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172) 
+* libreadline6-dev is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172)
 * Require libdb-4.8 for OpenSuSE Tumbleweed [\#4178](https://github.com/rvm/rvm/issues/4178)
 * Require make for JRuby 9 [\#4058](https://github.com/rvm/rvm/issues/4058)
 * Fix support for zsh 5.4.1 [bash_zsh_support \#6](https://github.com/mpapis/bash_zsh_support/pull/6)
@@ -65,6 +65,7 @@
 * Add support for mruby 1.3.0
 * Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
 * Add support for JRuby 9.1.13.0 [\#4147](https://github.com/rvm/rvm/pull/4147)
+* Add support for Ruby 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204)
 
 #### Documentation
 * Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
