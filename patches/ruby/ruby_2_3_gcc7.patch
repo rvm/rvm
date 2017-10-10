@@ -1,0 +1,84 @@
+diff --git a/include/ruby/ruby.h b/include/ruby/ruby.h
+index 60cfb1174e..dccfdc763a 100644
+--- a/include/ruby/ruby.h
++++ b/include/ruby/ruby.h
+@@ -551,27 +551,23 @@ static inline int rb_type(VALUE obj);
+ 	((type) == RUBY_T_FLOAT) ? RB_FLOAT_TYPE_P(obj) : \
+ 	(!RB_SPECIAL_CONST_P(obj) && RB_BUILTIN_TYPE(obj) == (type)))
+ 
+-/* RB_GC_GUARD_PTR() is an intermediate macro, and has no effect by
+- * itself.  don't use it directly */
+ #ifdef __GNUC__
+-#define RB_GC_GUARD_PTR(ptr) \
+-    __extension__ ({volatile VALUE *rb_gc_guarded_ptr = (ptr); rb_gc_guarded_ptr;})
+-#else
+-#ifdef _MSC_VER
++#define RB_GC_GUARD(v) \
++    (*__extension__ ({ \
++	volatile VALUE *rb_gc_guarded_ptr = &(v); \
++	__asm__("" : : "m"(rb_gc_guarded_ptr)); \
++	rb_gc_guarded_ptr; \
++    }))
++#elif defined _MSC_VER
+ #pragma optimize("", off)
+ static inline volatile VALUE *rb_gc_guarded_ptr(volatile VALUE *ptr) {return ptr;}
+ #pragma optimize("", on)
++#define RB_GC_GUARD(v) (*rb_gc_guarded_ptr(&(v)))
+ #else
+ volatile VALUE *rb_gc_guarded_ptr_val(volatile VALUE *ptr, VALUE val);
+ #define HAVE_RB_GC_GUARDED_PTR_VAL 1
+ #define RB_GC_GUARD(v) (*rb_gc_guarded_ptr_val(&(v),(v)))
+ #endif
+-#define RB_GC_GUARD_PTR(ptr) rb_gc_guarded_ptr(ptr)
+-#endif
+-
+-#ifndef RB_GC_GUARD
+-#define RB_GC_GUARD(v) (*RB_GC_GUARD_PTR(&(v)))
+-#endif
+ 
+ #ifdef __GNUC__
+ #define RB_UNUSED_VAR(x) x __attribute__ ((unused))
+diff --git a/marshal.c b/marshal.c
+index c56de4af8d..b7274bf3c4 100644
+--- a/marshal.c
++++ b/marshal.c
+@@ -1022,7 +1022,7 @@ VALUE
+ rb_marshal_dump_limited(VALUE obj, VALUE port, int limit)
+ {
+     struct dump_arg *arg;
+-    VALUE wrapper; /* used to avoid memory leak in case of exception */
++    volatile VALUE wrapper; /* used to avoid memory leak in case of exception */
+ 
+     wrapper = TypedData_Make_Struct(rb_cData, struct dump_arg, &dump_arg_data, arg);
+     arg->dest = 0;
+@@ -1051,8 +1051,8 @@ rb_marshal_dump_limited(VALUE obj, VALUE port, int limit)
+ 	rb_io_write(arg->dest, arg->str);
+ 	rb_str_resize(arg->str, 0);
+     }
+-    clear_dump_arg(arg);
+-    RB_GC_GUARD(wrapper);
++    free_dump_arg(arg);
++    rb_gc_force_recycle(wrapper);
+ 
+     return port;
+ }
+@@ -2044,7 +2044,7 @@ rb_marshal_load_with_proc(VALUE port, VALUE proc)
+ {
+     int major, minor, infection = 0;
+     VALUE v;
+-    VALUE wrapper; /* used to avoid memory leak in case of exception */
++    volatile VALUE wrapper; /* used to avoid memory leak in case of exception */
+     struct load_arg *arg;
+ 
+     v = rb_check_string_type(port);
+@@ -2090,8 +2090,8 @@ rb_marshal_load_with_proc(VALUE port, VALUE proc)
+ 
+     if (!NIL_P(proc)) arg->proc = proc;
+     v = r_object(arg);
+-    clear_load_arg(arg);
+-    RB_GC_GUARD(wrapper);
++    free_load_arg(arg);
++    rb_gc_force_recycle(wrapper);
+ 
+     return v;
+ }

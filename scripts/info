@@ -8,8 +8,10 @@ then
 fi
 
 source "$rvm_scripts_path/base"
-source "$rvm_scripts_path/version"
 source "$rvm_scripts_path/functions/autolibs"
+source "$rvm_scripts_path/functions/detect_system"
+source "$rvm_scripts_path/functions/version"
+source "$rvm_scripts_path/functions/version-installed-when"
 
 version_for()
 {
@@ -28,62 +30,26 @@ info_system()
 {
   rvm_info="
   system:
-    uname:       \"${_system_info}\"
-    system:      \"$(__rvm_system_path - 99 )\"
-    bash:        \"$(command -v bash) => $(version_for bash)\"
-    zsh:         \"$(command -v zsh) => $(version_for zsh)\"
+    uname:        \"${_system_info}\"
+    name:         \"${_system_name}\"
+    version:      \"${_system_version}\"
+    architecture: \"${_system_arch}\"
+    bash:         \"$(command -v bash) => $(version_for bash)\"
+    zsh:          \"$(command -v zsh) => $(version_for zsh)\"
+    remote_path:  \"$(__rvm_system_path - 99 )\"
 "
-}
-
-print_part()
-{
-  (( $1 )) || return
-  \typeset ret
-  ret="$1 $2"
-  (( $1 == 1 )) || ret="${ret}s"
-  printf "$ret "
 }
 
 info_rvm()
 {
-  \typeset installed_at years months days hours minutes seconds part
-  rvm_info="
-  rvm:
-    version:      \"$(__rvm_version | \command \tr "\n" ' ' | __rvm_strip)\"
-"
-  rvm_info="${rvm_info}    updated:      \""
-  installed_at="$(\command \cat ${rvm_path}/installed.at)"
-
-  if
-    [[ -n "${installed_at:-}" ]] && (( installed_at ))
-  then
-    seconds="$(( $(__rvm_date +%s) - installed_at ))"
-    if
-      (( seconds ))
-    then
-      minutes="$(( seconds / 60 % 60 ))"
-      hours="$(( seconds / 3600 % 24 ))"
-      days="$(( seconds / 86400 % 31 ))"
-      months="$(( seconds / 2678400 % 12 ))"
-      years="$(( seconds / 31536000 ))"
-      seconds="$(( seconds % 60 ))"
-      for part in year month day hour minute second
-      do eval "rvm_info=\"\${rvm_info}\$(print_part \${${part}s} ${part})\""
-      done
-      rvm_info="${rvm_info}ago"
-    else
-      rvm_info="${rvm_info}just now"
-    fi
-  else
-    rvm_info="${rvm_info}can not read installation time\n"
-  fi
-
-  rvm_info="${rvm_info}
-    path:         \"$rvm_path\""
-
   __rvm_autolibs_get
   __rvm_autolibs_translate_description
-  rvm_info="${rvm_info}
+
+  rvm_info="
+  rvm:
+    version:      \"${rvm_version}\"
+    updated:      \"$(__rvm_version_installed_when)\"
+    path:         \"$rvm_path\"
     autolibs:     \"[${rvm_autolibs_flag}] ${rvm_autolibs_flag_description}\"
 "
 }
@@ -150,7 +116,7 @@ info_debug()
 {
   rvm_info="
 
-$(__rvm_version)
+$(__rvm_print_headline)
   $("$rvm_scripts_path/info" "$rvm_ruby_string" "" )
   PATH:\n$(printf "%b" "$PATH" | __rvm_awk -F":" '{print $1":"$2":"$3":"$4":"$5}' )
   uname -a: ${_system_info}

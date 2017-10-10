@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$rvm_scripts_path/functions/version"
+
 __rvm_fix_selected_ruby()
 {
   \typeset __ret=0
@@ -152,12 +154,10 @@ __rvm_cli_rvm_reload()
 __rvm_cli_version_check()
 {
   \typeset disk_version
-  disk_version="$(\command \cat "$rvm_path/VERSION") ($(\command \cat "$rvm_path/RELEASE" 2>/dev/null))"
+  disk_version="$( __rvm_version_installed )"
+
   if
-    [[ -s "$rvm_path/VERSION" &&
-      "${rvm_version:-}" != "${disk_version:-}" &&
-      " $* " != *" reload "*
-    ]]
+    [[ -s "$rvm_path/VERSION" && "${rvm_version:-}" != "${disk_version:-}" && " $* " != *" reload "* ]]
   then
     if
       (( ${rvm_auto_reload_flag:-0} ))
@@ -178,14 +178,9 @@ Please do one of the following:
   fi
 }
 
-__rvm_remote_version()
-{
-  __rvm_curl -s --max-time 10 https://github.com/rvm/rvm/raw/master/VERSION || true
-}
-
 __rvm_cli_autoupdate_version_old()
 {
-  online_version="$( __rvm_remote_version )"
+  online_version="$( __rvm_version_remote )"
   version_release="$(\command \cat "$rvm_path/RELEASE" 2>/dev/null)"
   : version_release:"${version_release:=master}"
   [[ -s "$rvm_path/VERSION" && -n "${online_version:-}" && "${rvm_version%% *}" != "${online_version:-}" ]] || return $?
@@ -205,6 +200,9 @@ rvm_install_gpg_setup()
 {
   {
     rvm_gpg_command="$( \which gpg2 2>/dev/null )" &&
+    [[ ${rvm_gpg_command} != "/cygdrive/"* ]]
+  } || {
+    rvm_gpg_command="$( \which gpg 2>/dev/null )" &&
     [[ ${rvm_gpg_command} != "/cygdrive/"* ]]
   } || rvm_gpg_command=""
 
@@ -228,7 +226,7 @@ Assuming you trust Michal Papis import the mpapis public key (downloading the si
 
 GPG signature verification failed for '$1' - '$3'! Try to install GPG v2 and then fetch the public key:
 
-    ${SUDO_USER:+sudo }${rvm_gpg_command##*/} --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
+    ${SUDO_USER:+sudo }gpg2 --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
 
 or if it fails:
 
@@ -287,7 +285,7 @@ __rvm_cli_get_and_execute_installer()
   __rvm_curl -s https://get.rvm.io -o "${rvm_archives_path}/rvm-installer" ||
   {
     \typeset _ret=$?
-    rvm_error "Could not download rvm-installer, get some help at #rvm IRC channel at freenode servers."
+    rvm_error "Could not download rvm-installer, please report to https://github.com/rvm/rvm/issues"
     return ${_ret}
   }
 
@@ -296,7 +294,7 @@ __rvm_cli_get_and_execute_installer()
   bash "${rvm_archives_path}/rvm-installer" "$@" ||
   {
     \typeset _ret=$?
-    rvm_error "Could not update RVM, get some help at #rvm IRC channel at freenode servers."
+    rvm_error "Could not update RVM, please report to https://github.com/rvm/rvm/issues"
     return ${_ret}
   }
 }

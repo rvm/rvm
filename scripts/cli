@@ -79,7 +79,7 @@ __rvm_parse_args()
     [[ " $* " == *" --trace "* ]]
   then
     echo "$@"
-    __rvm_version
+    __rvm_print_headline
   fi
 
   while
@@ -102,7 +102,7 @@ __rvm_parse_args()
           use)
             rvm_action="$rvm_token"
             rvm_verbose_flag=1
-            __rvm_project_ruby_env_check_unload
+            __rvm_file_env_check_unload
             if
               [[ -n "${next_token:-}" && ! -d "${next_token:-}" &&
                 "${next_token:-}" != "-"* && "${next_token:-}" != "@"*
@@ -117,10 +117,8 @@ __rvm_parse_args()
               [[ -z "${next_token:-}" ]] &&
               __rvm_project_dir_check .
             then
-              rvm_ruby_interpreter="."
-              rvm_ruby_string="."
-              rvm_ruby_strings="."
-              RVM_PROJECT_PATH="$PWD"
+              __rvm_rvmrc_tools try_to_read_ruby . ||
+                __rvm_parse_args_error_finding_project_file
             fi
             ;;
 
@@ -140,9 +138,6 @@ __rvm_parse_args()
             case "${next_token:-help}" in
               (help)
                 true
-                ;;
-              (clear)
-                __rvm_gemset_clear
                 ;;
               (use|delete)
                 [[ "delete" != "$next_token" ]] || rvm_delete_flag=1
@@ -252,11 +247,10 @@ __rvm_parse_args()
             rvm_remove_flag=1
             ;;
 
-          rtfm|RTFM|rvmrc|usage|help|inspect|list|ls|info|strings|get|current|docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|downgrade|upgrade|cron|group|switch|which|config-get|requirements|autolibs|osx-ssl-certs|fix-permissions)
+          rtfm|RTFM|rvmrc|help|inspect|list|ls|info|strings|get|current|docs|alias|rubygems|cleanup|tools|disk-usage|snapshot|repair|migrate|downgrade|upgrade|cron|group|switch|which|config-get|requirements|autolibs|osx-ssl-certs|fix-permissions)
             case "$rvm_token" in
               (downgrade) rvm_action="upgrade" ;;
               (ls)    rvm_action="list" ;;
-              (usage) rvm_action="help" ;;
               (RTFM)  rvm_action="rtfm" ;;
               (*)     rvm_action="$rvm_token" ;;
             esac
@@ -305,12 +299,10 @@ __rvm_parse_args()
 
           wrapper)
             rvm_action="wrapper"
-            rvm_ruby_string="$next_token" ;
-            rvm_wrapper_name="$1"
-            (( $# == 0 )) || shift
-            rvm_ruby_args=("$@") # list of binaries, or empty
+            rvm_ruby_args=( "$next_token" "$@")
             rvm_parse_break=1
             ;;
+
           in)
             rvm_token="${next_token}"
             next_token="${1:-}"
@@ -319,6 +311,12 @@ __rvm_parse_args()
             __rvm_project_dir_check "$rvm_token" &&
             __rvm_rvmrc_tools try_to_read_ruby $rvm_token ||
             __rvm_parse_args_error_finding_project_file
+            ;;
+
+          usage)
+            rvm_action="deprecated"
+            rvm_error_message="This command has been deprecated. Use ${rvm_notify_clr:-}rvm help${rvm_error_clr:-} instead."
+            rvm_parse_break=1
             ;;
 
           *,*)
@@ -403,7 +401,7 @@ __rvm_parse_args()
 
           ("")
             rvm_action="error"
-            rvm_error_message="Unrecognized command line argument(s): '$@'"
+            rvm_error_message="Unrecognized command line argument(s): $@"
             ;;
 
           *)
@@ -426,7 +424,7 @@ __rvm_parse_args()
               __rvm_parse_args_error_finding_project_file
             else
               rvm_action="error"
-              rvm_error_message="Unrecognized command line argument: '$rvm_token'"
+              rvm_error_message="Unrecognized command line argument: $rvm_token"
             fi
             ;;
         esac
@@ -559,19 +557,8 @@ __rvm_parse_args()
             (( $# == 0 )) || shift
             ;;
 
-          --passenger)
-            rvm_log "NOTE: If you are using Passenger 3 you no longer need the passenger_ruby,\nuse the wrapper script for your ruby instead (see 'rvm wrapper')"
-            rvm_wrapper_name="${rvm_token/--/}"
-            ;;
-
-          --editor)
-            rvm_wrapper_name="${rvm_token/--/}"
-            ;;
-
-          --symlink)
-            rvm_warn "--symlink has been removed, please see 'rvm wrapper'."
-            next_token="${1:-}"
-            (( $# == 0 )) || shift
+          --passenger|--editor)
+            rvm_warn "NOTE: ${rvm_token} flag is deprecated, RVM now automatically generates wrappers" # 2017-09-21
             ;;
 
           -h|--help)
@@ -822,6 +809,7 @@ __rvm_parse_args()
     if [[ -z "${rvm_action:-""}" && -n "${rvm_ruby_string:-""}" ]]
     then rvm_action="use"
     fi
+
     if [[ "error" == "${rvm_action:-""}" || ${rvm_parse_break:-0} -eq 1 || -n "${rvm_error_message:-""}" ]]
     then break
     fi
@@ -831,7 +819,14 @@ __rvm_parse_args()
   if
     [[ -n "${rvm_error_message:-""}" ]]
   then
-    rvm_error "$rvm_error_message ( see: 'rvm usage' )"
+    if
+      [[ "${rvm_action}" == "deprecated" ]]
+    then
+      rvm_error "$rvm_error_message"
+    else
+      rvm_error "$rvm_error_message"
+      rvm_out "Run \`rvm help\` to see usage information"
+    fi
     unset rvm_error_message
     return 1
   fi
@@ -917,7 +912,7 @@ rvm()
       "$rvm_scripts_path/${rvm_action}" "${rvm_ruby_args[@]}"
       ;;
 
-    cleanup|tools|snapshot|disk-usage|repair|alias|docs|rubygems|migrate|cron|group)
+    cleanup|tools|snapshot|disk-usage|repair|alias|docs|rubygems|migrate|cron|group|wrapper)
       "$rvm_scripts_path/${rvm_action}" "${rvm_ruby_args[@]}"
       ;;
 
@@ -930,12 +925,6 @@ rvm()
     autolibs|osx-ssl-certs|fix-permissions)
       #                  file          action        params
       __rvm_run_wrapper "$rvm_action" "$rvm_action" "${rvm_ruby_args[@]}"
-      ;;
-
-    wrapper)
-      "$rvm_scripts_path/wrapper" "$rvm_ruby_string" "$rvm_wrapper_name" "${rvm_ruby_args[@]}"
-      result=$?
-      unset rvm_wrapper_name
       ;;
 
     do)

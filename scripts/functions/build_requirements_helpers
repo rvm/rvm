@@ -208,8 +208,10 @@ is_head_or_disable_binary()
   true # for OSX
 }
 
-# is_jruby_post17 $rvm_ruby_string [$rvm_ruby_version]
-is_jruby_post17()
+# Usage:
+#   jruby_installation_method $rvm_ruby_string [$rvm_ruby_version]
+# @stdout ant|mvn|mvnw
+jruby_installation_method()
 {
   \typeset __jversion
   if [[ -n "${2:-}" ]]
@@ -220,23 +222,45 @@ is_jruby_post17()
   fi
   case "$1" in
     (jruby-head*)
-      true
+      echo "mvnw"
       ;;
     (*)
-      if __rvm_version_compare "${__jversion}" -lt "1.7.6"
-      then return 1
+      if __rvm_version_compare "${__jversion}" -ge "1.7.25"
+      then echo "mvnw"
+      elif __rvm_version_compare "${__jversion}" -ge "1.7.0"
+      then echo "mvn"
+      else echo "ant"
       fi
       ;;
   esac
   true # for OSX
 }
 
+latest_maven_version()
+{
+  # contains some headers/footers and lines like this:
+  # <img src="/icons/folder.gif" alt="[DIR]"> <a href="3.5.0/">3.5.0/</a> 2017-06-26 18:07 -
+  curl -sSL https://archive.apache.org/dist/maven/maven-3/ |
+    grep -oE '<a href="[0-9\.]+/">' |
+    awk -F'["/]' '{print $2}' |
+    __rvm_version_sort |
+    tail -n 1
+}
+
+set_maven_variables()
+{
+  maven_version="$1"
+  maven_file="apache-maven-${maven_version}-bin.tar.gz"
+  maven_url="https://www.apache.org/dist/maven/maven-${maven_version%%.*}/${maven_version}/binaries/${maven_file}"
+}
+
 requirements_install_maven()
 {
   \typeset maven_version maven_file maven_url
-  maven_version="$(__rvm_db "maven_version")"
-  maven_file="apache-maven-${maven_version}-bin.tar.gz"
-  maven_url="https://www.apache.org/dist/maven/maven-${maven_version%%.*}/${maven_version}/binaries/${maven_file}"
+  set_maven_variables "$( __rvm_db "maven_version" )"
+
+  file_exists_at_url_command "${maven_url}" ||
+    set_maven_variables "$( latest_maven_version )"
 
   mkdir -p "${rvm_path}/java/" &&
   "${rvm_scripts_path}/fetch" "${maven_url}" &&

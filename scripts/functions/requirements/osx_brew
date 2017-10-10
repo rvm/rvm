@@ -60,8 +60,7 @@ Check Homebrew requirements https://github.com/Homebrew/homebrew/wiki/Installati
 
 requirements_osx_brew_libs_install()
 {
-  brew unlink  "$@" || true # ignore: Error: No such keg: /usr/local/Cellar/automake
-  brew install "$@" ||
+  brew install "$@" --force ||
   {
     \typeset ret=$?
 
@@ -80,7 +79,6 @@ On OSX 10.6 instead of command line tools install:
 
 requirements_osx_brew_libs_remove()
 {
-  brew unlink  "$@" || true # ignore: Error: No such keg: /usr/local/Cellar/automake
   brew remove "$@" ||
   {
     \typeset ret=$?
@@ -182,26 +180,27 @@ requirements_osx_brew_after()
   requirements_osx_brew_libs_default_check_gcc42                    || return $?
   requirements_osx_brew_libs_set_path       "${brew_libs[@]}"       || return $?
   requirements_osx_brew_libs_configure "$1" "${brew_libs_conf[@]}"  || return $?
-  unset brew_libs brew_libs_conf
 
   case "$1" in
     (jruby*) true ;;
     (*) requirements_osx_brew_after_update_certs_openssl "$1" ;;
   esac
+
+  unset brew_libs brew_libs_conf brew_openssl_package
 }
 
 requirements_osx_brew_after_update_certs_openssl()
 {
   \typeset brew_lib_prefix
   if
-    requirements_osx_brew_lib_installed_prefix_check openssl &&
+    requirements_osx_brew_lib_installed_prefix_check "$brew_openssl_package" &&
     [[ -x "${brew_lib_prefix}/bin/openssl" ]]
   then
     requirements_osx_update_openssl_cert "${brew_lib_prefix}/bin/openssl" || return $?
   else
     rvm_requiremnts_fail_always 2 \
       "Somehow it happened there is no executable 'openssl',
-run 'brew doctor' and make sure latest '${openssl_name}' is installed properly." ||
+run 'brew doctor' and make sure latest '$brew_openssl_package' is installed properly." ||
       return 12 # passing by 127 could be read as missing rvm.
   fi
 }
@@ -278,22 +277,25 @@ requirements_osx_brew_libs_default_add_gcc()
 requirements_osx_brew_libs_default()
 {
   brew_libs=(
-    autoconf automake libtool pkg-config coreutils zlib
+    autoconf automake libtool pkg-config coreutils
   )
-  brew_libs_conf=()
-  # install gcc only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
+  brew_libs_conf=(
+    libyaml readline libksba
+  )
+
+  # Install gcc only if not yet available, prevents problems with gcc-4.2 on OSX 10.6
   \typeset selected_compiler="$( __rvm_selected_compiler )"
   case "${selected_compiler:-}" in
     ("")
       case "$1" in
-        (rbx*head|rubinius*head)
-            brew_libs_conf+=( llvm )
+        (rbx-2*|rubinius-2*)
+            brew_libs_conf+=( llvm@3.5 )
             ;;
         (rbx-3*|rubinius-3*)
             brew_libs_conf+=( llvm )
             ;;
-        (rbx-2*|rubinius-2*)
-            brew_libs_conf+=( llvm@3.5 )
+        (rbx*head|rubinius*head)
+            brew_libs_conf+=( llvm )
             ;;
         (*)
           __ruby_clang_ok "$1" ||
@@ -310,11 +312,24 @@ requirements_osx_brew_libs_default()
       rvm_debug "No code to ensure that selected compiler: '${selected_compiler}' exists"
       ;;
   esac
-  brew_libs_conf+=( libyaml readline libksba openssl )
 
-  requirements_osx_brew_check_custom homebrew/dupes # for: zlib
+  # OpenSSL version depends on the version of Ruby being installed
+  case "$1" in
+    (ree-1.8*)
+      brew_openssl_package="openssl"
+      ;;
 
-  undesired_check openssl098
+    (ruby-2.3*|ruby-2.2*|ruby-2.1*|ruby-2.0*|ruby-1.9*|ruby-1.8*)
+      brew_openssl_package="openssl"
+      ;;
+
+    (*)
+      brew_openssl_package="openssl@1.1"
+      ;;
+  esac
+  brew_libs_conf+=( "$brew_openssl_package" )
+
+  undesired_check openssl098 || return $?
 
   requirements_check "${brew_libs[@]}" "${brew_libs_conf[@]}" || return $?
 }
@@ -323,35 +338,42 @@ requirements_osx_brew_define()
 {
   case "$1" in
     (rvm)
-      requirements_osx_brew_check_custom homebrew/dupes
-      requirements_check zlib
+      true
       ;;
+
     (jruby*)
+      requirements_check make
+
       if
         is_head_or_disable_binary "$1"
       then
         __rvm_which git >/dev/null || requirements_check git
-        if is_jruby_post17 "$1"
-        then requirements_check_custom_after mvn=maven
-        fi
+        case $( jruby_installation_method  "$1" ) in
+          mvn) requirements_check_custom_after mvn=maven ;;
+        esac
       fi
       requiremnts_osx_java_fail  || return $?
       ;;
+
     (ir*)
       __rvm_which mono >/dev/null 2>&1 || return $?
       ;;
+
     (opal)
       requirements_check node
       ;;
+
     (ruby*head)
       __rvm_which git >/dev/null || requirements_check git
       requirements_osx_brew_libs_default "$1"
       requirements_version_minimal autoconf 2.67
       ;;
+
     (*-head)
       __rvm_which git >/dev/null || requirements_check git
       requirements_osx_brew_libs_default "$1"
       ;;
+
     (*)
       requirements_osx_brew_libs_default "$1"
       ;;

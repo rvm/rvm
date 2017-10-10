@@ -118,6 +118,7 @@ install_rvm()
     migrate_old_gemsets
     migrate_defaults
     migrate_environments_and_wrappers
+    create_gems_aliases
     restore_missing_environments
     record_ruby_configs
     update_gemsets_install_rvm
@@ -138,7 +139,6 @@ install_rvm()
   fi
   __steps+=(
     print_install_footer
-    display_thank_you
     display_notes
   )
   for __step in "${__steps[@]}"
@@ -224,7 +224,7 @@ parse_args()
       (--version)
         (
           export rvm_path="${PWD%%+(\/)}"
-          __rvm_version
+          echo "$rvm_version"
         )
         exit
         ;;
@@ -268,7 +268,7 @@ install_usage()
 
     --path    : Installation directory (rvm_path).
 
-    --help    : Display help/usage (this) message
+    --help    : Display usage information
 
     --version : display rvm package version
 
@@ -1301,6 +1301,20 @@ migrate_environments_and_wrappers()
   done
 }
 
+create_gems_aliases()
+{
+  \typeset __alias __ruby
+  \typeset -a __aliases
+  __rvm_read_lines __aliases "$rvm_path/config/alias"
+  for __alias in "${__aliases[@]}"
+  do
+    __ruby="${__alias#*=}"
+    __alias="${__alias%%=*}"
+    [[ -e "$rvm_path/gems/${__alias}" ]] ||
+      \command \ln -snf "$rvm_path/gems/${__ruby}" "$rvm_path/gems/${__alias}"
+  done
+}
+
 restore_missing_environments()
 {
   if
@@ -1584,31 +1598,6 @@ print_install_footer()
   else
     rvm_log "$itype of RVM in $rvm_path/ is complete."
   fi
-}
-
-display_thank_you()
-{
-  \typeset name=""
-  if builtin command -v git > /dev/null 2>&1
-  then name="$(git config user.name 2>/dev/null )"
-  fi
-  : ${name:=${SUDO_USER:-}}
-  : ${name:=${USERNAME:-}}
-  : ${name:=${USER:-}}
-  : ${name:=$(id | __rvm_sed -e 's/^[^(]*(//' -e 's/).*$//')}
-  case "${name}" in
-    (root)       name="Administrator" ;;
-    (""|vagrant) name="User"          ;;
-  esac
-
-  rvm_out "
-# ${name},
-#
-#   Thank you for using RVM!
-#   We sincerely hope that RVM helps to make your life easier and more enjoyable!!!
-#
-# ~Wayne, Michal & team.
-"
 }
 
 display_notes()

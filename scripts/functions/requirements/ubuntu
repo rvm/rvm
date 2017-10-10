@@ -1,159 +1,29 @@
 #!/usr/bin/env bash
 
-# Queries the dpkg system for packages that are installed only asking about
-# the package name and it's arch.  This package will fall back to :all for
-# cases where we cannot get an arch specific package (such is the case
-# for a few packages.)
+source "$rvm_scripts_path/functions/requirements/debian"
 
-requirements_debian_lib_installed()
+requirements_ubuntu_define_libgmp()
 {
-  dpkg-query -s "${1}:${_system_arch}" >/dev/null 2>&1 ||
-  dpkg-query -s "${1}:all"             >/dev/null 2>&1 ||
-  dpkg-query -s "$1" 2>/dev/null | __rvm_grep "Architecture: ${_system_arch}" >/dev/null ||
-  dpkg-query -s "$1" 2>/dev/null | __rvm_grep "Architecture: all"             >/dev/null ||
-  return $?
+  requirements_check libgmp-dev
 }
 
-# Informs us if a package is even available on the distro we are working
-# with, this is more of a transitional method kind of like Ubuntu
-# has a transitional git-core package right now.  This will allow us
-# to continue to support older versions of Ubuntu while enforcing newer
-# packages on newer Ubuntu.
-
-requirements_debian_lib_available()
+requirements_ubuntu_define_libreadline()
 {
-  apt-cache show "$1" >/dev/null 2>&1 || return $?
-}
-
-requirements_debian_libs_install()
-{
-  __rvm_try_sudo apt-get --no-install-recommends --yes install "$@" || return $?
-}
-
-requirements_debian_update_system()
-{
-  __rvm_try_sudo apt-get --quiet --yes update ||
-  {
-    \typeset __ret=$?
-    case ${__ret} in
-      (100)
-        rvm_error "There has been error while updating 'apt-get', please give it some time and try again later.
-404 errors should be fixed for rvm to proceed. Check your sources configured in:
-    /etc/apt/sources.list
-    /etc/apt/sources.list.d/*.list
-"
-        ;;
-    esac
-    return ${__ret}
-  }
-}
-
-requirements_debian_define_libgmp()
-{
-  if [[ "${_system_name}" == "Debian" && "${_system_version}" == 6* ]]
+  if
+    __rvm_version_compare ${_system_version} -ge 16.10
   then
-    requirements_check libgmp3-dev
+    requirements_check libreadline-dev
   else
-    requirements_check libgmp-dev
+    requirements_check libreadline6-dev
   fi
 }
 
-requirements_debian_define_base()
+requirements_ubuntu_define_libssl()
 {
-  requirements_check "$@" \
-    make libc6-dev patch openssl ca-certificates libreadline6 \
-    libreadline6-dev curl zlib1g zlib1g-dev libyaml-dev \
-    libsqlite3-dev sqlite3 autoconf libgmp-dev \
-    libgdbm-dev libncurses5-dev automake libtool bison pkg-config libffi-dev
-
-  requirements_debian_define_libgmp
-}
-
-requirements_debian_define_java()
-{
-  update-alternatives --list ${1:-java} >/dev/null 2>&1 ||
-    requirements_check_fallback \
-      openjdk-8-jre-headless openjdk-8-jdk oracle-j2sdk1.8 \
-      openjdk-7-jre-headless openjdk-7-jdk oracle-j2sdk1.7 \
-      openjdk-6-jre-headless opendjk-6-jdk oracle-j2sdk1.6
-}
-
-requirements_debian_define()
-{
-  case "$1" in
-    (rvm)
-      requirements_check bash curl patch bzip2 ca-certificates gawk
-      ;;
-
-    (jruby*)
-      requirements_check g++
-      if
-        is_head_or_disable_binary "$1"
-      then
-        requirements_debian_define_java javac
-        requirements_check_fallback git git-core
-        if is_jruby_post17 "$1"
-        then __rvm_which mvn >/dev/null || requirements_check_fallback maven maven2
-        else __rvm_which ant >/dev/null || requirements_check ant
-        fi
-      else
-        requirements_debian_define_java java
-      fi
-      ;;
-
-    (ir*)
-      requirements_check curl mono-2.0-devel
-      ;;
-
-    (opal)
-      requirements_check nodejs npm
-      ;;
-
-    (rbx*head|rubinius*head)
-      requirements_check_fallback git git-core
-      requirements_debian_define_base clang-3.5 llvm-3.5 llvm-3.5-dev libssl-dev
-      rvm_configure_flags+=( --cc=clang --cxx=clang++ )
-      ;;
-
-    (rbx*|rubinius*)
-      requirements_debian_define_base clang-3.5 llvm-3.5 llvm-3.5-dev libedit-dev libssl-dev
-      rvm_configure_flags+=( --cc=clang --cxx=clang++ )
-      ;;
-
-    (ruby-2.3*|ruby-2.2*|ruby-2.1*|ruby-2.0*|ruby-1.9*)
-      if [[ "${_system_name}" == "Debian" && ("${_system_version}" == "9" || "${_system_version}" > "9") ]]
-      then
-        # libssl1.0-dev is available starting from Debian 9 (Stretch)
-        requirements_debian_define_base libssl1.0-dev
-      else
-        requirements_debian_define_base libssl-dev
-      fi
-      ;;
-
-    (*-head)
-      requirements_check_fallback git git-core
-      requirements_debian_define_base g++ gcc libssl-dev
-      ;;
-
-    (*)
-      requirements_debian_define_base g++ gcc libssl-dev
-      ;;
-  esac
+  requirements_check libssl-dev
 }
 
 requirements_ubuntu_define()
-{
-  __lib_type=debian
-  requirements_debian_define "$@"
-}
-
-requirements_mint_define()
-{
-  __lib_type=debian
-  requirements_debian_define "$@"
-}
-
-requirements_devuan_define()
 {
   __lib_type=debian
   requirements_debian_define "$@"

@@ -114,14 +114,23 @@ rvm_is_a_shell_function()
     then rvm_log "" # newline when error is shown to user
     fi
     if rvm_pretty_print stderr
-    then rvm_log "RVM is not a function, selecting rubies with '${rvm_error_clr:-}rvm use ...${rvm_notify_clr:-}' will not work." >&2
+    then rvm_error "${rvm_notify_clr:-}RVM is not a function, selecting rubies with '${rvm_error_clr:-}rvm use ...${rvm_notify_clr:-}' will not work."
     else rvm_error "RVM is not a function, selecting rubies with 'rvm use ...' will not work."
     fi
-    rvm_warn '
+    if
+      [[ -n "${SUDO_USER:-}" ]]
+    then
+      rvm_warn '
+Please avoid using "sudo" in front of "rvm".
+RVM knows when to use "sudo" and will use it only when it is necessary.
+'
+    else
+      rvm_warn '
 You need to change your terminal emulator preferences to allow login shell.
 Sometimes it is required to use `/bin/bash --login` as the command.
 Please visit https://rvm.io/integration/gnome-terminal/ for an example.
 '
+    fi
   fi
   return ${rvm_is_not_a_shell_function:-0}
 }
@@ -163,17 +172,32 @@ __rvm_detect_xcode_version_at_least()
   true # for OSX
 }
 
-# TODO: better semver support
 __rvm_version_sort()
 {
-  LC_ALL=C \command \sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n -k 5,5n
+  \command \awk -F'[.-]' -v OFS=. '{                   # split on "." and "-", merge back with "."
+    original=$0                                        # save original to preserve it before the line is changed
+    for (n=1; n<10; n++) {                             # iterate through max 9 components of version
+      $n=tolower($n)                                   # ignore case for sorting
+      if ($n == "")                 $n="0"             # treat non existing parts as 0
+      if ($n ~ /^p[0-9]/)           $n=substr($n, 2)   # old ruby -p notation
+      if ($n ~ /^[0-9](rc|b)/)      $n=substr($n, 1, 1)". "substr($n, 2)   # old jruby 0RC1 notation
+      if (n == 1 && $n ~ /^[0-9]/)  $n="zzz."$n        # first group must be a string
+      if (n > 1 && $n ~ /^[a-z]/)   $n=" "$n           # names go before numbers thanks to space
+    }
+    print $0"\t"original                               # print the transformed version and original separated by \t
+                                                       # so we can extract original after sorting
+  }'  \
+  | LC_ALL=C \sort -t. -k 1,1d -k 2,2n -k 3,3n -k 4,4n -k 5,5n -k 6,6n -k 7,7n -k 8,8n -k 9,9n \
+  | \awk -F'\t' '{print $2}'
 }
 
 __rvm_version_compare()
 {
   \typeset first
+
+  # first is the lower version number
   first="$( \command \printf "%b" "$1\n$3\n" | __rvm_version_sort | \command \head -n1 )"
-  # first is the lower
+
   case "$2" in
     (-eq|==|=)
       [[ "$1" == "$3" ]] || return $?

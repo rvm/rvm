@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+# Read variables from file, if there are any variables asks user to trust it,
+#
+# Usage:
+#   __rvm_file_load_env_and_trust <file_to_load> [variables_prefix]
+#
+# @param file_to_load          the file to load variables from
+# @param variables_prefix      optional filter for variables, ex: "#ruby-env-"
+# @env   __file_env_variables  contains the variables loaded from file, empty if user does not trust the file
+#
+__rvm_file_load_env_and_trust()
+{
+  [[ -f "$1" ]] || return 0
+
+  __rvm_file_load_env "$1" "${2:-}"
+  if
+    (( ${#__file_env_variables[@]} == 0 )) ||
+    __rvm_check_rvmrc_trustworthiness "$1"
+  then
+    true
+  else
+    rvm_debug "Envirionment variables variables from '$1' wont be loaded because of lack of trust (status=$?)."
+    __file_env_variables=()
+  fi
+}
+
+# Read variables from file,
+#
+# Usage:
+#   __rvm_file_load_env_and_trust <file_to_load> [variables_prefix]
+#
+# @param file_to_load          the file to load variables from
+# @param variables_prefix      optional filter for variables, ex: "#ruby-env-"
+# @env   __file_env_variables  contains the variables loaded from file,
+#
+__rvm_file_load_env()
+{
+  \typeset -a __sed_commands
+  __sed_commands=()
+  if [[ -n "${2:-}" ]]
+  then __sed_commands+=( -e "/^$2/ !d" -e "s/^$2//" ) # filter other content and remove prefix
+  else __sed_commands+=( -e "/^#/ d"   -e "/^$/ d"  ) # remove comments and empty lines
+  fi
+  __rvm_read_lines __file_env_variables <( { cat "$1"; echo ""; } | __rvm_sed "${__sed_commands[@]}" )
+}
+
+# Resets previously loaded environment,
+# if any new variables are available - loads them,
+#
+# @env rvm_saved_env         used to restore variables, emptied out on the end
+# @env __file_env_variables  used to load new variables
+#
+__rvm_file_set_env()
+{
+  __rvm_file_env_check_unload
+  __rvm_set_env "rvm_saved_env" "${__file_env_variables[@]}"
+}
+
+# Resets previously loaded environment,
+#
+# @env rvm_saved_env  used to restore variables, emptied out on the end
+#
+__rvm_file_env_check_unload()
+{
+  if (( ${#rvm_saved_env[@]} > 0 ))
+  then __rvm_set_env "" "${rvm_saved_env[@]}"
+  fi
+  rvm_saved_env=()
+}
+
+# Sets environment variables,
+#
+# Usage:
+#   __rvm_set_env <save_to> [var1 [var2]...]
+#
+# @param save_to   store previous values of environment variables in this variable if it's provided
+# @param var...    "key=value" pairs for the environment to set to
+#
+# @env ${save_to}  "key=value" pairs of saved environment
+#
+__rvm_set_env()
+{
+  \typeset __save_to __set __key __value
+  __save_to="$1"
+  shift
+  for __set in "$@"
+  do
+    __key="${__set%%=*}"
+    __value="${__set#*=}"
+    case "$__value" in
+      (\"*\")
+        __value="${__value#\"}"
+        __value="${__value%\"}"
+        ;;
+      (\'*\')
+        __value="${__value#\'}"
+        __value="${__value%\'}"
+        ;;
+    esac
+    rvm_debug "key=$__key; value=$__value;"
+    if [[ -n "${__save_to}" ]]
+    then eval "${__save_to}+=( \"\${__key}=\${${__key}}\" )"
+    fi
+    if [[ -n "${__value}" ]]
+    then eval "export \${__key}=\"\${__value}\""
+    else eval "unset \${__key}"
+    fi
+  done
+}
