@@ -9,6 +9,7 @@
 * Simplified wrapper subcommand [\#4180](https://github.com/rvm/rvm/issues/4180)
 * Extend aliases to gems directories [\#4189](https://github.com/rvm/rvm/pull/4189)
 * Support for Debian Buster (10) [\#4199](https://github.com/rvm/rvm/pull/4199)
+* Implement DNF package manager for Fedora 22+ [\#4198](https://github.com/rvm/rvm/pull/4198)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
