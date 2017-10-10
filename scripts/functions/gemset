@@ -60,6 +60,12 @@ gemset_create()
     gem_home="${prefix}${gemset:+${rvm_gemset_separator:-"@"}}${gemset}"
     __rvm_remove_broken_symlinks "$gem_home"
     [[ -d "$gem_home/bin" ]] || mkdir -p "$gem_home/bin"
+    if
+      [[ ! -d "$gem_home/bin" ]]
+    then
+      rvm_error "Can not create gemset '$gemset', permissions problem? "
+      return 4
+    fi
 
     : rvm_gems_cache_path:${rvm_gems_cache_path:=${rvm_gems_path:-"$rvm_path/gems"}/cache}
     # When the globalcache is enabled, we need to ensure we setup the cache directory correctly.
@@ -126,7 +132,7 @@ is_gem_installed()
   else
     version_check="*([[:digit:]\.])"
   fi
-  ls -ld "${rvm_ruby_gem_home}/gems"/${gem_name}-${version_check} >/dev/null 2>&1 ||
+  ls -ld "${rvm_ruby_gem_home:-$GEM_HOME}/gems"/${gem_name}-${version_check} >/dev/null 2>&1 ||
   "${rvm_ruby_binary}" -rrubygems -e "$gem_spec" 2>/dev/null ||
   return $?
 }
@@ -319,14 +325,14 @@ gemset_initial()
   done
   __rvm_log_command "gemset.wrappers.$1" \
     "$rvm_ruby_string - #generating ${1} wrappers" \
-    run_gem_wrappers_regenerate 2>/dev/null || true
+    run_gem_wrappers regenerate 2>/dev/null || true
 }
 
-run_gem_wrappers_regenerate()
+run_gem_wrappers()
 {
-  gem_install gem-wrappers &&
-  gem wrappers regenerate ||
-  return $?
+  gem_install gem-wrappers >/dev/null &&
+    gem wrappers "$@" ||
+    return $?
 }
 
 __rvm_rubygems_create_link()
@@ -422,7 +428,8 @@ gemset_reset_env()
   export rvm_use_flag=0
   __rvm_use "${1:-}"
   __rvm_ensure_has_environment_files &&
-  run_gem_wrappers_regenerate
+  run_gem_wrappers regenerate ||
+    return $?
 )
 
 # Transform the list of gems one version per line
