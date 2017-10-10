@@ -9,7 +9,8 @@
 * Simplified wrapper subcommand [\#4180](https://github.com/rvm/rvm/issues/4180)
 * Extend aliases to gems directories [\#4189](https://github.com/rvm/rvm/pull/4189)
 * Support for Debian Buster (10) [\#4199](https://github.com/rvm/rvm/pull/4199)
-* float_warnings patchsets for Railsexpressuby 2.0.0p64[5 7 8], 2.1.[8 9 10], 2.2.[4 5 6 7 8], 2.3.[0 1 2 3 4 5] and 2.4.[0 1 2] [\#4201](https://github.com/rvm/rvm/pull/4201)
+* Implement DNF package manager for Fedora 22+ [\#4198](https://github.com/rvm/rvm/pull/4198)
+* float_warnings patchsets for railsexpressuby 2.0.0p64[5 7 8], 2.1.[8 9 10], 2.2.[4 5 6 7 8], 2.3.[0 1 2 3 4 5] and 2.4.[0 1 2] [\#4201](https://github.com/rvm/rvm/pull/4201)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
@@ -18,7 +19,7 @@
 * Do not require libyaml-devel on Redhat/Centos when it's not needed [\#2998](https://github.com/rvm/rvm/issues/2998)
 * Restore mvn installation for JRuby 1.7 [\#4166](https://github.com/rvm/rvm/issues/4166)
 * ree-1.8.7 requires old version of OpenSSL 1.0.2 [\#4110](https://github.com/rvm/rvm/issues/4110)
-* libreadline6-dev is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172) 
+* libreadline6-dev is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172)
 * Require libdb-4.8 for OpenSuSE Tumbleweed [\#4178](https://github.com/rvm/rvm/issues/4178)
 * Require make for JRuby 9 [\#4058](https://github.com/rvm/rvm/issues/4058)
 * Fix support for zsh 5.4.1 [bash_zsh_support \#6](https://github.com/mpapis/bash_zsh_support/pull/6)
@@ -26,6 +27,8 @@
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
 * Add support for Rubinius 3.85, 3.86
+* Add support for Ruby 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204)
+* Upgrade RubyGems to 2.6.14 [\#4205](https://github.com/rvm/rvm/pull/4205)
 
 #### Binaries:
 * Ubuntu 16.04 x64 binaries for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161)
