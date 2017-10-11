@@ -25,8 +25,8 @@ rvm_install_initialize()
 }
 
 log()  { printf "%b\n" "$*"; }
-debug(){ [[ ${rvm_debug_flag:-0} -eq 0 ]] || printf "%b\n" "Running($#): $*"; }
-fail() { log "\nERROR: $*\n" ; exit 1 ; }
+debug(){ [[ ${rvm_debug_flag:-0} -eq 0 ]] || printf "%b\n" "$*" >&2; }
+fail() { log "\nERROR: $*\n" >&2 ; exit 1 ; }
 
 rvm_install_commands_setup()
 {
@@ -116,7 +116,7 @@ Options
 
       <account>/
 
-        If account is wayneeseguin or mpapis, installs from one of the following:
+        If account is rvm or mpapis, installs from one of the following:
 
           https://github.com/rvm/rvm/archive/master.tar.gz
           https://bitbucket.org/mpapis/rvm/get/master.tar.gz
@@ -127,7 +127,7 @@ Options
 
       <account>/<branch>
 
-        If account is wayneeseguin or mpapis, installs from one of the following:
+        If account is rvm or mpapis, installs from one of the following:
 
           https://github.com/rvm/rvm/archive/<branch>.tar.gz
           https://bitbucket.org/mpapis/rvm/get/<branch>.tar.gz
@@ -390,6 +390,9 @@ rvm_install_gpg_setup()
   {
     rvm_gpg_command="$( \which gpg2 2>/dev/null )" &&
     [[ ${rvm_gpg_command} != "/cygdrive/"* ]]
+  } || {
+    rvm_gpg_command="$( \which gpg 2>/dev/null )" &&
+    [[ ${rvm_gpg_command} != "/cygdrive/"* ]]
   } || rvm_gpg_command=""
 
   debug "Detected GPG program: '$rvm_gpg_command'"
@@ -412,7 +415,7 @@ Assuming you trust Michal Papis import the mpapis public key (downloading the si
 
 GPG signature verification failed for '$1' - '$3'! Try to install GPG v2 and then fetch the public key:
 
-    ${SUDO_USER:+sudo }${rvm_gpg_command##*/} --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
+    ${SUDO_USER:+sudo }gpg2 --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
 
 or if it fails:
 
@@ -596,13 +599,13 @@ rvm_install_parse_params()
               ;;
             (*/)
               branch=master
-              if [[ "${1%/}" -ne wayneeseguin ]] && [[ "${1%/}" -ne mpapis ]]
+              if [[ "${1%/}" -ne rvm ]] && [[ "${1%/}" -ne mpapis ]]
               then sources=(github.com/${1%/}/rvm)
               fi
               ;;
             (*/*)
               branch=${1#*/}
-              if [[ "${1%%/*}" -ne wayneeseguin ]] && [[ "${1%%/*}" -ne mpapis ]]
+              if [[ "${1%%/*}" -ne rvm ]] && [[ "${1%%/*}" -ne mpapis ]]
               then sources=(github.com/${1%%/*}/rvm)
               fi
               ;;
@@ -717,7 +720,7 @@ rvm_install_parse_params()
         shift
         ;;
 
-      (help|usage)
+      (help)
         usage
         exit 0
         ;;
@@ -861,7 +864,7 @@ rvm_install_main()
 {
   [[ -f ./scripts/install ]] ||
   {
-    log "'./scripts/install' can not be found for installation, something went wrong, it usally means your 'tar' is broken, please report it here: https://github.com/rvm/rvm/issues"
+    log "'./scripts/install' can not be found for installation, something went wrong, it usually means your 'tar' is broken, please report it here: https://github.com/rvm/rvm/issues"
     return 127
   }
 
@@ -876,8 +879,8 @@ rvm_install_ruby_and_gems()
     (( ${#install_rubies[@]} > 0 ))
   then
     source ${rvm_scripts_path:-${rvm_path}/scripts}/rvm
-    source ${rvm_scripts_path:-${rvm_path}/scripts}/version
-    __rvm_version
+    source ${rvm_scripts_path:-${rvm_path}/scripts}/functions/version
+    __rvm_print_headline
 
     for _ruby in ${install_rubies[@]}
     do command rvm "${forwarded_flags[@]}" install ${_ruby} -j 2

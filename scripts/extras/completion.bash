@@ -63,7 +63,11 @@ _rvm_commands ()
         install uninstall reinstall remove\
         ruby gem rake tests specs monitor gemset\
         gemdir fetch list package notes snapshot\
-        help'
+        help automount disk-usage upgrade current migrate\
+        alias autolibs cleanup cron docs get config-get\
+        snapshot export fix-permissions repair rubygems\
+        tools user info usage rvmrc osx-ssl-certs patchset\
+        pkg group requirements do unexport wrapper'
 
   case "${cur}" in
   -*)       _rvm_opts ;;
@@ -120,7 +124,259 @@ _rvm_use ()
 _rvm_gemset ()
 {
   \typeset subcommand subcommands
-  subcommands="use create"
+  subcommands="import export create copy rename empty delete name dir list list_all gemdir install pristine clear use update unpack globalcache"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_remove ()
+{
+  \typeset subcommand subcommands
+  subcommands="all old --gems --archive $(__rvm_rubies)"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_disk_usage()
+{
+  \typeset subcommand subcommands
+  subcommands="all total archives docs repos sources logs pkg rubies gemsets wrappers tmp others"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_list()
+{
+  \typeset subcommand subcommands
+  subcommands="help known remote gemsets default rubies strings known_strings ruby_svn_tags"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_reinstall()
+{
+  \typeset subcommand subcommands
+  subcommands="$(rvm list strings)"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_uninstall()
+{
+  \typeset subcommand subcommands
+  subcommands="$(rvm list strings) --gems"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_upgrade()
+{
+  \typeset subcommand subcommands
+  subcommands="$(rvm list strings)"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_migrate()
+{
+  \typeset subcommand subcommands
+  subcommands="$(rvm list strings)"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_autolibs()
+{
+  \typeset subcommand subcommands
+  subcommands="disable disabled read read-only fail read-fail packages enable enabled reset status help show"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_cleanup()
+{
+  \typeset subcommand subcommands
+  subcommands="all archives checksums repos sources logs gemsets links"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_cron()
+{
+  \typeset subcommand subcommands
+  subcommands="setup remove"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_docs()
+{
+  \typeset subcommand subcommands
+  subcommands="generate generate-ri generate-rdoc generate-gems rdoc_data"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_get()
+{
+  \typeset subcommand subcommands
+  subcommands="stable latest head master branch help --auto-dotfiles --autolibs="
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_snapshot()
+{
+  \typeset subcommand subcommands
+  subcommands="load save"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_fix_permissions()
+{
+  \typeset subcommand subcommands
+  subcommands="user system"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_repair()
+{
+  \typeset subcommand subcommands
+  subcommands="symlinks environments archives all"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_rubygems()
+{
+  \typeset subcommand subcommands
+  subcommands="latest current master head"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_tools()
+{
+  \typeset subcommand subcommands
+  subcommands="identifier path-identifier strings mirror rvm-env"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_user()
+{
+  \typeset subcommand subcommands
+  subcommands="all gemsets"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_info()
+{
+  \typeset subcommand subcommands
+  subcommands="$(rvm list strings) system rvm ruby homes binaries environment debug"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_rvmrc()
+{
+  \typeset subcommand subcommands
+  subcommands="trust untrust trusted load reset create warning"
+  subcommand="$(__rvm_subcommand "$subcommands")"
+
+  if [[ -z "$subcommand" ]]; then
+    __rvm_comp "$subcommands"
+    return
+  fi
+}
+
+_rvm_osx_ssl_certs()
+{
+  \typeset subcommand subcommands
+  subcommands="status update cron"
   subcommand="$(__rvm_subcommand "$subcommands")"
 
   if [[ -z "$subcommand" ]]; then
@@ -149,6 +405,27 @@ _rvm ()
   gemset)   _rvm_gemset ;;
   help)     _rvm_help ;;
   install)  _rvm_install ;;
+  autolibs) _rvm_autolibs ;;
+  disk-usage) _rvm_disk_usage ;;
+  reinstall) _rvm_reinstall ;;
+  uninstall) _rvm_uninstall ;;
+  upgrade)  _rvm_upgrade ;;
+  list)     _rvm_list ;;
+  remove)   _rvm_remove ;;
+  migrate) _rvm_migrate ;;
+  cleanup) _rvm_cleanup ;;
+  snapshot) _rvm_snapshot ;;
+  cron)    _rvm_cron ;;
+  fix-permissions)    _rvm_fix_permissions ;;
+  docs)    _rvm_docs ;;
+  repair)    _rvm_repair ;;
+  rubygems)    _rvm_rubygems ;;
+  get)    _rvm_get ;;
+  tools)    _rvm_tools ;;
+  user)    _rvm_user ;;
+  info)    _rvm_info ;;
+  rvmrc)    _rvm_rvmrc ;;
+  osx-ssl-certs)    _rvm_osx_ssl_certs ;;
   *)        _rvm_commands ;;
   esac
 

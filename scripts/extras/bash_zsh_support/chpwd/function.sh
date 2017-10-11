@@ -1,4 +1,4 @@
-__zsh_like_cd()
+function __zsh_like_cd()
 {
   \typeset __zsh_like_cd_hook
   if
