@@ -21,14 +21,14 @@ __rvm_set_color_single()
     (default)  __buffer+='39' ;;
 
     # intense (bright) colors
-    (iblack)    __buffer+='30;1m' ;;
-    (ired)      __buffer+='31;1m' ;;
-    (igreen)    __buffer+='32;1m' ;;
-    (iyellow)   __buffer+='33;1m' ;;
-    (iblue)     __buffer+='34;1m' ;;
-    (imagenta)  __buffer+='35;1m' ;;
-    (icyan)     __buffer+='36;1m' ;;
-    (iwhite)    __buffer+='37;1m' ;;
+    (iblack)    __buffer+='30;1' ;;
+    (ired)      __buffer+='31;1' ;;
+    (igreen)    __buffer+='32;1' ;;
+    (iyellow)   __buffer+='33;1' ;;
+    (iblue)     __buffer+='34;1' ;;
+    (imagenta)  __buffer+='35;1' ;;
+    (icyan)     __buffer+='36;1' ;;
+    (iwhite)    __buffer+='37;1' ;;
 
     # background colors
     (bblack)   __buffer+='40' ;;
@@ -103,26 +103,44 @@ rvm_pretty_print()
   esac
 }
 
-case "${TERM:-dumb}" in
-  (dumb|unknown)
-    rvm_error_clr=""
-    rvm_warn_clr=""
-    rvm_debug_clr=""
-    rvm_notify_clr=""
-    rvm_code_clr=""
-    rvm_comment_clr=""
-    rvm_reset_clr=""
-    ;;
-  (*)
-    __rvm_set_color rvm_error_clr     "${rvm_error_color:-red}"
-    __rvm_set_color rvm_warn_clr      "${rvm_warn_color:-yellow}"
-    __rvm_set_color rvm_debug_clr     "${rvm_debug_color:-magenta}"
-    __rvm_set_color rvm_notify_clr    "${rvm_notify_color:-green}"
-    __rvm_set_color rvm_code_clr      "${rvm_code_color:-iwhite}"
-    __rvm_set_color rvm_comment_clr   "${rvm_comment_color:-iblack}"
-    __rvm_set_color rvm_reset_clr     "${rvm_reset_color:-reset}"
-    ;;
-esac
+__rvm_set_color_for()
+{
+  case "$1" in
+    (rvm_error_clr)   __rvm_set_color rvm_error_clr   "${rvm_error_color:-red}"      ;;
+    (rvm_warn_clr)    __rvm_set_color rvm_warn_clr    "${rvm_warn_color:-yellow}"    ;;
+    (rvm_debug_clr)   __rvm_set_color rvm_debug_clr   "${rvm_debug_color:-magenta}"  ;;
+    (rvm_notify_clr)  __rvm_set_color rvm_notify_clr  "${rvm_notify_color:-green}"   ;;
+    (rvm_code_clr)    __rvm_set_color rvm_code_clr    "${rvm_code_color:-iwhite}"    ;;
+    (rvm_comment_clr) __rvm_set_color rvm_comment_clr "${rvm_comment_color:-iblack}" ;;
+    (rvm_reset_clr)   __rvm_set_color rvm_reset_clr   "${rvm_reset_color:-reset}"    ;;
+  esac
+}
+
+__rvm_set_colors()
+{
+  case "${TERM:-dumb}" in
+    (dumb|unknown)
+      rvm_error_clr=""
+      rvm_warn_clr=""
+      rvm_debug_clr=""
+      rvm_notify_clr=""
+      rvm_code_clr=""
+      rvm_comment_clr=""
+      rvm_reset_clr=""
+      ;;
+    (*)
+      __rvm_set_color_for rvm_error_clr
+      __rvm_set_color_for rvm_warn_clr
+      __rvm_set_color_for rvm_debug_clr
+      __rvm_set_color_for rvm_notify_clr
+      __rvm_set_color_for rvm_code_clr
+      __rvm_set_color_for rvm_comment_clr
+      __rvm_set_color_for rvm_reset_clr
+      ;;
+  esac
+}
+
+__rvm_set_colors
 
 exec 6>&2
 
@@ -205,12 +223,36 @@ rvm_out()
   printf "$*\n"
 }
 
+__rvm_replace_colors()
+{
+  \typeset ___text
+  ___text="${1//<error>/$rvm_error_clr}"
+  ___text="${___text//<warn>/$rvm_warn_clr}"
+  ___text="${___text//<debug>/$rvm_debug_clr}"
+  ___text="${___text//<notify>/$rvm_notify_clr}"
+  ___text="${___text//<code>/$rvm_code_clr}"
+  ___text="${___text//<comment>/$rvm_comment_clr}"
+  ___text="${___text//<reset>/$rvm_reset_clr}"
+  printf "%b" "${___text}$rvm_reset_clr"
+}
+
+rvm_output()
+{
+  case $1 in
+    (stdout) printf "%b" "$2\n" >&6 ;;
+    (stderr) printf "%b" "$2\n"     ;;
+    (*)      printf "%b" "--- Do not know how to display to '$1'\n" >&6 ;;
+  esac
+}
+
 rvm_color()
 {
-  \typeset color_name
-  color_name="rvm_$1_clr"
-  if rvm_pretty_print stdout
-  then echo -e "${!color_name:-}${2}${rvm_reset_clr:-}"
-  else echo -e $2
+  if
+    rvm_pretty_print $1
+  then
+    __rvm_set_colors
+    rvm_output $1 "$(__rvm_replace_colors "$2")"
+  else
+    rvm_output $1 "$2"
   fi
 }
