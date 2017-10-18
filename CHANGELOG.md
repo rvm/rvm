@@ -13,6 +13,7 @@
 * `float_warnings` patches for Ruby 2.0.0p64[5 7 8], 2.1.[8 9 10], 2.2.[4 5 6 7 8], 2.3.[0 1 2 3 4 5] and 2.4.[0 1 2] [\#4201](https://github.com/rvm/rvm/pull/4201)
 
 #### Bug fixes:
+* Can't install Ruby with MacPorts and LibreSSL [\#4208](https://github.com/rvm/rvm/issues/4208)
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
 * Add missing `random.c` patch for Ruby 2.3.2 [\#4165](https://github.com/rvm/rvm/issues/4165)
 * Set back IRB history default to HOME [\#4158](https://github.com/rvm/rvm/issues/4158)
