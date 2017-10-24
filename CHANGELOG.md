@@ -25,6 +25,7 @@
 * Require make for JRuby 9 [\#4058](https://github.com/rvm/rvm/issues/4058)
 * Fix support for zsh 5.4.1 [bash_zsh_support \#6](https://github.com/mpapis/bash_zsh_support/pull/6)
 * Installing rbx-3.70 fails on PCLinuxOS 64-bit [\#3895](https://github.com/rvm/rvm/issues/3895)  
+* Can't install Ruby with MacPorts and LibreSSL [\#4208](https://github.com/rvm/rvm/issues/4208)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
