@@ -1,6 +1,6 @@
 # Wrapper
 
-Show/regenrate wrappers.
+Show/regenerate wrappers.
 
 NOTE: This command delegates to 'gem wrapper' => <https://github.com/rvm/gem-wrappers>
 
@@ -27,7 +27,7 @@ Where `/full/path/to/script` is full path to existing script
 
 Wrappers are generated automatically, but it is possible to rerun the process:
 
-    rvm wrapper regenrate
+    rvm wrapper regenerate
 
 
 Documentation:
