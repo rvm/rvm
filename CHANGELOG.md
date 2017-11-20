@@ -26,7 +26,6 @@
 * Fix support for zsh 5.4.1 [bash_zsh_support \#6](https://github.com/mpapis/bash_zsh_support/pull/6)
 * Installing rbx-3.70 fails on PCLinuxOS 64-bit [\#3895](https://github.com/rvm/rvm/issues/3895)  
 * Can't install Ruby with MacPorts and LibreSSL [\#4208](https://github.com/rvm/rvm/issues/4208)
-* Fix invalid Ruby binary for CentOS 7 ruby-2.4.2 [\#4222](https://github.com/rvm/rvm/issues/4222)
 * Fix invalid `libgmp3-dev` requirement for Debian [\#4238](https://github.com/rvm/rvm/pull/4238)
 
 #### Upgraded Ruby interpreters:
@@ -38,7 +37,7 @@
 
 #### Binaries:
 * Ubuntu 16.04 x64 binaries for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161)
-* CentOS 6 / 7 for Ruby 2.1.\*, 2.2.\*, 2.4.0, 2.4.1, 2.4.2 and Ubuntu 17.04 for Ruby 2.1.\*, 2.2.\* [\#4233](https://github.com/rvm/rvm/pull/4233)
+* Ubuntu 17.04 for Ruby 2.1.\*, 2.2.\* [\#4233](https://github.com/rvm/rvm/pull/4233)
 
 ## [1.29.3](https://github.com/rvm/rvm/tag/1.29.3)
 10 September 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...1.29.3)
