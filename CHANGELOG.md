@@ -27,6 +27,7 @@
 * Installing rbx-3.70 fails on PCLinuxOS 64-bit [\#3895](https://github.com/rvm/rvm/issues/3895)  
 * Can't install Ruby with MacPorts and LibreSSL [\#4208](https://github.com/rvm/rvm/issues/4208)
 * Fix invalid `libgmp3-dev` requirement for Debian [\#4238](https://github.com/rvm/rvm/pull/4238)
+* Ensure compat-openssl10-devel is not installed for Fedora 26+ and Ruby 2.4+ [\#4249](https://github.com/rvm/rvm/pull/4249)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
