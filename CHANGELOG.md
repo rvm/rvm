@@ -4,6 +4,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...HEAD)
 
 #### New features:
+* Multi-colored log, warning and error messages [\#4044](https://github.com/rvm/rvm/pull/4044)
 * RailsExpress patches for 2.2.8, 2.3.5 and 2.4.2 [\#4167](https://github.com/rvm/rvm/pull/4167)
 * Improved CPU count detection [\#4171](https://github.com/rvm/rvm/pull/4171)
 * Simplified wrapper subcommand [\#4180](https://github.com/rvm/rvm/issues/4180)
@@ -11,7 +12,7 @@
 * Debian Buster (10) support [\#4199](https://github.com/rvm/rvm/pull/4199)
 * Implement DNF package manager for Fedora 22+ [\#4198](https://github.com/rvm/rvm/pull/4198)
 * `float_warnings` patches for Ruby 2.0.0p64[5 7 8], 2.1.[8 9 10], 2.2.[4 5 6 7 8], 2.3.[0 1 2 3 4 5] and 2.4.[0 1 2] [\#4201](https://github.com/rvm/rvm/pull/4201)
-* Multi-colored log, warning and error messages [\#4044](https://github.com/rvm/rvm/pull/4044)
+* Railsexpress patches for ruby-head (a.k.a. trunk) [\#4264](https://github.com/rvm/rvm/pull/4264)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
