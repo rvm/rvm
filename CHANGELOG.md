@@ -33,19 +33,13 @@
 * Fix fd_mask detection on OS X for Ruby 2.5.0 [\#4270](https://github.com/rvm/rvm/pull/4270)
 
 #### Upgraded Ruby interpreters:
-* Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159)
+* Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265)
 * Add support for Rubinius 3.85, 3.86, 3.87, 3.88
-* Add support for Ruby 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204)
+* Add support for JRuby 9.1.14.0 [\#4224](https://github.com/rvm/rvm/pull/4224), 9.1.15.0 [\#4258](https://github.com/rvm/rvm/pull/4258)
 * Upgrade RubyGems to 2.6.14 [\#4205](https://github.com/rvm/rvm/pull/4205)
-* Add support for JRuby 9.1.14.0 [\#4224](https://github.com/rvm/rvm/pull/4224)
-* Add support for JRuby 9.1.15.0 [\#4258](https://github.com/rvm/rvm/pull/4258)
-* Add support for Ruby 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261)
-* Add support for Ruby 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265)
 
 #### Binaries:
-* Ubuntu 16.04 x64 binaries for Ruby 2.2.9, 2.3.6 and 2.4.3 [\#4259](https://github.com/rvm/rvm/issues/4259)
-* Ubuntu 16.04 x64 binaries for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161)
-* Ubuntu 16.04 x64 binaries for Ruby 2.5.0 [\#4272](https://github.com/rvm/rvm/pull/4272)
+* Ubuntu 16.04 x64 binaries for Ruby 2.2.9, 2.3.6 and 2.4.3 [\#4259](https://github.com/rvm/rvm/issues/4259), 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161), 2.5.0 [\#4272](https://github.com/rvm/rvm/pull/4272)
 * Ubuntu 17.04 for Ruby 2.1.\*, 2.2.\* [\#4233](https://github.com/rvm/rvm/pull/4233)
 
 ## [1.29.3](https://github.com/rvm/rvm/tag/1.29.3)
