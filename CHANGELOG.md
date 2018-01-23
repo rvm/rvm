@@ -15,6 +15,7 @@
 * RailsExpress patches for ruby-head, 2.2.9, 2.3.6 and 2.4.3 [\#4264](https://github.com/rvm/rvm/pull/4264)
 * RailsExpress patches for 2.5.0 [\#4268](https://github.com/rvm/rvm/pull/4268)
 * Update README including Table of Contents to help improve documentation readability [\#4277](https://github.com/rvm/rvm/pull/4277)
+* Add prelude_gcc_diagnostic patch for Ruby 2.5.0 to correct compilation failures with GCC < 5
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
