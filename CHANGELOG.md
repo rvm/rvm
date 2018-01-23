@@ -15,6 +15,7 @@
 * RailsExpress patches for ruby-head, 2.2.9, 2.3.6 and 2.4.3 [\#4264](https://github.com/rvm/rvm/pull/4264)
 * RailsExpress patches for 2.5.0 [\#4268](https://github.com/rvm/rvm/pull/4268)
 * Update README including Table of Contents to help improve documentation readability [\#4277](https://github.com/rvm/rvm/pull/4277)
+* Add prelude_gcc_diagnostic patch for Ruby 2.5.0 to correct compilation failures with GCC < 5
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
@@ -36,8 +37,9 @@
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265)
-* Add support for Rubinius 3.85, 3.86, 3.87, 3.88, 3.89, 3.90
+* Add support for Rubinius 3.85-3.93
 * Add support for JRuby 9.1.14.0 [\#4224](https://github.com/rvm/rvm/pull/4224), 9.1.15.0 [\#4258](https://github.com/rvm/rvm/pull/4258)
+* Add support for mruby 1.4.0 [\#4286](https://github.com/rvm/rvm/pull/4286)
 * Upgrade RubyGems to 2.6.14 [\#4205](https://github.com/rvm/rvm/pull/4205)
 
 #### Binaries:
