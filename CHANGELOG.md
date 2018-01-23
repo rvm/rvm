@@ -41,6 +41,7 @@
 * Add support for JRuby 9.1.14.0 [\#4224](https://github.com/rvm/rvm/pull/4224), 9.1.15.0 [\#4258](https://github.com/rvm/rvm/pull/4258)
 * Add support for mruby 1.4.0 [\#4286](https://github.com/rvm/rvm/pull/4286)
 * Upgrade RubyGems to 2.6.14 [\#4205](https://github.com/rvm/rvm/pull/4205)
+* Update default RubyGems to 2.7 [\#4276](https://github.com/rvm/rvm/issues/4276)
 
 #### Binaries:
 * Ubuntu 16.04 x64 binaries for Ruby 2.2.9, 2.3.6 and 2.4.3 [\#4259](https://github.com/rvm/rvm/issues/4259), 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161), 2.5.0 [\#4272](https://github.com/rvm/rvm/pull/4272)
