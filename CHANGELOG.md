@@ -28,12 +28,13 @@
 * Require libdb-4.8 for OpenSuSE Tumbleweed [\#4178](https://github.com/rvm/rvm/issues/4178)
 * Require make for JRuby 9 [\#4058](https://github.com/rvm/rvm/issues/4058)
 * Fix support for zsh 5.4.1 [bash_zsh_support \#6](https://github.com/mpapis/bash_zsh_support/pull/6)
-* Installing rbx-3.70 fails on PCLinuxOS 64-bit [\#3895](https://github.com/rvm/rvm/issues/3895)  
+* Installing rbx-3.70 fails on PCLinuxOS 64-bit [\#3895](https://github.com/rvm/rvm/issues/3895)
 * Can't install Ruby with MacPorts and LibreSSL [\#4208](https://github.com/rvm/rvm/issues/4208)
 * Fix invalid `libgmp3-dev` requirement for Debian [\#4238](https://github.com/rvm/rvm/pull/4238)
 * Ensure compat-openssl10-devel is not installed for Fedora 26+ and Ruby 2.4+ [\#4249](https://github.com/rvm/rvm/pull/4249)
 * Fix fd_mask detection on OS X for Ruby 2.5.0 [\#4270](https://github.com/rvm/rvm/pull/4270)
 * Suppress `ls` alias substitution in `gem_install_force` in `scripts/functions/gemset` [\#4282](https://github.com/rvm/rvm/issues/4282)
+* Fix installing rubygems 2.7 [\#4287](https://github.com/rvm/rvm/pull/4287)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265)
