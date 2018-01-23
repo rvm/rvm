@@ -33,6 +33,7 @@
 * Fix invalid `libgmp3-dev` requirement for Debian [\#4238](https://github.com/rvm/rvm/pull/4238)
 * Ensure compat-openssl10-devel is not installed for Fedora 26+ and Ruby 2.4+ [\#4249](https://github.com/rvm/rvm/pull/4249)
 * Fix fd_mask detection on OS X for Ruby 2.5.0 [\#4270](https://github.com/rvm/rvm/pull/4270)
+* Suppress `ls` alias substitution in `gem_install_force` in `scripts/functions/gemset` [\#4282](https://github.com/rvm/rvm/issues/4282)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265)
