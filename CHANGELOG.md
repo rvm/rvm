@@ -41,6 +41,7 @@
 * Add support for Rubinius 3.85-3.93
 * Add support for JRuby 9.1.14.0 [\#4224](https://github.com/rvm/rvm/pull/4224), 9.1.15.0 [\#4258](https://github.com/rvm/rvm/pull/4258)
 * Add support for mruby 1.4.0 [\#4286](https://github.com/rvm/rvm/pull/4286)
+* Add support for MagLev 1.1* and 1.2Alpha-1.2Alpha4
 * Upgrade RubyGems to 2.6.14 [\#4205](https://github.com/rvm/rvm/pull/4205)
 
 #### Binaries:
