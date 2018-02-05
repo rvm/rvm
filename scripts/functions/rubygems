@@ -89,6 +89,12 @@ rubygems_master_sha()
     __rvm_sed -n '/^    "sha":/ {s/^.*".*": "\(.*\)".*$/\1/;p;}'
 }
 
+bundler_rubygems_master_sha()
+{
+  __rvm_curl -s "https://api.github.com/repos/rubygems/rubygems/contents/bundler" |
+    __rvm_sed -n '/^  "sha":/ {s/^.*".*": "\(.*\)".*$/\1/;p;}'
+}
+
 rubygems_select_current()
 {
   case "$version" in
@@ -127,6 +133,10 @@ rubygems_select_version_url()
       rvm_rubygems_version="$version"
       rvm_gem_package_name="rubygems-${sha}"
       rvm_gem_url="https://github.com/rubygems/rubygems/archive/${sha}.tar.gz"
+
+      __bundler_sha="$(bundler_rubygems_master_sha)"
+      __bundler_package_name="bundler-${__bundler_sha}"
+      __bundler_url="https://github.com/bundler/bundler/archive/${__bundler_sha}.tar.gz"
       export rvm_verify_downloads_flag=1
       ;;
     v*)
@@ -171,6 +181,7 @@ __rvm_warn_on_rubyopt()
 rubygems_setup()
 {
   export version="$1"
+  \typeset __bundler_sha __bundler_package_name __bundler_url
 
   rvm_debug "rubygems_setup version:${version} rvm_ruby_string:${rvm_ruby_string} rvm_ruby_home:${rvm_ruby_home} rvm_ruby_binary:${rvm_ruby_binary}"
 
@@ -193,6 +204,8 @@ rubygems_setup()
   (( rvm_ruby_selected_flag == 0 ))  || __rvm_select
 
   rubygems_select_version "$version" || return $?
+  rvm_debug "rubygems_setup_rubygems version:${rvm_rubygems_version} rvm_gem_package_name:${rvm_gem_package_name} rvm_gem_url:${rvm_gem_url}"
+  rvm_debug "rubygems_setup_bundler sha:${__bundler_sha} __bundler_package_name:${__bundler_package_name} __bundler_url:${__bundler_url}"
 
   if
     [[ "${rvm_force_flag:-0}" -eq 1 ]]
@@ -224,9 +237,29 @@ rubygems_setup()
   "$rvm_scripts_path/fetch" "$rvm_gem_url" "${rvm_gem_package_name}.tgz" ||
   rubygems_fatal_error "There has been an error while trying to fetch rubygems. \nHalting the installation." $?
 
+  if
+    [[ -n "${__bundler_sha:-}" ]]
+  then
+    rvm_log "$rvm_ruby_string - #downloading $__bundler_package_name"
+    "$rvm_scripts_path/fetch" "$__bundler_url" "${__bundler_package_name}.tgz" ||
+    rubygems_fatal_error "There has been an error while trying to fetch bundler. \nHalting the installation." $?
+  fi
+
   __rvm_log_command "rubygems.extract" "$rvm_ruby_string - #extracting $rvm_gem_package_name" \
   __rvm_package_extract "${rvm_archives_path}/$rvm_gem_package_name.tgz" "${rvm_src_path}" ||
   rubygems_fatal_error "There has been an error while trying to extract rubygems. \nHalting the installation." $?
+
+  if
+    [[ -n "${__bundler_sha:-}" ]]
+  then
+    __rvm_log_command "rubygems.bundler.extract" "$rvm_ruby_string - #extracting $__bundler_package_name" \
+    __rvm_package_extract "${rvm_archives_path}/$__bundler_package_name.tgz" "${rvm_src_path}" "*/spec/*" ||
+    rubygems_fatal_error "There has been an error while trying to extract bundler. \nHalting the installation." $?
+
+    \rm -rf "${rvm_src_path}/$rvm_gem_package_name/bundler" &&
+    ln -nfs "${rvm_src_path}/$__bundler_package_name/" "${rvm_src_path}/$rvm_gem_package_name/bundler" ||
+    rubygems_fatal_error "There has been an error while linking bundler. \nHalting the installation." $?
+  fi
 
   __rvm_log_command "rubygems.remove" "$rvm_ruby_string - #removing old rubygems" rubygems_remove "${rvm_ruby_binary}"
 

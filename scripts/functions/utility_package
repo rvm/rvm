@@ -29,8 +29,22 @@ __rvm_package_list()
   esac
 }
 
+__map_tar_excludes()
+{
+  \typeset __exclude_element
+  for __exclude_element
+  do __exclude_elements+=( --exclude "${__exclude_element}" )
+  done
+}
+
 __rvm_package_extract_run()
 {
+  \typeset __extract_run_src __extract_run_target __exclude_elements
+  __extract_run_src="$1"
+  __extract_run_target="$2"
+  shift 2
+  __exclude_elements=()
+
   if
     [[ " ${rvm_tar_options:-} " != *" --no-same-owner "*  ]] &&
     __rvm_tar --help 2>&1 | __rvm_grep -- --no-same-owner >/dev/null
@@ -38,39 +52,45 @@ __rvm_package_extract_run()
     rvm_tar_options="${rvm_tar_options:-}${rvm_tar_options:+ }--no-same-owner"
   fi
 
-  [[ -d "$2" ]] || mkdir -p "$2"
-  case "$1" in
+  [[ -d "$__extract_run_target" ]] || mkdir -p "$__extract_run_target"
+  case "$__extract_run_src" in
     *.zip)
-      unzip -q -o "$1" -d "$2"
+      #__map_unzip_excludes
+      unzip -q -o "$__extract_run_src" -d "$__extract_run_target"
       ;;
     *.tar.bz2)
+      __map_tar_excludes "$@"
       if [[ -n "$ZSH_VERSION" ]]
-      then __rvm_tar xjf "$1" -C "$2" ${=rvm_tar_options:-}
-      else __rvm_tar xjf "$1" -C "$2" ${rvm_tar_options:-}
+      then __rvm_tar "${__exclude_elements[@]}" -xjf "$__extract_run_src" -C "$__extract_run_target" ${=rvm_tar_options:-}
+      else __rvm_tar "${__exclude_elements[@]}" -xjf "$__extract_run_src" -C "$__extract_run_target" ${rvm_tar_options:-}
       fi
       ;;
     *.tar.gz|*.tgz)
+      __map_tar_excludes "$@"
       if [[ -n "$ZSH_VERSION" ]]
-      then __rvm_tar xzf "$1" -C "$2" ${=rvm_tar_options:-}
-      else __rvm_tar xzf "$1" -C "$2" ${rvm_tar_options:-}
+      then __rvm_tar "${__exclude_elements[@]}" -xzf "$__extract_run_src" -C "$__extract_run_target" ${=rvm_tar_options:-}
+      else __rvm_tar "${__exclude_elements[@]}" -xzf "$__extract_run_src" -C "$__extract_run_target" ${rvm_tar_options:-}
       fi
       ;;
     *)
       return 199
       ;;
   esac &&
-  __rvm_fix_group_permissions "$2"/* ||
+  __rvm_fix_group_permissions "$__extract_run_target"/* ||
   return $?
 }
 
-# params: archive_file [path]
+# params: archive_file path [excludes...]
 __rvm_package_extract()
 {
   rvm_debug __rvm_package_extract:$#: "$@"
-  \typeset __tempdir __path __file __return
+  \typeset __extract_src __extract_target __tempdir __path __file __return
+  __extract_src="$1"
+  __extract_target="$2"
+  shift 2
   __return=0
   __tempdir="$( TMPDIR="${rvm_tmp_path}" mktemp -d -t rvm-tmp.XXXXXXXXX )"
-  __rvm_package_extract_run "$1" "$__tempdir" || __return=$?
+  __rvm_package_extract_run "$__extract_src" "$__tempdir" "$@" || __return=$?
   if
     (( __return == 0 ))
   then
@@ -78,11 +98,11 @@ __rvm_package_extract()
     do
       __file="${__path##*/}"
       if
-        [[ -n "${__file}" && -e "$2/${__file}" ]]
+        [[ -n "${__file}" && -e "$__extract_target/${__file}" ]]
       then
-        \command \rm -rf "$2/${__file}" || __return=$?
+        \command \rm -rf "$__extract_target/${__file}" || __return=$?
       fi
-      \command \mv -f "${__path}" "$2/" || __return=$?
+      \command \mv -f "${__path}" "$__extract_target/" || __return=$?
     done
   fi
   if [[ -n "$__tempdir" ]]
