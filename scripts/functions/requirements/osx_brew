@@ -208,15 +208,17 @@ run 'brew doctor' and make sure latest '$brew_openssl_package' is installed prop
 requirements_osx_brew_libs_default_check_gcc()
 {
   if
-    requirements_detect_installed gcc46 gcc47 gcc48 gcc49 apple-gcc42
+    requirements_detect_installed gcc@6 gcc@5 gcc@4.9 gcc48 gcc47 gcc46 apple-gcc42
   then
     case "${packages_installed[*]}" in
-      (*gcc46*) export CC="$(brew --prefix gcc46      )/bin/gcc-4.6" ;;
-      (*gcc47*) export CC="$(brew --prefix gcc47      )/bin/gcc-4.7" ;;
-      (*gcc48*) export CC="$(brew --prefix gcc48      )/bin/gcc-4.8" ;;
-      (*gcc49*) export CC="$(brew --prefix gcc49      )/bin/gcc-4.9" ;;
-      (*gcc42*) export CC="$(brew --prefix apple-gcc42)/bin/gcc-4.2" ;;
-      (*)       return 1 ;;
+      (*gcc@6*)       export CC="$(brew --prefix gcc@6      )/bin/gcc-6" ;;
+      (*gcc@5*)       export CC="$(brew --prefix gcc@5      )/bin/gcc-5" ;;
+      (*gcc@4.9*)     export CC="$(brew --prefix gcc@4.9    )/bin/gcc-4.9" ;;
+      (*gcc@4.8*)     export CC="$(brew --prefix gcc@4.8    )/bin/gcc-4.8" ;;
+      (*gcc@4.7*)     export CC="$(brew --prefix gcc@4.7    )/bin/gcc-4.7" ;;
+      (*gcc@4.6*)     export CC="$(brew --prefix gcc@4.6    )/bin/gcc-4.6" ;;
+      (*apple-gcc42*) export CC="$(brew --prefix apple-gcc42)/bin/gcc-4.2" ;;
+      (*)             return 1 ;;
     esac
   else
     return $?
@@ -226,7 +228,7 @@ requirements_osx_brew_libs_default_check_gcc()
 requirements_osx_brew_libs_default_add_gcc_v_auto()
 {
   if   __rvm_version_compare "${_system_version}" -ge 10.10
-  then requirements_osx_brew_libs_default_add_gcc_v 4.9
+  then requirements_osx_brew_libs_default_add_gcc_v 6.0
   elif __rvm_version_compare "${_system_version}" -ge 10.7
   then requirements_osx_brew_libs_default_add_gcc_v 4.6
   else requirements_osx_brew_libs_default_add_gcc_v 4.2
@@ -236,11 +238,13 @@ requirements_osx_brew_libs_default_add_gcc_v_auto()
 requirements_osx_brew_libs_default_add_gcc_v()
 {
   case "$1" in
-    (4.2) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.2 apple-gcc42 homebrew/dupes    ;;
-    (4.6) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.6 gcc46       homebrew/versions ;;
-    (4.7) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.7 gcc47       homebrew/versions ;;
-    (4.8) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.8 gcc48       homebrew/versions ;;
-    (4.9) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.9 gcc49       homebrew/versions ;;
+    (4.2) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.2 apple-gcc42 ;;
+    (4.6) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.6 gcc@4.6     ;;
+    (4.7) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.7 gcc@4.7     ;;
+    (4.8) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.8 gcc@4.8     ;;
+    (4.9) requirements_osx_brew_libs_default_add_gcc "$2" gcc-4.9 gcc@4.9     ;;
+    (5.0) requirements_osx_brew_libs_default_add_gcc "$2" gcc-5.0 gcc@5       ;;
+    (6.0) requirements_osx_brew_libs_default_add_gcc "$2" gcc-6.0 gcc@6       ;;
     (*)
       rvm_error "Do not know how to check/install gcc '$1'."
       return 1
@@ -260,13 +264,13 @@ requirements_osx_brew_libs_default_add_gcc()
       if [[ -z "${3:-}" ]]
       then false           # no package known and binary not found
       else
-        export CC="$(brew --prefix $3 2>/dev/null || brew --prefix)/bin/$2"
-        if [[ -x "$CC" ]]
-        then true
+        if [[ -z "$(brew --prefix $3 2>/dev/null)" ]]
+        then
+          rvm_error "We don't know how to install <code>$3</code>"
+          rvm_log "Try to run <code>brew install $3</code> and re-run the same rvm command afterwards."
+          false
         else
-          if [[ -n "${4:-}" ]]
-          then requirements_osx_brew_check_custom "$4"
-          fi
+          export CC="$(brew --prefix $3 2>/dev/null || brew --prefix)/bin/$2"
           brew_libs+=( "$3" )
         fi
       fi
@@ -305,11 +309,12 @@ requirements_osx_brew_libs_default()
           ;;
       esac
       ;;
-    (*gcc-4.2|*gcc-4.6|*gcc-4.7|*gcc-4.8|*gcc-4.9) # version                   full_path
+    (*gcc-4.2|*gcc-4.6|*gcc-4.7|*gcc-4.8|*gcc-4.9|*gcc-5|*gcc-6)
+                                                   # version                # full_path
       requirements_osx_brew_libs_default_add_gcc_v ${selected_compiler##*-} "${selected_compiler}" || return $?
       ;;
     (*)
-      rvm_debug "No code to ensure that selected compiler: '${selected_compiler}' exists"
+      rvm_warn "We don't know how to ensure that selected compiler '${selected_compiler}' exists."
       ;;
   esac
 
