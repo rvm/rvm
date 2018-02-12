@@ -38,6 +38,7 @@
 * Add prelude_gcc_diagnostic patch for Ruby 2.5.0 to correct compilation failures with GCC < 5
 * Fix installing rubygems master [\#3734](https://github.com/rvm/rvm/issues/3734)
 * Correctly look for rvm group in /etc/group [\#4300](https://github.com/rvm/rvm/issues/4300)
+* Drop homebrew/versions and upgrade gcc to 6.0 [\#4304](https://github.com/rvm/rvm/pull/4304)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265)
