@@ -82,6 +82,7 @@
 * Allow building static ruby with `--disbale-shared` [\#4091](https://github.com/rvm/rvm/issues/4091)
 * Restore detection of `gpg` command for veryfication of signatures [\#4059](https://github.com/rvm/rvm/issues/4059)
 * Update `gem-wrappers` to 1.3.2: Avoid nested chdir warnings [gem-wrappers \#11](https://github.com/rvm/gem-wrappers/pull/11)
+* Fix Rubinius build on macOS with Homebrew [\#4328](https://github.com/rvm/rvm/pull/4328)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
