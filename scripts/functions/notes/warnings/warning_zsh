@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+__rvm_get_user_shell()
+{
+  case "${_system_type}:${_system_name}" in
+    (Linux:*|SunOS:*|BSD:*|*:Cygwin)
+      \typeset __shell
+      __shell="$( getent passwd $USER )" ||
+        {
+          rvm_error "Error checking user shell via getent ... something went wrong, report a bug."
+          return 2
+        }
+
+      echo "${__shell##*:}"
+      ;;
+    (Darwin:*)
+      \typeset __version
+
+      __version="$(dscl localhost -read "/Search/Users/$USER" UserShell)" ||
+        {
+          rvm_error "Error checking user shell via dscl ... something went wrong, report a bug."
+          return 3
+        }
+
+      echo ${__version#*: }
+      ;;
+    (*)
+      rvm_error "Do not know how to check user shell on '$(command uname)'."
+      return 1
+      ;;
+  esac
+}
+
+__rvm_zsh_version()
+{
+  \typeset __user_shell
+
+  __user_shell="$(__rvm_get_user_shell)"
+
+  if [[ -n "${__user_shell:-}" ]]
+  then
+    echo "$(${__user_shell} -c 'echo $ZSH_VERSION' 2>/dev/null)"
+  fi
+}
+
+__rvm_notes_warning_zsh()
+{
+  \typeset __zsh_version="$(__rvm_zsh_version)"
+
+  if
+      [[ -n "${__zsh_version:-}" ]]
+  then
+    if
+      __rvm_version_compare "${__zsh_version}" -ne 4.3.12 &&
+      __rvm_version_compare "${__zsh_version}" -lt 5.0.0
+    then
+      rvm_warn "  * WARNING: ${__user_shell} version ${__zsh_version} detected - Zsh 4.3.12 / 5.0.0+ is recommended,\n" \
+               "    with current one errors to be expected - bugs in shell code interpretation."
+      fi
+    else
+
+    if
+      __rvm_version_compare "${__zsh_version}" -eq 5.0.3
+    then
+      rvm_warn "  * WARNING: ${__user_shell} version 5.0.3 detected it is BROKEN, either downgrade or upgrade it,\n" \
+               "    for details see https://github.com/rvm/rvm/pull/2431"
+    fi
+  fi
+}
+
+__rvm_notes_warning_zsh
