@@ -16,6 +16,8 @@
 * RailsExpress patches for 2.5.0 [\#4268](https://github.com/rvm/rvm/pull/4268)
 * Update README including Table of Contents to help improve documentation readability [\#4277](https://github.com/rvm/rvm/pull/4277)
 * Set default RubyGems to 2.7 [\#4276](https://github.com/rvm/rvm/issues/4276)
+* Add support for installing Ruby <2.4 on Ubuntu 17.10+ [\#4326](https://github.com/rvm/rvm/pull/4326)
+* Add support for installing Rubinius on Redhat/Fedora [\#4329](https://github.com/rvm/rvm/pull/4329)
 * Installing Rubinius on Ubuntu 17.x [\#4213](https://github.com/rvm/rvm/pull/4213)
 
 #### Bug fixes:
@@ -43,7 +45,7 @@
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265), 2.6.0-preview1 [\#4317](https://github.com/rvm/rvm/pull/4317)
-* Add support for Rubinius 3.85-3.99
+* Add support for Rubinius 3.85-3.100
 * Add support for JRuby 9.1.14.0 [\#4224](https://github.com/rvm/rvm/pull/4224), 9.1.15.0 [\#4258](https://github.com/rvm/rvm/pull/4258), 9.1.16.0 [\#4316](https://github.com/rvm/rvm/pull/4316)
 * Add support for mruby 1.4.0 [\#4286](https://github.com/rvm/rvm/pull/4286)
 * Add support for MagLev 1.1* and 1.2Alpha-1.2Alpha4 [\#4289](https://github.com/rvm/rvm/pull/4289)
