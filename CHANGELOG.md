@@ -19,6 +19,7 @@
 * Add support for installing Ruby <2.4 on Ubuntu 17.10+ [\#4326](https://github.com/rvm/rvm/pull/4326)
 * Add support for installing Rubinius on Redhat/Fedora [\#4329](https://github.com/rvm/rvm/pull/4329)
 * Installing Rubinius on Ubuntu 17.x [\#4213](https://github.com/rvm/rvm/pull/4213)
+* RailsExpress patches for 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4344](https://github.com/rvm/rvm/pull/4344)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
@@ -44,7 +45,7 @@
 * Drop homebrew/versions and upgrade gcc to 6.0 [\#4304](https://github.com/rvm/rvm/pull/4304)
 
 #### Upgraded Ruby interpreters:
-* Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265), 2.6.0-preview1 [\#4317](https://github.com/rvm/rvm/pull/4317)
+* Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265), 2.6.0-preview1 [\#4317](https://github.com/rvm/rvm/pull/4317), 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4340](https://github.com/rvm/rvm/pull/4340)
 * Add support for Rubinius 3.85-3.100
 * Add support for JRuby 9.1.14.0 [\#4224](https://github.com/rvm/rvm/pull/4224), 9.1.15.0 [\#4258](https://github.com/rvm/rvm/pull/4258), 9.1.16.0 [\#4316](https://github.com/rvm/rvm/pull/4316)
 * Add support for mruby 1.4.0 [\#4286](https://github.com/rvm/rvm/pull/4286)
