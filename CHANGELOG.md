@@ -17,8 +17,8 @@
 * Update README including Table of Contents to help improve documentation readability [\#4277](https://github.com/rvm/rvm/pull/4277)
 * Set default RubyGems to 2.7 [\#4276](https://github.com/rvm/rvm/issues/4276)
 * Add support for installing Ruby <2.4 on Ubuntu 17.10+ [\#4326](https://github.com/rvm/rvm/pull/4326)
-* Add support for installing Rubinius on Redhat/Fedora
-  [\#4329](https://github.com/rvm/rvm/pull/4329)
+* Add support for installing Rubinius on Redhat/Fedora [\#4329](https://github.com/rvm/rvm/pull/4329)
+* Installing Rubinius on Ubuntu 17.x [\#4213](https://github.com/rvm/rvm/pull/4213)
 * RailsExpress patches for 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4344](https://github.com/rvm/rvm/pull/4344)
 
 #### Bug fixes:
