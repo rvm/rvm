@@ -35,8 +35,10 @@ You can customize fetching ruby package (source or binary) process with followin
 By default RVM will install 64-bit rubies, but you specify alternative 
 using switches:
 
-- `--32` - install 32-bit rubies
-- `--64` - install 64-bit rubies (default)
+- `--32`                   - install 32-bit rubies
+- `--64`                   - install 64-bit rubies (default)
+- `--universal`            - install both (OSX only)
+- `--arch` | `--archflags` - architectures to install
 
 ## Binary rubies
 
@@ -46,7 +48,7 @@ Using binary builds can significantly decrease ruby installation time.
 
 There are two options controlling binary rubies installation:
 
-- `--binary` - force binary installation, do not try to compile ruby.
+- `--binary`         - force binary installation, do not try to compile ruby.
 - `--disable-binary` - do not try binary ruby, always compile.
 
 More details about managing binary rubies can be found in `rvm help mount`.
@@ -58,8 +60,28 @@ additional configuration options:
 
 - `--reconfigure`      - force `./configure` on install even if `Makefile` already exists
 - `--patch`            - with MRI Rubies you may specify additional patches to apply before install - multiple patches should be comma separated `--patch a.patch[%prefix],b.patch` - `prefix` is an optional argument, which will be bypassed to the `-p` argument of the `patch` command and should be separated from patch file name with the `%` symbol.
-- `--ree-options`      - options passed directly to ree's `./installer` on the command line
-- `-C` | `--configure` - custom configure options - multiple options can be specified, separated with comma
+
+### Compilation options
+- `--clang`                          - use clang for compilation (equivalent to `export CC=clang` + `export CXX=clang++`)
+- `--disable-llvm` | `--disable-jit` - disable LLVM
+- `--enable-llvm` | `--enable-jit`   - enable LLVM
+
+- `--with-arch`                      - architecture flag for configure (e.g. i686, x86_64)
+- `-C` | `--configure` | `--`        - custom configure options - multiple options can be specified, separated with comma
+- `--with-*` | `--without-*`         - configure flags
+- `--enable-*` | `--disable-*`       - configure flags
+- `-E` | `--env`                     - environment flags for configure
+- `-M`                               - custom make options
+
+
+### Package-specific options
+
+rbx & jruby:
+- `--1.8` | `--1.9` | `--2.0` | `--2.1` - use branch compatible with given MRI ruby version
+- `--18` | `--19` | `--20` | `--21`     - same
+
+ree:
+- `--ree-options`   - options passed directly to ree's `./installer` on the command line
 
 ### Compilation threads
 
@@ -79,12 +101,22 @@ on systems without `/usr/lib64`.
 
 More details about managing binary builds can be found in `rvm help mount`.
 
+## Documentation
+
+- `--docs`              - generate ri after installation (default)
+- `--rdoc` | `--yard`   - type of docs to generate (default: rdoc)
+- `--no-docs`           - disable ri after installation
+
 ## Additional settings
 
-- `--docs`               - generate ri after installation
-- `--skip-gemsets`       - skip the installation of default gemsets
-- `--bin`                - path for binaries to be placed (default: `~/.rvm/bin/.`)
-- `-l` | `--level`       - MRI ruby patch level
+- `--skip-gemsets`                     - skip the installation of default gemsets
+- `--bin`                              - path for binaries to be placed (default: `~/.rvm/bin/.`)
+- `-l` | `--level`                     - MRI ruby patch level
+- `--url` | `--repository` | `--repo`  - git URL of repository to install from
+- `--branch`                           - branch to install from
+- `--sha`                              - SHA of commit to install from
+- `--trace`                            - add time, path, etc details to log
+- `--proxy`                            - proxy options to pass to curl for downloading packages
 
 ## Verification
 
