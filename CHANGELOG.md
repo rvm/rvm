@@ -20,6 +20,7 @@
 * Add support for installing Rubinius on Redhat/Fedora [\#4329](https://github.com/rvm/rvm/pull/4329)
 * Installing Rubinius on Ubuntu 17.x [\#4213](https://github.com/rvm/rvm/pull/4213)
 * RailsExpress patches for 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4344](https://github.com/rvm/rvm/pull/4344)
+* Add documentation in `rvm help install` for multiple undocumented flags [\#4350](https://github.com/rvm/rvm/pull/4350)
 * Whitelist Rubinius versions hosted on s3, use git for all others; fixes [\#4311](https://github.com/rvm/rvm/issues/4311) [\#4349](https://github.com/rvm/rvm/pull/4349)
 
 #### Bug fixes:
