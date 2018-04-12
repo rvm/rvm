@@ -21,6 +21,7 @@
 * Installing Rubinius on Ubuntu 17.x [\#4213](https://github.com/rvm/rvm/pull/4213)
 * RailsExpress patches for 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4344](https://github.com/rvm/rvm/pull/4344)
 * Add documentation in `rvm help install` for multiple undocumented flags [\#4350](https://github.com/rvm/rvm/pull/4350)
+* Add support for `--tag` in `rvm install`
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
