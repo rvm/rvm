@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+__rvm_notes_warning_needs_cleanup()
+{
+  \typeset __found __search_path_gems __search_path_rubies gemset_name __need_a_cleanup=0
+
+  for __found in "$rvm_path"/environments/*  "$rvm_path"/wrappers/*
+  do
+    gemset_name="${__found##*/}"
+    __search_path_gems="$rvm_path/gems/${gemset_name}"
+    __search_path_rubies="$rvm_path/rubies/${gemset_name}"
+
+    if
+      [[ -e "$__found" &&
+        "$gemset_name" != default &&
+        ! -e "$__search_path_gems" &&
+        ! -e "$__search_path_rubies"
+      ]]
+    then
+      rvm_debug "    found: $__found missing gems: $__search_path_gems or rubies: $__search_path_rubies"
+
+      __need_a_cleanup=1
+
+      (( ${rvm_debug_flag:-0} == 1 )) || break
+    fi
+  done
+
+  (( __need_a_cleanup )) ||
+  for __found in "$rvm_path"/gems/*
+  do
+    gemset_name="${__found##*/}"
+    gemset_name="${gemset_name%@*}"
+    __search_path_rubies="$rvm_path/rubies/${gemset_name}"
+
+    if
+      [[ -e "$__found" &&
+        "$gemset_name" != cache &&
+        ! -e "$__search_path_rubies"
+      ]]
+    then
+      rvm_debug "    found: $__found - missing rubies: $__search_path_rubies"
+
+      __need_a_cleanup=1
+
+      (( ${rvm_debug_flag:-0} == 1 )) || break
+    fi
+  done
+
+  if
+    (( __need_a_cleanup ))
+  then
+    rvm_warn "  * It looks like some old stuff is laying around RVM, you can cleanup with: <code>rvm cleanup all</code>\n"
+  fi
+}
+
+__rvm_notes_warning_needs_cleanup

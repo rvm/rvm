@@ -20,6 +20,7 @@
 * Add support for installing Rubinius on Redhat/Fedora [\#4329](https://github.com/rvm/rvm/pull/4329)
 * Installing Rubinius on Ubuntu 17.x [\#4213](https://github.com/rvm/rvm/pull/4213)
 * RailsExpress patches for 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4344](https://github.com/rvm/rvm/pull/4344)
+* Add documentation in `rvm help install` for multiple undocumented flags [\#4350](https://github.com/rvm/rvm/pull/4350)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
@@ -43,6 +44,9 @@
 * Fix installing rubygems master [\#3734](https://github.com/rvm/rvm/issues/3734)
 * Correctly look for rvm group in /etc/group [\#4300](https://github.com/rvm/rvm/issues/4300)
 * Drop homebrew/versions and upgrade gcc to 6.0 [\#4304](https://github.com/rvm/rvm/pull/4304)
+* Avoid unnecessary install warning [\#4346](https://github.com/rvm/rvm/pull/4346)
+* Unified putput of installation notes [\#4330](https://github.com/rvm/rvm/pull/4330)
+* Skip gemset pristine on mruby reinstall [\#4348](https://github.com/rvm/rvm/pull/4348)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265), 2.6.0-preview1 [\#4317](https://github.com/rvm/rvm/pull/4317), 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4340](https://github.com/rvm/rvm/pull/4340)
@@ -85,6 +89,8 @@
 * Allow building static ruby with `--disbale-shared` [\#4091](https://github.com/rvm/rvm/issues/4091)
 * Restore detection of `gpg` command for veryfication of signatures [\#4059](https://github.com/rvm/rvm/issues/4059)
 * Update `gem-wrappers` to 1.3.2: Avoid nested chdir warnings [gem-wrappers \#11](https://github.com/rvm/gem-wrappers/pull/11)
+* Fix RVM folder cleanup during installation [\#4333](https://github.com/rvm/rvm/issues/4333)
+* Fix found project file reject reasons for bash -e [\#4314](https://github.com/rvm/rvm/pull/4314)
 * Fix Rubinius build on macOS with Homebrew [\#4328](https://github.com/rvm/rvm/pull/4328)
 
 #### Upgraded Ruby interpreters:
