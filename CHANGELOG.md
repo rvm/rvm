@@ -57,7 +57,7 @@
 * Add support for RubyGems 2.6.14 [\#4205](https://github.com/rvm/rvm/pull/4205), 2.7.0-2.7.4 [\#4276](https://github.com/rvm/rvm/issues/4276) and 2.7.5-6
 
 #### Binaries:
-* Ubuntu 16.04 x64 binaries for Ruby 2.2.9, 2.3.6 and 2.4.3 [\#4259](https://github.com/rvm/rvm/issues/4259), 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161), 2.5.0 [\#4272](https://github.com/rvm/rvm/pull/4272)
+* Ubuntu 16.04 x64 binaries for Ruby 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4362](https://github.com/rvm/rvm/issues/4362), 2.2.9, 2.3.6 and 2.4.3 [\#4259](https://github.com/rvm/rvm/issues/4259), 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161), 2.5.0 [\#4272](https://github.com/rvm/rvm/pull/4272)
 * Ubuntu 17.04 for Ruby 2.1.\*, 2.2.\* [\#4233](https://github.com/rvm/rvm/pull/4233)
 
 ## [1.29.3](https://github.com/rvm/rvm/tag/1.29.3)
