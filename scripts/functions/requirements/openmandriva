@@ -2,39 +2,31 @@
 
 requirements_openmandriva_lib_installed()
 {
-  rpm -q --whatprovides "$1" >/dev/null || return $?
+  dnf list installed "$1" >/dev/null 2>&1 || return $?
 }
 
 requirements_openmandriva_lib_available()
 {
-  urpmq "$1" >/dev/null 2>&1 || return $?
-}
-
-requirements_openmandriva_version_list()
-{
-  rpm -q --whatprovides "$1" | sed -e "s#^$1-##"
+  dnf info "$1" >/dev/null 2>&1 || return $?
 }
 
 requirements_openmandriva_libs_install()
 {
-  __rvm_try_sudo urpmi --downloader wget --wget-options --auth-no-challenge --auto "$@" || return $?
+  __rvm_try_sudo dnf install -y "$@" || return $?
 }
 
-requirements_openmandriva_update_system()
+requirements_openmandriva_libs_remove()
 {
-  __rvm_try_sudo urpmi.update -a ||
+  __rvm_try_sudo dnf remove -y "$@" || return $?
+}
+
+requirements_openmandriva_check_binary()
+{
   {
-    \typeset __ret=$?
-    case ${__ret} in
-      (100)
-        rvm_error "There has been error while updating 'urpmi.update', please give it some time and try again later.
-404 errors should be fixed for rvm to proceed. Check your sources configured in:
-    /etc/urpmi/urpmi.cfg
-"
-        ;;
-    esac
-    return ${__ret}
-  }
+    __rvm_which update-alternatives >/dev/null &&
+    update-alternatives --display "$1" >/dev/null 2>&1
+  } ||
+  __rvm_which "$1" >/dev/null || return $?
 }
 
 requirements_openmandriva_define()
@@ -46,8 +38,30 @@ requirements_openmandriva_define()
 
     (jruby*)
       requirements_check make
-      
-      true # not that easy
+
+      if
+        is_head_or_disable_binary "$1"
+      then
+        requirements_check git
+
+        requirements_openmandriva_check_binary javac ||
+          requirements_check_fallback java-1.8.0-openjdk-devel java-devel ||
+          requirements_check_fallback java-1.7.0-openjdk-devel java-devel
+
+        case $( jruby_installation_method  "$1" ) in
+          mvn) requirements_check_custom_after mvn=maven ;;
+        esac
+
+      else
+        requirements_openmandriva_check_binary java ||
+          requirements_check_fallback java-1.8.0-openjdk java ||
+          requirements_check_fallback java-1.7.0-openjdk java
+      fi
+      ;;
+
+    (rbx*|rubinius*)
+      requirements_check automake bison clang-3.6 flex gdbm-devel git libyaml-devel llvm-devel llvm-static \
+                         make ncurses-devel openssl-devel readline-devel ruby-devel rubygems zlib-devel
       ;;
 
     (ir*)
@@ -64,23 +78,8 @@ requirements_openmandriva_define()
       ;;
 
     (*)
-      if [[ ${#rvm_patch_names[@]} -gt 0 || "$1" == *"-head" ]]
-      then requirements_version_minimal autoconf 2.67
-      else requirements_check autoconf
-      fi
-
-      if [[ "${_system_arch}" == "x86_64" || "${_system_arch}" == "aarch64" ]]
-      then requirements_check lib64yaml-devel lib64ffi-devel
-      else requirements_check libyaml-devel libffi-devel
-      fi
-
-      requirements_check autoconf gcc-c++ glibc-devel patch readline sqlite3-devel \
-        readline-devel zlib zlib-devel openssl-devel make bzip2 automake libtool bison
+      requirements_check autoconf automake bison bzip2 gcc-c++ glibc-headers glibc-devel libffi-devel libtool \
+                         libyaml-devel make patch readline readline-devel sqlite-devel zlib zlib-devel
       ;;
   esac
-}
-
-requirements_rosadesktop_before()
-{
-  __lib_type=openmandriva
 }
