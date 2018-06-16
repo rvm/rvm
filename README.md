@@ -97,6 +97,7 @@ We currently supported following ruby interpreters:
 * `opal`       - ruby to JavaScript compiler
 * `rbx`        - Rubinius - a next generation virtual machine VM for ruby
 * `topaz`      - high performance ruby, written in RPython
+* `truffleruby` - high performance ruby using GraalVM
 
 Historical interpreters which you can still install with RVM, but are not anymore developed and supported by their authors:
 
