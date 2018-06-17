@@ -17,7 +17,7 @@ __rvm_fetch_ruby()
 
   if
     (( ${rvm_head_flag:=0} == 0 )) &&
-    [[ -z "${rvm_ruby_tag:-}" && -z "${rvm_ruby_revision:-}" && -z "${rvm_ruby_sha:-}" ]]
+    [[ -z "${rvm_ruby_tag:-}" && -z "${rvm_ruby_revision:-}" && -z "${rvm_ruby_sha:-}"  && -z "${rvm_ruby_repo_tag:-}" ]]
   then
     __rvm_fetch_ruby_package || return $?
   else
@@ -47,7 +47,7 @@ __rvm_fetch_ruby_cleanup()
 {
   if
     (( ${rvm_head_flag:=0} == 0 )) &&
-    [[ -z "${rvm_ruby_tag:-}" && -z "${rvm_ruby_revision:-}" && -z "${rvm_ruby_sha:-}" ]]
+    [[ -z "${rvm_ruby_tag:-}" && -z "${rvm_ruby_revision:-}" && -z "${rvm_ruby_sha:-}" && -z "${rvm_ruby_repo_tag:-}" ]]
   then
     true # nothing to cleanup
   else
@@ -197,13 +197,28 @@ __rvm_fetch_ruby_head_git()
         remote="${remote:-origin}"
         branch=$(\command \git symbolic-ref -q HEAD 2>/dev/null)
         branch=${branch##refs/heads/}
+        tag=$(\command \git describe --tags 2>/dev/null)
 
         # Ensure we are in a good state.
         \command \git reset --hard HEAD
         # just in case fix the fetch for the remote, new git restricts it to master
         \command \git config "remote.${remote}.fetch" "+refs/heads/*:refs/remotes/${remote}/*"
         # Download the latest updates locally.
-        \command \git fetch "${remote}"
+        \command \git fetch --tags "${remote}"
+        if [[ -n "${rvm_ruby_repo_tag:-}" ]]
+        then
+          if [[ "$tag" != "${rvm_ruby_repo_tag}" ]]
+          then
+            \command \git checkout -f "${rvm_ruby_repo_tag}"
+          fi
+          \command \git pull "$remote" "${rvm_ruby_repo_tag}" # Bring local to latest
+        fi ||
+        {
+          result=$?
+          rvm_error "There has been an error while checking out tag ${rvm_ruby_repo_tag}.  \nHalting the installation."
+          return $result
+        }
+
         if
           [[ "$branch" == "${rvm_ruby_repo_branch}" ]]
         then
@@ -248,6 +263,8 @@ __rvm_fetch_from_git_revision_or_sha()
   then __from="${rvm_ruby_sha}"
   elif [[ -n "${rvm_ruby_repo_branch:-}" ]]
   then __from="${rvm_ruby_repo_branch}"
+  elif [[ -n "${rvm_ruby_repo_tag:-}" ]]
+  then __from="${rvm_ruby_repo_tag}"
   fi
   if
     [[ -n "$__from" ]]
