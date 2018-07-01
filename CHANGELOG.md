@@ -52,6 +52,7 @@
 * Skip gemset pristine on mruby reinstall [\#4348](https://github.com/rvm/rvm/pull/4348)
 * Ruby 2.2.5 to 2.2.10 patches for installing bundled gems [\#4358](https://github.com/rvm/rvm/issues/4358)
 * Update RBX dependencies for OpenSUSE [\#4382](https://github.com/rvm/rvm/pull/4382)
+* Fix nailgun detection on JRuby 9+ [\#4089](https://github.com/rvm/rvm/issues/4089)
 * RVM removes traps in bash [\#4416](https://github.com/rvm/rvm/issues/4416)
 
 #### Upgraded Ruby interpreters:
