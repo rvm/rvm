@@ -11,6 +11,24 @@ RVM is the acronym of Ruby enVironment Manager. It manages Ruby application envi
 
 Homepage and more info at [https://rvm.io](https://rvm.io)
 
+## Table of Contents
+
+- [Installing RVM](#installing-rvm)
+  - [Ubuntu](#ubuntu)
+  - [Any other operating system](#any-other-operating-system)
+  - [Additional installation options](#additional-installation-options)
+- [Upgrading RVM](#upgrading-rvm)
+- [Basic RVM usage](#basic-rvm-usage)
+  - [Installing ruby](#installing-ruby)
+  - [Switching between ruby versions](#switching-between-ruby-versions)
+  - [Other RVM commands](#other-rvm-commands)
+- [Reporting issues](#reporting-issues)
+  - [Check documentation](#check-documentation)
+  - [Try again with latest RVM](#try-again-with-latest-rvm)
+  - [File an issue](#file-an-issue)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Installing RVM
 
 ### Ubuntu
@@ -79,6 +97,7 @@ We currently supported following ruby interpreters:
 * `opal`       - ruby to JavaScript compiler
 * `rbx`        - Rubinius - a next generation virtual machine VM for ruby
 * `topaz`      - high performance ruby, written in RPython
+* `truffleruby` - high performance ruby using GraalVM
 
 Historical interpreters which you can still install with RVM, but are not anymore developed and supported by their authors:
 

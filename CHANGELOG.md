@@ -1,26 +1,100 @@
 # Change Log
 
+
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...HEAD)
 
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...HEAD)
+#### New features:
 
-###
+#### Bug fixes:
 
-[1.29.2](https://github.com/rvm/rvm/tag/1.29.3)
+#### Upgraded Ruby interpreters:
+
+#### Binaries:
+
+
+## [1.29.4](https://github.com/rvm/rvm/tag/1.29.4)
+1 July 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...1.29.4)
+
+#### New features:
+* Multi-colored log, warning and error messages [\#4044](https://github.com/rvm/rvm/pull/4044)
+* RailsExpress patches for 2.2.8, 2.3.5 and 2.4.2 [\#4167](https://github.com/rvm/rvm/pull/4167)
+* Improved CPU count detection [\#4171](https://github.com/rvm/rvm/pull/4171)
+* Simplified wrapper subcommand [\#4180](https://github.com/rvm/rvm/issues/4180)
+* Extend aliases to gems directories [\#4189](https://github.com/rvm/rvm/pull/4189)
+* Debian Buster (10) support [\#4199](https://github.com/rvm/rvm/pull/4199)
+* Implement DNF package manager for Fedora 22+ [\#4198](https://github.com/rvm/rvm/pull/4198)
+* `float_warnings` patches for Ruby 2.0.0p64[5 7 8], 2.1.[8 9 10], 2.2.[4 5 6 7 8], 2.3.[0 1 2 3 4 5] and 2.4.[0 1 2] [\#4201](https://github.com/rvm/rvm/pull/4201)
+* RailsExpress patches for ruby-head, 2.2.9, 2.3.6 and 2.4.3 [\#4264](https://github.com/rvm/rvm/pull/4264)
+* RailsExpress patches for 2.5.0 [\#4268](https://github.com/rvm/rvm/pull/4268)
+* Update README including Table of Contents to help improve documentation readability [\#4277](https://github.com/rvm/rvm/pull/4277)
+* Set default RubyGems to 2.7 [\#4276](https://github.com/rvm/rvm/issues/4276)
+* Add support for installing Ruby <2.4 on Ubuntu 17.10+ [\#4326](https://github.com/rvm/rvm/pull/4326)
+* Add support for installing Rubinius on Redhat/Fedora [\#4329](https://github.com/rvm/rvm/pull/4329)
+* Installing Rubinius on Ubuntu 17.x [\#4213](https://github.com/rvm/rvm/pull/4213)
+* RailsExpress patches for 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4344](https://github.com/rvm/rvm/pull/4344)
+* Add documentation in `rvm help install` for multiple undocumented flags [\#4350](https://github.com/rvm/rvm/pull/4350)
+* Add support for TruffleRuby [\#4406](https://github.com/rvm/rvm/pull/4406)
+* Add support for `--tag` in `rvm install` [\#4360](https://github.com/rvm/rvm/pull/4360)
+* Add bundler to list of default gems [\#4413](https://github.com/rvm/rvm/pull/4413)
+
+#### Bug fixes:
+* ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
+* Add missing `random.c` patch for Ruby 2.3.2 [\#4165](https://github.com/rvm/rvm/issues/4165)
+* Set back IRB history default to HOME [\#4158](https://github.com/rvm/rvm/issues/4158)
+* Do not require `libyaml-devel` on Redhat/Centos when it's not needed [\#2998](https://github.com/rvm/rvm/issues/2998)
+* Restore mvn installation for JRuby 1.7 [\#4166](https://github.com/rvm/rvm/issues/4166)
+* ree-1.8.7 requires old version of OpenSSL 1.0.2 [\#4110](https://github.com/rvm/rvm/issues/4110)
+* `libreadline6-dev` is not a valid Ubuntu 16.10 package [\#4172](https://github.com/rvm/rvm/issues/4172)
+* Require libdb-4.8 for OpenSuSE Tumbleweed [\#4178](https://github.com/rvm/rvm/issues/4178)
+* Require make for JRuby 9 [\#4058](https://github.com/rvm/rvm/issues/4058)
+* Fix support for zsh 5.4.1 [bash_zsh_support \#6](https://github.com/mpapis/bash_zsh_support/pull/6)
+* Installing rbx-3.70 fails on PCLinuxOS 64-bit [\#3895](https://github.com/rvm/rvm/issues/3895)
+* Can't install Ruby with MacPorts and LibreSSL [\#4208](https://github.com/rvm/rvm/issues/4208)
+* Fix invalid `libgmp3-dev` requirement for Debian [\#4238](https://github.com/rvm/rvm/pull/4238)
+* Ensure compat-openssl10-devel is not installed for Fedora 26+ and Ruby 2.4+ [\#4249](https://github.com/rvm/rvm/pull/4249)
+* Fix fd_mask detection on OS X for Ruby 2.5.0 [\#4270](https://github.com/rvm/rvm/pull/4270)
+* Suppress `ls` alias substitution in `gem_install_force` in `scripts/functions/gemset` [\#4282](https://github.com/rvm/rvm/issues/4282)
+* Fix installing rubygems 2.7 [\#4287](https://github.com/rvm/rvm/pull/4287)
+* Add prelude_gcc_diagnostic patch for Ruby 2.5.0 to correct compilation failures with GCC < 5
+* Fix installing rubygems master [\#3734](https://github.com/rvm/rvm/issues/3734)
+* Correctly look for rvm group in /etc/group [\#4300](https://github.com/rvm/rvm/issues/4300)
+* Drop homebrew/versions and upgrade gcc to 6.0 [\#4304](https://github.com/rvm/rvm/pull/4304)
+* Avoid unnecessary install warning [\#4346](https://github.com/rvm/rvm/pull/4346)
+* Unified putput of installation notes [\#4330](https://github.com/rvm/rvm/pull/4330)
+* Skip gemset pristine on mruby reinstall [\#4348](https://github.com/rvm/rvm/pull/4348)
+* Ruby 2.2.5 to 2.2.10 patches for installing bundled gems [\#4358](https://github.com/rvm/rvm/issues/4358)
+* Update RBX dependencies for OpenSUSE [\#4382](https://github.com/rvm/rvm/pull/4382)
+* Fix nailgun detection on JRuby 9+ [\#4089](https://github.com/rvm/rvm/issues/4089)
+* RVM removes traps in bash [\#4416](https://github.com/rvm/rvm/issues/4416)
+
+#### Upgraded Ruby interpreters:
+* Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265), 2.6.0-preview1 [\#4317](https://github.com/rvm/rvm/pull/4317), 2.2.10, 2.3.7, 2.4.4, 2.5.1 [\#4340](https://github.com/rvm/rvm/pull/4340) and 2.6.0-preview2[\#4395](https://github.com/rvm/rvm/pull/4395)
+* Add support for Rubinius 3.85-3.100
+* Add support for JRuby 9.1.14.0 [\#4224](https://github.com/rvm/rvm/pull/4224), 9.1.15.0 [\#4258](https://github.com/rvm/rvm/pull/4258), 9.1.16.0 [\#4316](https://github.com/rvm/rvm/pull/4316), 9.1.17.0 [\#4366](https://github.com/rvm/rvm/pull/4366), 9.2.0.0 [\#4390](https://github.com/rvm/rvm/pull/4390)
+* Add support for mruby 1.4.0 [\#4286](https://github.com/rvm/rvm/pull/4286)
+* Add support for MagLev 1.1* and 1.2Alpha-1.2Alpha4 [\#4289](https://github.com/rvm/rvm/pull/4289)
+* Add support for RubyGems 2.6.14 [\#4205](https://github.com/rvm/rvm/pull/4205), 2.7.0-2.7.4 [\#4276](https://github.com/rvm/rvm/issues/4276) and 2.7.5-6
+
+#### Binaries:
+* Ubuntu 16.04 x64 binaries for Ruby 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4362](https://github.com/rvm/rvm/issues/4362), 2.2.9, 2.3.6 and 2.4.3 [\#4259](https://github.com/rvm/rvm/issues/4259), 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161), 2.5.0 [\#4272](https://github.com/rvm/rvm/pull/4272)
+* Ubuntu 17.04 for Ruby 2.1.\*, 2.2.\* [\#4233](https://github.com/rvm/rvm/pull/4233)
+
+
+## [1.29.3](https://github.com/rvm/rvm/tag/1.29.3)
 10 September 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...1.29.3)
 
 #### New features:
 * Add RVM commands missing in bash shell completion [\#4078](https://github.com/rvm/rvm/pull/4078)
-* Railsexpress patches for 2.3.4 and 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084)
-* Update gem-wrappers to 1.3.0: Show warnings when the target binary is missing or is not executable [gem-wrappers \#9](https://github.com/rvm/gem-wrappers/issues/9)
+* Railsexpress patches for 2.3.4, 2.3-head [\#4084](https://github.com/rvm/rvm/pull/4084), 2.2.5 and 2.2.6 [\#4153](https://github.com/rvm/rvm/pull/4153)
+* Update `gem-wrappers` to 1.3.0: Show warnings when the target binary is missing or is not executable [gem-wrappers \#9](https://github.com/rvm/gem-wrappers/issues/9)
 * Detect Zorin OS as Ubuntu [\#4140](https://github.com/rvm/rvm/issues/4140)
-* Railsexpress patches for 2.2.5 and 2.2.6 [\#4153](https://github.com/rvm/rvm/pull/4153)
 
 #### Bug fixes:
 * Infinite loop in `gemset_create` [\#4102](https://github.com/rvm/rvm/issues/4102)
 * Command not found `__rvm_remote_version` error [\#4085](https://github.com/rvm/rvm/pull/4085)
 * Fix path of version script in `environment` [\#4117](https://github.com/rvm/rvm/pull/4117)
-* Define cd(), pushd() and popd() properly when using zsh [\#4132](https://github.com/rvm/rvm/pull/4132)
+* Define `cd()`, `pushd()` and `popd()` properly when using zsh [\#4132](https://github.com/rvm/rvm/pull/4132)
 * Update gem-wrappers to 1.3.1: Avoid warnings for missing ruby binaries [\#4104](https://github.com/rvm/rvm/issues/4104)
 * Handles :engine=> and :engine_version=> in Gemfile
 * Makes $rvm_ruby_string is not installed searchable by adding a fixed keyword
@@ -32,10 +106,12 @@
 * Ruby 2.3/4 compilation fix for GCC 7 [\#4080](https://github.com/rvm/rvm/issues/4080) [\#4115](https://github.com/rvm/rvm/issues/4115)
 * Add warning for sudo users [\#4009](https://github.com/rvm/rvm/issues/4009)
 * Allows running RVM shell function in Bash with `set -o nounset` [\#4013](https://github.com/rvm/rvm/issues/4013)
-* Ensure rvm_hooks_path is set [\#3902](https://github.com/rvm/rvm/issues/3902)
-* Allow building static ruby with --disbale-shared [\#4091](https://github.com/rvm/rvm/issues/4091)
+* Ensure `rvm_hooks_path` is set [\#3902](https://github.com/rvm/rvm/issues/3902)
+* Allow building static ruby with `--disbale-shared` [\#4091](https://github.com/rvm/rvm/issues/4091)
 * Restore detection of `gpg` command for veryfication of signatures [\#4059](https://github.com/rvm/rvm/issues/4059)
-* Update gem-wrappers to 1.3.2: Avoid nested chdir warnings [gem-wrappers \#11](https://github.com/rvm/gem-wrappers/pull/11)
+* Update `gem-wrappers` to 1.3.2: Avoid nested chdir warnings [gem-wrappers \#11](https://github.com/rvm/gem-wrappers/pull/11)
+* Fix RVM folder cleanup during installation [\#4333](https://github.com/rvm/rvm/issues/4333)
+* Fix found project file reject reasons for bash -e [\#4314](https://github.com/rvm/rvm/pull/4314)
 
 #### Upgraded Ruby interpreters:
 * Add support for Rubinius 3.82, 3.83, 3.84
@@ -43,10 +119,10 @@
 * Upgrade RubyGems to 2.6.13 [\#4142](https://github.com/rvm/rvm/pull/4142)
 * Add support for JRuby 9.1.13.0 [\#4147](https://github.com/rvm/rvm/pull/4147)
 
-### Documentation
+#### Documentation
 * Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
 
-[1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
+## [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)

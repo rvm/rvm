@@ -20,6 +20,16 @@ __rvm_set_color_single()
     (white)    __buffer+='37' ;;
     (default)  __buffer+='39' ;;
 
+    # intense (bright) colors
+    (iblack)    __buffer+='30;1' ;;
+    (ired)      __buffer+='31;1' ;;
+    (igreen)    __buffer+='32;1' ;;
+    (iyellow)   __buffer+='33;1' ;;
+    (iblue)     __buffer+='34;1' ;;
+    (imagenta)  __buffer+='35;1' ;;
+    (icyan)     __buffer+='36;1' ;;
+    (iwhite)    __buffer+='37;1' ;;
+
     # background colors
     (bblack)   __buffer+='40' ;;
     (bred)     __buffer+='41' ;;
@@ -39,19 +49,24 @@ __rvm_set_color_single()
 __rvm_set_color()
 {
   \typeset __buffer __variable
+
   __buffer=$'\E['
   __variable="$1"
   shift
+
   while
     (( $# ))
   do
     __rvm_set_color_single "$1"
     shift
+
     if (( $# ))
     then __buffer+=';'
     fi
   done
+
   __buffer+='m'
+
   if [[ "${__variable}" == "" || "${__variable}" == "print" ]]
   then printf "${__buffer}"
   else eval "${__variable}='${__buffer}'"
@@ -74,10 +89,12 @@ rvm_pretty_print()
     (0|no)
       return 1
       ;;
+
     (1|auto)
       case "${TERM:-dumb}" in
         (dumb|unknown) return 1 ;;
       esac
+
       case "$1" in
         (stdout) [[ -t 1           ]] || return 1 ;;
         (stderr) [[ -t 2           ]] || return 1 ;;
@@ -87,69 +104,121 @@ rvm_pretty_print()
       esac
       return 0
       ;;
+
     (2|force)
       return 0
       ;;
   esac
 }
 
-case "${TERM:-dumb}" in
-  (dumb|unknown)
-    rvm_error_clr=""
-    rvm_warn_clr=""
-    rvm_debug_clr=""
-    rvm_notify_clr=""
-    rvm_reset_clr=""
-    ;;
-  (*)
-    __rvm_set_color rvm_error_clr  "${rvm_error_color:-red}"
-    __rvm_set_color rvm_warn_clr   "${rvm_warn_color:-yellow}"
-    __rvm_set_color rvm_debug_clr  "${rvm_debug_color:-magenta}"
-    __rvm_set_color rvm_notify_clr "${rvm_notify_color:-green}"
-    __rvm_set_color rvm_reset_clr  "${rvm_reset_color:-reset}"
-    ;;
-esac
+__rvm_set_colors()
+{
+  case "${TERM:-dumb}" in
+    (dumb|unknown)
+      rvm_error_clr=""
+      rvm_warn_clr=""
+      rvm_debug_clr=""
+      rvm_notify_clr=""
+      rvm_code_clr=""
+      rvm_comment_clr=""
+      rvm_reset_clr=""
+      ;;
+    (*)
+      __rvm_set_color rvm_error_clr   "${rvm_error_color:-red}"
+      __rvm_set_color rvm_warn_clr    "${rvm_warn_color:-yellow}"
+      __rvm_set_color rvm_debug_clr   "${rvm_debug_color:-magenta}"
+      __rvm_set_color rvm_notify_clr  "${rvm_notify_color:-green}"
+      __rvm_set_color rvm_code_clr    "${rvm_code_color:-blue}"
+      __rvm_set_color rvm_comment_clr "${rvm_comment_color:-iblack}"
+      __rvm_set_color rvm_reset_clr   "${rvm_reset_color:-reset}"
+      ;;
+  esac
+}
 
-exec 6>&2
+__rvm_replace_colors()
+{
+  \typeset ___text
+
+  ___text="${1//<error>/$rvm_error_clr}"
+  ___text="${___text//<warn>/$rvm_warn_clr}"
+  ___text="${___text//<debug>/$rvm_debug_clr}"
+  ___text="${___text//<notify>/$rvm_notify_clr}"
+  ___text="${___text//<code>/$rvm_code_clr}"
+  ___text="${___text//<comment>/$rvm_comment_clr}"
+  ___text="${___text//<log>/$rvm_reset_clr}"
+
+  ___text="${___text//<\/error>/$rvm_reset_clr}"
+  ___text="${___text//<\/warn>/$rvm_reset_clr}"
+  ___text="${___text//<\/debug>/$rvm_reset_clr}"
+  ___text="${___text//<\/notify>/$rvm_reset_clr}"
+  ___text="${___text//<\/code>/$rvm_reset_clr}"
+  ___text="${___text//<\/comment>/$rvm_reset_clr}"
+  ___text="${___text//<\/log>/$rvm_reset_clr}"
+
+  printf "%b" "${___text}$rvm_reset_clr"
+}
+
 rvm_printf_to_stderr()
 {
   printf "$@" >&6
 }
+
 rvm_error()
 {
   if rvm_pretty_print stderr
-  then rvm_printf_to_stderr "%b" "${rvm_error_clr:-}$*${rvm_reset_clr:-}\n"
-  else rvm_printf_to_stderr "%b" "$*\n"
+  then __rvm_replace_colors "<error>$*</error>\n" >&6
+  else printf "%b" "$*\n" >&6
   fi
 }
+
 rvm_help()
 {
   "${rvm_scripts_path}/help" "$@"
 }
+
 rvm_error_help()
 {
   rvm_error "$1"
   shift
   rvm_help "$@"
 }
+
 rvm_fail()
 {
   rvm_error "$1"
   exit "${2:-1}"
 }
+
 rvm_warn()
 {
-  if rvm_pretty_print stdout
-  then rvm_printf_to_stderr "%b" "${rvm_warn_clr:-}$*${rvm_reset_clr:-}\n"
-  else rvm_printf_to_stderr "%b" "$*\n"
+  if rvm_pretty_print stderr
+  then __rvm_replace_colors "<warn>$*</warn>\n" >&6
+  else printf "%b" "$*\n" >&6
   fi
 }
+
+rvm_notify()
+{
+  if rvm_pretty_print stdout
+  then __rvm_replace_colors "<notify>$*</notify>\n"
+  else printf "%b" "$*\n"
+  fi
+}
+
+rvm_log()
+{
+  [[ ${rvm_quiet_flag} == 1 ]] && return
+
+  printf "%b" "$*\n"
+}
+
 rvm_debug()
 {
   (( ${rvm_debug_flag:-0} )) || return 0
+
   if rvm_pretty_print stderr
-  then rvm_printf_to_stderr "%b" "${rvm_debug_clr:-}$*${rvm_reset_clr:-}\n"
-  else rvm_printf_to_stderr "%b" "$*\n"
+  then __rvm_replace_colors "<debug>$*</debug>\n" >&6
+  else printf "%b" "$*\n" >&6
   fi
 }
 
@@ -162,21 +231,21 @@ rvm_debug_stream()
   else \command \cat - >&6
   fi
 }
-rvm_log()
-{
-  [[ ${rvm_quiet_flag} == 1 ]] && return
-  if rvm_pretty_print stdout
-  then printf "%b" "${rvm_notify_clr:-}$*${rvm_reset_clr:-}\n"
-  else printf "%b" "$*\n"
-  fi
-}
+
+
 rvm_verbose_log()
 {
   if (( ${rvm_verbose_flag:=0} == 1 ))
   then rvm_log "$@"
   fi
 }
+
 rvm_out()
 {
   printf "$*\n"
 }
+
+__rvm_set_colors
+
+# Redirect &6 to stderr
+exec 6>&2

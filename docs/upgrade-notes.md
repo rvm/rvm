@@ -68,3 +68,5 @@
       rvm wrapper default --no-prefix
 
   * RVM 1.25.11 'rvm remove' will by default remove gems, to remove only ruby use 'rvm uninstall'
+
+  * RVM 1.30 simplifies behavior of 'rvm wrapper' subcommand

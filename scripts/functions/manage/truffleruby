@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+truffleruby_install_check_llvm()
+{
+  builtin command -v opt > /dev/null ||
+  {
+    rvm_error "TruffleRuby requires LLVM to be installed to run native extensions.
+For more details and for setup instructions for your system, please see:
+https://github.com/oracle/truffleruby/blob/master/doc/user/installing-llvm.md"
+    return 1
+  }
+}
+
+truffleruby_install()
+{
+  __rvm_setup_compile_environment "${rvm_ruby_string}" || return $?
+  truffleruby_install_check_llvm || return $?
+
+  __rvm_cd "${rvm_src_path}"
+
+  __rvm_fetch_ruby || return $?
+
+  __rvm_cd "${rvm_src_path}/${rvm_ruby_string}"
+
+  __rvm_apply_patches
+
+  __rvm_rm_rf "${rvm_ruby_home}" && \command \mkdir -p "$(dirname "${rvm_ruby_home}")" &&
+  __rvm_log_command "install" "${rvm_ruby_string} - #installing to ${rvm_ruby_home}" \
+    __rvm_cp -Rf "${rvm_src_path}/${rvm_ruby_string}" "${rvm_ruby_home}" || return $?
+
+  __rvm_cd "${rvm_ruby_home}"
+
+  # Run the TruffleRuby post-install hook
+  __rvm_log_command "cext" "${rvm_ruby_string} - #compiling c-extensions" \
+    ./lib/truffle/post_install_hook.sh
+
+  # Avoid updating RubyGems for now as it seems fragile
+  rvm_rubygems_version="ignore"
+  __rvm_initial_gemsets_create "$rvm_ruby_home/bin/ruby"
+
+  __rvm_post_install
+
+  __rvm_fetch_ruby_cleanup
+}

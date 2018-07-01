@@ -73,7 +73,7 @@ gemset_create()
       __rvm_using_gemset_globalcache
     then
       if [[ -d "$gem_home/cache" && ! -L "$gem_home/cache" ]]
-      then \command \mv "$gem_home/cache"/*.gem "$rvm_gems_cache_path/" 2>/dev/null
+      then \command \mv -n "$gem_home/cache"/*.gem "$rvm_gems_cache_path/" 2>/dev/null
       fi
       __rvm_rm_rf "$gem_home/cache"
       ln -fs "$rvm_gems_cache_path" "$gem_home/cache"
@@ -132,7 +132,7 @@ is_gem_installed()
   else
     version_check="*([[:digit:]\.])"
   fi
-  ls -ld "${rvm_ruby_gem_home}/gems"/${gem_name}-${version_check} >/dev/null 2>&1 ||
+  ls -ld "${rvm_ruby_gem_home:-$GEM_HOME}/gems"/${gem_name}-${version_check} >/dev/null 2>&1 ||
   "${rvm_ruby_binary}" -rrubygems -e "$gem_spec" 2>/dev/null ||
   return $?
 }
@@ -166,7 +166,7 @@ gem_install_force()
   \typeset -a install_params
 
   install_params=()
-  __available_gem="$( ls -v1 "${rvm_path}/gem-cache"/${gem_name}-${version_check}.gem 2>/dev/null | tail -n 1 )"
+  __available_gem="$( \ls -v1 "${rvm_path}/gem-cache"/${gem_name}-${version_check}.gem 2>/dev/null | tail -n 1 )"
 
   if   [[ -n "${__available_gem}" ]]
   then install_params+=( --local )
@@ -325,14 +325,14 @@ gemset_initial()
   done
   __rvm_log_command "gemset.wrappers.$1" \
     "$rvm_ruby_string - #generating ${1} wrappers" \
-    run_gem_wrappers_regenerate 2>/dev/null || true
+    run_gem_wrappers regenerate 2>/dev/null || true
 }
 
-run_gem_wrappers_regenerate()
+run_gem_wrappers()
 {
-  gem_install gem-wrappers &&
-  gem wrappers regenerate ||
-  return $?
+  gem_install gem-wrappers >/dev/null &&
+    gem wrappers "$@" ||
+    return $?
 }
 
 __rvm_rubygems_create_link()
@@ -376,19 +376,30 @@ __rvm_set_executable()
 
 __rvm_initial_gemsets_create()
 {
+  __rvm_initial_gemsets_setup "$1" &&
+  __rvm_initial_gemsets_create_gemsets
+}
+
+__rvm_initial_gemsets_setup()
+{
   __rvm_log_command "chmod.bin" \
     "$rvm_ruby_string - #making binaries executable" \
     __rvm_set_executable "$rvm_ruby_home/bin"/* &&
+  __rvm_rubygems_create_link "$1" &&
   (
     rvm_ruby_binary="${1:-$rvm_ruby_home/bin/ruby}" \
       rubygems_setup ${rvm_rubygems_version:-latest}
-  ) && # () for exit in rubygems_fatal_error
-  __rvm_initial_gemsets_create_without_rubygems "$1"
+  ) # () for exit in rubygems_fatal_error
 }
 
 __rvm_initial_gemsets_create_without_rubygems()
 {
   __rvm_rubygems_create_link "$1" &&
+  __rvm_initial_gemsets_create_gemsets
+}
+
+__rvm_initial_gemsets_create_gemsets()
+{
   gemset_create "global" &&
   __rvm_with "${rvm_ruby_string}@global" __rvm_remove_without_gems &&
   gemset_create ""
@@ -428,7 +439,8 @@ gemset_reset_env()
   export rvm_use_flag=0
   __rvm_use "${1:-}"
   __rvm_ensure_has_environment_files &&
-  run_gem_wrappers_regenerate
+  run_gem_wrappers regenerate ||
+    return $?
 )
 
 # Transform the list of gems one version per line

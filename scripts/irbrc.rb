@@ -32,6 +32,7 @@ IRB.conf[:PROMPT_MODE] = :RVM if IRB.conf[:PROMPT_MODE] == :DEFAULT
 require "irb/completion" rescue nil
 
 IRB.conf[:SAVE_HISTORY] = 100
+IRB.conf[:HISTORY_FILE] = File.join(ENV["HOME"], ".irb-history")
 
 # Load the user's irbrc file, if possible.
 # Report any errors that occur.

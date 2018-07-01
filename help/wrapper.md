@@ -1,53 +1,35 @@
 # Wrapper
 
-Show path to wrapper / to all wrappers and
-generate links to wrappers to `$rvm_path/bin` for easier use.
+Show/regenerate wrappers.
 
-Wrappers itself are generated always using <https://github.com/rvm/gem-wrappers>.
+NOTE: This command delegates to 'gem wrapper' => <https://github.com/rvm/gem-wrappers>
 
 ## Usage
 
-    rvm wrapper ruby_string show [binary]
-    rvm wrapper ruby_string [wrapper_prefix|--no-prefix] [binary[ binary[ ...]]]
+Show paths and generated wrappers:
 
-where `ruby_string` is the ruby version and gemset combination to provide wrapper links for
-(it can also refer to a valid project path or alias), wrapper_prefix is what to prepend to the name
-of the generated wrapper, and binary and binaries are the names of the binaries for which you wish
-to provide a wrapper (e.g. gem).
+    rvm wrapper show
 
-## Default binaries
 
-When no binaries are provided, rvm will (by default) generate wrapper links for
+Show path to generated wrapper:
 
-    ruby, gem, rake, irb, rdoc, ri, testrb
+    rvm wrapper show executable_name
 
-## Example
+Where `executable_name` is something like `ruby` or `rake`.
 
-If you wish to provide an environment-specific wrapper links for rspec with a rails3 gemset,
-you could do:
 
-    $ rvm --create ree@rails3
-    $ rvm wrapper ree@rails3 r3 spec
+It is also possible to generate a wrapper for external scripts that require ruby:
 
-Which would add r3_spec with the specified environment to the bin
-directory where you installed rvm.
+    rvm wrapper /full/path/to/script
 
-Alternatively, if you do:
+Where `/full/path/to/script` is full path to existing script
 
-    $ rvm wrapper ruby-1.9.2-head --no-prefix
 
-It will create links named ruby, gem, rake, irb, rdoc, ri and tesrb
-in the rvm bin directory.
+Wrappers are generated automatically, but it is possible to rerun the process:
 
-Finally, to show another real and common use, you can use wrapper
-to generate ruby executables and gems for passenger to use. Namely:
+    rvm wrapper regenerate
 
-    $ rvm use ree@rails3 --passenger
 
-is equivelant to:
+Documentation:
 
-    $ rvm use ree@rails3
-    $ rvm wrapper ree@rails3 passenger
-
-Which creates passenger_* binaries in the rvm bin directory using
-ree and the rails3 gemset.
+    rvm wrapper [help]

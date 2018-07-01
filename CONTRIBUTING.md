@@ -53,6 +53,34 @@ rvm switch ~/.rvm-dev           # development version
 rvm switch ~/.rvm               # production version
 ```
 
+## Subtrees
+
+Subtree is a a merge of another repository, it allows us to use external code, track it and simplify it's maintenance.
+
+Configuration for subtrees:
+
+```
+git remote add bash_zsh_support     git@github.com:mpapis/bash_zsh_support.git
+git remote add java_read_properties git@github.com:mpapis/java_read_properties.git
+```
+
+Updating subtrees:
+
+```
+git pull --no-commit --no-ff --strategy=subtree bash_zsh_support     master
+git pull --no-commit --no-ff --strategy=subtree java_read_properties master
+```
+
+It will leave code uncommitted so we can update CHANGELOG.md.
+
+### Adding new subtrees
+
+Follow instructions in official git docs https://www.kernel.org/pub/software/scm/git/docs/howto/using-merge-subtree.html
+With the exception of `<2>` needing extra flag `--allow-unrelated-histories`:
+
+```
+git merge -s ours --no-commit --allow-unrelated-histories ...
+```
 
 ## Coding guidelines
 https://github.com/rvm/rvm/blob/master/FORMATTING.md

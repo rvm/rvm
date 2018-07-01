@@ -12,68 +12,44 @@ if [[ "$1" == "initial" ]]
 then
   notes_type=Upgrade
   PAGER="\command \cat"
+
   new_notes()
   {
     \typeset file
     file="$rvm_path/config/displayed-notes.txt"
+
     \command \rm -f "${file}"
+
     tee "${file}" > /dev/null
-  }
-  important_message()
-  {
-    rvm_error "$@"
-  }
-  important_redirect()
-  {
-    \command \cat - >&2
   }
 elif [[ "$1" == "upgrade" ]]
 then
   notes_type=Upgrade
   PAGER="\command \cat"
+
   new_notes()
   {
     \typeset file
     file="$rvm_path/config/displayed-notes.txt"
+
     touch "${file}"
+
     tee "${file}.new" | (
       diff - "${file}" &&
       printf "  * No new notes to display.\n" >&2 ||
       true
     ) | __rvm_sed -e '/^[^<]/ d' -e 's/^< //'
+
     printf "\n" >&2
     \command \mv -f "${file}.new" "${file}"
   }
-  important_message()
-  {
-    rvm_error "$@"
-  }
-  important_redirect()
-  {
-    \command \cat - >&2
-  }
 else
   notes_type=Installation
+
   new_notes()
   {
     \command \cat
   }
-  important_message()
-  {
-    rvm_warn "$@"
-  }
-  important_redirect()
-  {
-    \command \cat -
-  }
-fi
-
-if [[ "$1" == "upgrade" ]]
-then
-  printf "%b" "
-$notes_type Notes:
-
-"
 fi
 
 # duplication marker kdfkjkjfdkfjdjkdfkjfdkj
@@ -103,19 +79,7 @@ $notes_type Notes:
 "
   fi
 
-  if [[ "$rvm_path" == "/usr/local/rvm" ]] || (( UID == 0 ))
-  then
-    printf "%b" "
-  * Please do NOT forget to add your users to the 'rvm' group.
-    The installer no longer auto-adds root or users to the rvm group. Admins must do this.
-    Also, please note that group memberships are ONLY evaluated at login time.
-    This means that users must log out then back in before group membership takes effect!
-
-"
-  fi
-
-  : \
-    rvm_scripts_path:${rvm_scripts_path:-$rvm_path/scripts}:
+  : rvm_scripts_path:${rvm_scripts_path:-$rvm_path/scripts}:
 
   \command \cat "$rvm_path/docs/upgrade-notes.md" | __rvm_sed \
    -e "s#\${SHELL}#${SHELL}#g" \
@@ -123,236 +87,17 @@ $notes_type Notes:
 
   printf "\n"
 
-  if
-    [[ ${rvm_ignore_dotfiles_flag:-0} == 0 ]] &&
-    [[ -f /etc/profile.d/rvm.sh ]] &&
-    ! __rvm_grep rvm_stored_umask /etc/profile.d/rvm.sh >/dev/null
-  then
-    important_message "
-  * WARNING: your RVM loading script \`/etc/profile.d/rvm.sh\` is deprecated
-    and causes you to have \`umask g+w\` set in your shell,
-    run \`rvm get head --auto-dotfiles\` again to fix your scripts.
-"
-  fi
-
-  if
-    [[ ! -e /dev/fd ]]
-  then
-    important_message "
-  * WARNING: you are missing '/dev/fd' it is important for shell scripting used by RVM,
-    You can fix it on most linux systems with:
-
-      ln -sf /proc/self/fd /dev/fd
-"
-  fi
-
-  if [[ "$rvm_path" == "/usr/share/ruby-rvm" ]]
-  then
-    important_message "
-  * WARNING: You are using apt-get broken RVM, you should now:
-
-      sudo apt-get --purge remove ruby-rvm
-      sudo \command \rm -rf /usr/share/ruby-rvm /etc/rvmrc /etc/profile.d/rvm.sh
-
-    open new terminal and validate environment is clean from old rvm settings:
-
-      env | __rvm_grep rvm
-
-    install RVM:
-
-      curl -L https://get.rvm.io | bash -s stable --autolibs=enable
-
-    for details check:
-
-      https://stackoverflow.com/a/9056395/497756
-"
-  fi
-
-  for __var in RUBYOPT RUBYLIB
-  do
-    if eval "[[ -n \"\${${__var}:-}\" ]]"
-    then
-      important_message "
-  * WARNING: You have ${__var} set in your current environment.
-    This may cause rubies to not work as you expect them to as it is not supported
-    by all of them If errors show up, please try unsetting ${__var} first.
-"
-    fi
-  done
-
-  if
-    [[ ${rvm_ignore_dotfiles_flag:-0} == 0 ]] &&
-    [[ -f "$HOME/.profile" ]] && ! [[ "$rvm_path" == "/usr/local/rvm" || $UID == 0 ]]
-  then
-    for __var in "$HOME/.bash_profile" "$HOME/.bash_login"
-    do
-      if
-        [[ -f "${__var}" ]]
-      then
-        __rvm_grep -E '(source|\.).+profile' "${__var}" >/dev/null 2>&1 ||
-        {
-          important_message "
-  * WARNING: '~/.profile' file found. To load it into your shell, add the following line to '${__var}':
-
-      source ~/.profile
-"
-        }
-        break
-      fi
-    done
-  fi
-
-  \typeset __user_shell __zsh_version
-  if
-    __user_shell="$(__rvm_get_user_shell)" &&
-    [[ -n "${__user_shell:-}" ]] &&
-    __zsh_version="$(${__user_shell} -c 'echo $ZSH_VERSION' 2>/dev/null)" &&
-    [[ -n "${__zsh_version:-}" ]] &&
-    __rvm_version_compare "${__zsh_version}" -ne 4.3.12 &&
-    __rvm_version_compare "${__zsh_version}" -lt 5.0.0
-  then
-    important_message "
-  * WARNING: ${__user_shell} version ${__zsh_version} detected - Zsh 4.3.12 / 5.0.0+ is recommended,
-    with current one errors to be expected - bugs in shell code interpretation.
-"
-  fi
-
-  if
-    [[ -n "${__zsh_version:-}" ]] &&
-    __rvm_version_compare "${__zsh_version}" -eq 5.0.3
-  then
-    important_message "
-  * WARNING: ${__user_shell} version 5.0.3 detected it is BROKEN, either downgrade or upgrade it,
-    for details see => https://github.com/rvm/rvm/pull/2431
-"
-  fi
-
-  \typeset -a __files
-  __files=()
-  for __file in ~/.zlogin ~/.zshrc ~/.bash_profile ~/.bashrc
-  do
-    if [[ -f "${__file}" ]]
-    then __files+=( "${__file}" )
-    fi
-  done
-  if
-    [[ ${rvm_ignore_dotfiles_flag:-0} == 0 ]] &&
-    (( ${#__files[@]} )) &&
-    __rvm_grep -rn '^[^#]*PATH=' "${__files[@]}" |
-      __rvm_grep -vE '[[:alnum:]_]PATH=|PATH=.*PATH'
-  then
-    # account for __rvm_grep not showing file name for just one file checked
-    if (( ${#__files[*]} == 1 ))
-    then __file="Your '${__files[*]}'"
-    else __file="Above files"
-    fi
-    important_message "
-  * WARNING: ${__file} contains \`PATH=\` with no \`\$PATH\` inside, this can break RVM,
-    for details check https://github.com/rvm/rvm/issues/1351#issuecomment-10939525
-    to avoid this warning prepend \`\$PATH\`.
-"
-  fi | important_redirect
-
-  if [[ -n "${GEM_HOME:-}" ]] && ! [[ "${GEM_HOME}" == "$rvm_path/"* ]]
-  then
-    important_message "
-  * WARNING: you have GEM_HOME=\"${GEM_HOME}\" this is conflicting with RVM, make sure to:
-
-      unset GEM_HOME
-"
-  fi
-
-  if
-    [[ -f /etc/rvmrc && -s /etc/rvmrc ]] &&
-    __rvm_grep 'rvm_configure_env=.*/opt/sm' /etc/rvmrc >/dev/null 2>&1
-  then
-    important_message "
-  * WARNING: you have 'rvm_configure_env' in /etc/rvmrc, run the following to fix:
-
-      sudo sed -i'' -e \"/rvm_configure_env=.*\/opt\/sm/d\" /etc/rvmrc
-      rvm autolibs smf
-"
-  fi
-
-  if
-    [[ -z "${rvm_ignore_gemrc_issues:-}" ]]
-  then
-    \typeset _check _gemrc _found
-    _found=0
-    for _gemrc in "/etc/gemrc" "${HOME}/.gemrc"
-    do
-      if
-        [[ -r "${_gemrc}" ]]
-      then
-        for _check in " -n" --user-install gemhome gempath
-        do
-          if
-            __rvm_grep -E -- '^'"${_check}"'|^[^#]*'"${_check}" "${_gemrc}" >/dev/null
-          then
-            (( _found++ ))
-            important_message "  * WARNING: Found ${_check} in ${_gemrc}, please remove it, as it will break rubygems in RVM."
-          fi
-        done
-      fi
-    done
-    if
-      (( _found ))
-    then
-      important_message "    If it is intended or a mistake 'export rvm_ignore_gemrc_issues=1' to avoid this warning.
-"
-    fi
-  fi
-
-  if
-    [[ -x /usr/local/bin/rvm ]]
-  then
-    important_message "
-  * WARNING: you have '/usr/local/bin/rvm', it's most likely a bug of old installation, in most cases it's safe to remove it:
-
-    rm /usr/local/bin/rvm
-"
-  fi
-
-  \typeset __found __search_path_gems __search_path_rubies gemset_name __need_a_cleanup=0
-  for __found in "$rvm_path"/environments/*  "$rvm_path"/wrappers/*
-  do
-    gemset_name="${__found##*/}"
-    __search_path_gems="$rvm_path/gems/${gemset_name}"
-    __search_path_rubies="$rvm_path/rubies/${gemset_name}"
-    if
-      [[ -e "$__found" &&
-        "$gemset_name" != default &&
-        ! -e "$__search_path_gems" &&
-        ! -e "$__search_path_rubies"
-      ]]
-    then
-rvm_debug "    found: $__found missing gems: $__search_path_gems or rubies: $__search_path_rubies"
-      __need_a_cleanup=1
-      (( ${rvm_debug_flag:-0} == 1 )) || break
-    fi
-  done
-  (( __need_a_cleanup )) ||
-  for __found in "$rvm_path"/gems/*
-  do
-    gemset_name="${__found##*/}"
-    gemset_name="${gemset_name%@*}"
-    __search_path_rubies="$rvm_path/rubies/${gemset_name}"
-    if
-      [[ -e "$__found" &&
-        "$gemset_name" != cache &&
-        ! -e "$__search_path_rubies"
-      ]]
-    then
-rvm_debug "    found: $__found - missing rubies: $__search_path_rubies"
-      __need_a_cleanup=1
-      (( ${rvm_debug_flag:-0} == 1 )) || break
-    fi
-  done
-  if
-    (( __need_a_cleanup ))
-  then
-    important_message "  * It looks like some old stuff is laying around RVM, you can cleanup with: rvm cleanup all
-"
-  fi
+  source "$rvm_scripts_path/functions/notes/warnings/warning_loading_script"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_rvm_group"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_missing_devfd"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_apt_get_rvm"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_var"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_zsh"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_path_reset"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_gem_home"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_rvm_configure_env"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_gemrc"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_rvm_in_usr"
+  source "$rvm_scripts_path/functions/notes/warnings/warning_needs_cleanup"
 
 } | new_notes | eval "${PAGER:-\command \cat}"

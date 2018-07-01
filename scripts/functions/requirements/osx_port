@@ -58,12 +58,14 @@ requirements_osx_port_before()
 requirements_osx_port_libs_default()
 {
   port_libs=(
-    autoconf automake libtool pkgconfig
+    autoconf automake gdbm libffi libiconv libksba libtool libyaml pkgconfig readline sqlite3 zlib
   )
+  
   case "$1" in
     (*-head) __rvm_which git >/dev/null || port_libs+=( git )
       ;;
   esac
+  
   __rvm_selected_compiler >/dev/null ||
   case "$1" in
     (ruby-1*|ree*)
@@ -77,9 +79,15 @@ requirements_osx_port_libs_default()
       fi
       ;;
   esac
-  port_libs+=(
-    libiconv libyaml libffi readline libksba openssl sqlite3 zlib gdbm
-  )
+  
+  # LibreSSL is a fork of OpenSSL and is interchangable
+  # If it is installed, then don't worry about OpenSSL
+  if
+    ! requirements_osx_port_lib_installed libressl
+  then
+    port_libs+=( openssl )
+  fi
+  
   if
     requirements_osx_port_lib_installed ncursesw
   then
@@ -90,6 +98,7 @@ Error! ncursesw was replaced by ncurses a long time ago, please uninstall 'ncurs
   else
     port_libs+=( ncurses  )
   fi
+  
   requirements_check_fallback curl-ca-bundle certsync || return $?
   requirements_check "${port_libs[@]}" || return $?
 }
@@ -105,32 +114,45 @@ requirements_osx_port_define()
     (rvm)
       true
       ;;
+
     (jruby*)
+      requirements_check make
+
       if
         is_head_or_disable_binary "$1"
       then
         __rvm_which git >/dev/null || requirements_check git
-        if is_jruby_post17 "$1"
-        then requirements_check_custom_after mvn=maven
-        fi
+        case $( jruby_installation_method  "$1" ) in
+          mvn) requirements_check_custom_after mvn=maven ;;
+        esac
       fi
-      requiremnts_osx_java_fail  || return $?
+
+      requiremnts_osx_java_fail || return $?
       ;;
+
     (ir*)
       __rvm_which mono >/dev/null 2>&1 || return $?
       ;;
+
     (opal)
       requirements_osx_port_libs_ensure node
       ;;
+
+    (truffleruby*)
+      requirements_check openssl llvm-4.0
+      ;;
+
     (ruby*head)
       __rvm_which git >/dev/null || requirements_check git
       requirements_osx_port_libs_default "$1"
       requirements_version_minimal autoconf 2.67
       ;;
+
     (*-head)
       __rvm_which git >/dev/null || requirements_check git
       requirements_osx_port_libs_default "$1" || return $?
       ;;
+
     (*)
       requirements_osx_port_libs_default "$1" || return $?
       ;;

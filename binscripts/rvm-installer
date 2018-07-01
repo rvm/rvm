@@ -475,7 +475,17 @@ get_and_unpack()
     return $_return
   }
 
-  rm -rf ${rvm_src_path}/rvm/*
+  # Remove existing installation
+  typeset _cleanup_cmd
+  _cleanup_cmd="rm -rf ${rvm_src_path}/rvm/{,.[!.],..?}*"
+
+  $_cleanup_cmd || {
+    _return=$?
+      log "Could not remove old RVM sources. Try:\n\n\tsudo $_cleanup_cmd\n\nThen retry your task again."
+      return $_return
+  }
+
+  # Unpack sources
   __rvm_debug_command $rvm_tar_command xzf ${rvm_archives_path}/${_file} ${rvm_tar_options:-} --strip-components 1 ||
   {
     _return=$?
@@ -807,7 +817,7 @@ rvm_install_validate_volume_mount_mode()
           printf "%b" "
 It looks that scripts located in ${path}, which would be RVM destination ${rvm_path},
 are not executable. One of the reasons might be that partition ${partition} holding this location
-is mounted in *noexec* mode, which prevents RVM from working correctly. Please verify your setup 
+is mounted in *noexec* mode, which prevents RVM from working correctly. Please verify your setup
 and re-mount partition ${partition} without the noexec option."
           exit 2
         fi
