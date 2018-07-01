@@ -1,7 +1,20 @@
 # Change Log
 
+
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...HEAD)
+
+#### New features:
+
+#### Bug fixes:
+
+#### Upgraded Ruby interpreters:
+
+#### Binaries:
+
+
+## [1.29.4](https://github.com/rvm/rvm/tag/1.29.4)
+1 July 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...1.29.4)
 
 #### New features:
 * Multi-colored log, warning and error messages [\#4044](https://github.com/rvm/rvm/pull/4044)
@@ -66,6 +79,7 @@
 #### Binaries:
 * Ubuntu 16.04 x64 binaries for Ruby 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4362](https://github.com/rvm/rvm/issues/4362), 2.2.9, 2.3.6 and 2.4.3 [\#4259](https://github.com/rvm/rvm/issues/4259), 2.2.8, 2.3.5 and 2.4.2 [\#4161](https://github.com/rvm/rvm/issues/4161), 2.5.0 [\#4272](https://github.com/rvm/rvm/pull/4272)
 * Ubuntu 17.04 for Ruby 2.1.\*, 2.2.\* [\#4233](https://github.com/rvm/rvm/pull/4233)
+
 
 ## [1.29.3](https://github.com/rvm/rvm/tag/1.29.3)
 10 September 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...1.29.3)
