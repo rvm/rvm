@@ -22,7 +22,8 @@
 * RailsExpress patches for 2.2.10, 2.3.7, 2.4.4 and 2.5.1 [\#4344](https://github.com/rvm/rvm/pull/4344)
 * Add documentation in `rvm help install` for multiple undocumented flags [\#4350](https://github.com/rvm/rvm/pull/4350)
 * Add support for TruffleRuby [\#4406](https://github.com/rvm/rvm/pull/4406)
-* Add support for `--tag` in `rvm install`
+* Add support for `--tag` in `rvm install` [\#4360](https://github.com/rvm/rvm/pull/4360)
+* Add bundler to list of default gems [\#4413](https://github.com/rvm/rvm/pull/4413)
 
 #### Bug fixes:
 * ZSH Bad pattern for Gemfile ruby declaration [\#4154](https://github.com/rvm/rvm/issues/4154) [\#4156](https://github.com/rvm/rvm/issues/4156)
@@ -52,6 +53,7 @@
 * Ruby 2.2.5 to 2.2.10 patches for installing bundled gems [\#4358](https://github.com/rvm/rvm/issues/4358)
 * Update RBX dependencies for OpenSUSE [\#4382](https://github.com/rvm/rvm/pull/4382)
 * Fix nailgun detection on JRuby 9+ [\#4089](https://github.com/rvm/rvm/issues/4089)
+* RVM removes traps in bash [\#4416](https://github.com/rvm/rvm/issues/4416)
 
 #### Upgraded Ruby interpreters:
 * Add support for Ruby 2.2.8, 2.3.5 and 2.4.2 [\#4159](https://github.com/rvm/rvm/pull/4159), 2.5.0-preview1 [\#4204](https://github.com/rvm/rvm/pull/4204), 2.2.9, 2.3.6, 2.4.3 and 2.5.0-rc1 [\#4261](https://github.com/rvm/rvm/pull/4261), 2.5.0 [\#4265](https://github.com/rvm/rvm/pull/4265), 2.6.0-preview1 [\#4317](https://github.com/rvm/rvm/pull/4317), 2.2.10, 2.3.7, 2.4.4, 2.5.1 [\#4340](https://github.com/rvm/rvm/pull/4340) and 2.6.0-preview2[\#4395](https://github.com/rvm/rvm/pull/4395)
