@@ -9,6 +9,7 @@
 #### Bug fixes:
 
 #### Upgraded Ruby interpreters:
+* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419)
 
 #### Binaries:
 
