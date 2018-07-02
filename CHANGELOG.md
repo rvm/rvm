@@ -5,8 +5,10 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...HEAD)
 
 #### New features:
+* Switch to new maven-based JRuby download URLs.
 
 #### Bug fixes:
+* Allow HTTP 2.0 servers to be used for downloads.
 
 #### Upgraded Ruby interpreters:
 
