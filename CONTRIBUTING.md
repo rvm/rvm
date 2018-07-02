@@ -22,7 +22,7 @@ Please follow patterns used in those files and add entries in appropriate locati
 * `config/known`
   * update existing entry when minor version released 
   * add new entry when major version released
-* `config/known_strings` - same rules as above
+* `config/known_strings` - add an entry for the new version released
 * `config/db` - update only for stable releases
 * `config/md5` - add new line with `md5` hash of the interpreter source
 * `config/sha512` - add new line with `sha512` hash of the interpreter source
