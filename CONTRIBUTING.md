@@ -15,17 +15,17 @@ do not break anything.
 
 ## Adding support for new version of Ruby
  
-Following files needs to be updated to add support for a new version of already supported Ruby interpreter.
-Please follow patterns used in those files and add entries in appropriate location. 
-[\#3805](https://github.com/rvm/rvm/commit/c5845cf75f030f8e881e6ab3554dee4f9cc72b46) contains good example of the required changes.
+The following files need to be updated to add support for a new version of an already supported Ruby interpreter.
+Please follow the patterns used in those files and add entries in the appropriate location.
+[\#4366](https://github.com/rvm/rvm/commit/f324ed3946e5d74a80c59d873ac346e70dd50612) is a good example of the required changes.
 
 * `config/known`
   * update existing entry when minor version released 
   * add new entry when major version released
 * `config/known_strings` - add an entry for the new version released
 * `config/db` - update only for stable releases
-* `config/md5` - add new line with `md5` hash of the interpreter source
-* `config/sha512` - add new line with `sha512` hash of the interpreter source
+* `config/md5` - add new line with `md5` hash of the archive
+* `config/sha512` - add new line with `sha512` hash of the archive
 
 When listing interpreter source make sure that you link to the smallest archive variant (usually `.bz2`).
 
