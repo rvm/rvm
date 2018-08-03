@@ -13,7 +13,7 @@
 * Fix trap restoration on Amazon Linux [\#4428](https://github.com/rvm/rvm/pull/4428)
 
 #### Upgraded Ruby interpreters:
-* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419)
+* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419) and 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440)
 
 #### Binaries:
 
