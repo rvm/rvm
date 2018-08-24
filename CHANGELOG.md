@@ -11,6 +11,7 @@
 * Allow HTTP 2.0 servers to be used for downloads.
 * Remove too restrictive check for LLVM with TruffleRuby [\#4427](https://github.com/rvm/rvm/pull/4427)
 * Fix trap restoration on Amazon Linux [\#4428](https://github.com/rvm/rvm/pull/4428)
+* Fix Amazon Linux 2 detection [\#4435](https://github.com/rvm/rvm/pull/4435)
 
 #### Upgraded Ruby interpreters:
 * Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419) and 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440)
