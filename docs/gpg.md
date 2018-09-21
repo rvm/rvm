@@ -37,7 +37,7 @@ run our code - trust our keys.
 
         \curl -sSL https://raw.githubusercontent.com/rvm/rvm/master/binscripts/rvm-installer     -o rvm-installer &&
         \curl -sSL https://raw.githubusercontent.com/rvm/rvm/master/binscripts/rvm-installer.asc -o rvm-installer.asc &&
-        \gpg2 --verify rvm-installer.asc &&
+        \gpg2 --verify rvm-installer.asc rvm-installer &&
         \bash rvm-installer
 
 
