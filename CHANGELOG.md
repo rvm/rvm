@@ -14,7 +14,7 @@
 * Fix Amazon Linux 2 detection [\#4435](https://github.com/rvm/rvm/pull/4435)
 
 #### Upgraded Ruby interpreters:
-* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440) and 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452).
+* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440), 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452), and 1.0.0-rc7 [\#4466](https://github.com/rvm/rvm/pull/4466).
 
 #### Binaries:
 * Ubuntu 18.04 x64 binaries for Ruby 2.3.7, 2.4.4 and 2.5.1 [\#4438](https://github.com/rvm/rvm/issues/4438) 
