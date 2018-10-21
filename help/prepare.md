@@ -38,7 +38,7 @@ Where:
 - `rvm_system_server_path` - can be defined in `$rvm_path/user/db`, autodetected if not defined
 - `rvm_ruby_string` - is the name specified by user
 
-When coresponding path is not defined for url then it is autodetected.
+When corresponding path is not defined for url then it is autodetected.
 
 Example `$rvm_path/user/db`:
 
