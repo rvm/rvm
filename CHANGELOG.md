@@ -6,6 +6,7 @@
 
 #### New features:
 * Switch to new maven-based JRuby download URLs.
+* RailsExpress patches for 2.3.8, 2.4.5 and 2.5.3 [\#4476](https://github.com/rvm/rvm/pull/4476)
 
 #### Bug fixes:
 * Allow HTTP 2.0 servers to be used for downloads.
@@ -14,7 +15,8 @@
 * Fix Amazon Linux 2 detection [\#4435](https://github.com/rvm/rvm/pull/4435)
 
 #### Upgraded Ruby interpreters:
-* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419) and 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440)
+* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440), 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452), and 1.0.0-rc7 [\#4466](https://github.com/rvm/rvm/pull/4466).
+* Add support for Ruby 2.3.8, 2.4.5, 2.5.2 and 2.5.3 [\#4474](https://github.com/rvm/rvm/pull/4474).
 
 #### Binaries:
 * Ubuntu 18.04 x64 binaries for Ruby 2.3.7, 2.4.4 and 2.5.1 [\#4438](https://github.com/rvm/rvm/issues/4438) 
