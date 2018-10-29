@@ -15,6 +15,7 @@
 * Fix Amazon Linux 2 detection [\#4435](https://github.com/rvm/rvm/pull/4435)
 * Fix libssl dependency for Elementary 5.0 Juno [\#4448](https://github.com/rvm/rvm/pull/4448)
 * Fix Ruby 2.5.0 and 2.5.1 build with LibreSSL 2.7.0 [\#4483](https://github.com/rvm/rvm/pull/4483)
+* Fix libssl dependency for Mint 19 [\#4482](https://github.com/rvm/rvm/pull/4482)
 
 #### Upgraded Ruby interpreters:
 * Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440), 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452), and 1.0.0-rc7 [\#4466](https://github.com/rvm/rvm/pull/4466).
@@ -22,6 +23,7 @@
 
 #### Binaries:
 * Ubuntu 18.04 x64 binaries for Ruby 2.3.7, 2.4.4 and 2.5.1 [\#4438](https://github.com/rvm/rvm/issues/4438) 
+
 
 ## [1.29.4](https://github.com/rvm/rvm/tag/1.29.4)
 1 July 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...1.29.4)
