@@ -1,12 +1,12 @@
 # Change Log
 
-
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...HEAD)
 
 #### New features:
 * Switch to new maven-based JRuby download URLs
 * RailsExpress patches for 2.3.8, 2.4.5 and 2.5.3 [\#4476](https://github.com/rvm/rvm/pull/4476)
+* Add support for Void linux [\#4478](https://github.com/rvm/rvm/pull/4478)
 
 #### Bug fixes:
 * Allow HTTP 2.0 servers to be used for downloads
