@@ -5,15 +5,16 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...HEAD)
 
 #### New features:
-* Switch to new maven-based JRuby download URLs.
+* Switch to new maven-based JRuby download URLs
 * RailsExpress patches for 2.3.8, 2.4.5 and 2.5.3 [\#4476](https://github.com/rvm/rvm/pull/4476)
 
 #### Bug fixes:
-* Allow HTTP 2.0 servers to be used for downloads.
+* Allow HTTP 2.0 servers to be used for downloads
 * Remove too restrictive check for LLVM with TruffleRuby [\#4427](https://github.com/rvm/rvm/pull/4427)
 * Fix trap restoration on Amazon Linux [\#4428](https://github.com/rvm/rvm/pull/4428)
 * Fix Amazon Linux 2 detection [\#4435](https://github.com/rvm/rvm/pull/4435)
 * Fix libssl dependency for Elementary 5.0 Juno [\#4448](https://github.com/rvm/rvm/pull/4448)
+* Fix Ruby 2.5.0 and 2.5.1 build with LibreSSL 2.7.0 [\#4483](https://github.com/rvm/rvm/pull/4483)
 * Fix libssl dependency for Mint 19 [\#4482](https://github.com/rvm/rvm/pull/4482)
 
 #### Upgraded Ruby interpreters:
