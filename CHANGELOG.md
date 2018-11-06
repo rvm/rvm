@@ -19,11 +19,10 @@
 
 #### Upgraded Ruby interpreters:
 * Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440), 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452), 1.0.0-rc7 [\#4466](https://github.com/rvm/rvm/pull/4466), 1.0.0-rc8 [\#4489](https://github.com/rvm/rvm/pull/4489), and 1.0.0-rc9 [\#4489](https://github.com/rvm/rvm/pull/4489).
-* Add support for Ruby 2.3.8, 2.4.5, 2.5.2 and 2.5.3 [\#4474](https://github.com/rvm/rvm/pull/4474).
+* Add support for Ruby 2.3.8, 2.4.5, 2.5.2, 2.5.3 [\#4474](https://github.com/rvm/rvm/pull/4474), and 2.6.0-preview3 [\#4490](https://github.com/rvm/rvm/pull/4490)
 
 #### Binaries:
-* Ubuntu 18.04 x64 binaries for Ruby 2.3.7, 2.4.4 and 2.5.1 [\#4438](https://github.com/rvm/rvm/issues/4438) 
-
+* Ubuntu 18.04 x64 binaries for Ruby 2.3.7, 2.4.4 and 2.5.1 [\#4438](https://github.com/rvm/rvm/issues/4438)
 
 ## [1.29.4](https://github.com/rvm/rvm/tag/1.29.4)
 1 July 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...1.29.4)
