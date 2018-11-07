@@ -7,6 +7,7 @@
 * Switch to new maven-based JRuby download URLs
 * RailsExpress patches for 2.3.8, 2.4.5 and 2.5.3 [\#4476](https://github.com/rvm/rvm/pull/4476)
 * Add support for Void linux [\#4478](https://github.com/rvm/rvm/pull/4478)
+* Add support for MINGW in main rvm script [\#4482](https://github.com/rvm/rvm/pull/4482)
 
 #### Bug fixes:
 * Allow HTTP 2.0 servers to be used for downloads
@@ -16,7 +17,6 @@
 * Fix libssl dependency for Elementary 5.0 Juno [\#4448](https://github.com/rvm/rvm/pull/4448)
 * Fix Ruby 2.5.0 and 2.5.1 build with LibreSSL 2.7.0 [\#4483](https://github.com/rvm/rvm/pull/4483)
 * Fix libssl dependency for Mint 19 [\#4482](https://github.com/rvm/rvm/pull/4482)
-* Add support for MINGW in main rvm script [\#4482](https://github.com/rvm/rvm/pull/4482)
 
 #### Upgraded Ruby interpreters:
 * Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440), 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452), 1.0.0-rc7 [\#4466](https://github.com/rvm/rvm/pull/4466), 1.0.0-rc8 [\#4489](https://github.com/rvm/rvm/pull/4489), and 1.0.0-rc9 [\#4489](https://github.com/rvm/rvm/pull/4489).
