@@ -17,6 +17,7 @@
 * Fix libssl dependency for Elementary 5.0 Juno [\#4448](https://github.com/rvm/rvm/pull/4448)
 * Fix Ruby 2.5.0 and 2.5.1 build with LibreSSL 2.7.0 [\#4483](https://github.com/rvm/rvm/pull/4483)
 * Fix libssl dependency for Mint 19 [\#4482](https://github.com/rvm/rvm/pull/4482)
+* Use --no-ri or --no-document depending on ruby version [\#4492](https://github.com/rvm/rvm/pull/4492)
 
 #### Upgraded Ruby interpreters:
 * Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440), 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452), 1.0.0-rc7 [\#4466](https://github.com/rvm/rvm/pull/4466), 1.0.0-rc8 [\#4489](https://github.com/rvm/rvm/pull/4489), and 1.0.0-rc9 [\#4489](https://github.com/rvm/rvm/pull/4489).
