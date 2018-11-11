@@ -8,6 +8,7 @@
 * RailsExpress patches for 2.3.8, 2.4.5 and 2.5.3 [\#4476](https://github.com/rvm/rvm/pull/4476)
 * Add support for Void linux [\#4478](https://github.com/rvm/rvm/pull/4478)
 * Add support for MINGW in main rvm script [\#4493](https://github.com/rvm/rvm/pull/4493)
+* Add fail warning when Avira antivirus running [\#4498](https://github.com/rvm/rvm/pull/4498)
 
 #### Bug fixes:
 * Allow HTTP 2.0 servers to be used for downloads
