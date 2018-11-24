@@ -9,6 +9,7 @@
 * Add support for Void linux [\#4478](https://github.com/rvm/rvm/pull/4478)
 * Add support for MINGW in main rvm script [\#4493](https://github.com/rvm/rvm/pull/4493)
 * Add support for gcc@7 on macOS with Homebrew [\#4500](https://github.com/rvm/rvm/pull/4500)
+* Add support for Trisquel linux [\#4478](https://github.com/rvm/rvm/pull/4478)
 
 #### Bug fixes:
 * Allow HTTP 2.0 servers to be used for downloads
