@@ -165,55 +165,23 @@ You are very warmly welcome to help. Please follow our [contribution guidelines]
 
 Any and all contributions offered in any form, past present or future are understood to be in complete agreement and acceptance with our [Apache License](LICENSE) v2.0.
 
+<a href="https://github.com/rvm/rvm/graphs/contributors"><img src="https://opencollective.com/rvm/contributors.svg?width=890&button=false" /></a>
+
 ### Backers
 
-[Become a backer](https://opencollective.com/rvm#backer) and support us with a small monthly donation to help us continue our activities.
+Thank you to all our backers! 🙏 [[Become a backer](https://opencollective.com/rvm#backer)]
 
-[![Backer](https://opencollective.com/rvm/backer/0/avatar.svg)](https://opencollective.com/rvm/backer/0/website)
-[![Backer](https://opencollective.com/rvm/backer/1/avatar.svg)](https://opencollective.com/rvm/backer/1/website)
-[![Backer](https://opencollective.com/rvm/backer/2/avatar.svg)](https://opencollective.com/rvm/backer/2/website)
-[![Backer](https://opencollective.com/rvm/backer/3/avatar.svg)](https://opencollective.com/rvm/backer/3/website)
-[![Backer](https://opencollective.com/rvm/backer/4/avatar.svg)](https://opencollective.com/rvm/backer/4/website)
-[![Backer](https://opencollective.com/rvm/backer/5/avatar.svg)](https://opencollective.com/rvm/backer/5/website)
-[![Backer](https://opencollective.com/rvm/backer/6/avatar.svg)](https://opencollective.com/rvm/backer/6/website)
-[![Backer](https://opencollective.com/rvm/backer/7/avatar.svg)](https://opencollective.com/rvm/backer/7/website)
-[![Backer](https://opencollective.com/rvm/backer/8/avatar.svg)](https://opencollective.com/rvm/backer/8/website)
-[![Backer](https://opencollective.com/rvm/backer/9/avatar.svg)](https://opencollective.com/rvm/backer/9/website)
-[![Backer](https://opencollective.com/rvm/backer/10/avatar.svg)](https://opencollective.com/rvm/backer/10/website)
-[![Backer](https://opencollective.com/rvm/backer/11/avatar.svg)](https://opencollective.com/rvm/backer/11/website)
-[![Backer](https://opencollective.com/rvm/backer/12/avatar.svg)](https://opencollective.com/rvm/backer/12/website)
-[![Backer](https://opencollective.com/rvm/backer/13/avatar.svg)](https://opencollective.com/rvm/backer/13/website)
-[![Backer](https://opencollective.com/rvm/backer/14/avatar.svg)](https://opencollective.com/rvm/backer/14/website)
-[![Backer](https://opencollective.com/rvm/backer/15/avatar.svg)](https://opencollective.com/rvm/backer/15/website)
-[![Backer](https://opencollective.com/rvm/backer/16/avatar.svg)](https://opencollective.com/rvm/backer/16/website)
-[![Backer](https://opencollective.com/rvm/backer/17/avatar.svg)](https://opencollective.com/rvm/backer/17/website)
-[![Backer](https://opencollective.com/rvm/backer/18/avatar.svg)](https://opencollective.com/rvm/backer/18/website)
-[![Backer](https://opencollective.com/rvm/backer/19/avatar.svg)](https://opencollective.com/rvm/backer/19/website)
+<a href="https://opencollective.com/rvm#backers" target="_blank"><img src="https://opencollective.com/rvm/backers.svg?width=890"></a>
 
 ### Sponsors
 
-[Become a sponsor](https://opencollective.com/rvm#sponsor) and get your logo on our README on Github with a link to your site.
+Support this project by becoming a sponsor. Your logo will show up here with a link to your website. [[Become a sponsor](https://opencollective.com/rvm#sponsor)]
 
-[![Sponsor](https://opencollective.com/rvm/sponsor/0/avatar.svg)](https://opencollective.com/rvm/sponsor/0/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/1/avatar.svg)](https://opencollective.com/rvm/sponsor/1/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/2/avatar.svg)](https://opencollective.com/rvm/sponsor/2/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/3/avatar.svg)](https://opencollective.com/rvm/sponsor/3/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/4/avatar.svg)](https://opencollective.com/rvm/sponsor/4/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/5/avatar.svg)](https://opencollective.com/rvm/sponsor/5/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/6/avatar.svg)](https://opencollective.com/rvm/sponsor/6/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/7/avatar.svg)](https://opencollective.com/rvm/sponsor/7/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/8/avatar.svg)](https://opencollective.com/rvm/sponsor/8/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/9/avatar.svg)](https://opencollective.com/rvm/sponsor/9/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/10/avatar.svg)](https://opencollective.com/rvm/sponsor/10/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/11/avatar.svg)](https://opencollective.com/rvm/sponsor/11/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/12/avatar.svg)](https://opencollective.com/rvm/sponsor/12/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/13/avatar.svg)](https://opencollective.com/rvm/sponsor/13/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/14/avatar.svg)](https://opencollective.com/rvm/sponsor/14/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/15/avatar.svg)](https://opencollective.com/rvm/sponsor/15/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/16/avatar.svg)](https://opencollective.com/rvm/sponsor/16/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/17/avatar.svg)](https://opencollective.com/rvm/sponsor/17/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/18/avatar.svg)](https://opencollective.com/rvm/sponsor/18/website)
-[![Sponsor](https://opencollective.com/rvm/sponsor/19/avatar.svg)](https://opencollective.com/rvm/sponsor/19/website)
+<a href="https://opencollective.com/rvm/sponsor/0/website" target="_blank"><img src="https://opencollective.com/rvm/sponsor/0/avatar.svg"></a>
+<a href="https://opencollective.com/rvm/sponsor/1/website" target="_blank"><img src="https://opencollective.com/rvm/sponsor/1/avatar.svg"></a>
+
+
+## Contributing
 
 ## License
 
