@@ -165,21 +165,18 @@ You are very warmly welcome to help. Please follow our [contribution guidelines]
 
 Any and all contributions offered in any form, past present or future are understood to be in complete agreement and acceptance with our [Apache License](LICENSE) v2.0.
 
-<a href="https://github.com/rvm/rvm/graphs/contributors"><img src="https://opencollective.com/rvm/contributors.svg?width=890&button=false" /></a>
-
 ### Backers
 
-Thank you to all our backers! 🙏 [[Become a backer](https://opencollective.com/rvm#backer)]
+[Become a backer](https://opencollective.com/rvm#backer) and support us with a small monthly donation to help us continue our activities. Thank you if you already one! 🙏
 
 <a href="https://opencollective.com/rvm#backers" target="_blank"><img src="https://opencollective.com/rvm/backers.svg?width=890"></a>
 
 ### Sponsors
 
-Support this project by becoming a sponsor. Your logo will show up here with a link to your website. [[Become a sponsor](https://opencollective.com/rvm#sponsor)]
+Support this project by becoming a [sponsor](https://opencollective.com/rvm#sponsor). Your logo will show up here with a link to your website.
 
 <a href="https://opencollective.com/rvm/sponsor/0/website" target="_blank"><img src="https://opencollective.com/rvm/sponsor/0/avatar.svg"></a>
 <a href="https://opencollective.com/rvm/sponsor/1/website" target="_blank"><img src="https://opencollective.com/rvm/sponsor/1/avatar.svg"></a>
-
 
 ## Contributing
 
