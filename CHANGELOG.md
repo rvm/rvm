@@ -1,7 +1,22 @@
 # Change Log
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...HEAD)
+
+#### New features:
+*
+
+#### Bug fixes:
+*
+
+#### Upgraded Ruby interpreters:
+* 
+
+#### Binaries:
+*
+
+## [1.29.5](https://github.com/rvm/rvm/tag/1.29.5)
+1 July 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...1.29.5)
 
 #### New features:
 * Switch to new maven-based JRuby download URLs
