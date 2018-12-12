@@ -1,7 +1,7 @@
 # Change Log
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...HEAD)
 
 #### New features:
 *
@@ -15,8 +15,15 @@
 #### Binaries:
 *
 
+## [1.29.6](https://github.com/rvm/rvm/tag/1.29.6)
+12 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...1.29.6)
+
+#### Bug fixes:
+* Correct version listed in VERSION file
+* Mention pkuczynski gpg key in docs and cli
+
 ## [1.29.5](https://github.com/rvm/rvm/tag/1.29.5)
-1 July 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...1.29.5)
+12 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...1.29.5)
 
 #### New features:
 * Switch to new maven-based JRuby download URLs
