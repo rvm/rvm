@@ -1,8 +1,6 @@
 # Release procedure
 
-1. Ensure [VERSION](VERSION) is listing version you are planning to release
-2. Update [CHANGELOG](CHANGELOG.md) with release date and links to changes
-3. Merge `master` to `stable`
+1. Merge `master` to `stable`
 
 ```bash
 git checkout master
@@ -12,7 +10,8 @@ git pull
 git merge master
 ```
 
-
+2. Ensure [VERSION](VERSION) is listing version you are planning to release
+3. Update [CHANGELOG](CHANGELOG.md) with release date and links to changes
 4. Tag stable with version
 
 ```bash
@@ -45,8 +44,9 @@ bash ./sign-releases.sh
 8. Close milestone in github
 9. Publish blog entry on http://rvm.io
 10. Publish info on twitter
-11. Update [VERSION](VERSION) with the next planned version
-12. Add new section to [CHANGELOG](CHANGELOG.md)
+11. Prepare for the next release on `master` branch
+    * update [VERSION](VERSION) with the next planned version
+    * add new section to [CHANGELOG](CHANGELOG.md)
 
 ## Preconditions
 
