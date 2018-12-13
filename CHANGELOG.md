@@ -3,25 +3,28 @@
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...HEAD)
 
-#### New features:
+#### New features
 *
 
-#### Bug fixes:
+#### Bug fixes
 *
 
-#### Upgraded Ruby interpreters:
+#### Upgraded Ruby interpreters
 * 
 
-#### Binaries:
+#### Binaries
 *
 
 ## [1.29.6](https://github.com/rvm/rvm/tag/1.29.6)
 12 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...1.29.6)
 
-#### Bug fixes:
+#### Bug fixes
 * Correct version listed in VERSION file
 * Mention pkuczynski gpg key in docs and cli [\#4519](https://github.com/rvm/rvm/pull/4519)
 * Remove gcc installed via Homebrew in favour of Command Line Tools on macOS Mojave [\#4501](https://github.com/rvm/rvm/pull/4501)
+
+#### Documentation
+* Improve gpg signature verification docs [\#4458](https://github.com/rvm/rvm/pull/4458)
 
 ## [1.29.5](https://github.com/rvm/rvm/tag/1.29.5)
 12 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...1.29.5)
