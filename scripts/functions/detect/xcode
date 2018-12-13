@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+__rvm_detect_xcode_version()
+{
+  \typeset version_file
+  for version_file in \
+    /Applications/Xcode.app/Contents/version.plist \
+    /Developer/Applications/Xcode.app/Contents/version.plist
+  do
+    if
+      [[ -f $version_file ]]
+    then
+      if
+        [[ -x /usr/libexec/PlistBuddy ]]
+      then
+        /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" $version_file
+      else
+        __rvm_sed -n '/<key>CFBundleShortVersionString<\/key>/{n; s/^.*>\(.*\)<.*$/\1/; p;}' < $version_file
+      fi
+      return 0
+    fi
+  done
+
+  if
+    builtin command -v xcodebuild >/dev/null
+  then
+    xcodebuild -version | __rvm_sed -n '/Xcode/ {s/Xcode //; p;}'
+    return 0
+  fi
+  return 1
+}
+
+__rvm_detect_xcode_version_at_least()
+{
+  \typeset __xcode_version="$(__rvm_detect_xcode_version)"
+  [[ -n "$__xcode_version" ]] || return 0
+  __rvm_version_compare "$__xcode_version" -ge "$1" || return $?
+  true # for OSX
+}

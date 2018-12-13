@@ -33,7 +33,7 @@ Or,
 
     $ cd ~/My/project && rvm rvmrc load
 
-Note that this replaces 'rvm load-rvmrc'. Note that load implicity trusts the
+Note that this replaces 'rvm load-rvmrc'. Note that load implicitly trusts the
 rvmrc, even if it is set to untrusted.
 
 

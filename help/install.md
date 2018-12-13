@@ -25,14 +25,14 @@ To do clean installation use:
 
 ## Fetching ruby package
 
-You can customize fetching ruby package (source or binary) process with following options: 
+You can customize fetching ruby package (source or binary) process with following options:
 
 - `--quiet-curl`         - make `curl` silent when fetching data
 - `--force`              - remove old installation with sources and force install
 
 ## Architecture
 
-By default RVM will install 64-bit rubies, but you specify alternative 
+By default RVM will install 64-bit rubies, but you specify alternative
 using switches:
 
 - `--32`                   - install 32-bit rubies
@@ -55,7 +55,7 @@ More details about managing binary rubies can be found in `rvm help mount`.
 
 ## Installing from source
 
-If you installing ruby package by compiling it from source, you can pass 
+If you installing ruby package by compiling it from source, you can pass
 additional configuration options:
 
 - `--reconfigure`      - force `./configure` on install even if `Makefile` already exists
@@ -90,7 +90,7 @@ specify your own `-j n` flag to RVM to override the default:
 
     rvm install 2.0.0 -j 50 # OR:
     rvm install 1.8.6 -j 1
-    
+
 ### Movable rubies
 
 It is possible to build a ruby that can be moved to other locations, renamed
@@ -114,6 +114,7 @@ More details about managing binary builds can be found in `rvm help mount`.
 - `-l` | `--level`                     - MRI ruby patch level
 - `--url` | `--repository` | `--repo`  - git URL of repository to install from
 - `--branch`                           - branch to install from
+- `--tag`                              - tag to install from
 - `--sha`                              - SHA of commit to install from
 - `--trace`                            - add time, path, etc details to log
 - `--proxy`                            - proxy options to pass to curl for downloading packages

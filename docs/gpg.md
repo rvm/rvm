@@ -17,8 +17,8 @@ run our code - trust our keys.
 
 1. import keys:
 
-        gpg2 --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 # mpapis@gmail.com
-
+        gpg2 --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 # mpapis@gmail.com
+        gpg2 --keyserver hkp://keys.gnupg.net --recv-keys 7D2BAF1CF37B13E2069D6956105BD0E739499BDB # piotr.kuczynski@gmail.com
 
 2. refresh keys:
 
@@ -31,13 +31,13 @@ run our code - trust our keys.
 3. trust developers:
 
         echo 409B6B1796C275462A1703113804BB82D39DC0E3:6: | gpg2 --import-ownertrust # mpapis@gmail.com
-
+        echo 7D2BAF1CF37B13E2069D6956105BD0E739499BDB:6: | gpg2 --import-ownertrust # piotr.kuczynski@gmail.com
 
 4. verified installation:
 
         \curl -sSL https://raw.githubusercontent.com/rvm/rvm/master/binscripts/rvm-installer     -o rvm-installer &&
         \curl -sSL https://raw.githubusercontent.com/rvm/rvm/master/binscripts/rvm-installer.asc -o rvm-installer.asc &&
-        \gpg2 --verify rvm-installer.asc &&
+        \gpg2 --verify rvm-installer.asc rvm-installer &&
         \bash rvm-installer
 
 
