@@ -1,4 +1,4 @@
-## README
+# GPG
 
 At RVM we use GPG to sign files/releases - for security.
 This docs is a placeholder where we will be adding information on how to
@@ -39,7 +39,6 @@ run our code - trust our keys.
         \curl -sSL https://raw.githubusercontent.com/rvm/rvm/master/binscripts/rvm-installer.asc -o rvm-installer.asc &&
         \gpg2 --verify rvm-installer.asc rvm-installer &&
         \bash rvm-installer
-
 
 5. RVM automates GPG for updates to ensure security, no manual steps are needed after installation.
 
