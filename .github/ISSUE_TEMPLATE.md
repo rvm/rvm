@@ -2,11 +2,11 @@
 
 IMPORTANT:
 
-Before filling a new issue please verify if your problem still exists with latest RVM. We constantly apply fixes but only release new stable versions once a month.
+Before filing a new issue please verify your problem still exists with latest RVM. We constantly apply fixes but only release new stable versions once a month.
 
     rvm get master
 
-If your problem still persist, please follow instructions described in https://github.com/rvm/rvm#reporting-issues.
+If your problem still persists, please follow instructions described in https://github.com/rvm/rvm#reporting-issues.
 
 -->
 

@@ -1,15 +1,34 @@
 Stable
-<a href="https://travis-ci.org/rvm/rvm/branches"><img src="https://travis-ci.org/rvm/rvm.svg?branch=stable" align="center"></a>
-<a href="https://www.bountysource.com/teams/rvm?utm_source=RVM&utm_medium=shield&utm_campaign=raised"><img src="https://api.bountysource.com/badge/team?team_id=506&style=raised" align="center"></a>
+[![Build](https://travis-ci.org/rvm/rvm.svg?branch=stable)](https://travis-ci.org/rvm/rvm/branches)
+[![OpenCollective](https://opencollective.com/rvm/backers/badge.svg)](#backers)
+[![OpenCollective](https://opencollective.com/rvm/sponsors/badge.svg)](#sponsors)
 &nbsp;&nbsp;&nbsp;&nbsp;
 Master
-<a href="https://travis-ci.org/rvm/rvm/branches"><img src="https://travis-ci.org/rvm/rvm.svg?branch=master" align="center"></a>
+[![Build](https://travis-ci.org/rvm/rvm.svg?branch=master)](https://travis-ci.org/rvm/rvm/branches)
 
 # What's RVM
 
 RVM is the acronym of Ruby enVironment Manager. It manages Ruby application environments and enables switching between them.
 
 Homepage and more info at [https://rvm.io](https://rvm.io)
+
+## Table of Contents
+
+- [Installing RVM](#installing-rvm)
+  - [Ubuntu](#ubuntu)
+  - [Any other operating system](#any-other-operating-system)
+  - [Additional installation options](#additional-installation-options)
+- [Upgrading RVM](#upgrading-rvm)
+- [Basic RVM usage](#basic-rvm-usage)
+  - [Installing ruby](#installing-ruby)
+  - [Switching between ruby versions](#switching-between-ruby-versions)
+  - [Other RVM commands](#other-rvm-commands)
+- [Reporting issues](#reporting-issues)
+  - [Check documentation](#check-documentation)
+  - [Try again with latest RVM](#try-again-with-latest-rvm)
+  - [File an issue](#file-an-issue)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Installing RVM
 
@@ -79,6 +98,7 @@ We currently supported following ruby interpreters:
 * `opal`       - ruby to JavaScript compiler
 * `rbx`        - Rubinius - a next generation virtual machine VM for ruby
 * `topaz`      - high performance ruby, written in RPython
+* `truffleruby` - high performance ruby using GraalVM
 
 Historical interpreters which you can still install with RVM, but are not anymore developed and supported by their authors:
 
@@ -145,8 +165,23 @@ You are very warmly welcome to help. Please follow our [contribution guidelines]
 
 Any and all contributions offered in any form, past present or future are understood to be in complete agreement and acceptance with our [Apache License](LICENSE) v2.0.
 
+### Backers
+
+[Become a backer](https://opencollective.com/rvm#backer) and support us with a small monthly donation to help us continue our activities. Thank you if you already one! 🙏
+
+<a href="https://opencollective.com/rvm#backers" target="_blank"><img src="https://opencollective.com/rvm/backers.svg?width=890"></a>
+
+### Sponsors
+
+Support this project by becoming a [sponsor](https://opencollective.com/rvm#sponsor). Your logo will show up here with a link to your website.
+
+<a href="https://opencollective.com/rvm/sponsor/0/website" target="_blank"><img src="https://opencollective.com/rvm/sponsor/0/avatar.svg"></a>
+<a href="https://opencollective.com/rvm/sponsor/1/website" target="_blank"><img src="https://opencollective.com/rvm/sponsor/1/avatar.svg"></a>
+
+## Contributing
+
 ## License
 
-Copyright (C) Michal Papis (2011-2017), Piotr Kuczynski (2016-2017), Wayne E. Seguin (2009-2011) 
+Copyright (C) Michal Papis (2011-2018), Piotr Kuczynski (2016-2018), Wayne E. Seguin (2009-2011) 
 
 Licensed under the [Apache License](LICENSE), Version 2.0
