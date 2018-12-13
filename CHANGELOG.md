@@ -22,6 +22,7 @@
 * Correct version listed in VERSION file
 * Mention pkuczynski gpg key in docs and cli [\#4519](https://github.com/rvm/rvm/pull/4519)
 * Remove gcc installed via Homebrew in favour of Command Line Tools on macOS Mojave [\#4501](https://github.com/rvm/rvm/pull/4501)
+* Fix Rubinius build on macOS with Homebrew [\#4328](https://github.com/rvm/rvm/pull/4328)
 
 #### Documentation
 * Improve gpg signature verification docs [\#4458](https://github.com/rvm/rvm/pull/4458)
