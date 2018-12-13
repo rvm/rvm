@@ -1,13 +1,38 @@
 # Change Log
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...HEAD)
+
+#### New features:
+*
+
+#### Bug fixes:
+*
+
+#### Upgraded Ruby interpreters:
+* 
+
+#### Binaries:
+*
+
+## [1.29.6](https://github.com/rvm/rvm/tag/1.29.6)
+12 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...1.29.6)
+
+#### Bug fixes:
+* Correct version listed in VERSION file
+* Mention pkuczynski gpg key in docs and cli
+
+## [1.29.5](https://github.com/rvm/rvm/tag/1.29.5)
+12 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...1.29.5)
 
 #### New features:
 * Switch to new maven-based JRuby download URLs
 * RailsExpress patches for 2.3.8, 2.4.5 and 2.5.3 [\#4476](https://github.com/rvm/rvm/pull/4476)
 * Add support for Void linux [\#4478](https://github.com/rvm/rvm/pull/4478)
 * Add support for MINGW in main rvm script [\#4493](https://github.com/rvm/rvm/pull/4493)
+* Add support for gcc@7 on macOS with Homebrew [\#4500](https://github.com/rvm/rvm/pull/4500)
+* Add support for Trisquel linux [\#4478](https://github.com/rvm/rvm/pull/4478)
+* Add fail warning when Avira antivirus running [\#4498](https://github.com/rvm/rvm/pull/4498)
 
 #### Bug fixes:
 * Allow HTTP 2.0 servers to be used for downloads
@@ -21,9 +46,10 @@
 * Remove gcc installed via Homebrew in favour of Command Line Tools on macOS Mojave [\#4501](https://github.com/rvm/rvm/pull/4501)
 
 #### Upgraded Ruby interpreters:
-* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440), 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452), 1.0.0-rc7 [\#4466](https://github.com/rvm/rvm/pull/4466), 1.0.0-rc8 [\#4489](https://github.com/rvm/rvm/pull/4489), and 1.0.0-rc9 [\#4489](https://github.com/rvm/rvm/pull/4489).
-* Add support for Ruby 2.3.8, 2.4.5, 2.5.2, 2.5.3 [\#4474](https://github.com/rvm/rvm/pull/4474), and 2.6.0-preview3 [\#4490](https://github.com/rvm/rvm/pull/4490)
-* Add support for JRuby 9.2.1.0 [\#4491](https://github.com/rvm/rvm/pull/4491), 9.2.2.0 [\#4495](https://github.com/rvm/rvm/pull/4495), and 9.2.3.0 [\#4496](https://github.com/rvm/rvm/pull/4496)
+* Add support for TruffleRuby 1.0.0-rc3 [\#4419](https://github.com/rvm/rvm/pull/4419), 1.0.0-rc5 [\#4440](https://github.com/rvm/rvm/pull/4440), 1.0.0-rc6 [\#4452](https://github.com/rvm/rvm/pull/4452), 1.0.0-rc7 [\#4466](https://github.com/rvm/rvm/pull/4466), 1.0.0-rc8 [\#4489](https://github.com/rvm/rvm/pull/4489), 1.0.0-rc9 [\#4489](https://github.com/rvm/rvm/pull/4489), and 1.0.0-rc10 [\#4512](https://github.com/rvm/rvm/pull/4512).
+* Add support for Ruby 2.3.8, 2.4.5, 2.5.2, 2.5.3 [\#4474](https://github.com/rvm/rvm/pull/4474), 2.6.0-preview3 [\#4490](https://github.com/rvm/rvm/pull/4490), and 2.6.0-rc1 [\#4513](https://github.com/rvm/rvm/pull/4513)
+* Add support for JRuby 9.2.1.0 [\#4491](https://github.com/rvm/rvm/pull/4491), 9.2.2.0 [\#4495](https://github.com/rvm/rvm/pull/4495), 9.2.3.0 [\#4496](https://github.com/rvm/rvm/pull/4496), 9.2.4.0 [\#4504](https://github.com/rvm/rvm/pull/4504), 9.2.4.1 [\#4509](https://github.com/rvm/rvm/pull/4509), and 9.2.5.0 [\#4514](https://github.com/rvm/rvm/pull/4514)
+* Add support for mruby 1.4.1 [\4517](https://github.com/rvm/rvm/pull/4517) and 2.0.0 [\4516](https://github.com/rvm/rvm/pull/4516)
 
 #### Binaries:
 * Ubuntu 18.04 x64 binaries for Ruby 2.3.7, 2.4.4 and 2.5.1 [\#4438](https://github.com/rvm/rvm/issues/4438)
