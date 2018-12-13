@@ -8,7 +8,7 @@
 *
 
 #### Bug fixes
-*
+* Install libssl1.0.2 for old versions of Ruby on Kali linux [\#4522](https://github.com/rvm/rvm/pull/4522)
 
 #### Upgraded Ruby interpreters
 * 
