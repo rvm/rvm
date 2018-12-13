@@ -4,6 +4,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...HEAD)
 
 #### New features
+#### New features
 *
 
 #### Bug fixes
@@ -16,7 +17,7 @@
 *
 
 ## [1.29.6](https://github.com/rvm/rvm/tag/1.29.6)
-12 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...1.29.6)
+13 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...1.29.6)
 
 #### Bug fixes
 * Correct version listed in VERSION file
