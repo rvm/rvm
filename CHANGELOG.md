@@ -11,7 +11,7 @@
 * Fix Linux Mint 19 dependencies [\#4524](https://github.com/rvm/rvm/pull/4524)
 
 #### Ruby interpreters
-* Add support for Ruby 2.6.0-rc2
+* Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526)
 
 #### Binaries
 *
