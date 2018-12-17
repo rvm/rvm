@@ -9,6 +9,7 @@
 #### Bug fixes
 * Install libssl1.0.2 for old versions of Ruby on Kali linux [\#4522](https://github.com/rvm/rvm/pull/4522)
 * Fix Linux Mint 19 dependencies [\#4524](https://github.com/rvm/rvm/pull/4524)
+* Fix return code in signature check function [\#4530](https://github.com/rvm/rvm/issues/4530)
 
 #### Ruby interpreters
 * Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526)
