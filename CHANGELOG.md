@@ -11,6 +11,7 @@
 * Fix Linux Mint 19 dependencies [\#4524](https://github.com/rvm/rvm/pull/4524)
 * Fix Mojave Command Line Tools version detection [\#4404](https://github.com/rvm/rvm/pull/4404)
 * Fix return code in signature check function [\#4530](https://github.com/rvm/rvm/issues/4530)
+* Check `stable` branch only for latest version
 
 #### Ruby interpreters
 * Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526)
