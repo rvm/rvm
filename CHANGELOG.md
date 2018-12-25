@@ -15,7 +15,7 @@
 * Fix comparison of local and online stable versions [\#4539](https://github.com/rvm/rvm/issues/4539)
 
 #### Ruby interpreters
-* Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526)
+* Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526) and 2.6.0 [\#4542](https://github.com/rvm/rvm/pull/4542)
 
 #### Binaries
 *
