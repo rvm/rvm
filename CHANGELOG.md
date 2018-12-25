@@ -4,7 +4,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...HEAD)
 
 #### New features
-*
+* Set Ruby 2.6.0 as the default Ruby version [\#4544](https://github.com/rvm/rvm/pull/4544)
 
 #### Bug fixes
 * Install libssl1.0.2 for old versions of Ruby on Kali linux [\#4522](https://github.com/rvm/rvm/pull/4522)
