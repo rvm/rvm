@@ -16,6 +16,7 @@
 * Fix comparison of local and online stable versions [\#4539](https://github.com/rvm/rvm/issues/4539)
 * Remove reference to keys.gnupg.net in favour of pool.sks-keyservers.net [\#4550](https://github.com/rvm/rvm/issues/4550)
 * Fix Homebrew docs links [\#4551](https://github.com/rvm/rvm/issues/4551)
+* Drop invalid link for osx-gcc-installer [\#4552](https://github.com/rvm/rvm/issues/4552)
 
 #### Ruby interpreters
 * Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526) and 2.6.0 [\#4542](https://github.com/rvm/rvm/pull/4542)
