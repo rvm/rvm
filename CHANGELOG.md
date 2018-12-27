@@ -18,7 +18,7 @@
 * Fix Homebrew docs links [\#4551](https://github.com/rvm/rvm/issues/4551)
 * Drop invalid link for osx-gcc-installer [\#4552](https://github.com/rvm/rvm/issues/4552)
 * Drop usage of bit.ly for link shortening [\#4555](https://github.com/rvm/rvm/issues/4555)
-* Add support for gcc 8 with Homebrew and drop gcc older then 4.9
+* Add support for gcc 8 with Homebrew and drop gcc older then 4.9 [\#4556](https://github.com/rvm/rvm/issues/4556)
 
 #### Ruby interpreters
 * Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526) and 2.6.0 [\#4542](https://github.com/rvm/rvm/pull/4542)
