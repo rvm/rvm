@@ -6,6 +6,10 @@
 #### New features
 * Set Ruby 2.6.0 as the default Ruby version [\#4544](https://github.com/rvm/rvm/pull/4544)
 * RailsExpress patches for 2.6.0 [\#4547](https://github.com/rvm/rvm/pull/4547)
+* Add support for gcc@8 with Homebrew and drop gcc < 4.9 [\#4556](https://github.com/rvm/rvm/issues/4556)
+
+#### New interpreters
+* Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526) and 2.6.0 [\#4542](https://github.com/rvm/rvm/pull/4542)
 
 #### Bug fixes
 * Install libssl1.0.2 for old versions of Ruby on Kali linux [\#4522](https://github.com/rvm/rvm/pull/4522)
@@ -17,14 +21,10 @@
 * Remove reference to keys.gnupg.net in favour of pool.sks-keyservers.net [\#4550](https://github.com/rvm/rvm/issues/4550)
 * Fix Homebrew docs links [\#4551](https://github.com/rvm/rvm/issues/4551)
 * Drop invalid link for osx-gcc-installer [\#4552](https://github.com/rvm/rvm/issues/4552)
+* Use gcc from XCode for macOS Mojave (10.14) [\#4557](https://github.com/rvm/rvm/issues/4557)
+
+#### Changes
 * Drop usage of bit.ly for link shortening [\#4555](https://github.com/rvm/rvm/issues/4555)
-* Add support for gcc 8 with Homebrew and drop gcc older then 4.9 [\#4556](https://github.com/rvm/rvm/issues/4556)
-
-#### Ruby interpreters
-* Add support for Ruby 2.6.0-rc2 [\#4526](https://github.com/rvm/rvm/pull/4526) and 2.6.0 [\#4542](https://github.com/rvm/rvm/pull/4542)
-
-#### Binaries
-*
 
 ## [1.29.6](https://github.com/rvm/rvm/tag/1.29.6)
 13 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...1.29.6)
