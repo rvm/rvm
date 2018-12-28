@@ -22,6 +22,7 @@
 * Fix Homebrew docs links [\#4551](https://github.com/rvm/rvm/issues/4551)
 * Drop invalid link for osx-gcc-installer [\#4552](https://github.com/rvm/rvm/issues/4552)
 * Use gcc from XCode for macOS Mojave (10.14) [\#4557](https://github.com/rvm/rvm/issues/4557)
+* Stop uninstalling gcc from Homebrew [\#4558](https://github.com/rvm/rvm/issues/4558)
 
 #### Changes
 * Drop usage of bit.ly for link shortening [\#4555](https://github.com/rvm/rvm/issues/4555)
