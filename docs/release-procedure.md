@@ -10,8 +10,8 @@ git pull
 git merge master
 ```
 
-2. Ensure [VERSION](VERSION) is listing version you are planning to release
-3. Update [CHANGELOG](CHANGELOG.md) with release date and links to changes
+2. Increase [VERSION](VERSION) number and remove `-next`
+3. Update [CHANGELOG](CHANGELOG.md) with release date and links to changes (do not add new `Next` section yet)
 4. Tag stable with version
 
 ```bash
@@ -45,8 +45,8 @@ bash ./sign-releases.sh
 9. Publish blog entry on http://rvm.io
 10. Publish info on twitter
 11. Prepare for the next release on `master` branch
-    * update [VERSION](VERSION) with the next planned version
-    * add new section to [CHANGELOG](CHANGELOG.md)
+    * add `-next` to the [VERSION](VERSION)
+    * add new `Next` section to [CHANGELOG](CHANGELOG.md)
 
 ## Preconditions
 

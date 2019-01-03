@@ -1,6 +1,6 @@
 # Change Log
 
-## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
+## [Next](https://github.com/rvm/rvm/tree/HEAD)
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.7...HEAD)
 
 #### New features
