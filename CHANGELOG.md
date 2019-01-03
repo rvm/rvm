@@ -1,7 +1,22 @@
 # Change Log
 
 ## [Unreleased](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.7...HEAD)
+
+#### New features
+*
+
+#### New interpreters
+* 
+
+#### Bug fixes
+* 
+
+#### Changes
+* 
+
+## [1.29.7](https://github.com/rvm/rvm/tag/1.29.7)
+3 January 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...1.29.7)
 
 #### New features
 * Set Ruby 2.6.0 as the default Ruby version [\#4544](https://github.com/rvm/rvm/pull/4544)
