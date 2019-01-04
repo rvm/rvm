@@ -10,7 +10,7 @@
 * 
 
 #### Bug fixes
-* Add system ruby as dependency for CentOS
+* Add system ruby as dependency for CentOS [\#4567](https://github.com/rvm/rvm/pull/4567)
 
 #### Changes
 * 
