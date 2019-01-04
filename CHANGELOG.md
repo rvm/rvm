@@ -10,7 +10,7 @@
 * 
 
 #### Bug fixes
-* 
+* Add system ruby as dependency for CentOS
 
 #### Changes
 * 
