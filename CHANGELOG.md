@@ -16,7 +16,7 @@
 #### Changes
 * 
 
-## [1.29.7](https://github.com/rvm/rvm/tag/1.29.7)
+## [1.29.7](https://github.com/rvm/rvm/releases/tag/1.29.7)
 3 January 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...1.29.7)
 
 #### New features
@@ -43,7 +43,7 @@
 #### Changes
 * Drop usage of bit.ly for link shortening [\#4555](https://github.com/rvm/rvm/issues/4555)
 
-## [1.29.6](https://github.com/rvm/rvm/tag/1.29.6)
+## [1.29.6](https://github.com/rvm/rvm/releases/tag/1.29.6)
 13 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.5...1.29.6)
 
 #### Bug fixes
@@ -55,7 +55,7 @@
 #### Documentation
 * Improve gpg signature verification docs [\#4458](https://github.com/rvm/rvm/pull/4458)
 
-## [1.29.5](https://github.com/rvm/rvm/tag/1.29.5)
+## [1.29.5](https://github.com/rvm/rvm/releases/tag/1.29.5)
 12 December 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.4...1.29.5)
 
 #### New features:
@@ -86,7 +86,7 @@
 #### Binaries:
 * Ubuntu 18.04 x64 binaries for Ruby 2.3.7, 2.4.4 and 2.5.1 [\#4438](https://github.com/rvm/rvm/issues/4438)
 
-## [1.29.4](https://github.com/rvm/rvm/tag/1.29.4)
+## [1.29.4](https://github.com/rvm/rvm/releases/tag/1.29.4)
 1 July 2018 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.3...1.29.4)
 
 #### New features:
@@ -154,7 +154,7 @@
 * Ubuntu 17.04 for Ruby 2.1.\*, 2.2.\* [\#4233](https://github.com/rvm/rvm/pull/4233)
 
 
-## [1.29.3](https://github.com/rvm/rvm/tag/1.29.3)
+## [1.29.3](https://github.com/rvm/rvm/releases/tag/1.29.3)
 10 September 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.2...1.29.3)
 
 #### New features:
@@ -195,7 +195,7 @@
 #### Documentation
 * Remove `wayneeseguin` reference from RVM repo names [\#4086](https://github.com/rvm/rvm/pull/4086)
 
-## [1.29.2](https://github.com/rvm/rvm/tag/1.29.2)
+## [1.29.2](https://github.com/rvm/rvm/releases/tag/1.29.2)
 
 #### New features:
 * Add support for elementary OS [\#3935](https://github.com/rvm/rvm/issues/3935)
@@ -250,7 +250,7 @@
 * Ruby 2.1 is no more maintained [\#3997](https://github.com/rvm/rvm/pull/3997)
 * Display deprecation notice for `rvm usage` [\#4047](https://github.com/rvm/rvm/pull/4047)
 
-## [1.29.1](https://github.com/rvm/rvm/tag/1.29.1)
+## [1.29.1](https://github.com/rvm/rvm/releases/tag/1.29.1)
 
 19 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.0...1.29.1)
 
@@ -262,7 +262,7 @@
 * Fix detecting openssl path for ruby24 [\#3928](https://github.com/rvm/rvm/issues/3928)
 
 
-## [1.29.0](https://github.com/rvm/rvm/tag/1.29.0)
+## [1.29.0](https://github.com/rvm/rvm/releases/tag/1.29.0)
 
 12 February 2017 - [Full Changelog](https://github.com/rvm/rvm/compare/1.28.0...1.29.0)
 
@@ -319,7 +319,7 @@
 #### Binaries:
 * Ubuntu x64 binary for Ruby 2.4.0 [\#3867](https://github.com/rvm/rvm/issues/3867)
 
-## [1.28.0](https://github.com/rvm/rvm/tag/1.28.0)
+## [1.28.0](https://github.com/rvm/rvm/releases/tag/1.28.0)
 
 19 December 2016 - [Full Changelog](https://github.com/rvm/rvm/compare/1.27.0...1.28.0)
 
