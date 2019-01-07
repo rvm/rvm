@@ -4,7 +4,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.7...HEAD)
 
 #### New features
-*
+* Upgrade RubyGems to version 3.0.2
 
 #### New interpreters
 * 
