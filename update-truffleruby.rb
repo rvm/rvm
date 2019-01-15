@@ -1,8 +1,8 @@
 require "digest"
 
-raise "Usage: #{$0} VERSION" unless ARGV.size == 1
+raise "Usage: #{$0} VERSION RELEASE_DIRECTORY" unless ARGV.size == 2
 
-version = ARGV[0]
+version, release_directory = ARGV
 
 def replace_line(file, pattern, replacement)
   lines = File.readlines(file)
@@ -26,7 +26,7 @@ insert_after "config/known_strings", /^truffleruby/, ["truffleruby-#{version}\n"
 %w[md5 sha512].each { |algorithm|
   digests = %w[linux-amd64 macos-amd64].map { |platform|
     basename = "truffleruby-#{version}-#{platform}.tar.gz"
-    archive = File.expand_path("../ruby-versions/pkg/#{basename}")
+    archive = "#{release_directory}/#{basename}"
     digest = Digest(algorithm.upcase).file(archive).hexdigest
     "#{basename}=#{digest}\n"
   }
