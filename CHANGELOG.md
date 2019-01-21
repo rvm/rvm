@@ -12,6 +12,7 @@
 #### Bug fixes
 * Add system ruby as dependency for CentOS [\#4567](https://github.com/rvm/rvm/pull/4567)
 * Improve detection of Amazon Linux 2 [\#4568](https://github.com/rvm/rvm/pull/4568)
+* Fix macOS openssl requirement gathering with Homebrew [\#4583](https://github.com/rvm/rvm/pull/4583)
 
 #### Changes
 * 
