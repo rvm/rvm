@@ -16,6 +16,7 @@
 * Don't spoil environment with '_system_*' variables [\#4584](https://github.com/rvm/rvm/pull/4584)
 * Add missing zlib dependency for macOS [\#4587](https://github.com/rvm/rvm/pull/4587)
 * Install libssl1.0-dev for version 1.8 of Ruby on Ubuntu linux [\#4586](https://github.com/rvm/rvm/pull/4586)
+* Require os-specific functions during install only when they exist [\#4589](https://github.com/rvm/rvm/pull/4589)
 
 #### Changes
 * 
