@@ -19,7 +19,11 @@
 * Require os-specific functions during install only when they exist [\#4589](https://github.com/rvm/rvm/pull/4589)
 
 #### Changes
-* 
+*
+
+#### Binaries:
+* Ubuntu 18.04 x64 binaries for Ruby 2.2.10, 2.3.8, 2.4.5, 2.5.2, 2.5.3, 2.6.0 [\#4595](https://github.com/rvm/rvm/issues/4595)
+
 
 ## [1.29.7](https://github.com/rvm/rvm/releases/tag/1.29.7)
 3 January 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...1.29.7)
