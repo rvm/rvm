@@ -8,7 +8,7 @@
 * RailsExpress patches for 2.6.1  [\#4603](https://github.com/rvm/rvm/pull/4603)
 
 #### New interpreters
-* Add support for TruffleRuby 1.0.0-rc11 [\#4575](https://github.com/rvm/rvm/pull/4575).
+* Add support for TruffleRuby 1.0.0-rc11 [\#4575](https://github.com/rvm/rvm/pull/4575), TruffleRuby 1.0.0-rc12 [\#4605](https://github.com/rvm/rvm/pull/4605).
 * Add support for Ruby 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597).
 
 #### Bug fixes
