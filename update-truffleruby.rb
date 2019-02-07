@@ -11,9 +11,10 @@ def replace_line(file, pattern, replacement)
   File.write(file, lines.join)
 end
 
-def insert_after(file, pattern, new_lines)
+def insert_after(file, pattern, new_lines, last: true)
   lines = File.readlines(file)
-  i = lines.rindex { |line| pattern =~ line }
+  search = last ? :rindex : :index
+  i = lines.send(search) { |line| pattern =~ line }
   lines.insert(i+1, *new_lines)
   File.write(file, lines.join)
 end
@@ -32,3 +33,6 @@ insert_after "config/known_strings", /^truffleruby/, ["truffleruby-#{version}\n"
   }
   insert_after "config/#{algorithm}", /^truffleruby/, digests
 }
+
+changelog_entry = ["* Add support for TruffleRuby #{version}.\n"]
+insert_after "CHANGELOG.md", /# New interpreters/, changelog_entry, last: false
