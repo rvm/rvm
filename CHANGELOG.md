@@ -11,7 +11,7 @@
 #### New interpreters
 * Add support for TruffleRuby 1.0.0-rc11 [\#4575](https://github.com/rvm/rvm/pull/4575), TruffleRuby 1.0.0-rc12 [\#4605](https://github.com/rvm/rvm/pull/4605)
 * Add support for Ruby 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597)
-* Add support for JRuby 9.2.6.0 [\#](https://github.com/rvm/rvm/pull/)
+* Add support for JRuby 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
 
 #### Bug fixes
 * Add system ruby as dependency for CentOS [\#4567](https://github.com/rvm/rvm/pull/4567)
