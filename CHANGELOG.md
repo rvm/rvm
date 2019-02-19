@@ -22,6 +22,7 @@
 * Install libssl1.0-dev for version 1.8 of Ruby on Ubuntu linux [\#4586](https://github.com/rvm/rvm/pull/4586)
 * Require os-specific functions during install only when they exist [\#4589](https://github.com/rvm/rvm/pull/4589)
 * Fix loading rvm script with set -e [\#4606](https://github.com/rvm/rvm/pull/4606)
+* Fix installing Homebrew in a custom location [\#4620](https://github.com/rvm/rvm/pull/4620)
 
 #### Changes
 *
