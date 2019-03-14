@@ -5,7 +5,7 @@
 
 #### New features
 * Upgrade RubyGems to version 3.0.2
-* RailsExpress patches for 2.6.1  [\#4603](https://github.com/rvm/rvm/pull/4603)
+* RailsExpress patches for 2.6.1 [\#4603](https://github.com/rvm/rvm/pull/4603), 2.5.4 and 2.6.2 [\#4637](https://github.com/rvm/rvm/pull/4637)
 * Add script to automatically register a new TruffleRuby release in RVM [\#4576](https://github.com/rvm/rvm/pull/4576)
 
 #### New interpreters
