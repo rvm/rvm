@@ -13,7 +13,7 @@
 * Add support for TruffleRuby 1.0.0-rc11 [\#4575](https://github.com/rvm/rvm/pull/4575), TruffleRuby 1.0.0-rc12 [\#4605](https://github.com/rvm/rvm/pull/4605)
 * Add support for Ruby 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597)
 * Add support for Ruby 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
-* Add support for Ruby 2.5.5
+* Add support for Ruby 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640)
 * Add support for JRuby 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
 
 #### Bug fixes
