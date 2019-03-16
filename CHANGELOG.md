@@ -26,7 +26,7 @@
 * Require os-specific functions during install only when they exist [\#4589](https://github.com/rvm/rvm/pull/4589)
 * Fix loading rvm script with set -e [\#4606](https://github.com/rvm/rvm/pull/4606)
 * Fix installing Homebrew in a custom location [\#4620](https://github.com/rvm/rvm/pull/4620)
-* Use newer llvm on Mint 19.1+
+* Use newer llvm on Mint 19.1+ [\#4642](https://github.com/rvm/rvm/pull/4642)
 
 #### Changes
 *
