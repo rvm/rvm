@@ -35,6 +35,7 @@
 #### Binaries:
 * Ubuntu 18.04 x64 binaries for Ruby 2.2.10, 2.3.8, 2.4.5, 2.5.2, 2.5.3, 2.6.0 [\#4595](https://github.com/rvm/rvm/issues/4595)
 * Ubuntu 18.04 x64 binary for Ruby 2.6.1 [\#4601](https://github.com/rvm/rvm/issues/4601)
+* Ubuntu 18.04 x64 binaries for Ruby 2.5.4, 2.5.5, 2.6.2 [\#4647](https://github.com/rvm/rvm/issues/4647)
 
 
 ## [1.29.7](https://github.com/rvm/rvm/releases/tag/1.29.7)
