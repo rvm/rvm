@@ -16,6 +16,7 @@
 * Add support for Ruby 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
 * Add support for Ruby 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640)
 * Add support for JRuby 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
+* Add support for Rubinius 3.107 [\#4649](https://github.com/rvm/rvm/pull/4649)
 
 #### Bug fixes
 * Add system ruby as dependency for CentOS [\#4567](https://github.com/rvm/rvm/pull/4567)
