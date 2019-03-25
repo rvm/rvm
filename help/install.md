@@ -75,8 +75,6 @@ additional configuration options:
 
 #### .rvmrc equivalents
 
-Note: these are not the only options passed to `configure` & `make`. rvm will add multiple options to each. See `RVMPATH/scripts/functions/{build_config,ruby,rubinius,requrements,pkg,...}` for details.
-
 - `--with-arch`                       `rvm_architectures`
 - `-C`                                `rvm_configure_flags`
         ... or per-ruby:              `{jruby|ree|rbx|mruby|macruby|truffleruby}_configure_flags`
@@ -84,11 +82,13 @@ Note: these are not the only options passed to `configure` & `make`. rvm will ad
 - `-M`                                `rvm_make_flags`
 - [none]                              `rvm_curl_flags`; default: --max-redirs 10 --max-time 1800
 
-E.g. .rvmrc for `brew`-based `readline`, `llvm`, and `openssl` libraries:
+Note: these are not the only options passed to `configure` & `make`. rvm will add multiple options to each. See `RVMPATH/scripts/functions/{build_config,ruby,rubinius,requrements,pkg,...}` for details.
+
+A variable with multiple flags should be set using parentheses and space separators. E.g. .rvmrc for `brew`-based `readline`, `llvm`, and `openssl` libraries:
 ```
- # warning: don't put \ linebreaks within the single-quoted portions or the compiler will break.
-rvm_configure_env="LDFLAGS='-L$(brew --prefix readline)/lib -L$(brew --prefix llvm)/lib -L$(brew --prefix openssl)/lib' \
-  CPPFLAGS='-I$(brew --prefix readline)/include -I$(brew --prefix llvm)/include -I$(brew --prefix openssl)/include'
+ # warning: don't use \ linebreaks or it will break.
+rvm_configure_env=( LDFLAGS="-L$(brew --prefix readline)/lib -L$(brew --prefix llvm)/lib -L$(brew --prefix openssl)/lib" CPPFLAGS="-I$(brew --prefix readline)/include -I$(brew --prefix llvm)/include -I$(brew --prefix openssl)/include" CXX=$(brew --prefix llvm)/bin/clang++ CC=$(brew --prefix llvm)/bin/clang )
+rvm_archflags="-arch x86_64"
 ```
 
 ### Package-specific options
