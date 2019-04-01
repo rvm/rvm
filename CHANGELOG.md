@@ -7,6 +7,7 @@
 * Upgrade RubyGems to version 3.0.2
 * RailsExpress patches for 2.6.1 [\#4603](https://github.com/rvm/rvm/pull/4603), 2.5.4 and 2.6.2 [\#4637](https://github.com/rvm/rvm/pull/4637), 2.5.5 [\#4646](https://github.com/rvm/rvm/pull/4646)
 * Add script to automatically register a new TruffleRuby release in RVM [\#4576](https://github.com/rvm/rvm/pull/4576)
+* Add .rvmrc equivalents to install help [\#4652](https://github.com/rvm/rvm/pull/4652)
 * Copy config.log for debugging if configure fails [\#4651](https://github.com/rvm/rvm/pull/4651)
 
 #### New interpreters
@@ -16,6 +17,7 @@
 * Add support for Ruby 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597)
 * Add support for Ruby 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
 * Add support for Ruby 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640)
+* Add support for Ruby 2.4.6 [\#4657](https://github.com/rvm/rvm/pull/4657)
 * Add support for JRuby 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
 
 #### Bug fixes
