@@ -11,6 +11,7 @@
 * Copy config.log for debugging if configure fails [\#4651](https://github.com/rvm/rvm/pull/4651)
 
 #### New interpreters
+* Add support for TruffleRuby 1.0.0-rc15.
 * Add support for TruffleRuby 1.0.0-rc14.
 * Add support for TruffleRuby 1.0.0-rc13.
 * Add support for TruffleRuby 1.0.0-rc11 [\#4575](https://github.com/rvm/rvm/pull/4575), TruffleRuby 1.0.0-rc12 [\#4605](https://github.com/rvm/rvm/pull/4605)
