@@ -34,6 +34,7 @@
 * Fix loading rvm script with set -e [\#4606](https://github.com/rvm/rvm/pull/4606)
 * Fix installing Homebrew in a custom location [\#4620](https://github.com/rvm/rvm/pull/4620)
 * Update rbx dependencies for macOS [\#4643](https://github.com/rvm/rvm/pull/4643)
+* Fix version selected for TruffleRuby binary install [\#4662](https://github.com/rvm/rvm/pull/4662)
 
 #### Changes
 *
