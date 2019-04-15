@@ -19,6 +19,7 @@
 * Add support for Ruby 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
 * Add support for Ruby 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640)
 * Add support for Ruby 2.4.6 [\#4657](https://github.com/rvm/rvm/pull/4657)
+* Add support for JRuby 9.2.7.0 [\#4664](https://github.com/rvm/rvm/pull/4664)
 * Add support for JRuby 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
 * Add support for Rubinius 3.107 [\#4649](https://github.com/rvm/rvm/pull/4649)
 
