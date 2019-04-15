@@ -23,6 +23,7 @@
   * 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
   * 9.2.7.0 [\#4664](https://github.com/rvm/rvm/pull/4664)
 * Add support for Rubinius 3.107 [\#4649](https://github.com/rvm/rvm/pull/4649)
+* Add support for mruby 2.0.1 [\#4667](https://github.com/rvm/rvm/pull/4667)
 
 #### Bug fixes
 * Add system ruby as dependency for CentOS [\#4567](https://github.com/rvm/rvm/pull/4567)
