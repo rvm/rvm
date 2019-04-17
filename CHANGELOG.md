@@ -17,6 +17,7 @@
 * Add support for Ruby
   * 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597)
   * 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
+  * 2.6.3 [\#4668](https://github.com/rvm/rvm/pull/4668)
   * 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640) 
   * 2.4.6 [\#4657](https://github.com/rvm/rvm/pull/4657)
 * Add support for JRuby
