@@ -12,8 +12,7 @@
 
 #### New interpreters
 * Add support for TruffleRuby
-  * 1.0.0-rc(11,13,14,15) [\#4575](https://github.com/rvm/rvm/pull/4575)
-  * 1.0.0-rc12 [\#4605](https://github.com/rvm/rvm/pull/4605)
+  * 1.0.0-rc(11,12,13,14,15,16) [\#4575](https://github.com/rvm/rvm/pull/4575)
 * Add support for Ruby
   * 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597)
   * 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
