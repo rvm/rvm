@@ -37,6 +37,7 @@
 * Fix installing Homebrew in a custom location [\#4620](https://github.com/rvm/rvm/pull/4620)
 * Update rbx dependencies for macOS [\#4643](https://github.com/rvm/rvm/pull/4643)
 * Fix version selected for TruffleRuby binary install [\#4662](https://github.com/rvm/rvm/pull/4662)
+* Remove hardcoded number of jobs in installer [\#4674](https://github.com/rvm/rvm/pull/4674)
 
 #### Changes
 *
