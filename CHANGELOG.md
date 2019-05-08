@@ -60,9 +60,6 @@
 * Remove hardcoded number of jobs in installer [\#4674](https://github.com/rvm/rvm/pull/4674)
 * Updated obsoleted package openssl-devel to libssl-devel cygwin requirements [\#4685](https://github.com/rvm/rvm/pull/4685)
 
-#### Changes
-*
-
 #### Binaries:
 * Ubuntu 18.04 x64 binaries
   * Ruby 2.2.10, 2.3.8, 2.4.5, 2.5.2, 2.5.3, 2.6.0 [\#4595](https://github.com/rvm/rvm/issues/4595)
