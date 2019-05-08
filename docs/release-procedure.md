@@ -35,7 +35,7 @@ git push gitlab master stable
 git push gitlab --tags
 ```
 
-7. Sign release and upload files to github and bitbucket
+7. Sign release and upload files to GitHub and BitBucket
 
 ```bash
 bash ./sign-releases.sh

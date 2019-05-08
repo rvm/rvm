@@ -1,7 +1,7 @@
 # Change Log
 
-## [Next](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.7...HEAD)
+## [1.29.8](https://github.com/rvm/rvm/releases/tag/1.29.8)
+8 May 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.7...1.29.8)
 
 #### New features
 * Upgrade RubyGems to version 3.0.2
