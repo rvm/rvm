@@ -17,7 +17,7 @@
   * 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597)
   * 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
   * 2.6.3 [\#4668](https://github.com/rvm/rvm/pull/4668)
-  * 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640) 
+  * 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640)
   * 2.4.6 [\#4657](https://github.com/rvm/rvm/pull/4657)
 * Add support for JRuby
   * 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
@@ -44,10 +44,11 @@
 *
 
 #### Binaries:
-* Ubuntu 18.04 x64 binaries for Ruby 2.2.10, 2.3.8, 2.4.5, 2.5.2, 2.5.3, 2.6.0 [\#4595](https://github.com/rvm/rvm/issues/4595)
-* Ubuntu 18.04 x64 binary for Ruby 2.6.1 [\#4601](https://github.com/rvm/rvm/issues/4601)
-* Ubuntu 18.04 x64 binaries for Ruby 2.5.4, 2.5.5, 2.6.2 [\#4647](https://github.com/rvm/rvm/issues/4647)
-
+* Ubuntu 18.04 x64 binaries
+  * Ruby 2.2.10, 2.3.8, 2.4.5, 2.5.2, 2.5.3, 2.6.0 [\#4595](https://github.com/rvm/rvm/issues/4595)
+  * Ruby 2.6.1 [\#4601](https://github.com/rvm/rvm/issues/4601)
+  * Ruby 2.5.4, 2.5.5, 2.6.2 [\#4647](https://github.com/rvm/rvm/issues/4647)
+  * Ruby 2.4.6 and 2.6.3 [\#4686](https://github.com/rvm/rvm/issues/4686)
 
 ## [1.29.7](https://github.com/rvm/rvm/releases/tag/1.29.7)
 3 January 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...1.29.7)
