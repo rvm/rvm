@@ -7,6 +7,7 @@
 *
 
 #### New interpreters
+* Add support for TruffleRuby 19.0.0.
 *
 
 #### Bug fixes
