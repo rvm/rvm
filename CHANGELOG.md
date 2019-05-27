@@ -11,6 +11,7 @@
 *
 
 #### Bug fixes
+* Fix endless loop on macOS when listing remotes
 *
 
 #### Changes
