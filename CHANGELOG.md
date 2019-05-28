@@ -11,6 +11,7 @@
 
 #### Bug fixes
 * Fix rvm version validation per project [\#4692](https://github.com/rvm/rvm/pull/4692)
+* Fix endless loop on macOS when listing remotes [\#4703](https://github.com/rvm/rvm/pull/4703)
 
 #### Changes
 *
