@@ -11,7 +11,7 @@
 *
 
 #### Bug fixes
-* Fix endless loop on macOS when listing remotes
+* Fix endless loop on macOS when listing remotes [\#4703](https://github.com/rvm/rvm/pull/4603), 2.5.4 and 2.6.2 [\#4703]
 *
 
 #### Changes
