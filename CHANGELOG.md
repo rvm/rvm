@@ -7,7 +7,8 @@
 * Use remote .sha512 and .md5 if available (Rubinius) [\#4650](https://github.com/rvm/rvm/pull/4650)
 
 #### New interpreters
-* Add support for TruffleRuby 19.0.0
+* Add support for TruffleRuby 19.0.0 [\#4689](https://github.com/rvm/rvm/pull/4689)
+* Add support for Rubinius 4.1 [\#4706](https://github.com/rvm/rvm/pull/4706)
 
 #### Bug fixes
 * Fix rvm version validation per project [\#4692](https://github.com/rvm/rvm/pull/4692)
