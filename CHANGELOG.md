@@ -1,22 +1,49 @@
 # Change Log
 
 ## [Next](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.7...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.8...HEAD)
+
+#### New features
+* Use remote .sha512 and .md5 if available (Rubinius) [\#4650](https://github.com/rvm/rvm/pull/4650)
+
+#### New interpreters
+* Add support for TruffleRuby 19.0.0
+
+#### Bug fixes
+* Fix rvm version validation per project [\#4692](https://github.com/rvm/rvm/pull/4692)
+
+#### Changes
+*
+
+#### Binaries:
+*
+
+## [1.29.8](https://github.com/rvm/rvm/releases/tag/1.29.8)
+8 May 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.7...1.29.8)
 
 #### New features
 * Upgrade RubyGems to version 3.0.2
 * RailsExpress patches for 2.6.1 [\#4603](https://github.com/rvm/rvm/pull/4603), 2.5.4 and 2.6.2 [\#4637](https://github.com/rvm/rvm/pull/4637), 2.5.5 [\#4646](https://github.com/rvm/rvm/pull/4646)
 * Add script to automatically register a new TruffleRuby release in RVM [\#4576](https://github.com/rvm/rvm/pull/4576)
-* Use .sha512 / .md5 URLs if available. [\#4650](https://github.com/rvm/rvm/pull/4650)
+* Add .rvmrc equivalents to install help [\#4652](https://github.com/rvm/rvm/pull/4652)
+* Copy config.log for debugging if configure fails [\#4651](https://github.com/rvm/rvm/pull/4651)
 
 #### New interpreters
-* Add support for TruffleRuby 1.0.0-rc14.
-* Add support for TruffleRuby 1.0.0-rc13.
-* Add support for TruffleRuby 1.0.0-rc11 [\#4575](https://github.com/rvm/rvm/pull/4575), TruffleRuby 1.0.0-rc12 [\#4605](https://github.com/rvm/rvm/pull/4605)
-* Add support for Ruby 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597)
-* Add support for Ruby 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
-* Add support for Ruby 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640)
-* Add support for JRuby 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
+* Add support for TruffleRuby
+  * 1.0.0-rc(11,12,13,14,15,16) [\#4575](https://github.com/rvm/rvm/pull/4575)
+* Add support for Ruby
+  * 2.6.1 [\#4597](https://github.com/rvm/rvm/pull/4597)
+  * 2.6.2 and 2.5.4 [\#4636](https://github.com/rvm/rvm/pull/4636)
+  * 2.6.3 [\#4668](https://github.com/rvm/rvm/pull/4668)
+  * 2.5.5 [\#4640](https://github.com/rvm/rvm/pull/4640)
+  * 2.4.6 [\#4657](https://github.com/rvm/rvm/pull/4657)
+* Add support for JRuby
+  * 9.2.6.0 [\#4614](https://github.com/rvm/rvm/pull/4614)
+  * 9.2.7.0 [\#4664](https://github.com/rvm/rvm/pull/4664)
+* Add support for Rubinius
+  * 3.107 [\#4649](https://github.com/rvm/rvm/pull/4649)
+  * 4.0 [\#4688](https://github.com/rvm/rvm/pull/4688)
+* Add support for mruby 2.0.1 [\#4667](https://github.com/rvm/rvm/pull/4667)
 
 #### Bug fixes
 * Add system ruby as dependency for CentOS [\#4567](https://github.com/rvm/rvm/pull/4567)
@@ -29,15 +56,16 @@
 * Fix loading rvm script with set -e [\#4606](https://github.com/rvm/rvm/pull/4606)
 * Fix installing Homebrew in a custom location [\#4620](https://github.com/rvm/rvm/pull/4620)
 * Update rbx dependencies for macOS [\#4643](https://github.com/rvm/rvm/pull/4643)
-
-#### Changes
-*
+* Fix version selected for TruffleRuby binary install [\#4662](https://github.com/rvm/rvm/pull/4662)
+* Remove hardcoded number of jobs in installer [\#4674](https://github.com/rvm/rvm/pull/4674)
+* Updated obsoleted package openssl-devel to libssl-devel cygwin requirements [\#4685](https://github.com/rvm/rvm/pull/4685)
 
 #### Binaries:
-* Ubuntu 18.04 x64 binaries for Ruby 2.2.10, 2.3.8, 2.4.5, 2.5.2, 2.5.3, 2.6.0 [\#4595](https://github.com/rvm/rvm/issues/4595)
-* Ubuntu 18.04 x64 binary for Ruby 2.6.1 [\#4601](https://github.com/rvm/rvm/issues/4601)
-* Ubuntu 18.04 x64 binaries for Ruby 2.5.4, 2.5.5, 2.6.2 [\#4647](https://github.com/rvm/rvm/issues/4647)
-
+* Ubuntu 18.04 x64 binaries
+  * Ruby 2.2.10, 2.3.8, 2.4.5, 2.5.2, 2.5.3, 2.6.0 [\#4595](https://github.com/rvm/rvm/issues/4595)
+  * Ruby 2.6.1 [\#4601](https://github.com/rvm/rvm/issues/4601)
+  * Ruby 2.5.4, 2.5.5, 2.6.2 [\#4647](https://github.com/rvm/rvm/issues/4647)
+  * Ruby 2.4.6 and 2.6.3 [\#4686](https://github.com/rvm/rvm/issues/4686)
 
 ## [1.29.7](https://github.com/rvm/rvm/releases/tag/1.29.7)
 3 January 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.6...1.29.7)
