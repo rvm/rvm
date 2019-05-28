@@ -11,7 +11,7 @@
 *
 
 #### Bug fixes
-*
+* Fix rvm version validation per project [\#4692](https://github.com/rvm/rvm/pull/4692)
 
 #### Changes
 *
