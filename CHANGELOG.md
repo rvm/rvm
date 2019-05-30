@@ -9,6 +9,7 @@
 #### New interpreters
 * Add support for TruffleRuby 19.0.0 [\#4689](https://github.com/rvm/rvm/pull/4689)
 * Add support for Rubinius 4.1 [\#4706](https://github.com/rvm/rvm/pull/4706)
+* Add support for Ruby 2.7.0 Preview 1 [\#4709](https://github.com/rvm/rvm/pull/4709)
 
 #### Bug fixes
 * Fix rvm version validation per project [\#4692](https://github.com/rvm/rvm/pull/4692)
