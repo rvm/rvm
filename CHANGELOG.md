@@ -16,7 +16,8 @@
 * Filter redundant/incompatible rvm\_gem\_options [\#4705](https://github.com/rvm/rvm/pull/4705)
 
 #### Changes
-*
+* TruffleRuby is now always considered a "source Ruby" instead of both a source
+  and binary Ruby to improve reliability and avoiding code duplication [\#4708](https://github.com/rvm/rvm/pull/4708)
 
 #### Binaries:
 *
