@@ -201,17 +201,27 @@ __rvm_checksum_read()
     [[ -n "${_checksum_md5:-}" ]] ||
       _checksum_md5="$(    __rvm_db_ "$rvm_user_path/md5"      "$_name" | \command \head -n 1 )"
 
-    [[ -z "${_checksum_md5:-}" && $_name == http* ]] &&
-       _checksum_md5="$(__rvm_curl -s -L $_name.md5)"
-
     # sha512
     _checksum_sha512="$(   __rvm_db_ "$rvm_path/config/sha512" "$_name" | \command \head -n 1 )"
 
     [[ -n "${_checksum_sha512:-}" ]] ||
       _checksum_sha512="$( __rvm_db_ "$rvm_user_path/sha512"   "$_name" | \command \head -n 1 )"
 
-    [[ -z "${_checksum_sha512:-}" && $_name == http* ]] &&
-       _checksum_sha512="$(__rvm_curl -s -L $_name.sha512)"
+    __rvm_checksum_none || return 0
+  done
+
+  # Only try to get the checksum from the network after checking the config files
+  for _name in "${list[@]}"
+  do
+    if [[ $_name == http* ]]; then
+      if [[ -z "${_checksum_md5:-}" ]]; then
+        _checksum_md5="$(__rvm_curl -s -L $_name.md5)"
+      fi
+
+      if [[ -z "${_checksum_sha512:-}" ]]; then
+        _checksum_sha512="$(__rvm_curl -s -L $_name.sha512)"
+      fi
+    fi
 
     __rvm_checksum_none || return 0
   done
