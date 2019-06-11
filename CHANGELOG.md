@@ -15,6 +15,7 @@
 * Fix rvm version validation per project [\#4692](https://github.com/rvm/rvm/pull/4692)
 * Fix endless loop on macOS when listing remotes [\#4703](https://github.com/rvm/rvm/pull/4703)
 * Filter redundant/incompatible rvm\_gem\_options [\#4705](https://github.com/rvm/rvm/pull/4705)
+* Fix `sed: illegal option -- r` error on macOS when changing to any ruby directory [\#4711](https://github.com/rvm/rvm/pull/4711)
 
 #### Changes
 * TruffleRuby is now always considered a "source Ruby" instead of both a source
