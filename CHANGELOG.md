@@ -15,6 +15,7 @@
 * Fix rvm version validation per project [\#4692](https://github.com/rvm/rvm/pull/4692)
 * Fix endless loop on macOS when listing remotes [\#4703](https://github.com/rvm/rvm/pull/4703)
 * Filter redundant/incompatible rvm\_gem\_options [\#4705](https://github.com/rvm/rvm/pull/4705)
+* Remove rvm_gems_path as part of __rvm_remove_rvm_from_path [\#4712](https://github.com/rvm/rvm/pull/4712)
 
 #### Changes
 * TruffleRuby is now always considered a "source Ruby" instead of both a source
