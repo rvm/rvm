@@ -8,13 +8,19 @@
 
 #### New interpreters
 * Add support for TruffleRuby 19.0.0 [\#4689](https://github.com/rvm/rvm/pull/4689)
-* Add support for Rubinius 4.1 [\#4706](https://github.com/rvm/rvm/pull/4706)
+* Add support for Rubinius
+  * 4.1 [\#4706](https://github.com/rvm/rvm/pull/4706)
+  * 4.2 [\#4714](https://github.com/rvm/rvm/pull/4714)
 * Add support for Ruby 2.7.0 Preview 1 [\#4709](https://github.com/rvm/rvm/pull/4709)
+* Add support for Rubygems 2.7.9, 2.7.10, 3.0.3, 3.0.4 [\#4718](https://github.com/rvm/rvm/pull/4718)
 
 #### Bug fixes
 * Fix rvm version validation per project [\#4692](https://github.com/rvm/rvm/pull/4692)
 * Fix endless loop on macOS when listing remotes [\#4703](https://github.com/rvm/rvm/pull/4703)
 * Filter redundant/incompatible rvm\_gem\_options [\#4705](https://github.com/rvm/rvm/pull/4705)
+* Remove rvm_gems_path as part of __rvm_remove_rvm_from_path [\#4712](https://github.com/rvm/rvm/pull/4712)
+* Fix checksum check condition to not try url if already found in config files [\#4707](https://github.com/rvm/rvm/pull/4707)
+* Fix checksum check to only try url checksums for Rubinius [\#4717](https://github.com/rvm/rvm/pull/4717)
 * Fix `sed: illegal option -- r` error on macOS when changing to any ruby directory [\#4711](https://github.com/rvm/rvm/pull/4711)
 
 #### Changes
