@@ -21,6 +21,7 @@
 * Remove rvm_gems_path as part of __rvm_remove_rvm_from_path [\#4712](https://github.com/rvm/rvm/pull/4712)
 * Fix checksum check condition to not try url if already found in config files [\#4707](https://github.com/rvm/rvm/pull/4707)
 * Fix checksum check to only try url checksums for Rubinius [\#4717](https://github.com/rvm/rvm/pull/4717)
+* Fix `sed: illegal option -- r` error on macOS when changing to any ruby directory [\#4711](https://github.com/rvm/rvm/pull/4711)
 
 #### Changes
 * TruffleRuby is now always considered a "source Ruby" instead of both a source
