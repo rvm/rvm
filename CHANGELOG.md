@@ -23,6 +23,7 @@
 * Fix checksum check to only try url checksums for Rubinius [\#4717](https://github.com/rvm/rvm/pull/4717)
 * Fix `sed: illegal option -- r` error on macOS when changing to any ruby directory [\#4711](https://github.com/rvm/rvm/pull/4711)
 * Don't ignore `curl` error on repo tags fetch [\#4722](https://github.com/rvm/rvm/pull/4722)
+* Use newer llvm on Mint 19.1+ [\#4642](https://github.com/rvm/rvm/pull/4642)
 
 #### Changes
 * TruffleRuby is now always considered a "source Ruby" instead of both a source
@@ -72,6 +73,9 @@
 * Fix version selected for TruffleRuby binary install [\#4662](https://github.com/rvm/rvm/pull/4662)
 * Remove hardcoded number of jobs in installer [\#4674](https://github.com/rvm/rvm/pull/4674)
 * Updated obsoleted package openssl-devel to libssl-devel cygwin requirements [\#4685](https://github.com/rvm/rvm/pull/4685)
+
+#### Changes
+*
 
 #### Binaries:
 * Ubuntu 18.04 x64 binaries
