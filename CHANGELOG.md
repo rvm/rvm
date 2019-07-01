@@ -23,6 +23,7 @@
 * Fix checksum check to only try url checksums for Rubinius [\#4717](https://github.com/rvm/rvm/pull/4717)
 * Fix `sed: illegal option -- r` error on macOS when changing to any ruby directory [\#4711](https://github.com/rvm/rvm/pull/4711)
 * Don't ignore `curl` error on repo tags fetch [\#4722](https://github.com/rvm/rvm/pull/4722)
+* Use newer llvm on Mint 19.1+ [\#4642](https://github.com/rvm/rvm/pull/4642)
 
 #### Changes
 * TruffleRuby is now always considered a "source Ruby" instead of both a source
@@ -68,7 +69,6 @@
 * Require os-specific functions during install only when they exist [\#4589](https://github.com/rvm/rvm/pull/4589)
 * Fix loading rvm script with set -e [\#4606](https://github.com/rvm/rvm/pull/4606)
 * Fix installing Homebrew in a custom location [\#4620](https://github.com/rvm/rvm/pull/4620)
-* Use newer llvm on Mint 19.1+ [\#4642](https://github.com/rvm/rvm/pull/4642)
 * Update rbx dependencies for macOS [\#4643](https://github.com/rvm/rvm/pull/4643)
 * Fix version selected for TruffleRuby binary install [\#4662](https://github.com/rvm/rvm/pull/4662)
 * Remove hardcoded number of jobs in installer [\#4674](https://github.com/rvm/rvm/pull/4674)
