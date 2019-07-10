@@ -25,6 +25,7 @@
 * Fix `sed: illegal option -- r` error on macOS when changing to any ruby directory [\#4711](https://github.com/rvm/rvm/pull/4711)
 * Don't ignore `curl` error on repo tags fetch [\#4722](https://github.com/rvm/rvm/pull/4722)
 * Use newer llvm on Mint 19.1+ [\#4642](https://github.com/rvm/rvm/pull/4642)
+* Preserve the environment setting in rvmrc and .rvmrc in multi or mixed mode [\#4612](https://github.com/rvm/rvm/pull/4612)
 
 #### Changes
 * TruffleRuby is now always considered a "source Ruby" instead of both a source
