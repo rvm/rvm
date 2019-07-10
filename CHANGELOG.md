@@ -1,7 +1,7 @@
 # Change Log
 
-## [Next](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.8...HEAD)
+## [1.29.9](https://github.com/rvm/rvm/releases/tag/1.29.9)
+10 July 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.8...1.29.9)
 
 #### New features
 * Use remote .sha512 and .md5 if available (Rubinius) [\#4650](https://github.com/rvm/rvm/pull/4650)
@@ -28,9 +28,6 @@
 #### Changes
 * TruffleRuby is now always considered a "source Ruby" instead of both a source
   and binary Ruby to improve reliability and avoiding code duplication [\#4708](https://github.com/rvm/rvm/pull/4708)
-
-#### Binaries:
-*
 
 ## [1.29.8](https://github.com/rvm/rvm/releases/tag/1.29.8)
 8 May 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.7...1.29.8)
@@ -73,9 +70,6 @@
 * Fix version selected for TruffleRuby binary install [\#4662](https://github.com/rvm/rvm/pull/4662)
 * Remove hardcoded number of jobs in installer [\#4674](https://github.com/rvm/rvm/pull/4674)
 * Updated obsoleted package openssl-devel to libssl-devel cygwin requirements [\#4685](https://github.com/rvm/rvm/pull/4685)
-
-#### Changes
-*
 
 #### Binaries:
 * Ubuntu 18.04 x64 binaries
