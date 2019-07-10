@@ -12,6 +12,7 @@
 * Add support for Rubinius
   * 4.1 [\#4706](https://github.com/rvm/rvm/pull/4706)
   * 4.2 [\#4714](https://github.com/rvm/rvm/pull/4714)
+  * 4.3 [\#x](https://github.com/rvm/rvm/pull/x)
 * Add support for Ruby 2.7.0 Preview 1 [\#4709](https://github.com/rvm/rvm/pull/4709)
 * Add support for Rubygems 2.7.9, 2.7.10, 3.0.3, 3.0.4 [\#4718](https://github.com/rvm/rvm/pull/4718)
 
