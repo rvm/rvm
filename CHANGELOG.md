@@ -10,7 +10,7 @@
 *
 
 #### Bug fixes
-*
+* Prevent downloading of null RVM versions in installer [\#4731](https://github.com/rvm/rvm/pull/4731)
 
 #### Changes
 * Installer now reports which URL it is using to fetch the version information and when version fetching has completely failed [\#4731](https://github.com/rvm/rvm/pull/4731)

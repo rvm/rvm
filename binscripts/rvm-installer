@@ -29,6 +29,7 @@ log()  { printf "%b\n" "$*"; }
 debug(){ [[ ${rvm_debug_flag:-0} -eq 0 ]] || printf "%b\n" "$*" >&2; }
 notice() { log "$*" >&2 ; }
 fail() { log "\nERROR: $*\n" >&2 ; exit 1 ; }
+fail_with_code() { code="$1" ; shift ; log "\nERROR: $*\n" >&2 ; exit "$code" ; }
 
 rvm_install_commands_setup()
 {
@@ -831,7 +832,7 @@ and re-mount partition ${partition} without the noexec option."
 
 rvm_install_select_and_get_version()
 {
-  typeset _version_release
+  typeset dir _version_release _version
 
   for dir in "$rvm_src_path" "$rvm_archives_path"
   do
@@ -842,20 +843,23 @@ rvm_install_select_and_get_version()
   case "${version}" in
     (head)
       _version_release="${branch}"
-      install_head sources[@] ${branch:-master} || exit $?
+      install_head sources[@] ${branch:-master} || fail_with_code $? "Failed to install version '$version'"
       ;;
 
     (latest)
-      install_release sources[@] $(fetch_version sources[@]) || exit $?
+      _version=$(fetch_version sources[@])   || fail "Failed to fetch version '$version'"
+      install_release sources[@] "$_version" || fail_with_code $? "Failed to install version '$version'"
       ;;
 
     (latest-minor)
       version="$(\cat "$rvm_path/VERSION")"
-      install_release sources[@] $(fetch_version sources[@] ${version%.*}) || exit $?
+      _version=$(fetch_version sources[@] ${version%.*}) || fail "Failed to fetch version '$version'"
+      install_release sources[@] "$_version"             || fail_with_code $? "Failed to install version '$version'"
       ;;
 
     (latest-*)
-      install_release sources[@] $(fetch_version sources[@] ${version#latest-}) || exit $?
+      _version=$(fetch_version sources[@] ${version#latest-}) || fail "Failed to fetch version '$version'"
+      install_release sources[@] "$_version"                  || fail_with_code $? "Failed to install version '$version'"
       ;;
 
     (+([[:digit:]]).+([[:digit:]]).+([[:digit:]])) # x.y.z
