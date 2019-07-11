@@ -14,6 +14,7 @@
 
 #### Changes
 * rvm-installer now reports which URL it is fetching version information from.
+* rvm-installer now reports when version fetching has completely failed.
 
 #### Binaries:
 *
