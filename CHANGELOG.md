@@ -11,6 +11,7 @@
 
 #### Bug fixes
 * Prevent attempted download of null RVM versions in rvm-installer.
+* Fix rvm-installer's mechanism for fetching RVM tags from Bitbucket.
 
 #### Changes
 * rvm-installer now reports which URL it is fetching version information from.
