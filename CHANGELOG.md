@@ -10,7 +10,7 @@
 *
 
 #### Bug fixes
-*
+* Prevent attempted download of null RVM versions in rvm-installer.
 
 #### Changes
 * rvm-installer now reports which URL it is fetching version information from.
