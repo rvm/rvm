@@ -10,7 +10,7 @@
 *
 
 #### Bug fixes
-*
+* Fix fetching RVM tags from Bitbucket in installer [\#4729](https://github.com/rvm/rvm/pull/4729)
 
 #### Changes
 *
