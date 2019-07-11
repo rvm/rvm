@@ -13,7 +13,7 @@
 *
 
 #### Changes
-*
+* Installer now reports which URL it is using to fetch the version information [\#4731](https://github.com/rvm/rvm/pull/4731)
 
 #### Binaries:
 *
