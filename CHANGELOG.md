@@ -13,7 +13,7 @@
 *
 
 #### Changes
-*
+* rvm-installer now reports which URL it is fetching version information from.
 
 #### Binaries:
 *
