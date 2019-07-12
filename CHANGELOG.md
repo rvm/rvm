@@ -10,6 +10,7 @@
 *
 
 #### Bug fixes
+* Fix installer fetching RVM tags from Bitbucket [\#4730](https://github.com/rvm/rvm/pull/4730)
 * Prevent downloading of null RVM versions in installer [\#4731](https://github.com/rvm/rvm/pull/4731)
 
 #### Changes
