@@ -12,7 +12,7 @@
 #### Bug fixes
 * Fix installer fetching RVM tags from Bitbucket [\#4730](https://github.com/rvm/rvm/pull/4730)
 * Prevent downloading of null RVM versions in installer [\#4731](https://github.com/rvm/rvm/pull/4731)
-* RVM package fails to configure on fresh Ubuntu 18.04 server install
+* RVM package fails to configure on fresh Ubuntu 18.04 server install [\#4742](https://github.com/rvm/rvm/pull/4742)
 
 #### Changes
 * Installer now reports which URL(s) have failed to fetch version information and when version fetching has completely failed [\#4731](https://github.com/rvm/rvm/pull/4731)
