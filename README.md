@@ -178,8 +178,6 @@ Support this project by becoming a [sponsor](https://opencollective.com/rvm#spon
 <a href="https://opencollective.com/rvm/sponsor/0/website" target="_blank"><img src="https://opencollective.com/rvm/sponsor/0/avatar.svg"></a>
 <a href="https://opencollective.com/rvm/sponsor/1/website" target="_blank"><img src="https://opencollective.com/rvm/sponsor/1/avatar.svg"></a>
 
-## Contributing
-
 ## License
 
 Copyright (C) Michal Papis (2011-2018), Piotr Kuczynski (2016-2018), Wayne E. Seguin (2009-2011) 
