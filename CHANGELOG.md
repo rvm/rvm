@@ -4,7 +4,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.9...HEAD)
 
 #### New features
-* Add Termux support
+* Add Termux support [\#4749](https://github.com/rvm/rvm/pull/4749)
 
 #### New interpreters
 * Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735)
