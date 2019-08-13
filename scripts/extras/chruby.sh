@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Set RUBIES when sourced.
-RUBIES=($( ls -1d "$rvm_path/rubies"/* 2>/dev/null ))
+RUBIES=($( \command \ls -1d "$rvm_path/rubies"/* 2>/dev/null ))
 
 # Install rubies via rvm and reload RUBIES
 function mrvm()
@@ -24,7 +24,7 @@ function mrvm()
     fi
   fi
   "$rvm_path/bin/rvm" "$@" || __result=$?
-  RUBIES=($( ls -1d "$rvm_path/rubies"/* 2>/dev/null ))
+  RUBIES=($( \command \ls -1d "$rvm_path/rubies"/* 2>/dev/null ))
   if [[ -n "${reset_rvm_path:-}" ]]
   then unset rvm_path reset_rvm_path
   fi

@@ -39,7 +39,7 @@ __rvm_gemsets ()
 
 __rvm_help_pages ()
 {
-  ls "$rvm_help_path"
+  \command \ls "$rvm_help_path"
 }
 
 __rvm_known ()
