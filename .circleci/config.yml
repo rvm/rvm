@@ -1,15 +1,109 @@
 version: 2.1
 
+executors:
+  test-runner:
+    docker:
+      - image: circleci/ruby:2.4.6-jessie # the primary container, where your job's commands are run
+
+commands:
+  test-rvm:
+    description: Run tf test
+    parameters:
+      files:
+        description: List of files to run tests
+        type: string
+    steps:
+      - run:
+          name: Configure
+          command: |
+            echo rvm_show_log_lines_on_error=all >> ~/.rvmrc
+      - run:
+          name: Install
+          command: |
+            ./install
+            gem install tf -v '>=0.4.1'
+      - run:
+          name: Test RVM
+          command: |
+            export TERM=ansi
+            source "$HOME/.rvm/scripts/rvm"
+            tf --text << parameters.files >>
+
+  test-rvm-osx:
+    description: Run tf test
+    parameters:
+      files:
+        description: List of files to run tests
+        type: string
+    steps:
+      - run:
+          name: Configure
+          command: |
+            echo rvm_show_log_lines_on_error=all >> ~/.rvmrc
+      - run:
+          name: Install
+          command: |
+            export TERM=ansi
+            ./install
+            set +o errexit
+            source "$HOME/.rvm/scripts/rvm"
+            rvm --install --fuzzy use ruby-2.6 || exit $?
+            gem install tf -v '>=0.4.1' || exit $?
+      - run:
+          name: Test RVM
+          command: |
+            export TERM=ansi
+            export PS4="+ \$(__rvm_date \"+%s.%N\" 2>/dev/null) \${BASH_SOURCE##\${rvm_path:-}} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > "
+            set -o xtrace
+            source "$HOME/.rvm/scripts/rvm"
+            tf --text << parameters.files >>
+
+# ruby -e 'files = Dir["rvm-test*/**/*_comment_test.sh"].map{|file| name=file.gsub("/", "-").gsub(".", "_").sub("rvm-test-", "").sub("_comment_test_sh", "-linux"); [name, file] }; puts "workflows: build: jobs:", *files.map{|name, file| "      - #{name}"}; puts "jobs:", *files.map{|name, file| ["  #{name}:", "    executor: test-runner", "    steps:", "      - checkout", "      - test-rvm:", "          files: #{file}"] }'
 workflows:
-  version: 2
   build:
     jobs:
       - validate-installer-signature
+      - long-ruby-1_9_3-osx
+      - fast-exports-linux
+      - fast-gemsets-linux
+      - fast-rvmrc-linux
+      - fast-rvmrc-create-linux
+      - fast-rvm-prompt-linux
+      - fast-env-linux
+      - fast-rvm-shell-linux
+      - fast-ruby-version-linux
+      - fast-globalcache-linux
+      - fast-wrapper-linux
+      - fast-rvmrc-warning-linux
+      - fast-gemfile-linux
+      - fast-alias-linux
+      - fast-gem-bundle-linux
+      - fast-gemset-copy-linux
+      - fast-use-linux
+      - fast-versions_conf-linux
+      - fast-current_and_list-linux
+      - fast-do-linux
+      - fast-remote-linux
+      - long-named_ruby_and_gemsets-linux
+      - long-ruby-1_8_7-linux
+      - long-rubinius-linux
+      - long-ruby-1_9_3-linux
+      - long-jruby-linux
+      - long-truffleruby-linux
+      - rvm1-exports-linux
+      - rvm1-load_ruby-version-linux
+      - rvm1-bundler_cd_hook-linux
+      - rvm1-path_mismatch-linux
+      - rvm1-version_compare-linux
+      - rvm1-rvm_project_rvmrc-linux
+      - rvm1-rvm-user-linux
+      - rvm1-pwd_cd_hook-linux
+      - rvm1-ruby-env-linux
+      - rvm1-array-linux
 
 jobs:
   validate-installer-signature:
-    docker:
-        - image: circleci/ruby:2.4 # the primary container, where your job's commands are run
+    executor: test-runner
     steps:
       - checkout # check out the code in the project directory
       - run:
@@ -24,3 +118,228 @@ jobs:
           name: Verify signature
           command: |
             gpg2 --verify binscripts/rvm-installer.asc binscripts/rvm-installer
+
+  long-ruby-1_9_3-osx:
+    macos:
+      xcode: "10.3.0"
+    steps:
+      - checkout
+      - test-rvm-osx:
+          files: rvm-test/long/ruby-1.9.3_comment_test.sh
+
+  fast-exports-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/exports_comment_test.sh
+  fast-gemsets-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/gemsets_comment_test.sh
+  fast-rvmrc-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/rvmrc_comment_test.sh
+  fast-rvmrc-create-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/rvmrc-create_comment_test.sh
+  fast-rvm-prompt-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/rvm-prompt_comment_test.sh
+  fast-env-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/env_comment_test.sh
+  fast-rvm-shell-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/rvm-shell_comment_test.sh
+  fast-ruby-version-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/ruby-version_comment_test.sh
+  fast-globalcache-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/globalcache_comment_test.sh
+  fast-wrapper-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/wrapper_comment_test.sh
+  fast-rvmrc-warning-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/rvmrc-warning_comment_test.sh
+  fast-gemfile-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/gemfile_comment_test.sh
+  fast-alias-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/alias_comment_test.sh
+  fast-gem-bundle-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/gem-bundle_comment_test.sh
+  fast-gemset-copy-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/gemset-copy_comment_test.sh
+  fast-use-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/use_comment_test.sh
+  fast-versions_conf-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/versions.conf_comment_test.sh
+  fast-current_and_list-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/current_and_list_comment_test.sh
+  fast-do-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/do_comment_test.sh
+  fast-remote-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/fast/remote_comment_test.sh
+  long-named_ruby_and_gemsets-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/long/named_ruby_and_gemsets_comment_test.sh
+  long-ruby-1_8_7-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/long/ruby-1.8.7_comment_test.sh
+  long-rubinius-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/long/rubinius_comment_test.sh
+  long-ruby-1_9_3-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/long/ruby-1.9.3_comment_test.sh
+  long-jruby-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/long/jruby_comment_test.sh
+  long-truffleruby-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test/long/truffleruby_comment_test.sh
+  rvm1-exports-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/exports_comment_test.sh
+  rvm1-load_ruby-version-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/load_ruby-version_comment_test.sh
+  rvm1-bundler_cd_hook-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/bundler_cd_hook_comment_test.sh
+  rvm1-path_mismatch-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/path_mismatch_comment_test.sh
+  rvm1-version_compare-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/version_compare_comment_test.sh
+  rvm1-rvm_project_rvmrc-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/rvm_project_rvmrc_comment_test.sh
+  rvm1-rvm-user-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/rvm-user_comment_test.sh
+  rvm1-pwd_cd_hook-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/pwd_cd_hook_comment_test.sh
+  rvm1-ruby-env-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/ruby-env_comment_test.sh
+  rvm1-array-linux:
+    executor: test-runner
+    steps:
+      - checkout
+      - test-rvm:
+          files: rvm-test-rvm1/array_comment_test.sh

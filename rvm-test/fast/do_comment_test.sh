@@ -1,18 +1,18 @@
 source "$rvm_path/scripts/rvm"
 
-rvm use 2.3.4 --install # status=0
+rvm use 2.4.6 --install # status=0
 rvm gemset create test1 # status=0
 rvm gemset create test2 # status=0
 rvm use 2.4.0 --install # status=0
 
 : do
 rvm 8.9.9 do rvm gemdir # status=1; match=/is not installed/
-rvm 2.3.4 do rvm gemdir # status=0; match=/2.3.4/
-rvm 2.3.4@test0 do rvm gemdir # status=2; match=/Gemset .* does not exist/
-rvm 2.3.4@test1 do rvm gemdir # status=0; match=/2.3.4@test1/
-rvm 2.3.4@test2 do rvm gemdir # status=0; match=/2.3.4@test2/
+rvm 2.4.6 do rvm gemdir # status=0; match=/2.4.6/
+rvm 2.4.6@test0 do rvm gemdir # status=2; match=/Gemset .* does not exist/
+rvm 2.4.6@test1 do rvm gemdir # status=0; match=/2.4.6@test1/
+rvm 2.4.6@test2 do rvm gemdir # status=0; match=/2.4.6@test2/
 
-rvm 2.3.4@global,2.3.4 do rvm gemdir # status=0; match=/2.3.4@global$/; match=/2.3.4$/
+rvm 2.4.6@global,2.4.6 do rvm gemdir # status=0; match=/ruby\/gems\/2.4.0$/; match=/2.4.6$/
 
 rvm --force gemset delete test1 # status=0
 rvm --force gemset delete test2 # status=0
@@ -43,22 +43,22 @@ rvm    . do rvm info ruby  # status=1; match=/Could not determine which Ruby to 
 rvm    . do ruby --version # status=1; match=/Could not determine which Ruby to use/
 
 : -----------------------------------------------------------------
-mkdir -p $d/2.3.4
-echo "2.3.4" > $d/2.3.4/.ruby-version
+mkdir -p $d/2.4.6
+echo "2.4.6" > $d/2.4.6/.ruby-version
 
 : absolute directory
-rvm in $d/2.3.4 do rvm info ruby  # status=0; match=/version: *"2.3.4/
-rvm in $d/2.3.4 do ruby --version # status=0; match=/^ruby 2.3.4/
+rvm in $d/2.4.6 do rvm info ruby  # status=0; match=/version: *"2.4.6/
+rvm in $d/2.4.6 do ruby --version # status=0; match=/^ruby 2.4.6/
 
 : relative directory
 cd $d
-rvm in 2.3.4 do rvm info ruby  # status=0; match=/version: *"2.3.4/
-rvm in 2.3.4 do ruby --version # status=0; match=/^ruby 2.3.4/
+rvm in 2.4.6 do rvm info ruby  # status=0; match=/version: *"2.4.6/
+rvm in 2.4.6 do ruby --version # status=0; match=/^ruby 2.4.6/
 
 : current directory
-cd $d/2.3.4
-rvm . do rvm info ruby  # status=0; match=/version: *"2.3.4/
-rvm . do ruby --version # status=0; match=/^ruby 2.3.4/
+cd $d/2.4.6
+rvm . do rvm info ruby  # status=0; match=/version: *"2.4.6/
+rvm . do ruby --version # status=0; match=/^ruby 2.4.6/
 
 : -----------------------------------------------------------------
 ver=2.4.0

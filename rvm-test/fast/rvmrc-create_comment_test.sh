@@ -26,30 +26,30 @@ rvm current           # match=/2.3.4/
 
 : .rvmrc without use
 rvm_current_rvmrc=""
-echo "rvm 2.4.0" > .rvmrc
+echo "rvm 2.4.1" > .rvmrc
 rvm rvmrc trust
 rvm rvmrc load
-rvm current           # match=/2.4.0/
+rvm current           # match=/2.4.1/
 
 rm -f .rvmrc
 rvm use 2.3.4
 
 : .versions.conf
-rvm rvmrc create 2.4.0 .versions.conf
+rvm rvmrc create 2.4.1 .versions.conf
 [ -f .versions.conf ] # status=0
 rvm current           # match=/2.3.4/
 rvm rvmrc load .
-rvm current           # match=/2.4.0/
+rvm current           # match=/2.4.1/
 
 rm -f .versions.conf
 rvm use 2.3.4
 
 : .ruby-version
-rvm rvmrc create 2.4.0 .ruby-version
+rvm rvmrc create 2.4.1 .ruby-version
 [ -f .ruby-version ]  # status=0
 rvm current           # match=/2.3.4/
 rvm rvmrc load .
-rvm current           # match=/2.4.0/
+rvm current           # match=/2.4.1/
 
 rm -f .ruby-version
 rvm use 2.3.4
