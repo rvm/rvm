@@ -5,14 +5,19 @@
 Note that the [`vboxtest`](docs/vm_tests.md) approach is now outdated.
 It's better to use the
 [`rvm-test`](https://github.com/rvm/rvm-test/) test suite
-which lives in a separate git submodule.  (It's separate in order to
+which lives in a separate git subtree.  (It's separate in order to
 allow reuse when hacking on rvm2).
 
-    $ git submodule init    # Register the rvm-test submodule in .git/config
-    $ git submodule update  # Check out the rvm-test submodule
+    # first time add remote:
+    $ gr add -f rvm-test git@github.com:rvm/rvm-test.git
+    # next time fetch it:
+    $ git fetch rvm-test master
+    # update the subtree
+    $ git subtree pull --prefix  rvm-test rvm-test master --squash
 
-Now read [`rvm-test`'s
-README.md](https://github.com/rvm/rvm-test/blob/master/README.md)
+[More details on subtrees](https://www.atlassian.com/blog/git/alternatives-to-git-submodule-git-subtree)
+
+Now read [`rvm-test`'s README.md](https://github.com/rvm/rvm-test/blob/master/README.md)
 and follow those instructions to make sure you can successfully run
 the tests (you will need rvm already installed).
 
