@@ -7,6 +7,7 @@
 * Add Termux support [\#4749](https://github.com/rvm/rvm/pull/4749)
 
 #### New interpreters
+* Add support for TruffleRuby 19.2.0.
 * Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735)
 * Add support for JRuby 9.2.8.0 [\#4756](https://github.com/rvm/rvm/pull/4756)
 
