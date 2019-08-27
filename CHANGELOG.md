@@ -10,6 +10,7 @@
 * Add support for TruffleRuby 19.2.0.
 * Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735)
 * Add support for JRuby 9.2.8.0 [\#4756](https://github.com/rvm/rvm/pull/4756)
+* Add support for Ruby 2.4.7 and 2.5.6 [\#4767](https://github.com/rvm/rvm/pull/4767)
 
 #### Bug fixes
 * Fix installer fetching RVM tags from Bitbucket [\#4730](https://github.com/rvm/rvm/pull/4730)
