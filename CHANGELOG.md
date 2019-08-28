@@ -12,6 +12,7 @@
 * Add support for JRuby 9.2.8.0 [\#4756](https://github.com/rvm/rvm/pull/4756)
 * Add support for Ruby 2.4.7 and 2.5.6 [\#4767](https://github.com/rvm/rvm/pull/4767)
 * Add support for Ruby 2.6.4 [\#4768](https://github.com/rvm/rvm/pull/4768)
+* Fixes checksums for Ruby 2.6.4 [\#4769](https://github.com/rvm/rvm/pull/4769)
 
 #### Bug fixes
 * Fix installer fetching RVM tags from Bitbucket [\#4730](https://github.com/rvm/rvm/pull/4730)
