@@ -14,13 +14,13 @@ do not break anything.
 # Common workflows
 
 ## Adding support for new version of Ruby
- 
+
 The following files need to be updated to add support for a new version of an already supported Ruby interpreter.
 Please follow the patterns used in those files and add entries in the appropriate location.
 [\#4366](https://github.com/rvm/rvm/commit/f324ed3946e5d74a80c59d873ac346e70dd50612) is a good example of the required changes.
 
 * `config/known`
-  * update existing entry when minor version released 
+  * update existing entry when minor version released
   * add new entry when major version released
 * `config/known_strings` - add an entry for the new version released
 * `config/db` - update only for stable releases
@@ -40,7 +40,7 @@ openssl dgst -md5 FILE
 ## Running RVM in local development environment
 
 To test a local copy of RVM for development purposes simply enter the folder with the source and install it:
- 
+
 ```
 ./install && rvm reload
 ```
@@ -55,7 +55,7 @@ rvm switch ~/.rvm               # production version
 
 ## Subtrees
 
-Subtree is a a merge of another repository, it allows us to use external code, track it and simplify it's maintenance.
+Subtree is a merge of another repository, it allows us to use external code, track it and simplify its maintenance.
 
 Configuration for subtrees:
 
