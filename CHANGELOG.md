@@ -7,13 +7,10 @@
 * Add Termux support [\#4749](https://github.com/rvm/rvm/pull/4749)
 
 #### New interpreters
-* Add support for TruffleRuby 19.2.0.
 * Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735)
 * Add support for JRuby 9.2.8.0 [\#4756](https://github.com/rvm/rvm/pull/4756)
-* Add support for Ruby 2.4.7 and 2.5.6 [\#4767](https://github.com/rvm/rvm/pull/4767)
-* Add support for Ruby 2.6.4 [\#4768](https://github.com/rvm/rvm/pull/4768)
-* Fixes checksums for Ruby 2.6.4 [\#4769](https://github.com/rvm/rvm/pull/4769)
-* Fixes checksums for Ruby 2.4.7 and 2.5.6 [\#4771](https://github.com/rvm/rvm/pull/4771)
+* Add support for TruffleRuby 19.2.0 [\#4761](https://github.com/rvm/rvm/pull/4761)
+* Add support for Ruby 2.4.7, 2.5.6 [\#4767](https://github.com/rvm/rvm/pull/4767), 2.6.4 [\#4768](https://github.com/rvm/rvm/pull/4768)
 
 #### Bug fixes
 * Fix installer fetching RVM tags from Bitbucket [\#4730](https://github.com/rvm/rvm/pull/4730)
@@ -23,6 +20,7 @@
 * Export more shell functions which cause the subshell to choke [\#4745](https://github.com/rvm/rvm/pull/4745)
 * Adds a check and returns if \_\_rvm\_remove\_from\_path is called with "/\*" [\#4759](https://github.com/rvm/rvm/issues/4759)
 * Do not install `rubygems-bundler` by default on TruffleRuby to make `ruby -S bundle` work [\#4766](https://github.com/rvm/rvm/pull/4766)
+* Fixes checksums for Ruby 2.6.4 [\#4769](https://github.com/rvm/rvm/pull/4769), 2.4.7 and 2.5.6 [\#4771](https://github.com/rvm/rvm/pull/4771)
 
 #### Changes
 * Installer now reports which URL(s) have failed to fetch version information and when version fetching has completely failed [\#4731](https://github.com/rvm/rvm/pull/4731)
