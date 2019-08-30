@@ -24,8 +24,8 @@
 
 #### Changes
 * Installer now reports which URL(s) have failed to fetch version information and when version fetching has completely failed [\#4731](https://github.com/rvm/rvm/pull/4731)
-* Added railsexpress patches for Ruby 2.6.3 [\#4747](https://github.com/rvm/rvm/pull/4747)
-* Added railsexpress patches for Ruby 2.6.6, 2.5.6 and 2.4.6 [\#4772](https://github.com/rvm/rvm/pull/4772)
+* Added railsexpress patches for Ruby 2.6.3 [\#4747](https://github.com/rvm/rvm/pull/4747), 2.6.6, 2.5.6 and 2.4.6 [\#4772](https://github.com/rvm/rvm/pull/4772)
+
 #### Binaries:
 *
 
