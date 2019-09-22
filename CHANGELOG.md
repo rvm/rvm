@@ -29,7 +29,8 @@
 * Fix string corruption bug by default for ruby 2.6.4 [\#4780](https://github.com/rvm/rvm/pull/4780)
 
 #### Binaries:
-*
+* Ubuntu 18.04 x64 binaries
+  * Ruby 2.4.7, 2.5.6, 2.6.4 [\#4788](https://github.com/rvm/rvm/issues/4788)
 
 ## [1.29.9](https://github.com/rvm/rvm/releases/tag/1.29.9)
 10 July 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.8...1.29.9)
