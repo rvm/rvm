@@ -4,6 +4,7 @@
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.9...HEAD)
 
 #### New features
+* Improve JRuby install time [\#4807](https://github.com/rvm/rvm/pull/4807)
 * Add Termux support [\#4749](https://github.com/rvm/rvm/pull/4749)
 
 #### New interpreters
