@@ -34,5 +34,5 @@ insert_after "config/known_strings", /^truffleruby/, ["truffleruby-#{version}\n"
   insert_after "config/#{algorithm}", /^truffleruby/, digests
 }
 
-changelog_entry = ["* Add support for TruffleRuby #{version}.\n"]
+changelog_entry = ["* Add support for TruffleRuby #{version}\n"]
 insert_after "CHANGELOG.md", /# New interpreters/, changelog_entry, last: false
