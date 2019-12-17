@@ -1,6 +1,5 @@
 source "$rvm_path/scripts/rvm"
 
-export RVM_GEMSET_SEPARATOR='@@'
 rvm use 2.4.0 --install
 
 : create/use/rename/delete
@@ -45,7 +44,7 @@ rm -rf $d
 rvm use 2.4.0
 rvm gemset create test_gemset
 rvm gemset use test_gemset               # status=0 ; match=/Using /
-rvm gemdir                               # match=/@@test_gemset$/
+rvm gemdir                               # match=/$RVM_GEMSET_SEPARATOR$test_gemset$/
 gem install haml
 rvm gemset export haml.gems              # status=0; match=/Exporting /
 [[ -f haml.gems ]]                       # status=0
@@ -55,7 +54,7 @@ rvm gemset import haml.gems              # status=0; match=/Installing /
 rm haml.gems
 gem list                                 # match=/haml/
 rvm gemset use default                   # status=0 ; match=/Using /
-rvm --force --debug gemset empty test_gemset # status=0 ; match=/GEM_HOME=.*ruby-2.4.0@@test_gemset/
+rvm --force --debug gemset empty test_gemset # status=0 ; match=/GEM_HOME=.*ruby-2.4.0$RVM_GEMSET_SEPARATOR$test_gemset/
 rvm gemset use test_gemset               # status=0 ; match=/Using /
 gem list                                 # match!=/haml/
 echo yes | rvm gemset delete test_gemset # status=0
@@ -84,4 +83,3 @@ rvm current                              # match!=/unknown_gemset/
 
 : default
 rvm gemset list                          # match=/default/
-
