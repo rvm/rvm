@@ -26,6 +26,7 @@
 * Do not install `rubygems-bundler` by default on TruffleRuby to make `ruby -S bundle` work [\#4766](https://github.com/rvm/rvm/pull/4766)
 * Fixes checksums for Ruby 2.6.4 [\#4769](https://github.com/rvm/rvm/pull/4769), 2.4.7 and 2.5.6 [\#4771](https://github.com/rvm/rvm/pull/4771)
 * Update TruffleRuby dependencies [\#4815](https://github.com/rvm/rvm/pull/4815)
+* Provides for a workaround for people with @ in the their username.
 
 #### Changes
 * Installer now reports which URL(s) have failed to fetch version information and when version fetching has completely failed [\#4731](https://github.com/rvm/rvm/pull/4731)
