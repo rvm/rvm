@@ -33,6 +33,7 @@
 * Fix string corruption bug on railsexpress ruby 2.6.4 [\#4778](https://github.com/rvm/rvm/pull/4778)
 * Fix string corruption bug by default for ruby 2.6.4 [\#4780](https://github.com/rvm/rvm/pull/4780)
 * Added railsexpress patches for Ruby 2.6.5, 2.5.7 and 2.4.9 [\#4799](https://github.com/rvm/rvm/pull/4799)
+* Added railsexpress patches for 2.7.0 and 2.7-head [\#4839]([\#4839](https://github.com/rvm/rvm/pull/4839))
 
 #### Binaries:
 * Ubuntu 18.04 x64 binaries
