@@ -9,7 +9,7 @@
 
 #### New interpreters
 * Add support for TruffleRuby 19.3.0
-* Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735), 4.6 [\#4779](https://github.com/rvm/rvm/pull/4779), 4.7 [\#4821](https://github.com/rvm/rvm/pull/4821), 4.8, 4.9 [\#4842](https://github.com/rvm/rvm/pull/4842), 4.10 [\#4843](https://github.com/rvm/rvm/pull/4843) 
+* Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735), 4.6 [\#4779](https://github.com/rvm/rvm/pull/4779), 4.7 [\#4821](https://github.com/rvm/rvm/pull/4821), 4.8, 4.9 [\#4842](https://github.com/rvm/rvm/pull/4842), 4.10 [\#4843](https://github.com/rvm/rvm/pull/4843), 4.11 and 4.12 
 * Add support for JRuby 9.2.8.0 [\#4756](https://github.com/rvm/rvm/pull/4756), 9.2.9.0 [\#4812](https://github.com/rvm/rvm/pull/4812)
 * Add support for TruffleRuby 19.2.0 [\#4761](https://github.com/rvm/rvm/pull/4761), 19.2.0.1 [\#4784](https://github.com/rvm/rvm/pull/4784)
 * Add support for Ruby 2.4.7, 2.5.6 [\#4767](https://github.com/rvm/rvm/pull/4767), 2.6.4 [\#4768](https://github.com/rvm/rvm/pull/4768), 2.4.8, 2.5.7, 2.6.5 [\#4793](https://github.com/rvm/rvm/pull/4793), 2.4.9 [\#4796](https://github.com/rvm/rvm/pull/4796), 2.7.0-preview2 [\#4805](https://github.com/rvm/rvm/pull/4805), 2.7.0-preview3 [\#4817](https://github.com/rvm/rvm/pull/4817), 2.7.0-rc1 [\#4831](https://github.com/rvm/rvm/pull/4831), 2.7.0-rc2 [\#4834](https://github.com/rvm/rvm/pull/4834), and 2.7.0 [\#4837](https://github.com/rvm/rvm/pull/4837)
