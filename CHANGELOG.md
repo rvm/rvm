@@ -9,10 +9,10 @@
 
 #### New interpreters
 * Add support for TruffleRuby 19.3.0
-* Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735), 4.6 [\#4779](https://github.com/rvm/rvm/pull/4779), 4.7 [\#4821](https://github.com/rvm/rvm/pull/4821)
+* Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735), 4.6 [\#4779](https://github.com/rvm/rvm/pull/4779), 4.7 [\#4821](https://github.com/rvm/rvm/pull/4821), 4.8, 4.9 [\#4842](https://github.com/rvm/rvm/pull/4842), 4.10 [\#4843](https://github.com/rvm/rvm/pull/4843) 
 * Add support for JRuby 9.2.8.0 [\#4756](https://github.com/rvm/rvm/pull/4756), 9.2.9.0 [\#4812](https://github.com/rvm/rvm/pull/4812)
 * Add support for TruffleRuby 19.2.0 [\#4761](https://github.com/rvm/rvm/pull/4761), 19.2.0.1 [\#4784](https://github.com/rvm/rvm/pull/4784)
-* Add support for Ruby 2.4.7, 2.5.6 [\#4767](https://github.com/rvm/rvm/pull/4767), 2.6.4 [\#4768](https://github.com/rvm/rvm/pull/4768), 2.4.8, 2.5.7, 2.6.5 [\#4793](https://github.com/rvm/rvm/pull/4793), 2.4.9 [\#4796](https://github.com/rvm/rvm/pull/4796), 2.7.0-preview2 [\#4805](https://github.com/rvm/rvm/pull/4805), 2.7.0-preview3 [\#4817](https://github.com/rvm/rvm/pull/4817), and 2.7.0-rc1 [\#4831](https://github.com/rvm/rvm/pull/4831)
+* Add support for Ruby 2.4.7, 2.5.6 [\#4767](https://github.com/rvm/rvm/pull/4767), 2.6.4 [\#4768](https://github.com/rvm/rvm/pull/4768), 2.4.8, 2.5.7, 2.6.5 [\#4793](https://github.com/rvm/rvm/pull/4793), 2.4.9 [\#4796](https://github.com/rvm/rvm/pull/4796), 2.7.0-preview2 [\#4805](https://github.com/rvm/rvm/pull/4805), 2.7.0-preview3 [\#4817](https://github.com/rvm/rvm/pull/4817), 2.7.0-rc1 [\#4831](https://github.com/rvm/rvm/pull/4831), 2.7.0-rc2 [\#4834](https://github.com/rvm/rvm/pull/4834), and 2.7.0 [\#4837](https://github.com/rvm/rvm/pull/4837)
 * Add support for mruby 2.1.0 [\#4816](https://github.com/rvm/rvm/pull/4816)
 * Add support for rubygems 3.0.5, 3.0.6 [\#4828](https://github.com/rvm/rvm/pull/4828)
 
@@ -26,14 +26,15 @@
 * Do not install `rubygems-bundler` by default on TruffleRuby to make `ruby -S bundle` work [\#4766](https://github.com/rvm/rvm/pull/4766)
 * Fixes checksums for Ruby 2.6.4 [\#4769](https://github.com/rvm/rvm/pull/4769), 2.4.7 and 2.5.6 [\#4771](https://github.com/rvm/rvm/pull/4771)
 * Update TruffleRuby dependencies [\#4815](https://github.com/rvm/rvm/pull/4815)
-* Provides for a workaround for people with @ in the their username.
+* Provides for a workaround for people with @ in the their username.[\#4832](https://github.com/rvm/rvm/pull/4832)
+* Use ruby.git master instead of trunk [\#4840](https://github.com/rvm/rvm/pull/4840)
 
 #### Changes
 * Installer now reports which URL(s) have failed to fetch version information and when version fetching has completely failed [\#4731](https://github.com/rvm/rvm/pull/4731)
 * Added railsexpress patches for Ruby 2.6.3 [\#4747](https://github.com/rvm/rvm/pull/4747), 2.6.6, 2.5.6 and 2.4.6 [\#4772](https://github.com/rvm/rvm/pull/4772)
 * Fix string corruption bug on railsexpress ruby 2.6.4 [\#4778](https://github.com/rvm/rvm/pull/4778)
 * Fix string corruption bug by default for ruby 2.6.4 [\#4780](https://github.com/rvm/rvm/pull/4780)
-* Added railsexpress patches for Ruby 2.6.5, 2.5.7 and 2.4.9 [\#4799](https://github.com/rvm/rvm/pull/4799)
+* Added railsexpress patches for Ruby 2.6.5, 2.5.7, 2.4.9 [\#4799](https://github.com/rvm/rvm/pull/4799) and 2.7.0, 2.7-head [\#4839]([\#4839](https://github.com/rvm/rvm/pull/4839))
 
 #### Binaries:
 * Ubuntu 18.04 x64 binaries
