@@ -41,6 +41,7 @@
 * Ubuntu 18.04 x64 binaries
   * Ruby 2.4.7, 2.5.6, 2.6.4 [\#4788](https://github.com/rvm/rvm/issues/4788)
   * Ruby 2.4.9, 2.5.7, 2.6.5 [\#4795](https://github.com/rvm/rvm/issues/4795)
+  * Ruby 2.7.0 [\#4856](https://github.com/rvm/rvm/issues/4856)
 
 ## [1.29.9](https://github.com/rvm/rvm/releases/tag/1.29.9)
 10 July 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.8...1.29.9)
