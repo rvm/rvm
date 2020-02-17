@@ -6,6 +6,7 @@
 #### New features
 * Improve JRuby install time [\#4807](https://github.com/rvm/rvm/pull/4807)
 * Add Termux support [\#4749](https://github.com/rvm/rvm/pull/4749)
+* Add support for `truffleruby-head` [\#4871](https://github.com/rvm/rvm/pull/4871)
 
 #### New interpreters
 * Add support for TruffleRuby 19.3.1
