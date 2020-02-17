@@ -29,6 +29,7 @@
 * Fixes checksums for Ruby 2.6.4 [\#4769](https://github.com/rvm/rvm/pull/4769), 2.4.7 and 2.5.6 [\#4771](https://github.com/rvm/rvm/pull/4771)
 * Update TruffleRuby dependencies [\#4815](https://github.com/rvm/rvm/pull/4815)
 * Use ruby.git master instead of trunk [\#4840](https://github.com/rvm/rvm/pull/4840)
+* Fix RVM version check when using a version newer than the latest release [#4872](https://github.com/rvm/rvm/pull/4872)
 
 #### Changes
 * Installer now reports which URL(s) have failed to fetch version information and when version fetching has completely failed [\#4731](https://github.com/rvm/rvm/pull/4731)
