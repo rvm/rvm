@@ -9,6 +9,7 @@
 * Add support for `truffleruby-head` [\#4871](https://github.com/rvm/rvm/pull/4871)
 
 #### New interpreters
+* Add support for TruffleRuby 20.0.0
 * Add support for TruffleRuby 19.3.1
 * Add support for TruffleRuby 19.3.0
 * Add support for Rubinius 4.4 and 4.5 [\#4735](https://github.com/rvm/rvm/pull/4735), 4.6 [\#4779](https://github.com/rvm/rvm/pull/4779), 4.7 [\#4821](https://github.com/rvm/rvm/pull/4821), 4.8, 4.9 [\#4842](https://github.com/rvm/rvm/pull/4842), 4.10 [\#4843](https://github.com/rvm/rvm/pull/4843), 4.11 and 4.12 [\#4846](https://github.com/rvm/rvm/pull/4846) 
