@@ -1,5 +1,20 @@
 # Change Log
 
+## [Next](https://github.com/rvm/rvm/tree/HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.10...HEAD)
+
+#### New features
+
+...
+
+#### New interpreters
+
+...
+
+#### Bug fixes
+
+...
+
 ## [1.29.10](https://github.com/rvm/rvm/releases/tag/1.29.10)
 25 March 2020 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.9...1.29.10)
 
