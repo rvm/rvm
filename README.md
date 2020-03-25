@@ -35,8 +35,8 @@ Homepage and more info at [https://rvm.io](https://rvm.io)
 ### Ubuntu
 
 RVM have dedicated Ubuntu package, so please follow instructions posted here: https://github.com/rvm/ubuntu_rvm
- 
-If you need a different (newer) version of RVM, after installing base version of RVM check the [Upgrading](#upgrading) section below. 
+
+If you need a different (newer) version of RVM, after installing base version of RVM check the [Upgrading](#upgrading) section below.
 
 ### Any other operating system
 
@@ -56,7 +56,7 @@ Additional installation options and details about the installation process are d
 ## Upgrading RVM
 
 You can upgrade RVM any time by running:
- 
+
 `rvm get VERSION`
 
 Where `VERSION` should be replaced by one of the following values:
@@ -73,10 +73,10 @@ Basic RVM usage scenarios include installing and switching between different rub
 
 ### Installing ruby
 
-To install ruby you have to call `rvm install INTERPRETER[-VERSION] OPTIONS` 
+To install ruby you have to call `rvm install INTERPRETER[-VERSION] OPTIONS`
 
 When no version specified, RVM will install latest stable version or selected interpreter. If you omit to specify interpreter, RVM will assume
-that you wanted to install MRI ruby. Following examples would have exactly the same effect:    
+that you wanted to install MRI ruby. Following examples would have exactly the same effect:
 
 ```
 rvm install ruby-2.3.1
@@ -85,14 +85,14 @@ rvm install 2.3.1
 rvm install 2.3
 ```
 
-Passing additional `--default` option makes selected ruby your default. 
+Passing additional `--default` option makes selected ruby your default.
 
 We currently supported following ruby interpreters:
 
 * `ruby`       - MRI ruby (The Gold Standard)
 * `ironruby`   - a .NET ruby
 * `jruby`      - Java implementation of the ruby
-* `macruby`    - implementation of ruby 1.9 directly on top of macOS core technologies 
+* `macruby`    - implementation of ruby 1.9 directly on top of macOS core technologies
 * `maglev`     - 64-bit implementation on top of VMware's GemStone
 * `mruby`      - lightweight ruby
 * `opal`       - ruby to JavaScript compiler
@@ -110,12 +110,12 @@ To switch between ruby versions you should call
 
 `rvm use INTERPRETER[-VERSION]`
 
-Same rules and options apply as for `install` command with two special _interpreters_. 
+Same rules and options apply as for `install` command with two special _interpreters_.
 
 * `default`    - [default](https://rvm.io/rubies/default/) ruby (or the system ruby if a default hasn't been set)
 * `system`     - system ruby (state before RVM was installed)
 
-Additionally you might want list your preferred ruby version in `.ruby-version` file stored in your project folder. This would cause automatic switch to selected ruby whenever you enter the folder.  
+Additionally you might want list your preferred ruby version in `.ruby-version` file stored in your project folder. This would cause automatic switch to selected ruby whenever you enter the folder.
 
 ### Other RVM commands
 
@@ -123,9 +123,9 @@ RVM comes bundled with many different tools for managing your ruby environment. 
 
 ## Reporting issues
 
-Here at RVM we get a high amount of bug reports, and often they are connected 
-with specific environment settings which might be hard for us to replicate. 
-That's why we would kindly ask you to follow the steps below so we can maximize 
+Here at RVM we get a high amount of bug reports, and often they are connected
+with specific environment settings which might be hard for us to replicate.
+That's why we would kindly ask you to follow the steps below so we can maximize
 our time helping you and minimize the time requesting more information.
 
 ### Check documentation
@@ -152,16 +152,16 @@ we will mark it as duplicate if it needs to be.  It's always better to file a ne
 let us sort it out than to accidentally add noise to another ticket.
 
 For filing issues, we have prepared a template for you to use. Please try to fill all sections as best as you can.
-Always make sure to split up each command and its output into its own fenced code block. 
-If the output is long, please put it in a separate [gist](https://gist.github.com). 
+Always make sure to split up each command and its output into its own fenced code block.
+If the output is long, please put it in a separate [gist](https://gist.github.com).
 Otherwise it's hard for us to process all the information and respond quickly.
 
-Note that if there is a lot of `debug` or `trace` output you can redirect it to a file with the `>` 
+Note that if there is a lot of `debug` or `trace` output you can redirect it to a file with the `>`
 character like `rvm [command] > output.txt`.
 
 ## Contributing
 
-You are very warmly welcome to help. Please follow our [contribution guidelines](CONTRIBUTING.md) 
+You are very warmly welcome to help. Please follow our [contribution guidelines](CONTRIBUTING.md)
 
 Any and all contributions offered in any form, past present or future are understood to be in complete agreement and acceptance with our [Apache License](LICENSE) v2.0.
 
@@ -179,6 +179,6 @@ Support this project by becoming a [sponsor](https://opencollective.com/rvm#spon
 
 ## License
 
-Copyright (C) Michal Papis (2011-2018), Piotr Kuczynski (2016-2018), Wayne E. Seguin (2009-2011) 
+Copyright (C) Michal Papis (2011-2020), Piotr Kuczynski (2016-2020), Wayne E. Seguin (2009-2011)
 
 Licensed under the [Apache License](LICENSE), Version 2.0
