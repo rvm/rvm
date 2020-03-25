@@ -1,7 +1,7 @@
 # Change Log
 
-## [Next](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.9...HEAD)
+## [1.29.10](https://github.com/rvm/rvm/releases/tag/1.29.10)
+25 March 2020 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.9...1.29.10)
 
 #### New features
 * Improve JRuby install time [\#4807](https://github.com/rvm/rvm/pull/4807)

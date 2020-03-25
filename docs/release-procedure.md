@@ -12,7 +12,13 @@ git merge master
 
 2. Increase [VERSION](../VERSION) number and remove `-next`
 3. Update [CHANGELOG](../CHANGELOG.md) with release date and links to changes (do not add new `Next` section yet)
-4. Tag stable with version
+4. Commit changes
+
+```bash
+git commit -m "Release 1.29.6"
+```
+
+5. Tag stable with version
 
 ```bash
 git tag 1.29.6
