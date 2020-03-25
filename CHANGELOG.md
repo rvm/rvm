@@ -52,7 +52,7 @@
 * Added railsexpress patches for Ruby 2.6.3 [\#4747](https://github.com/rvm/rvm/pull/4747), 2.6.6, 2.5.6 and 2.4.6 [\#4772](https://github.com/rvm/rvm/pull/4772)
 * Fix string corruption bug on railsexpress ruby 2.6.4 [\#4778](https://github.com/rvm/rvm/pull/4778)
 * Fix string corruption bug by default for ruby 2.6.4 [\#4780](https://github.com/rvm/rvm/pull/4780)
-* Added railsexpress patches for Ruby 2.6.5, 2.5.7, 2.4.9 [\#4799](https://github.com/rvm/rvm/pull/4799) and 2.7.0, 2.7-head [\#4839]([\#4839](https://github.com/rvm/rvm/pull/4839))
+* Added railsexpress patches for Ruby 2.6.5, 2.5.7, 2.4.9 [\#4799](https://github.com/rvm/rvm/pull/4799) and 2.7.0, 2.7-head [\#4839](https://github.com/rvm/rvm/pull/4839)
 * Install Opal globally  [\#4844](https://github.com/rvm/rvm/pull/4844)
 
 #### Binaries:
