@@ -9,7 +9,7 @@
 
 #### New interpreters
 
-...
+* Add support for Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1. [\#4899](https://github.com/rvm/rvm/pull/4899)
 
 #### Bug fixes
 
