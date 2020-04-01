@@ -15,6 +15,11 @@
 
 ...
 
+#### Changes
+
+* Added railsexpress patches for Ruby 2.5.8, 2.6.6 and 2.7.1 [\#4900](https://github.com/rvm/rvm/pull/4900)
+
+
 ## [1.29.10](https://github.com/rvm/rvm/releases/tag/1.29.10)
 25 March 2020 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.9...1.29.10)
 
