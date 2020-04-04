@@ -65,6 +65,7 @@
   * Ruby 2.4.7, 2.5.6, 2.6.4 [\#4788](https://github.com/rvm/rvm/issues/4788)
   * Ruby 2.4.9, 2.5.7, 2.6.5 [\#4795](https://github.com/rvm/rvm/issues/4795)
   * Ruby 2.7.0 [\#4856](https://github.com/rvm/rvm/issues/4856)
+  * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4904](https://github.com/rvm/rvm/issues/4904)
 
 ## [1.29.9](https://github.com/rvm/rvm/releases/tag/1.29.9)
 10 July 2019 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.8...1.29.9)
