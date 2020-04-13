@@ -10,7 +10,7 @@
 #### New interpreters
 
 * Add support for Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1. [\#4899](https://github.com/rvm/rvm/pull/4899)
-* Add support for mruby 2.1.1-rc [\#4816](https://github.com/rvm/rvm/pull/4816)
+* Add support for mruby 2.1.1-rc [\#4909](https://github.com/rvm/rvm/pull/4909)
 
 #### Bug fixes
 
