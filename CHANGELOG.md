@@ -15,7 +15,7 @@
 
 #### Bug fixes
 
-...
+* Use libssl-1.0 to install Ruby 1.8 on Debian 9 [\#4920](https://github.com/rvm/rvm/pull/4920)
 
 #### Changes
 
