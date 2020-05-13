@@ -27,6 +27,7 @@
   * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4921](https://github.com/rvm/rvm/issues/4921)
 * Ubuntu 18.04 x64 binaries
   * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4904](https://github.com/rvm/rvm/issues/4904)
+  * Ruby 2.4.8 [\#4916](https://github.com/rvm/rvm/issues/4916)
 
 
 ## [1.29.10](https://github.com/rvm/rvm/releases/tag/1.29.10)
