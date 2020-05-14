@@ -15,7 +15,7 @@
 
 #### Bug fixes
 
-...
+* Use libssl-1.0 to install Ruby 1.8 on Debian 9 [\#4920](https://github.com/rvm/rvm/pull/4920)
 
 #### Changes
 
@@ -23,8 +23,12 @@
 
 #### Binaries
 
+* Ubuntu 20.04 x64 binaries
+  * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4921](https://github.com/rvm/rvm/issues/4921)
 * Ubuntu 18.04 x64 binaries
   * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4904](https://github.com/rvm/rvm/issues/4904)
+  * Ruby 2.4.8 [\#4916](https://github.com/rvm/rvm/issues/4916)
+  * Ruby 2.1.0-2.1.10, 2.2.0-2.2.9, 2.3.0-2.3.6, 2.4.0-2.4.3 [\#4916](https://github.com/rvm/rvm/issues/4916)  
 
 
 ## [1.29.10](https://github.com/rvm/rvm/releases/tag/1.29.10)
