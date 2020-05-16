@@ -24,7 +24,7 @@
 #### Binaries
 
 * Ubuntu 20.04 x64 binaries
-  * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4921](https://github.com/rvm/rvm/issues/4921)
+  * Ruby 2.1.0-2.7.1 [\#4921](https://github.com/rvm/rvm/issues/4921)
 * Ubuntu 18.04 x64 binaries
   * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4904](https://github.com/rvm/rvm/issues/4904)
   * Ruby 2.4.8 [\#4916](https://github.com/rvm/rvm/issues/4916)
