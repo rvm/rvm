@@ -29,8 +29,9 @@
 * Ubuntu 18.04 x64 binaries
   * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4904](https://github.com/rvm/rvm/issues/4904)
   * Ruby 2.4.8 [\#4916](https://github.com/rvm/rvm/issues/4916)
-  * Ruby 2.1.0-2.1.10, 2.2.0-2.2.9, 2.3.0-2.3.6, 2.4.0-2.4.3 [\#4916](https://github.com/rvm/rvm/issues/4916)  
-
+  * Ruby 2.1.0-2.1.10, 2.2.0-2.2.9, 2.3.0-2.3.6, 2.4.0-2.4.3 [\#4916](https://github.com/rvm/rvm/issues/4916)
+* Centos 8 x64 binaries
+  * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4936](https://github.com/rvm/rvm/issues/4936)
 
 ## [1.29.10](https://github.com/rvm/rvm/releases/tag/1.29.10)
 25 March 2020 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.9...1.29.10)
