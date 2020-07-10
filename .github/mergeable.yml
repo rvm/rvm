@@ -2,39 +2,72 @@ version: 2
 mergeable:
   - when: pull_request.*
     validate:
-    - do: description
-      no_empty:
-        enabled: true
-        message: Description should not be empty. Provide details with **what** was changed, **why** it was changed, and **how** it was changed.
-    - do: label
-      and:
-      - no_empty:
+      - do: approvals
+        min:
+          count: 1
+        required:
+          owners: true
+          assignees: true
+          pending_reviewer: false
+        block:
+          changes_requested: true
+      - do: description
+        no_empty:
           enabled: true
-      - must_exclude:
-          regex: duplicate|feedback|invalid|wont|progress
-    - do: milestone
-      no_empty:
-        enabled: true
-    - do: dependent
-      changed:
-        file: '*'
-        files: ['CHANGELOG.md']
+          message: Description should not be empty. Provide details with **what** was changed, **why** it was changed, and **how** it was changed.
+      - do: label
+        and:
+          - no_empty:
+              enabled: true
+          - must_exclude:
+              regex: duplicate|feedback|invalid|wont|progress
+      - do: milestone
+        no_empty:
+          enabled: true
+      - do: dependent
+        changed:
+          file: '*'
+          files: ['CHANGELOG.md']
         message: Missing CHANGELOG entry
-    - do: dependent
-      changed:
-        file: 'binscripts/rvm-installer'
-        files: ['binscripts/rvm-installer.asc']
+      - do: dependent
+        changed:
+          file: 'binscripts/rvm-installer'
+          files: ['binscripts/rvm-installer.asc']
         message: Installer is missing updated signature
-    - do: dependent
-      changed:
-        file: 'config/known'
-        files: ['config/known_strings', 'config/md5', 'config/sha512']
+      - do: dependent
+        changed:
+          file: 'config/known'
+          files: ['config/known_strings', 'config/md5', 'config/sha512']
         message: New ruby version needs to be listed as known and with signatures
-    - do: dependent
-      changed:
-        file: 'config/known_strings'
+      - do: dependent
+        changed:
+          file: 'config/known_strings'
+          files: ['config/md5', 'config/sha512']
+        message: New ruby version needs to be listed as known and with signatures
+      - do: dependent
         files: ['config/md5', 'config/sha512']
-        message: New ruby version needs to be listed as known and with signatures
-    - do: dependent
-      files: ['config/md5', 'config/sha512']
-      message: Both md5 and sha512 signatures needs to be modified together
+        message: Both md5 and sha512 signatures needs to be modified together
+    fail:
+      - do: comment
+        payload:
+          body: >
+            This PR does not contain all required information and changes. Please review the `mergeable` status.
+
+            If you are member of the RVM team, ensure that you have applied all necessary labels, milestones, etc.
+  - when: pull_request.*
+    validate:
+      - do: assignee
+        min:
+          count: 1
+    fail:
+      - do: assign
+        assignees: [ '@author' ]
+  - when: schedule.repository
+    validate:
+      - do: stale
+        days: 20
+        type: pull_request, issues
+      pass:
+      - do: comment
+        payload:
+          body: There was no activity for 20 dats. Is this still relevant?
