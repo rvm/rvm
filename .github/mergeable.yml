@@ -1,23 +1,20 @@
 version: 2
 mergeable:
-  # Validate PR
+  # Validate assignee
   - when: pull_request.*
+    name: "validate assignee"
     validate:
       - do: assignee
         min:
           count: 1
-      - do: approvals
-        min:
-          count: 1
-        required:
-          owners: true
-          assignees: true
-        block:
-          changes_requested: true
-      - do: description
-        no_empty:
-          enabled: true
-          message: Description should not be empty. Provide details with **what** was changed, **why** it was changed, and **how** it was changed.
+    fail:
+      - do: assign
+        assignees: [ '@author' ]
+
+  # Validate fields changeable by maintainers
+  - when: pull_request.*
+    name: "validate maintainers properties"
+    validate:
       - do: label
         and:
           - no_empty:
@@ -27,6 +24,15 @@ mergeable:
       - do: milestone
         no_empty:
           enabled: true
+
+  # Validate fields changeable by anybody
+  - when: pull_request.*
+    name: "validate developer properties"
+    validate:
+      - do: description
+        no_empty:
+          enabled: true
+          message: Description should not be empty. Provide details with **what** was changed, **why** it was changed, and **how** it was changed.
       - do: dependent
         changed:
           file: '*'
@@ -51,8 +57,22 @@ mergeable:
         files: ['config/md5', 'config/sha512']
         message: Both md5 and sha512 signatures needs to be modified together
     fail:
-      - do: assign
-        assignees: [ '@author' ]
+      - do: comment
+        payload:
+          body: This PR does not contain all required information and changes. Check the `mergeable` status for more details.
+
+  # Validate approvals
+  - when: pull_request.*
+    name: "validate approvals"
+    validate:
+      - do: approvals
+        min:
+          count: 1
+        required:
+          owners: true
+          assignees: true
+        block:
+          changes_requested: true
 
   # Stale PR
   - when: schedule.repository
@@ -64,4 +84,3 @@ mergeable:
       - do: comment
         payload:
           body: There was no activity for 20 dats. Is this still relevant?
-
