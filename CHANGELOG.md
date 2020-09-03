@@ -9,6 +9,9 @@
 * Added railsexpress patches for Ruby 2.5.8, 2.6.6 and 2.7.1 [\#4900](https://github.com/rvm/rvm/pull/4900)
 * Add ruby-3 to the list of available binary builds [\#4984](https://github.com/rvm/rvm/pull/4984)
 * Recognize `3*` as CRuby version number [\#4987](https://github.com/rvm/rvm/pull/4987)
+* Alias `rvm gemset remove` as `rvm gemset delete`
+* Alias `rvm gemset move` as `rvm gemset rename` 
+* Alias `rvm delete` as `rvm remove`
 
 #### Bug fixes
 
