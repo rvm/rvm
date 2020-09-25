@@ -79,6 +79,7 @@
 * Add support for Ruby 2.4.7, 2.5.6 [\#4767](https://github.com/rvm/rvm/pull/4767), 2.6.4 [\#4768](https://github.com/rvm/rvm/pull/4768), 2.4.8, 2.5.7, 2.6.5 [\#4793](https://github.com/rvm/rvm/pull/4793), 2.4.9 [\#4796](https://github.com/rvm/rvm/pull/4796), 2.7.0-preview2 [\#4805](https://github.com/rvm/rvm/pull/4805), 2.7.0-preview3 [\#4817](https://github.com/rvm/rvm/pull/4817), 2.7.0-rc1 [\#4831](https://github.com/rvm/rvm/pull/4831), 2.7.0-rc2 [\#4834](https://github.com/rvm/rvm/pull/4834), and 2.7.0 [\#4837](https://github.com/rvm/rvm/pull/4837)
 * Add support for mruby 2.1.0 [\#4816](https://github.com/rvm/rvm/pull/4816)
 * Add support for rubygems 3.0.5, 3.0.6 [\#4828](https://github.com/rvm/rvm/pull/4828)
+* Add support for Ruby 3.0.0-preview1 [\#4983](https://github.com/rvm/rvm/pull/4983)
 
 #### Bug fixes
 * Fix installer fetching RVM tags from Bitbucket [\#4730](https://github.com/rvm/rvm/pull/4730)
