@@ -6,6 +6,7 @@
 #### New features
 
 * Added railsexpress patches for Ruby 2.5.8, 2.6.6 and 2.7.1 [\#4900](https://github.com/rvm/rvm/pull/4900)
+* Add ruby-3 to the list of available binary builds [\#4984](https://github.com/rvm/rvm/pull/4984)
 
 #### Bug fixes
 
@@ -22,8 +23,6 @@
 
 #### Binaries
 
-* Ruby 3.0
-  * It's now possible to build movable distribution for ruby 3.x 
 * Ubuntu
   * Ubuntu 20.04 x64 binaries
     * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4921](https://github.com/rvm/rvm/issues/4921)
