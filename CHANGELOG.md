@@ -94,6 +94,7 @@
 * Add support for mruby 2.1.0 [\#4816](https://github.com/rvm/rvm/pull/4816)
 * Add support for rubygems 3.0.5, 3.0.6 [\#4828](https://github.com/rvm/rvm/pull/4828)
 * Add support for Ruby 3.0.0-preview1 [\#4983](https://github.com/rvm/rvm/pull/4983)
+* Add support for Ruby 2.7.2 [\#4988](https://github.com/rvm/rvm/pull/4988)
 
 #### Bug fixes
 * Fix installer fetching RVM tags from Bitbucket [\#4730](https://github.com/rvm/rvm/pull/4730)
