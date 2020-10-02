@@ -15,7 +15,7 @@
 #### New interpreters
 
 * Add support for TruffleRuby 20.1.0, 20.2.0
-* Add support for Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4899](https://github.com/rvm/rvm/pull/4899)
+* Add support for Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4899](https://github.com/rvm/rvm/pull/4899) and 2.7.2 [\#4988](https://github.com/rvm/rvm/pull/4988)
 * Add support for mruby 2.1.1-rc [\#4909](https://github.com/rvm/rvm/pull/4909), 2.1.1-rc2 and 2.1.1 [\#4948](https://github.com/rvm/rvm/pull/4948)
 * Add support for TruffleRuby 19.0.2, 19.1.1, 19.2.1, 19.3.0.2 [\#4910](https://github.com/rvm/rvm/pull/4910)
 * Add support for Rubinius 4.13-4.20 and 5.0 [\#4947](https://github.com/rvm/rvm/pull/4947)
@@ -94,7 +94,6 @@
 * Add support for mruby 2.1.0 [\#4816](https://github.com/rvm/rvm/pull/4816)
 * Add support for rubygems 3.0.5, 3.0.6 [\#4828](https://github.com/rvm/rvm/pull/4828)
 * Add support for Ruby 3.0.0-preview1 [\#4983](https://github.com/rvm/rvm/pull/4983)
-* Add support for Ruby 2.7.2 [\#4988](https://github.com/rvm/rvm/pull/4988)
 
 #### Bug fixes
 * Fix installer fetching RVM tags from Bitbucket [\#4730](https://github.com/rvm/rvm/pull/4730)
