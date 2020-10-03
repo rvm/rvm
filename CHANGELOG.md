@@ -5,6 +5,7 @@
 
 #### New features
 
+* Added railsexpress patches for Ruby 2.7.2 [\#4990](https://github.com/rvm/rvm/pull/4990)
 * Added railsexpress patches for Ruby 2.5.8, 2.6.6 and 2.7.1 [\#4900](https://github.com/rvm/rvm/pull/4900)
 * Add ruby-3 to the list of available binary builds [\#4984](https://github.com/rvm/rvm/pull/4984)
 
@@ -15,7 +16,7 @@
 #### New interpreters
 
 * Add support for TruffleRuby 20.1.0, 20.2.0
-* Add support for Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4899](https://github.com/rvm/rvm/pull/4899)
+* Add support for Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4899](https://github.com/rvm/rvm/pull/4899) and 2.7.2 [\#4988](https://github.com/rvm/rvm/pull/4988)
 * Add support for mruby 2.1.1-rc [\#4909](https://github.com/rvm/rvm/pull/4909), 2.1.1-rc2 and 2.1.1 [\#4948](https://github.com/rvm/rvm/pull/4948)
 * Add support for TruffleRuby 19.0.2, 19.1.1, 19.2.1, 19.3.0.2 [\#4910](https://github.com/rvm/rvm/pull/4910)
 * Add support for Rubinius 4.13-4.20 and 5.0 [\#4947](https://github.com/rvm/rvm/pull/4947)
@@ -28,52 +29,66 @@
     * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4921](https://github.com/rvm/rvm/issues/4921)
     * Ruby 2.1.0-2.1.10, 2.2.0-2.2.10, 2.3.0-2.3.8, 2.4.0-2.4.9, 2.5.0-2.5.8, 2.6.0-2.6.5, 2.7.0 [\#4921](https://github.com/rvm/rvm/issues/4921)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * Ubuntu 19.04 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * Ubuntu 18.04 x64 binaries
     * Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4904](https://github.com/rvm/rvm/issues/4904)
     * Ruby 2.4.8 [\#4916](https://github.com/rvm/rvm/issues/4916)
     * Ruby 2.1.0-2.1.10, 2.2.0-2.2.9, 2.3.0-2.3.6, 2.4.0-2.4.3 [\#4916](https://github.com/rvm/rvm/issues/4916)
     * Ruby 2.5.0 [\#4931](https://github.com/rvm/rvm/issues/4931)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * Ubuntu 16.04 x64 binaries
     * Ruby 2.1.0-2.1.4, 2.1.6-2.1.8, 2.1.10, 2.2.0-2.2.4, 2.3.8, 2.4.5-2.4.10, 2.5.2-2.5.8, 2.6.0-2.6.6, 2.7.0-2.7.1 [\#4932](https://github.com/rvm/rvm/issues/4932)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * Ubuntu 14.04 x64 binaries
     * Ruby 2.1.0-2.1.1, 2.1.4, 2.1.6-2.1.10, 2.2.2-2.2.10, 2.3.0-2.3.8, 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0-2.7.1 [\#4933](https://github.com/rvm/rvm/issues/4933)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * Ubuntu 12.04 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
 * Debian
   * Debian 10 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * Debian 9 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * Debian 8 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
 * CentOS
   * CentOS 6 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * CentOS 7 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * CentOS 8 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4936](https://github.com/rvm/rvm/issues/4936)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
 * Amazon Linux
   * Amazon Linux 2018.03 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
   * Amazon Linux 2 x64 binaries
     * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
     * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+    * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
 * Oracle Linux 7 x64 binaries
   * Ruby 2.4.0-2.4.10, 2.5.0-2.5.8, 2.6.0-2.6.6, 2.7.0, 2.7.1 [\#4935](https://github.com/rvm/rvm/issues/4935)
   * Ruby 3.0.0-preview1 [\#4985](https://github.com/rvm/rvm/pull/4985)
+  * Ruby 2.7.2 [\#4989](https://github.com/rvm/rvm/pull/4989)
 
 ## [1.29.10](https://github.com/rvm/rvm/releases/tag/1.29.10)
 25 March 2020 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.9...1.29.10)
