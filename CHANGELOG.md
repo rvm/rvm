@@ -5,6 +5,7 @@
 
 #### New features
 
+* Added railsexpress patches for Ruby 2.7.2 [\#4990](https://github.com/rvm/rvm/pull/4990)
 * Added railsexpress patches for Ruby 2.5.8, 2.6.6 and 2.7.1 [\#4900](https://github.com/rvm/rvm/pull/4900)
 * Add ruby-3 to the list of available binary builds [\#4984](https://github.com/rvm/rvm/pull/4984)
 
