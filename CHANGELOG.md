@@ -15,7 +15,7 @@
 * Use libssl-1.0 to install Ruby 1.8 on Debian 9 [\#4920](https://github.com/rvm/rvm/pull/4920)
 * Use libssl-1.0 to install Ree 1.8 on Ubuntu [\#4996](https://github.com/rvm/rvm/pull/4920)
 * Fix broken mergeable config [\#5001](https://github.com/rvm/rvm/pull/5001)
-* Update brew list command to remove deprecation warning [\#4995](https://github.com/rvm/rvm/pull/4995)
+* Update brew list command to remove deprecation warning [\#4995](https://github.com/rvm/rvm/pull/4995) [\#5022](https://github.com/rvm/rvm/pull/5022)
 
 #### New interpreters
 
