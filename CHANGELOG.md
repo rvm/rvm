@@ -9,21 +9,25 @@
 * Added railsexpress patches for Ruby 2.5.8, 2.6.6 and 2.7.1 [\#4900](https://github.com/rvm/rvm/pull/4900)
 * Add ruby-3 to the list of available binary builds [\#4984](https://github.com/rvm/rvm/pull/4984)
 * Recognize `3*` as CRuby version number [\#4987](https://github.com/rvm/rvm/pull/4987)
+* Alias `rvm gemset remove` as `rvm gemset delete`
+* Alias `rvm gemset move` as `rvm gemset rename` 
+* Alias `rvm delete` as `rvm remove`
 
 #### Bug fixes
 
 * Use libssl-1.0 to install Ruby 1.8 on Debian 9 [\#4920](https://github.com/rvm/rvm/pull/4920)
 * Use libssl-1.0 to install Ree 1.8 on Ubuntu [\#4996](https://github.com/rvm/rvm/pull/4920)
 * Fix broken mergeable config [\#5001](https://github.com/rvm/rvm/pull/5001)
+* Update brew list command to remove deprecation warning [\#4995](https://github.com/rvm/rvm/pull/4995) [\#5022](https://github.com/rvm/rvm/pull/5022)
 
 #### New interpreters
 
-* Add support for TruffleRuby 20.1.0, 20.2.0
-* Add support for Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4899](https://github.com/rvm/rvm/pull/4899), 2.7.2 [\#4988](https://github.com/rvm/rvm/pull/4988), and 3.0.0-preview1 [\#4983](https://github.com/rvm/rvm/pull/4983)
+* Add support for TruffleRuby 20.1.0, 20.2.0, 20.3.0
+* Add support for Ruby 2.4.10, 2.5.8, 2.6.6, 2.7.1 [\#4899](https://github.com/rvm/rvm/pull/4899), 2.7.2 [\#4988](https://github.com/rvm/rvm/pull/4988), 3.0.0-preview1 [\#4983](https://github.com/rvm/rvm/pull/4983), 3.0.0-preview2[\#5009](https://github.com/rvm/rvm/pull/5009), 3.0.0-rc1[\#5015](https://github.com/rvm/rvm/pull/5015), and 3.0.0[\#5016](https://github.com/rvm/rvm/pull/5016)
 * Add support for mruby 2.1.1-rc [\#4909](https://github.com/rvm/rvm/pull/4909), 2.1.1-rc2 and 2.1.1 [\#4948](https://github.com/rvm/rvm/pull/4948)
 * Add support for TruffleRuby 19.0.2, 19.1.1, 19.2.1, 19.3.0.2 [\#4910](https://github.com/rvm/rvm/pull/4910)
 * Add support for Rubinius 4.13-4.20 and 5.0 [\#4947](https://github.com/rvm/rvm/pull/4947)
-* Add support for JRuby 9.2.12.0 [\#4960](https://github.com/rvm/rvm/pull/4960) and 9.2.13.0 [\#4971](https://github.com/rvm/rvm/pull/4971)
+* Add support for JRuby 9.2.12.0 [\#4960](https://github.com/rvm/rvm/pull/4960), 9.2.13.0 [\#4971](https://github.com/rvm/rvm/pull/4971) and 9.2.14.0 [\#5013](https://github.com/rvm/rvm/pull/5013)
 
 #### Binaries
 

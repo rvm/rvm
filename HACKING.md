@@ -9,7 +9,7 @@ which lives in a separate git subtree.  (It's separate in order to
 allow reuse when hacking on rvm2).
 
     # first time add remote:
-    $ gr add -f rvm-test git@github.com:rvm/rvm-test.git
+    $ git remote add -f rvm-test git@github.com:rvm/rvm-test.git
     # next time fetch it:
     $ git fetch rvm-test master
     # update the subtree
