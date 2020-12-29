@@ -1,7 +1,7 @@
 # Change Log
 
-## [Next](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.10...HEAD)
+## [1.29.11](https://github.com/rvm/rvm/releases/tag/1.29.11)
+29 December 2020 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.10...1.29.11)
 
 #### New features
 
