@@ -6,7 +6,7 @@ Usage:
 
 Actions:
 
-    copy, create, delete, dir, empty, export, gemdir, globalcache, import, install, list, list_all, name, pristine, rename, unpack, update, use
+    copy, create, delete (alias: remove), dir, empty, export, gemdir, globalcache, import, install, list, list_all, name, pristine, rename (alias: move), unpack, update, use
 
 Description:
 
