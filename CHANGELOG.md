@@ -3,6 +3,8 @@
 ## [Next](https://github.com/rvm/rvm/tree/HEAD)
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...HEAD)
 
+* Added railsexpress patches for Ruby 3.0.0 [\#5026](https://github.com/rvm/rvm/pull/5026)
+
 ...
 
 ## [1.29.11](https://github.com/rvm/rvm/releases/tag/1.29.11)
