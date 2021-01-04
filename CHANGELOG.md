@@ -3,7 +3,13 @@
 ## [Next](https://github.com/rvm/rvm/tree/HEAD)
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...HEAD)
 
-...
+#### New features
+
+* Added railsexpress patches for Ruby 3.0.0 [\#5026](https://github.com/rvm/rvm/pull/5026)
+
+#### Bug fixes
+
+* Requirement `glibc-headers` obsolete on Fedora 33 [\#5023](https://github.com/rvm/rvm/pull/5023)
 
 ## [1.29.11](https://github.com/rvm/rvm/releases/tag/1.29.11)
 29 December 2020 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.10...1.29.11)
@@ -24,7 +30,6 @@
 * Use libssl-1.0 to install Ree 1.8 on Ubuntu [\#4996](https://github.com/rvm/rvm/pull/4920)
 * Fix broken mergeable config [\#5001](https://github.com/rvm/rvm/pull/5001)
 * Update brew list command to remove deprecation warning [\#4995](https://github.com/rvm/rvm/pull/4995) [\#5022](https://github.com/rvm/rvm/pull/5022)
-* Requirement `glibc-headers` obsolete on Fedora 33 [\#5023](https://github.com/rvm/rvm/pull/5023)
 
 #### New interpreters
 
