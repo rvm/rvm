@@ -124,7 +124,7 @@ _rvm_use ()
 _rvm_gemset ()
 {
   \typeset subcommand subcommands
-  subcommands="import export create copy rename empty delete name dir list list_all gemdir install pristine clear use update unpack globalcache"
+  subcommands="import export create copy rename move empty delete remove name dir list list_all gemdir install pristine clear use update unpack globalcache"
   subcommand="$(__rvm_subcommand "$subcommands")"
 
   if [[ -z "$subcommand" ]]; then

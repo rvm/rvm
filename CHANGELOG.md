@@ -1,7 +1,18 @@
 # Change Log
 
 ## [Next](https://github.com/rvm/rvm/tree/HEAD)
-[Full Changelog](https://github.com/rvm/rvm/compare/1.29.10...HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...HEAD)
+
+#### New features
+
+* Added railsexpress patches for Ruby 3.0.0 [\#5026](https://github.com/rvm/rvm/pull/5026)
+
+#### Bug fixes
+
+* Requirement `glibc-headers` obsolete on Fedora 33 [\#5023](https://github.com/rvm/rvm/pull/5023)
+
+## [1.29.11](https://github.com/rvm/rvm/releases/tag/1.29.11)
+29 December 2020 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.10...1.29.11)
 
 #### New features
 
@@ -9,6 +20,9 @@
 * Added railsexpress patches for Ruby 2.5.8, 2.6.6 and 2.7.1 [\#4900](https://github.com/rvm/rvm/pull/4900)
 * Add ruby-3 to the list of available binary builds [\#4984](https://github.com/rvm/rvm/pull/4984)
 * Recognize `3*` as CRuby version number [\#4987](https://github.com/rvm/rvm/pull/4987)
+* Alias `rvm gemset remove` as `rvm gemset delete` [\#4976](https://github.com/rvm/rvm/pull/4976)
+* Alias `rvm gemset move` as `rvm gemset rename` [\#4976](https://github.com/rvm/rvm/pull/4976)
+* Alias `rvm delete` as `rvm remove` [\#4976](https://github.com/rvm/rvm/pull/4976)
 
 #### Bug fixes
 
