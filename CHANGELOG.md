@@ -11,6 +11,7 @@
 
 * Requirement `glibc-headers` obsolete on Fedora 33 [\#5023](https://github.com/rvm/rvm/pull/5023)
 * Fix unknown command wrappers with rubygems >= 3.2 [\#5027](https://github.com/rvm/rvm/pull/5027)
+* Recompiled binaries for Ubuntu 20.04.1 [\#5032](https://github.com/rvm/rvm/pull/5032)
 
 #### Binaries
 
