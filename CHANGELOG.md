@@ -1,5 +1,10 @@
 # Change Log
 
+## [Next](https://github.com/rvm/rvm/tree/HEAD)
+[Full Changelog](https://github.com/rvm/rvm/compare/1.29.12...HEAD)
+
+...
+
 ## [1.29.12](https://github.com/rvm/rvm/releases/tag/1.29.12)
 15 January 2021 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...1.29.12)
 
