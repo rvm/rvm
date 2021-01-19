@@ -5,7 +5,7 @@
 
 #### New interpreters
 
-* Add support for TruffleRuby 21.0.0
+* Add support for TruffleRuby 21.0.0 [\#5037](https://github.com/rvm/rvm/pull/5037)
 
 ...
 
