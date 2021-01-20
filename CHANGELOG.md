@@ -3,7 +3,9 @@
 ## [Next](https://github.com/rvm/rvm/tree/HEAD)
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.12...HEAD)
 
-...
+#### New interpreters
+
+* Add support for TruffleRuby 21.0.0 [\#5037](https://github.com/rvm/rvm/pull/5037)
 
 ## [1.29.12](https://github.com/rvm/rvm/releases/tag/1.29.12)
 15 January 2021 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...1.29.12)
