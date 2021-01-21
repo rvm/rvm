@@ -8,15 +8,19 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
+        ruby: [2.7]
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v2
-      - name: Install apt packages
-        run: sudo apt install -y gawk libgmp-dev
-      - name: Run before_install commands
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - name: Test suite
         run: |
+          export TEST=rvm-test/fast/*
+          sudo apt install -y gawk libgmp-dev
           rm -f ~/.rvm/hooks/after_use
           sed -i'' -e '/rvm_project_rvmrc/d ; /rvm_silence_path_mismatch_check_flag/d' ~/.rvmrc || true
           echo rvm_show_log_lines_on_error=all >> ~/.rvmrc
@@ -25,3 +29,15 @@ jobs:
           rvm use ruby-2.4 --fuzzy || rvm use ruby-2.3 --fuzzy
           [[ -n \"${LANG:-}\" ]] || export LANG=en_US.UTF-8
           env | grep '^rvm' || true
+          gem install tf -v '>=0.4.1'
+          echo ruby_1.8.7_rubygems_version=1.8.25 > $rvm_path/user/db
+          if [[ -f ~/.rvmrc ]] ; then sed -i'' -r -e
+          unset rvm_silence_path_mismatch_check_flag rvm_project_rvmrc
+          rvm alias delete default
+          hash -r
+          ./install
+          git submodule init
+          git submodule update
+          rvm reload
+          if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm autolibs read-only; fi
+          tf --text $TEST
