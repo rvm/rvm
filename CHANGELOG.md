@@ -19,6 +19,7 @@
 * Requirement `glibc-headers` obsolete on Fedora 33 [\#5023](https://github.com/rvm/rvm/pull/5023)
 * Fix unknown command wrappers with Rubygems >= 3.2 [\#5027](https://github.com/rvm/rvm/pull/5027)
 * Fix errors in compilation+installation of Ruby 3 with Rubygems >= 3.2 [\#5030](https://github.com/rvm/rvm/pull/5030)
+* Updated colours in the `ps1_functions` helper to support the `main` branch [\#5045](https://github.com/rvm/rvm/pull/5045)
 
 #### Binaries
 
