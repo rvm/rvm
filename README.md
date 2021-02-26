@@ -115,11 +115,11 @@ Same rules and options apply as for `install` command with two special _interpre
 * `default`    - [default](https://rvm.io/rubies/default/) ruby (or the system ruby if a default hasn't been set)
 * `system`     - system ruby (state before RVM was installed)
 
-Additionally you might want list your preferred ruby version in `.ruby-version` file stored in your project folder. This would cause automatic switch to selected ruby whenever you enter the folder.
+Additionally you might want to list your preferred ruby version in a `.ruby-version` file stored in your project folder. This would cause automatic switch to selected ruby whenever you enter the folder.
 
 ### Other RVM commands
 
-RVM comes bundled with many different tools for managing your ruby environment. More detailed information about every commands listed below can be read after executing `rvm help COMMAND` or browsing documentation on RVM homepage [https://rvm.io](https://rvm.io).
+RVM comes bundled with many different tools for managing your ruby environment. More detailed information about every command listed below can be read after executing `rvm help COMMAND` or browsing documentation on RVM homepage [https://rvm.io](https://rvm.io).
 
 ## Reporting issues
 
@@ -167,7 +167,7 @@ Any and all contributions offered in any form, past present or future are unders
 
 ### Backers
 
-[Become a backer](https://opencollective.com/rvm#backer) and support us with a small monthly donation to help us continue our activities. Thank you if you already one! 🙏
+[Become a backer](https://opencollective.com/rvm#backer) and support us with a small monthly donation to help us continue our activities. Thank you if you are already one of them! 🙏
 
 [![Backers](https://opencollective.com/rvm/backers.svg?width=890)](https://opencollective.com/rvm)
 
@@ -179,6 +179,6 @@ Support this project by becoming a [sponsor](https://opencollective.com/rvm#spon
 
 ## License
 
-Copyright (C) Michal Papis (2011-2020), Piotr Kuczynski (2016-2020), Wayne E. Seguin (2009-2011)
+Copyright (C) Michal Papis (2011-2021), Piotr Kuczynski (2016-2021), Wayne E. Seguin (2009-2011)
 
 Licensed under the [Apache License](LICENSE), Version 2.0
