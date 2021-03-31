@@ -6,7 +6,7 @@
 #### New interpreters
 
 * Add support for TruffleRuby 21.0.0 [\#5037](https://github.com/rvm/rvm/pull/5037)
-* Add support for JRuby 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056)
+* Add support for JRuby 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056), 9.2.17.0 [\#5062](https://github.com/rvm/rvm/pull/5062)
 
 ## [1.29.12](https://github.com/rvm/rvm/releases/tag/1.29.12)
 15 January 2021 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...1.29.12)
