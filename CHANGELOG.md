@@ -3,6 +3,11 @@
 ## [Next](https://github.com/rvm/rvm/tree/HEAD)
 [Full Changelog](https://github.com/rvm/rvm/compare/1.29.12...HEAD)
 
+#### New features
+
+* Added railsexpress patches for Ruby 2.6.7, 2.7.3 and 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066)
+
+
 #### New interpreters
 
 * Add support for TruffleRuby 21.0.0 [\#5037](https://github.com/rvm/rvm/pull/5037)
