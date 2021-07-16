@@ -7,6 +7,9 @@
 
 * Added railsexpress patches for Ruby 2.6.7, 2.7.3 and 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066)
 
+#### Bug fixes
+
+* Remove unsupported libclang, libclang-dev, openssl-dev and zlib-dev from Termux requirements, and fix installation by not calling getent [\#5101](https://github.com/rvm/rvm/pull/5101)
 
 #### New interpreters
 
