@@ -3,8 +3,8 @@
 ## Usage
 
     $ gem install tf    # Install testing framework
-    $ tf fast/*         # Run the short tests (those are run on travis)
-    $ tf long/*         # Run the long set of tests, like installing rubies.
+    $ tf fast/*         # Run the short tests
+    $ tf long/*         # Run the long set of tests, like installing rubies
     $ tf --text long/*  # Same as above, but watch output
 
 ## Comment tests
