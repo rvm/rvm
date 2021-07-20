@@ -39,11 +39,11 @@ To get back to using original rvm installation run:
 ## Hacking RVM via TDD (Test-Driven Development)
 
 First write a test for the behaviour you expect.  For details on how
-to write new tests, see [`rvm-test`'s
-README.md](https://github.com/rvm/rvm-test/blob/master/README.md).
+to write new tests, see [README](https://github.com/rvm/rvm/blob/master/tests/README.md).
+
 Then run the test:
 
-    $ NOEXEC_DISABLE=1 tf --text rvm-test/fast/foo_comment_test.sh
+    $ NOEXEC_DISABLE=1 tf --text tests/fast/foo_comment_test.sh
 
 It should fail.  Now repeat the following steps until the test passes:
 
