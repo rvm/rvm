@@ -1,10 +1,5 @@
-Stable
-[![Build](https://travis-ci.org/rvm/rvm.svg?branch=stable)](https://travis-ci.org/rvm/rvm/branches)
 [![OpenCollective](https://opencollective.com/rvm/backers/badge.svg)](#backers)
 [![OpenCollective](https://opencollective.com/rvm/sponsors/badge.svg)](#sponsors)
-&nbsp;&nbsp;&nbsp;&nbsp;
-Master
-[![Build](https://travis-ci.org/rvm/rvm.svg?branch=master)](https://travis-ci.org/rvm/rvm/branches)
 
 # What's RVM
 
