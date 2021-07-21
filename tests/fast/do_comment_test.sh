@@ -12,7 +12,10 @@ rvm 2.6.6@test0 do rvm gemdir # status=2; match=/Gemset .* does not exist/
 rvm 2.6.6@test1 do rvm gemdir # status=0; match=/2.6.6@test1/
 rvm 2.6.6@test2 do rvm gemdir # status=0; match=/2.6.6@test2/
 
-rvm 2.6.6@global,2.6.6 do rvm gemdir # status=0; match=/2.6.6@global$/; match=/2.6.6$/
+rvm 2.6.6@global,2.6.6 do rvm gemdir
+# status=0
+# match=/ruby-2.6.6/lib/ruby/gems/2.6.0$/
+# match=/2.6.6$/
 
 rvm --force gemset delete test1 # status=0
 rvm --force gemset delete test2 # status=0
