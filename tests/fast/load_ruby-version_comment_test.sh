@@ -4,7 +4,7 @@ d=$TMPDIR/test-user
 mkdir -p $d
 cd $d
 unset GEM_HOME GEM_PATH
-PATH="$( echo $PATH | sed 's/^.*rvm[^:]*://' )" # env[PATH]!=/rvm/
+PATH="$( echo $PATH | sed 's/^.*rvm[^:]*://' | sed 's/:[^:]*rvm[^:]*$//' )" # env[PATH]!=/rvm/
 "$rvm_path/bin/rvm" install 2.4.0               # status=0
 "$rvm_path/bin/rvm" 2.4.0 do rvm gemset create test # status=0
 "$rvm_path/bin/rvm" install 2.4.1               # status=0
