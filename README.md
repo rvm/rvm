@@ -1,3 +1,5 @@
+[![Tests](https://github.com/rvm/rvm/actions/workflows/specs.yml/badge.svg?branch=master)](https://github.com/rvm/rvm/actions/workflows/specs.yml)
+[![GPG signature check](https://github.com/rvm/rvm/actions/workflows/gpg_signature.yml/badge.svg?branch=master)](https://github.com/rvm/rvm/actions/workflows/gpg_signature.yml)
 [![OpenCollective](https://opencollective.com/rvm/backers/badge.svg)](#backers)
 [![OpenCollective](https://opencollective.com/rvm/sponsors/badge.svg)](#sponsors)
 
