@@ -4,7 +4,7 @@ source "$rvm_path/scripts/rvm"
 export BUNDLE_GEMFILE=${TMPDIR:-/tmp}/Gemfile
 touch ${BUNDLE_GEMFILE}
 rvm alias delete default
-rvm use 2.3.4 --install
+rvm use 2.6.6 --install
 rvm @global do gem uninstall bundler
 rvm gemset create gemtest
 rvm gemset use gemtest # status=0
