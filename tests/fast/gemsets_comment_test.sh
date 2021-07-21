@@ -16,6 +16,7 @@ rvm gemset create test_gemset            # status=0 ; match=/gemset created/
 rvm gemset use test_gemset               # status=0 ; match=/Using /
 rvm current                              # match=/test_gemset/
 rvm --force gemset delete test_gemset    # status=0
+rvm use 2.4.0                            # status=0
 rvm current                              # match=/^ruby-2.4.0$/
 rvm gemset list                          # match!=/test_gemset/
 
