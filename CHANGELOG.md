@@ -10,6 +10,7 @@
 #### Bug fixes
 
 * Remove unsupported libclang, libclang-dev, openssl-dev and zlib-dev from Termux requirements, and fix installation by not calling getent [\#5101](https://github.com/rvm/rvm/pull/5101)
+* Fix Termux requirements checking and installation, and the requirements specified [\#5110](https://github.com/rvm/rvm/pull/5110)
 * Fix attempts to install/uninstall ruby picking jruby, mruby or truffleruby instead [\#5116](https://github.com/rvm/rvm/pull/5116)
 
 #### New interpreters
