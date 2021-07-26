@@ -1,6 +1,4 @@
-# RVM - Tests
-
-Set of tests for [RVM](https://github.com/wayneeseguin/rvm/).
+# Tests
 
 ## Usage
 

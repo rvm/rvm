@@ -1,25 +1,16 @@
 # How to hack on RVM
 
-## Fetch and try test suite on your rvm installation
+## Try test suite on your rvm installation
 
-Note that the [`vboxtest`](docs/vm_tests.md) approach is now outdated.
-It's better to use the
-[`rvm-test`](https://github.com/rvm/rvm-test/) test suite
-which lives in a separate git subtree.  (It's separate in order to
-allow reuse when hacking on rvm2).
+Make sure you can successfully run the tests (you will need rvm already installed).
 
-    # first time add remote:
-    $ gr add -f rvm-test git@github.com:rvm/rvm-test.git
-    # next time fetch it:
-    $ git fetch rvm-test master
-    # update the subtree
-    $ git subtree pull --prefix  rvm-test rvm-test master --squash
+To run the tests:
 
-[More details on subtrees](https://www.atlassian.com/blog/git/alternatives-to-git-submodule-git-subtree)
-
-Now read [`rvm-test`'s README.md](https://github.com/rvm/rvm-test/blob/master/README.md)
-and follow those instructions to make sure you can successfully run
-the tests (you will need rvm already installed).
+    $ cd rvm-test
+    $ gem install tf    # Install testing framework
+    $ tf fast/*         # Run the short tests
+    $ tf long/*         # Run the long set of tests, like installing rubies
+    $ tf --text long/*  # Same as above, but watch output
 
 ## Set up test installation of rvm
 
@@ -48,11 +39,11 @@ To get back to using original rvm installation run:
 ## Hacking RVM via TDD (Test-Driven Development)
 
 First write a test for the behaviour you expect.  For details on how
-to write new tests, see [`rvm-test`'s
-README.md](https://github.com/rvm/rvm-test/blob/master/README.md).
+to write new tests, see [README](https://github.com/rvm/rvm/blob/master/tests/README.md).
+
 Then run the test:
 
-    $ NOEXEC_DISABLE=1 tf --text rvm-test/fast/foo_comment_test.sh
+    $ NOEXEC_DISABLE=1 tf --text tests/fast/foo_comment_test.sh
 
 It should fail.  Now repeat the following steps until the test passes:
 

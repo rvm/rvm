@@ -1,28 +1,53 @@
 #!/usr/bin/env bash
 
+# Termux is a rolling release distro based on Debian, but with some directory
+# layout changes to support running on Android without rooting. No su or sudo.
+# Termux has its own collection of packages, but uses apt to install them.
+# No support for old versions of packages, so many older rubies won't compile.
+
 requirements_termux_lib_installed()
 {
-  pkg-query -s "$1" > /dev/null 2>&1 || return $?
+  dpkg-query -s "$1" > /dev/null 2>&1 || return $?
 }
 
 requirements_termux_libs_install()
 {
-  pkg install "$@" || return $?
+  apt-get --no-install-recommends --yes install "$@" || return $?
 }
 
 requirements_termux_libs_remove()
 {
-  pkg --yes remove "$@" || return $?
+  apt-get --yes remove "$@" || return $?
+}
+
+requirements_termux_update_system()
+{
+  apt-get --quiet --yes update ||
+  {
+    \typeset __ret=$?
+    case ${__ret} in
+      (100)
+        rvm_error "There has been an error while updating your system using \`apt-get\`.
+Make sure that all repositories are available from your system and verify your setup by manually running:
+
+    pkg update
+
+Make sure that it works correctly before proceeding with RVM.
+
+See https://github.com/termux/termux-packages/wiki/Package-Management for how to fix common errors.
+"
+        ;;
+    esac
+    return ${__ret}
+  }
 }
 
 requirements_termux_define_base()
 {
   requirements_check "$@" \
-    autoconf automake bison ca-certificates curl libc6-dev libffi-dev libgdbm-dev libncurses5-dev \
-    libsqlite3-dev libtool libyaml-dev make openssl patch pkg-config sqlite3 zlib1g zlib1g-dev
-
-  requirements_${_system_name_lowercase}_define_libgmp
-  requirements_${_system_name_lowercase}_define_libreadline
+    clang make pkg-config git tar \
+    gdbm libandroid-support libffi libgmp readline openssl libyaml zlib \
+    ncurses ncurses-ui-libs sqlite
 }
 
 requirements_termux_define()
@@ -32,10 +57,30 @@ requirements_termux_define()
       requirements_check bash curl patch bzip2 ca-certificates gawk
       ;;
 
+    (jruby*)
+      # Termux has no java or jdk packages.
+      true # it will be checked on install
+      ;;
+
+    (ir*)
+      # Termux has no mono package.
+      true # it will be checked on install
+      ;;
+
+    (opal)
+      requirements_check nodejs
+      ;;
+
+    (mruby*)
+      requirements_check git clang bison gperf ncurses readline
+      ;;
+
+    (*-head)
+      requirements_termux_define_base make autoconf automake bison
+      ;;
+
     (*)
-      requirements_check clang coreutils curl gawk git gnupg gpgv \
-                         libc++ libclang libclang-dev libllvm libxml2 make ncurses ncurses-ui-libs \
-                         openssl openssl-dev openssl-tool readline sqlite tar zlib zlib-dev
+      requirements_termux_define_base
       ;;
   esac
 }
