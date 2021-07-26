@@ -11,6 +11,7 @@
 
 * Remove unsupported libclang, libclang-dev, openssl-dev and zlib-dev from Termux requirements, and fix installation by not calling getent [\#5101](https://github.com/rvm/rvm/pull/5101)
 * Fix bad brew syntax on OSX/Homebrew requirements search [\#5111](https://github.com/rvm/rvm/pull/5111)
+* Fix attempts to install/uninstall ruby picking jruby, mruby or truffleruby instead [\#5116](https://github.com/rvm/rvm/pull/5116)
 
 #### New interpreters
 
