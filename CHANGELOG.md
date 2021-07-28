@@ -5,7 +5,7 @@
 
 #### New features
 
-* Added railsexpress patches for Ruby 2.6.7, 2.7.3 and 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066)
+* Added railsexpress patches for Ruby 2.6.7, 2.7.3, 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066), 2.6.8, 2.7.4, 3.0.2 [\#5117](https://github.com/rvm/rvm/pull/5117)
 
 #### Bug fixes
 
