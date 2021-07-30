@@ -5,7 +5,8 @@ true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-remote
 mkdir $d
 pushd $d
-rvm use 2.6.6 --install # status=0
+rvm remove --gems 2.6.6           # status=0
+rvm use 2.6.6 --install --movable # status=0
 rvm list
 # match=/ruby-2.6.6/
 

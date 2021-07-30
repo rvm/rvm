@@ -14,6 +14,7 @@
 * Fix attempts to install/uninstall ruby picking jruby, mruby or truffleruby instead [\#5116](https://github.com/rvm/rvm/pull/5116)
 * Fix Termux requirements checking and installation, and the requirements specified [\#5110](https://github.com/rvm/rvm/pull/5110)
 * Fix invalid brew syntax on requirements check [\#5111](https://github.com/rvm/rvm/pull/5111)
+* Skip non-functional prepare/mount tests on macOS [\#5119](https://github.com/rvm/rvm/pull/5119)
 
 #### New interpreters
 
