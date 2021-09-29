@@ -15,6 +15,7 @@
 * Fix Termux requirements checking and installation, and the requirements specified [\#5110](https://github.com/rvm/rvm/pull/5110)
 * Fix invalid brew syntax on requirements check [\#5111](https://github.com/rvm/rvm/pull/5111)
 * Skip non-functional prepare/mount tests on macOS [\#5119](https://github.com/rvm/rvm/pull/5119)
+* Fix detection for SUSE 15 [\#5132](https://github.com/rvm/rvm/pull/5132)
 
 #### New interpreters
 
