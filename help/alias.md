@@ -3,7 +3,7 @@ Alias
   RVM allows you to alias your rubies for your convenience and pleasure.
 
 Usage
-  rvm [options] alias source destination
+  rvm [options] alias destination source
 
   Source and Destination must be an RVM
   ruby string representing an RVM installed ruby.
