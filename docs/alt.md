@@ -17,6 +17,7 @@ Other implementations allowing you to switch your Ruby environment:
 - https://github.com/cpetschnig/switch-ruby (Ruby)
 - https://github.com/uninets/p5-Ruby-VersionManager (Perl)
 - https://github.com/seattlerb/zentest (Ruby)
+- https://github.com/TaKO8Ki/frum (Rust)
 - http://www.dribin.org/dave/blog/archives/2006/01/07/rails_encap/ (Tutorial)
 - http://www.mjwall.com/2008/08/multiple-versions-of-ruby-with-stow/ (Tutorial)
 - https://github.com/hmans/rbfu (Deprecated)
