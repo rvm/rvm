@@ -18,6 +18,7 @@
 * Fix invalid brew syntax on requirements check [\#5111](https://github.com/rvm/rvm/pull/5111)
 * Skip non-functional prepare/mount tests on macOS [\#5119](https://github.com/rvm/rvm/pull/5119)
 * Fix detection for SUSE 15 [\#5132](https://github.com/rvm/rvm/pull/5132)
+* Fix non-silent failure on dash versions of /bin/sh [\#5167](https://github.com/rvm/rvm/pull/5167)
 
 #### New interpreters
 https://github.com/rvm/rvm/pull/5137
