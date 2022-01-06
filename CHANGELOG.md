@@ -18,7 +18,7 @@
 * Fix invalid brew syntax on requirements check [\#5111](https://github.com/rvm/rvm/pull/5111)
 * Skip non-functional prepare/mount tests on macOS [\#5119](https://github.com/rvm/rvm/pull/5119)
 * Fix detection for SUSE 15 [\#5132](https://github.com/rvm/rvm/pull/5132)
-* Avoid duplicate package instances when querying pkg-config
+* Avoid duplicate package instances when querying pkg-config [\#5172](https://github.com/rvm/rvm/pull/5172)
 
 #### New interpreters
 https://github.com/rvm/rvm/pull/5137
