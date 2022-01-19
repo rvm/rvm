@@ -22,7 +22,7 @@
 https://github.com/rvm/rvm/pull/5137
 
 * Add support for TruffleRuby 21.0.0 [\#5037](https://github.com/rvm/rvm/pull/5037), 21.1.0 [\#5071](https://github.com/rvm/rvm/pull/5071), 21.2.0, 21.2.0.1, 21.3.0 [\#5137](https://github.com/rvm/rvm/pull/5137)
-* Add support for JRuby 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056), 9.2.17.0 [\#5062](https://github.com/rvm/rvm/pull/5062), 9.2.18.0 [\#5091](https://github.com/rvm/rvm/pull/5091), 9.2.19.0 [\#5094](https://github.com/rvm/rvm/pull/5094), 9.2.20.0 [\#5145](https://github.com/rvm/rvm/pull/5145), 9.3.0.0 [\#5130](https://github.com/rvm/rvm/pull/5130), 9.3.1.0 [\#5135](https://github.com/rvm/rvm/pull/5135)
+* Add support for JRuby 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056), 9.2.17.0 [\#5062](https://github.com/rvm/rvm/pull/5062), 9.2.18.0 [\#5091](https://github.com/rvm/rvm/pull/5091), 9.2.19.0 [\#5094](https://github.com/rvm/rvm/pull/5094), 9.2.20.0 [\#5145](https://github.com/rvm/rvm/pull/5145), 9.3.0.0 [\#5130](https://github.com/rvm/rvm/pull/5130), 9.3.1.0 [\#5135](https://github.com/rvm/rvm/pull/5135), 9.3.3.0 [\#5175](https://github.com/rvm/rvm/pull/5175)
 * Add support for Ruby 2.5.9, 2.6.7, 2.7.3, 3.0.1 [\#5063](https://github.com/rvm/rvm/pull/5063), 2.6.8, 2.7.4, 3.0.2 [\#5098](https://github.com/rvm/rvm/pull/5098), 3.1.0-preview1 [\#5155](https://github.com/rvm/rvm/pull/5155), 2.6.9, 2.7.5, 3.0.3 [\#5157](https://github.com/rvm/rvm/pull/5157), 3.1.0 [\#5169](https://github.com/rvm/rvm/pull/5169)
 
 #### Docs
