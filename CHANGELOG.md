@@ -19,7 +19,6 @@
 * Avoid duplicate package instances when querying pkg-config [\#5172](https://github.com/rvm/rvm/pull/5172)
 
 #### New interpreters
-https://github.com/rvm/rvm/pull/5137
 
 * Add support for TruffleRuby 21.0.0 [\#5037](https://github.com/rvm/rvm/pull/5037), 21.1.0 [\#5071](https://github.com/rvm/rvm/pull/5071), 21.2.0, 21.2.0.1, 21.3.0 [\#5137](https://github.com/rvm/rvm/pull/5137), 22.0.0.2
 * Add support for JRuby 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056), 9.2.17.0 [\#5062](https://github.com/rvm/rvm/pull/5062), 9.2.18.0 [\#5091](https://github.com/rvm/rvm/pull/5091), 9.2.19.0 [\#5094](https://github.com/rvm/rvm/pull/5094), 9.2.20.0 [\#5145](https://github.com/rvm/rvm/pull/5145), 9.2.20.1 [\#5160](https://github.com/rvm/rvm/pull/5160), 9.3.0.0 [\#5130](https://github.com/rvm/rvm/pull/5130), 9.3.1.0 [\#5135](https://github.com/rvm/rvm/pull/5135), 9.3.2.0 [\#5163](https://github.com/rvm/rvm/pull/5163), 9.3.3.0 [\#5175](https://github.com/rvm/rvm/pull/5175)
