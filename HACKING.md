@@ -6,7 +6,7 @@ Make sure you can successfully run the tests (you will need rvm already installe
 
 To run the tests:
 
-    $ cd rvm-test
+    $ cd tests
     $ gem install tf    # Install testing framework
     $ tf fast/*         # Run the short tests
     $ tf long/*         # Run the long set of tests, like installing rubies

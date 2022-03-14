@@ -7,7 +7,7 @@ echo 'gem "rake"' > Gemfile # status=0
 rvm truffleruby do bundle install # status=0
 rvm truffleruby do ruby -S bundle exec rake --version # status=0; match=/rake, version/
 rm Gemfile
-rvm truffleruby do ruby -ropen-uri -e 'puts open("https://rubygems.org/") { |f| f.read(1024) }'
+rvm truffleruby do ruby -ropen-uri -e 'puts URI.send(:open, %{https://rubygems.org/}) { |f| f.read(1024) }'
 # status=0; match=/RubyGems.org/
 rvm remove truffleruby # status=0; match=/removing.+truffleruby/
 
