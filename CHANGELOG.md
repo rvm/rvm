@@ -11,6 +11,7 @@
   * 2.6.9, 2.7.5, 3.0.3 [\#5167](https://github.com/rvm/rvm/pull/5167),
   * 3.1.0 [\#5170](https://github.com/rvm/rvm/pull/5170),
   * 3.1.1 [\#5190](https://github.com/rvm/rvm/pull/5190)
+  * 2.6.10, 2.7.6, 3.0.4, 3.1.2, 3.2.0 Preview 1 [\#5200](https://github.com/rvm/rvm/pull/5200)
 
 #### Bug fixes
 
