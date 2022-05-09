@@ -26,6 +26,7 @@
 * Skip non-functional prepare/mount tests on macOS [\#5119](https://github.com/rvm/rvm/pull/5119)
 * Fix detection for SUSE 15 [\#5132](https://github.com/rvm/rvm/pull/5132)
 * Avoid duplicate package instances when querying pkg-config [\#5172](https://github.com/rvm/rvm/pull/5172)
+* Fix building Ruby on Devuan 2 and newer by using libreadline-dev instead of libreadline6-dev [\#5214](https://github.com/rvm/rvm/pull/5214)
 
 #### New interpreters
 
