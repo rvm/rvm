@@ -27,6 +27,7 @@
 * Fix detection for SUSE 15 [\#5132](https://github.com/rvm/rvm/pull/5132)
 * Avoid duplicate package instances when querying pkg-config [\#5172](https://github.com/rvm/rvm/pull/5172)
 * Fix building Ruby on Devuan 2 and newer by using libreadline-dev instead of libreadline6-dev [\#5214](https://github.com/rvm/rvm/pull/5214)
+* Fix installing rubies when home directory includes the gemset separator [\#3790](https://github.com/rvm/rvm/issues/3790)
 
 #### New interpreters
 

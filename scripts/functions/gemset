@@ -36,7 +36,15 @@ gemset_create()
 
   [[ -n "$rvm_ruby_string" ]] || __rvm_select
 
-  prefix="${rvm_ruby_gem_home%%${rvm_gemset_separator:-"@"}*}"
+  # Avoid issues with home directories that contain the gemset separator as a character.
+  if
+    [[ $HOME == *${rvm_gemset_separator:-"@"}* ]] &&
+    [[ $rvm_ruby_gem_home == $HOME* ]]
+  then
+    prefix=$( echo "$rvm_ruby_gem_home" | __rvm_sed -e "s/(^${HOME//\//\\/}.*)${rvm_gemset_separator:-"@"}.*/\1/" )
+  else
+    prefix="${rvm_ruby_gem_home%%${rvm_gemset_separator:-"@"}*}"
+  fi
 
   for gemset in "$@"
   do
@@ -344,7 +352,7 @@ gemset_initial()
       rvm_debug "$rvm_ruby_string - #gemset definition does not exist ${_iterator}/$1.gems"
     fi
   done
-  
+
   __rvm_log_command "gemset.wrappers.$1" \
     "$rvm_ruby_string - #generating ${1} wrappers" \
     run_gem_wrappers regenerate 2>/dev/null || true
