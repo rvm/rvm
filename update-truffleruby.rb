@@ -25,7 +25,7 @@ replace_line "config/known", /truffleruby\[/, "truffleruby[-#{version}]\n"
 insert_after "config/known_strings", /^truffleruby/, ["truffleruby-#{version}\n"]
 
 %w[md5 sha512].each { |algorithm|
-  digests = %w[linux-amd64 macos-amd64].map { |platform|
+  digests = %w[linux-amd64 linux-aarch64 macos-amd64 macos-aarch64].map { |platform|
     basename = "truffleruby-#{version}-#{platform}.tar.gz"
     archive = "#{release_directory}/#{basename}"
     digest = Digest(algorithm.upcase).file(archive).hexdigest
