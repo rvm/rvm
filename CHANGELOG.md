@@ -28,7 +28,7 @@
 * Avoid duplicate package instances when querying pkg-config [\#5172](https://github.com/rvm/rvm/pull/5172)
 * Fix building Ruby on Devuan 2 and newer by using libreadline-dev instead of libreadline6-dev [\#5214](https://github.com/rvm/rvm/pull/5214)
 * Fix building Ruby on Void Linux by using openssl instead of libressl [\#5234](https://github.com/rvm/rvm/pull/5234)
-* Fix building ruby-head [\#5238](https://github.com/rvm/rvm/pull/5238)
+* Fix building ruby-head by running autogen when available [\#5238](https://github.com/rvm/rvm/pull/5238)
 
 #### New interpreters
 
