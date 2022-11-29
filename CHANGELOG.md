@@ -15,7 +15,8 @@
   * 3.1.0 [\#5170](https://github.com/rvm/rvm/pull/5170),
   * 3.1.1 [\#5190](https://github.com/rvm/rvm/pull/5190)
   * 2.7.6, 3.0.4 and 3.1.2 [\#5207](https://github.com/rvm/rvm/pull/5207)
-
+  * 2.7.7, 3.0.5, 3.1.3, 3.2.0 Preview 2 and 3.2.0 Preview 3 [\#5271](https://github.com/rvm/rvm/pull/5271)
+  *
 #### Bug fixes
 
 * Remove unsupported libclang, libclang-dev, openssl-dev and zlib-dev from Termux requirements, and fix installation by not calling getent [\#5101](https://github.com/rvm/rvm/pull/5101)
