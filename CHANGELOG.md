@@ -8,6 +8,7 @@
 * New Ruby versions
   * 2.6.10, 2.7.6, 3.0.4, 3.1.2, 3.2.0 Preview 1 [\#5200](https://github.com/rvm/rvm/pull/5200)
   * 2.7.7, 3.0.5, 3.1.3, 3.2.0 Preview 2 and 3.2.0 Preview 3 [\#5271](https://github.com/rvm/rvm/pull/5271)
+  * 3.2.0-rc1 [\#5280](https://github.com/rvm/rvm/pull/5280)
 
 * New railsexpress patches for Ruby
   * 2.6.7, 2.7.3, 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066),
