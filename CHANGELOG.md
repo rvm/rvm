@@ -34,7 +34,8 @@
 * Fix building Ruby on Devuan 2 and newer by using libreadline-dev instead of libreadline6-dev [\#5214](https://github.com/rvm/rvm/pull/5214)
 * Fix building Ruby on Void Linux by using openssl instead of libressl [\#5234](https://github.com/rvm/rvm/pull/5234)
 * Fix building ruby-head by running autogen when available [\#5238](https://github.com/rvm/rvm/pull/5238)
-* Fix building Ruby 2.7 on Fedora 36+ by using openssl1.1 instead of openssl3 [\#5247](https://github.com/rvm/pull/5247)
+* Fix building Ruby 2.7 on Fedora 36+ by using openssl1.1 instead of openssl3 [\#5247](https://github.com/rvm/rvm/pull/5247)
+* Don't warn about empty GEM_PATH [\#5292](https://github.com/rvm/rvm/pull/5292)
 
 #### New interpreters
 
