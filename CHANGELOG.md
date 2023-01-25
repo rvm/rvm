@@ -47,7 +47,7 @@
 
 * Ubuntu
   * Ubuntu 22.04 x64 binaries
-    * Ruby 3.1.3 and 3.2.0 [\#5297](https://github.com/rvm/rvm/issues/5297)
+    * Ruby 3.1.3 and 3.2.0 [\#5298](https://github.com/rvm/rvm/issues/5297)
 
 #### Docs
 
