@@ -12,7 +12,7 @@
   * 3.2.0 [\#5283](https://github.com/rvm/rvm/pull/5283)
   * 3.2.1 [\#5306](https://github.com/rvm/rvm/pull/5306)
   * 3.0.5, 3.1.3 and 3.2.1 For Ubuntu 22.10 / x86_64 [\#5308](https://github.com/rvm/rvm/pull/5308)
-  * 3.1.2, 3.1.3, 3.2.0 and 3.2.1 For Ubuntu 22.04 / arm64 [\#5308](https://github.com/rvm/rvm/pull/5308)
+  * 2.7.6, 2.7.7, 3.0.4, 3.0.5, 3.1.2, 3.1.3, 3.2.0 and 3.2.1 For Ubuntu 22.04 / arm64 [\#5308](https://github.com/rvm/rvm/pull/5308)
 
 * New railsexpress patches for Ruby
   * 2.6.7, 2.7.3, 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066),
