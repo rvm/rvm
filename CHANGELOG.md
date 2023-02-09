@@ -11,8 +11,6 @@
   * 3.2.0-rc1 [\#5280](https://github.com/rvm/rvm/pull/5280)
   * 3.2.0 [\#5283](https://github.com/rvm/rvm/pull/5283)
   * 3.2.1 [\#5306](https://github.com/rvm/rvm/pull/5306)
-  * 3.0.5, 3.1.3 and 3.2.1 For Ubuntu 22.10 / x86_64 [\#5308](https://github.com/rvm/rvm/pull/5308)
-  * 2.7.6, 2.7.7, 3.0.4, 3.0.5, 3.1.2, 3.1.3, 3.2.0 and 3.2.1 For Ubuntu 22.04 / arm64 [\#5308](https://github.com/rvm/rvm/pull/5308)
 
 * New railsexpress patches for Ruby
   * 2.6.7, 2.7.3, 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066),
@@ -49,9 +47,15 @@
 #### Binaries
 
 * Ubuntu
-  * Ubuntu 22.04 x64 binaries
+  * Ubuntu 20.04 (Focal) x64 binaries
+  * Ubuntu 22.04 (Jammy) x64 binaries
     * Ruby 3.1.3 and 3.2.0 [\#5298](https://github.com/rvm/rvm/issues/5298)
     * Ruby 3.2.1 [\#5307](https://github.com/rvm/rvm/issues/5307)
+    * 2.5.9, 2.6.10, 2.7.6, 2.7.7, 3.0.4, 3.0.5, 3.1.2, 3.1.3, 3.2.0, 3.2.1
+  * Ubuntu 22.04 (Jammy) arm64 binaries
+    * 2.7.6, 2.7.7, 3.0.4, 3.0.5, 3.1.2, 3.1.3, 3.2.0 and 3.2.1 [\#5308](https://github.com/rvm/rvm/pull/5308)
+  * Ubuntu 22.10 (Kinetic) x64 binaries
+    * 3.0.5, 3.1.3 and 3.2.1 [\#5308](https://github.com/rvm/rvm/pull/5308)
 
 #### Docs
 
