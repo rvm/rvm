@@ -37,7 +37,7 @@
 * Fix building ruby-head by running autogen when available [\#5238](https://github.com/rvm/rvm/pull/5238)
 * Fix building Ruby 2.7 on Fedora 36+ by using openssl1.1 instead of openssl3 [\#5247](https://github.com/rvm/rvm/pull/5247)
 * Don't warn about empty GEM_PATH [\#5292](https://github.com/rvm/rvm/pull/5292)
-* Detect existing Homebrew installs for MacOS arm64e in /opt/homebrew
+* Detect existing Homebrew installs for MacOS arm64e in /opt/homebrew [\#5310](https://github.com/rvm/rvm/pull/5310)
 
 #### New interpreters
 
