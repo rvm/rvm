@@ -21,6 +21,7 @@
   * 2.7.6, 3.0.4 and 3.1.2 [\#5207](https://github.com/rvm/rvm/pull/5207)
   * 2.7.7, 3.0.5 and 3.1.3 [\#5273](https://github.com/rvm/rvm/pull/5273)
   * 3.2.0 [\#5284](https://github.com/rvm/rvm/pull/5284)
+  * 3.2.1 [\#5311](https://github.com/rvm/rvm/pull/5311)
 
 #### Bug fixes
 
@@ -37,6 +38,7 @@
 * Fix building ruby-head by running autogen when available [\#5238](https://github.com/rvm/rvm/pull/5238)
 * Fix building Ruby 2.7 on Fedora 36+ by using openssl1.1 instead of openssl3 [\#5247](https://github.com/rvm/rvm/pull/5247)
 * Don't warn about empty GEM_PATH [\#5292](https://github.com/rvm/rvm/pull/5292)
+* Detect existing Homebrew installs for MacOS arm64e in /opt/homebrew [\#5310](https://github.com/rvm/rvm/pull/5310)
 
 #### New interpreters
 
