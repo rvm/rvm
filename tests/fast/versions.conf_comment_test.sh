@@ -9,8 +9,8 @@ rm -f */*
 
 : generate
 mcd $d/a
-rvm use 2.4.0@versions-conf-a --create --versions-conf --install
-rvm current             # match=/^ruby-2.4.0@versions-conf-a$/
+rvm use 3.0.5@versions-conf-a --create --versions-conf --install
+rvm current             # match=/^ruby-3.0.5@versions-conf-a$/
 [[ -f .versions.conf ]] # status=0
 
 mcd $d/b
@@ -20,7 +20,7 @@ rvm current             # match=/^ruby-2.6.6@versions-conf-b$/
 
 : test
 rvm rvmrc load $d/a
-rvm current         # match=/^ruby-2.4.0@versions-conf-a$/
+rvm current         # match=/^ruby-3.0.5@versions-conf-a$/
 rvm rvmrc load $d/b
 rvm current         # match=/^ruby-2.6.6@versions-conf-b$/
 
@@ -46,6 +46,6 @@ rvm rvmrc load . # match=/Installing haml/
 gem list # match=/haml/; match=/bundler/
 
 : clean
-rvm 2.4.0 do rvm --force gemset delete versions-conf-a
+rvm 3.0.5 do rvm --force gemset delete versions-conf-a
 rvm 2.6.6 do rvm --force gemset delete versions-conf-b
 rm -rf $d

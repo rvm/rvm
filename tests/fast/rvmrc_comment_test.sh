@@ -7,7 +7,7 @@ d=$TMPDIR/test-rvmrc
 f=$d/.rvmrc
 mkdir -p $d
 echo "echo loading-rvmrc" > $f
-rvm use 2.4.0 --install # status=0
+rvm use 3.0.5 --install # status=0
 rvm use 2.4.1 --install # status=0
 
 ## simple
@@ -46,29 +46,29 @@ export rvm_project_rvmrc_default=1
 
 ## load default
 builtin cd
-rvm use 2.4.0
+rvm use 3.0.5
 rvm rvmrc load            # env[GEM_HOME]!=/^$/
 
 ## load ruby
 cd
-rvm use 2.4.0
+rvm use 3.0.5
 echo "rvm use 2.4.1" > "$d/.rvmrc"
 rvm rvmrc trust "$d"      # match=/ as trusted$/
 cd "$d"                   # env[GEM_HOME]=/2.4.1$/
 
 ## load ruby@gemset
 cd
-rvm use 2.4.0
+rvm use 3.0.5
 echo "rvm use 2.4.1@vee --create" > "$d/.rvmrc"
 rvm rvmrc trust "$d"      # match=/ as trusted$/
 cd "$d"                   # env[GEM_HOME]=/2.4.1@vee$/
 
 ## load @gemset
 cd
-rvm use 2.4.0
+rvm use 3.0.5
 echo "rvm use @vee --create" > "$d/.rvmrc"
 rvm rvmrc trust "$d"      # match=/ as trusted$/
-cd "$d"                   # env[GEM_HOME]=/2.4.0@vee$/
+cd "$d"                   # env[GEM_HOME]=/3.0.5@vee$/
 
 ## load @gemset after system
 cd

@@ -5,7 +5,7 @@ true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-wrappers
 mkdir $d
 pushd $d
-rvm install 2.4.0 # status=0
+rvm install 3.0.5 # status=0
 rvm use --install 2.6.6 # status=0
 rvm 2.6.6@global do gem install rake -v "<10.2"
 
@@ -28,13 +28,13 @@ rvm wrapper show rake
 : for file
 echo 'echo "$GEM_HOME"' > $d/custom-script
 chmod +x $d/custom-script
-rvm 2.4.0 do rvm wrapper $d/custom-script # status=0
-wrapper_script=`rvm 2.4.0 do rvm wrapper show custom-script`
+rvm 3.0.5 do rvm wrapper $d/custom-script # status=0
+wrapper_script=`rvm 3.0.5 do rvm wrapper show custom-script`
 # status=0
-# env[wrapper_script]=/.*/gems/ruby-2.4.0\/wrappers\/custom-script/
+# env[wrapper_script]=/.*/gems/ruby-3.0.5\/wrappers\/custom-script/
 $wrapper_script
 # status=0
-# match=/.*/gems/ruby-2.4.0\Z/
+# match=/.*/gems/ruby-3.0.5\Z/
 # env[GEM_HOME]=/.*/gems/ruby-2.6.6\Z/
 
 : regenerate

@@ -3,7 +3,7 @@ source "$rvm_path/scripts/rvm"
 rvm use 2.6.6 --install # status=0
 rvm gemset create test1 # status=0
 rvm gemset create test2 # status=0
-rvm use 2.4.0 --install # status=0
+rvm use 3.0.5 --install # status=0
 
 : do
 rvm 8.9.9 do rvm gemdir # status=1; match=/is not installed/
@@ -64,23 +64,23 @@ rvm . do rvm info ruby  # status=0; match=/version: *"2.6.6/
 rvm . do ruby --version # status=0; match=/^ruby 2.6.6/
 
 : -----------------------------------------------------------------
-ver=2.4.0
-mkdir -p $d/2.4.0
-echo "2.4.0" > $d/2.4.0/.ruby-version
+ver=3.0.5
+mkdir -p $d/3.0.5
+echo "3.0.5" > $d/2.4.0/.ruby-version
 
 : absolute directory
-rvm in $d/2.4.0 do rvm info ruby  # status=0; match=/version: *"2.4.0/
-rvm in $d/2.4.0 do ruby --version # status=0; match=/^ruby 2.4.0/
+rvm in $d/3.0.5 do rvm info ruby  # status=0; match=/version: *"2.4.0/
+rvm in $d/3.0.5 do ruby --version # status=0; match=/^ruby 2.4.0/
 
 : relative directory
 cd $d
-rvm in 2.4.0 do rvm info ruby  # status=0; match=/version: *"2.4.0/
-rvm in 2.4.0 do ruby --version # status=0; match=/^ruby 2.4.0/
+rvm in 3.0.5 do rvm info ruby  # status=0; match=/version: *"2.4.0/
+rvm in 3.0.5 do ruby --version # status=0; match=/^ruby 2.4.0/
 
 : current directory
-cd $d/2.4.0
-rvm . do rvm info ruby  # status=0; match=/version: *"2.4.0/
-rvm . do ruby --version # status=0; match=/^ruby 2.4.0/
+cd $d/3.0.5
+rvm . do rvm info ruby  # status=0; match=/version: *"3.0.5/
+rvm . do ruby --version # status=0; match=/^ruby 3.0.5/
 
 ## cleanup
 rm -rf $d

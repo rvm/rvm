@@ -6,7 +6,7 @@ true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-user
 mkdir -p $d
 cd $d
-rvm use 2.4.0 --install           # status=0
+rvm use 3.0.5 --install           # status=0
 rvm use 2.4.1 --install --default # status=0
 
 ## use system
@@ -22,7 +22,7 @@ rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
 # env[PATH]=/2.4.1/
 
 : load project
-echo "2.4.0" > .ruby-version
+echo "3.0.5" > .ruby-version
 rvm use system
 # env[GEM_HOME]=/^$/
 source "$rvm_path/scripts/initialize"
@@ -32,8 +32,8 @@ rvm_previous_environment=""
 rvm_project_rvmrc_default=1
 rvm_promptless=1
 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.0$/
-# env[PATH]=/2.4.0/
+# env[GEM_HOME]=/3.0.5$/
+# env[PATH]=/3.0.5/
 
 : load project and gemset
 echo "@test" > .ruby-gemset
@@ -48,8 +48,8 @@ rvm_project_rvmrc_default=1
 rvm_promptless=1
 ## ( set -x ; PS4=="+ \${BASH_SOURCE} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > " ; __rvm_project_rvmrc )
 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.0@test$/
-# env[PATH]=/2.4.0@test/
+# env[GEM_HOME]=/3.0.5@test$/
+# env[PATH]=/3.0.5@test/
 
 ## use default
 : loads default if nothing else set
@@ -66,7 +66,7 @@ rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
 # env[PATH]=/2.4.1/
 
 : load project
-echo "2.4.0" > .ruby-version
+echo "3.0.5" > .ruby-version
 rvm use default
 # env[GEM_HOME]=/2.4.1$/
 # env[PATH]=/2.4.1/
@@ -77,8 +77,8 @@ rvm_previous_environment=""
 rvm_project_rvmrc_default=1
 rvm_promptless=1
 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.0$/
-# env[PATH]=/2.4.0/
+# env[GEM_HOME]=/3.0.5$/
+# env[PATH]=/3.0.5/
 
 : load project and gemset
 echo "@test" > .ruby-gemset
@@ -94,8 +94,8 @@ rvm_project_rvmrc_default=1
 rvm_promptless=1
 ## ( set -x ; PS4=="+ \${BASH_SOURCE} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > " ; __rvm_project_rvmrc )
 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.0@test$/
-# env[PATH]=/2.4.0@test/
+# env[GEM_HOME]=/3.0.5@test$/
+# env[PATH]=/3.0.5@test/
 
 ## source default
 : loads default if nothing else set
@@ -113,7 +113,7 @@ rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
 # env[PATH]=/2.4.1/
 
 : load project
-echo "2.4.0" > .ruby-version
+echo "3.0.5" > .ruby-version
 rvm use system
 source "$rvm_path/scripts/initialize"
 # env[rvm_rubies_path]!=/^$/
@@ -125,8 +125,8 @@ rvm_previous_environment=""
 rvm_project_rvmrc_default=1
 rvm_promptless=1
 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.0$/
-# env[PATH]=/2.4.0/
+# env[GEM_HOME]=/3.0.5$/
+# env[PATH]=/3.0.5/
 
 : load project and gemset
 echo "@test" > .ruby-gemset
@@ -143,8 +143,8 @@ rvm_project_rvmrc_default=1
 rvm_promptless=1
 ## ( set -x ; PS4=="+ \${BASH_SOURCE} : \${FUNCNAME[0]:+\${FUNCNAME[0]}()}  \${LINENO} > " ; __rvm_project_rvmrc )
 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.0@test$/
-# env[PATH]=/2.4.0@test/
+# env[GEM_HOME]=/3.0.5@test$/
+# env[PATH]=/3.0.5@test/
 
 : teardown
 rvm alias delete default 2.4.1

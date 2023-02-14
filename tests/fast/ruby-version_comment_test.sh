@@ -9,18 +9,18 @@ e=$d/.ruby-env
 mkdir -p $d
 cd $d
 rvm use --install 2.4.1
-rvm use --install 2.4.0
+rvm use --install 3.0.5
 rvm use --install 2.6.6
 
 ## simple
 : short version
-echo "2.4.0" > $f           # env[GEM_HOME]=/2.6.6/
-rvm use .                   # env[GEM_HOME]=/2.4.0/
+echo "3.0.5" > $f           # env[GEM_HOME]=/2.6.6/
+rvm use .                   # env[GEM_HOME]=/3.0.5/
 
 : ruby version
 rvm use 2.6.6
-echo "ruby-2.4.0" > $f      # env[GEM_HOME]=/2.6.6/
-rvm use .                   # env[GEM_HOME]=/2.4.0/
+echo "ruby-3.0.5" > $f      # env[GEM_HOME]=/2.6.6/
+rvm use .                   # env[GEM_HOME]=/3.0.5/
 
 : patch version
 rvm use 2.6.6
