@@ -1,6 +1,6 @@
 source "$rvm_path/scripts/rvm"
 
-rvm use 2.6.6 --install
+rvm use 3.1.3 --install
 rvm use 3.0.5 --install
 rvm gemset create test_gemset
 
@@ -20,10 +20,10 @@ ls -l $rvm_path/environments/ruby-test-default       # status!=0
 rvm --force gemset delete test_gemset
 
 : overwrite existing aliases
-rvm alias create veve 2.6.6  # status=0
-ls -l $rvm_path/environments/veve # status=0; match=/2.6.6/
-ls -l $rvm_path/wrappers/veve     # status=0; match=/2.6.6/
-rvm alias list                    # match=/^veve => ruby-2.6.6$/
+rvm alias create veve 3.1.3  # status=0
+ls -l $rvm_path/environments/veve # status=0; match=/3.1.3/
+ls -l $rvm_path/wrappers/veve     # status=0; match=/3.1.3/
+rvm alias list                    # match=/^veve => ruby-3.1.3$/
 rvm alias create veve 3.0.5       # status=0
 ls -l $rvm_path/environments/veve # status=0; match=/3.0.5/
 ls -l $rvm_path/wrappers/veve     # status=0; match=/3.0.5/
