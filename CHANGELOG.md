@@ -59,6 +59,8 @@
     * 2.7.6, 2.7.7, 3.0.4, 3.0.5, 3.1.2, 3.1.3, 3.2.0 and 3.2.1 [\#5308](https://github.com/rvm/rvm/pull/5308)
   * Ubuntu 22.10 (Kinetic) x64 binaries
     * 3.0.5, 3.1.3, 3.2.0 and 3.2.1 [\#5308](https://github.com/rvm/rvm/pull/5308)
+  * Amazon 2 x86_64 binaries
+    * 2.5.8 2.5.9 2.7.4 2.7.5 2.7.6 2.7.7 3.0.0 3.0.3 3.0.4 3.0.5 3.1.2 3.1.3 3.2.0 3.2.1 [\#5311](https://github.com/rvm/rvm/pull/5311)
 
 #### Docs
 
