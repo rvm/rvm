@@ -14,7 +14,7 @@ rvm 3.1.3@test2 do rvm gemdir # status=0; match=/3.1.3@test2/
 
 rvm 3.1.3@global,3.1.3 do rvm gemdir
 # status=0
-# match=/ruby-3.1.3/lib/ruby/gems/2.6.0$/
+# match=/ruby-3.1.3/lib/ruby/gems/3.1.0$/
 # match=/3.1.3$/
 
 rvm --force gemset delete test1 # status=0
