@@ -14,7 +14,7 @@ rvm rvmrc create 3.1.2
 [ -f .rvmrc ]         # status=0
 rvm current           # match=/3.1.3/
 rvm rvmrc trust .rvmrc
-rvm rvmrc load .rvmrc # env[GEM_HOME]=/3.1.2$/ ; env[PATH]=/2.4.1/
+rvm rvmrc load .rvmrc # env[GEM_HOME]=/3.1.2$/ ; env[PATH]=/3.1.2/
 rvm current           # match=/3.1.2/
 
 : .rvmrc with use

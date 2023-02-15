@@ -11,4 +11,4 @@ rvm 3.1.3 do rvm-prompt i v  # match=/^ruby-3.1.3$/
 rvm 3.1.3 do rvm-prompt v    # match=/^3.1.3$/
 rvm system do rvm-prompt     # match=/^$/
 rvm system do rvm-prompt s v # match=/^system$/
-rvm 3.1.2 do rvm-prompt s v  # match=/^2.4.1$/
+rvm 3.1.2 do rvm-prompt s v  # match=/^3.1.2$/
