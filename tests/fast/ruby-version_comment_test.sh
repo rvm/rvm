@@ -42,19 +42,19 @@ rm -f $g
 rvm use 3.1.3
 echo "test_me=3" > $e
 rvm use .                   # env[GEM_HOME]=/3.1.2/; env[test_me]=/^3$/
-rvm use 3.1.3               # env[GEM_HOME]=/2.6.6/; env[test_me]=/^$/
+rvm use 3.1.3               # env[GEM_HOME]=/3.1.3/; env[test_me]=/^$/
 
 : environment spaces
 rvm use 3.1.3
 echo 'test_space=test me' > $e
 rvm use .                   # env[GEM_HOME]=/3.1.2/; env[test_space]=/^test me$/
-rvm use 3.1.3               # env[GEM_HOME]=/2.6.6/; env[test_space]=/^$/
+rvm use 3.1.3               # env[GEM_HOME]=/3.1.3/; env[test_space]=/^$/
 
 : environment quotes and spaces
 rvm use 3.1.3
 echo 'test_space="test me"' > $e
 rvm use .                   # env[GEM_HOME]=/3.1.2/; env[test_space]=/^test me$/
-rvm use 3.1.3               # env[GEM_HOME]=/2.6.6/; env[test_space]=/^$/
+rvm use 3.1.3               # env[GEM_HOME]=/3.1.3/; env[test_space]=/^$/
 
 : clean
 cd ..
