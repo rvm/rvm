@@ -50,7 +50,8 @@
 
 * Ubuntu
   * Ubuntu 20.04 (Focal) x64 binaries
-    * Ruby 2.5.9, 2.6.10, 2.7.6, 2.7.7, 3.0.4, 3.0.5, 3.1.2, 3.1.3, 3.2.0, 3.2.1 [\#5308](https://github.com/rvm/rvm/pull/5308)
+    * Ruby 2.5.9 2.6.10 2.6.7 2.6.8 2.6.9 2.7.3 2.7.5 2.7.6 2.7.7 3.0.1 3.0.2 3.0.3 3.0.4 3.0.5 3.1.0 3.1.1 3.1.2 3.1.3 3.2.0 3.2.1 [\#5314](https://github.com/rvm/rvm/pull/5314)
+
   * Ubuntu 22.04 (Jammy) x64 binaries
     * Ruby 3.1.3 and 3.2.0 [\#5298](https://github.com/rvm/rvm/issues/5298)
     * Ruby 3.2.1 [\#5307](https://github.com/rvm/rvm/issues/5307)
