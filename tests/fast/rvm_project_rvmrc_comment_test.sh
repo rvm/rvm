@@ -7,7 +7,7 @@ d=$TMPDIR/test-user
 mkdir -p $d
 cd $d
 rvm use 3.0.5 --install           # status=0
-rvm use 2.4.1 --install --default # status=0
+rvm use 3.1.2 --install --default # status=0
 
 ## use system
 : loads default if nothing else set
@@ -18,8 +18,8 @@ source "$rvm_path/scripts/initialize"
 rvm_current_rvmrc=""
 rvm_previous_environment=""
 rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 
 : load project
 echo "3.0.5" > .ruby-version
@@ -55,21 +55,21 @@ __rvm_project_rvmrc
 : loads default if nothing else set
 rm .ruby-version .ruby-gemset
 rvm use default
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 source "$rvm_path/scripts/initialize"
 # env[rvm_rubies_path]!=/^$/
 rvm_current_rvmrc=""
 rvm_previous_environment=""
 rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 
 : load project
 echo "3.0.5" > .ruby-version
 rvm use default
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 source "$rvm_path/scripts/initialize"
 # env[rvm_rubies_path]!=/^$/
 rvm_current_rvmrc=""
@@ -83,8 +83,8 @@ __rvm_project_rvmrc
 : load project and gemset
 echo "@test" > .ruby-gemset
 rvm use default
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 source "$rvm_path/scripts/initialize"
 # env[rvm_rubies_path]!=/^$/
 rvm_current_rvmrc=""
@@ -104,13 +104,13 @@ rvm use system
 source "$rvm_path/scripts/initialize"
 # env[rvm_rubies_path]!=/^$/
 source $rvm_path/environments/default
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 rvm_current_rvmrc=""
 rvm_previous_environment=""
 rvm_project_rvmrc_default=1 rvm_promptless=1 __rvm_project_rvmrc
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 
 : load project
 echo "3.0.5" > .ruby-version
@@ -118,8 +118,8 @@ rvm use system
 source "$rvm_path/scripts/initialize"
 # env[rvm_rubies_path]!=/^$/
 source $rvm_path/environments/default
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 rvm_current_rvmrc=""
 rvm_previous_environment=""
 rvm_project_rvmrc_default=1
@@ -134,8 +134,8 @@ rvm use system
 source "$rvm_path/scripts/initialize"
 # env[rvm_rubies_path]!=/^$/
 source $rvm_path/environments/default
-# env[GEM_HOME]=/2.4.1$/
-# env[PATH]=/2.4.1/
+# env[GEM_HOME]=/3.1.2$/
+# env[PATH]=/3.1.2/
 rvm_current_rvmrc=""
 rvm_previous_environment=""
 rvm_create_flag=1
@@ -147,5 +147,5 @@ __rvm_project_rvmrc
 # env[PATH]=/3.0.5@test/
 
 : teardown
-rvm alias delete default 2.4.1
+rvm alias delete default 3.1.2
 rm -rf $d

@@ -5,17 +5,17 @@ true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-rvmrc
 mkdir $d
 pushd $d
-command rvm install 2.4.1
-rvm 2.4.1 do rvm gemset reset_env
+command rvm install 3.1.2
+rvm 3.1.2 do rvm gemset reset_env
 rvm use 3.1.3 --install
 
 : .rvmrc generated
-rvm rvmrc create 2.4.1
+rvm rvmrc create 3.1.2
 [ -f .rvmrc ]         # status=0
 rvm current           # match=/3.1.3/
 rvm rvmrc trust .rvmrc
-rvm rvmrc load .rvmrc # env[GEM_HOME]=/2.4.1$/ ; env[PATH]=/2.4.1/
-rvm current           # match=/2.4.1/
+rvm rvmrc load .rvmrc # env[GEM_HOME]=/3.1.2$/ ; env[PATH]=/2.4.1/
+rvm current           # match=/3.1.2/
 
 : .rvmrc with use
 rvm_current_rvmrc=""
