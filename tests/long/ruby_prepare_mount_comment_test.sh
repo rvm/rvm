@@ -5,25 +5,25 @@ true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-remote
 mkdir $d
 pushd $d
-rvm remove --gems 2.6.6           # status=0
-rvm use 2.6.6 --install --movable # status=0
+rvm remove --gems 3.1.3           # status=0
+rvm use 3.1.3 --install --movable # status=0
 rvm list
-# match=/ruby-2.6.6/
+# match=/ruby-3.1.3/
 
 : tast packaging
-rvm prepare 2.6.6           # status=0
-[[ -f ruby-2.6.6.tar.bz2 ]] # status=0
+rvm prepare 3.1.3           # status=0
+[[ -f ruby-3.1.3.tar.bz2 ]] # status=0
 
 : remove it
-rvm remove --gems 2.6.6     # status=0
+rvm remove --gems 3.1.3     # status=0
 rvm list
-# match!=/ruby-2.6.6/
+# match!=/ruby-3.1.3/
 
 : get local ruby
-rvm mount -r ruby-2.6.6.tar.bz2 # status=0
+rvm mount -r ruby-3.1.3.tar.bz2 # status=0
 rvm list
-# match=/ruby-2.6.6/
-rvm use 2.6.6 # status=0; match[stderr]=/^$/
+# match=/ruby-3.1.3/
+rvm use 3.1.3 # status=0; match[stderr]=/^$/
 
 : clean
 popd

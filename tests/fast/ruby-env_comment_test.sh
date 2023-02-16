@@ -6,7 +6,7 @@ rvm_scripts_path="$rvm_path/scripts" rvm_project_rvmrc=cd source "$rvm_path/scri
 true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-ruby-env
 mkdir -p $d
-rvm use --install 2.4.1
+rvm use --install 3.1.2
 typeset -a __file_env_variables rvm_saved_env
 
 ### test with disabled trusting
@@ -77,7 +77,7 @@ __rvm_file_set_env
 rvm_saved_env=()
 cd
 RAILS_ENV=""
-printf "2.4.1" > $d/.ruby-version
+printf "3.1.2" > $d/.ruby-version
 printf "RAILS_ENV=development';echo bla>&2;'" > $d/.ruby-env
 cd "$d"
 # match!=/bla/
@@ -94,7 +94,7 @@ rm $d/.ruby-version
 rvm_saved_env=()
 cd
 RAILS_ENV=""
-printf "2.4.1" > $d/.ruby-version
+printf "3.1.2" > $d/.ruby-version
 printf "RAILS_ENV='development'" > $d/.ruby-env
 cd "$d"
 # env[RAILS_ENV]=/^development$/
@@ -108,7 +108,7 @@ rm $d/.ruby-version
 : cd + Gemfile + ""
 cd
 RAILS_ENV="production"
-printf "\043ruby=2.4.1\n" > $d/Gemfile
+printf "\043ruby=3.1.2\n" > $d/Gemfile
 printf "\043ruby-env-RAILS_ENV=\"development\"\n" >> $d/Gemfile
 printf "gem 'rvm'\n" >> $d/Gemfile
 cd "$d"
@@ -123,7 +123,7 @@ rm $d/Gemfile
 : cd + .versions.conf
 cd
 BLA0="test"
-printf 'ruby=2.4.1\n' > $d/.versions.conf
+printf 'ruby=3.1.2\n' > $d/.versions.conf
 printf 'env-BLA0=`development`\n' >> $d/.versions.conf
 printf 'env-BLA1=\`development\`\n' >> $d/.versions.conf
 printf 'env-BLA2=\\`development\\`\n' >> $d/.versions.conf
@@ -155,7 +155,7 @@ unset rvm_trust_rvmrcs_flag
 rvm_saved_env=()
 cd
 RAILS_ENV=""
-printf "2.4.1" > $d/.ruby-version
+printf "3.1.2" > $d/.ruby-version
 printf "RAILS_ENV='development'" > $d/.ruby-env
 rvm rvmrc reset $d/.ruby-env
 cd "$d"
