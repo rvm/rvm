@@ -9,20 +9,20 @@ rm -f */*
 
 : generate
 mcd $d/a
-rvm use 2.4.0@versions-conf-a --create --versions-conf --install
-rvm current             # match=/^ruby-2.4.0@versions-conf-a$/
+rvm use 3.0.5@versions-conf-a --create --versions-conf --install
+rvm current             # match=/^ruby-3.0.5@versions-conf-a$/
 [[ -f .versions.conf ]] # status=0
 
 mcd $d/b
-rvm use 2.6.6@versions-conf-b --create --versions-conf --install
-rvm current             # match=/^ruby-2.6.6@versions-conf-b$/
+rvm use 3.1.3@versions-conf-b --create --versions-conf --install
+rvm current             # match=/^ruby-3.1.3@versions-conf-b$/
 [[ -f .versions.conf ]] # status=0
 
 : test
 rvm rvmrc load $d/a
-rvm current         # match=/^ruby-2.4.0@versions-conf-a$/
+rvm current         # match=/^ruby-3.0.5@versions-conf-a$/
 rvm rvmrc load $d/b
-rvm current         # match=/^ruby-2.6.6@versions-conf-b$/
+rvm current         # match=/^ruby-3.1.3@versions-conf-b$/
 
 : test bundler without flag of doom
 mcd $d/b ## on travis cd hook is disabled ?
@@ -46,6 +46,6 @@ rvm rvmrc load . # match=/Installing haml/
 gem list # match=/haml/; match=/bundler/
 
 : clean
-rvm 2.4.0 do rvm --force gemset delete versions-conf-a
-rvm 2.6.6 do rvm --force gemset delete versions-conf-b
+rvm 3.0.5 do rvm --force gemset delete versions-conf-a
+rvm 3.1.3 do rvm --force gemset delete versions-conf-b
 rm -rf $d

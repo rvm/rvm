@@ -32,7 +32,7 @@ unpack_package()
 
 compare_package_with_stable()
 {
-  diff -ur -x .git -x rvm-test -x .idea "$rvm_project_path" $PWD/unpacked ||
+  diff -ur -x .git -x tests -x .idea "$rvm_project_path" $PWD/unpacked ||
   {
     typeset __result=$?
     echo "found differences (result:$__result), skipping signature generation"
