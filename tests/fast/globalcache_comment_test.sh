@@ -1,6 +1,6 @@
 source "$rvm_path/scripts/rvm"
 
-rvm use 2.6.6 --install                           # status=0; env[GEM_HOME]=/2.6.6/
+rvm use 3.1.3 --install                           # status=0; env[GEM_HOME]=/3.1.3/
 rvm --force gemset globalcache disable
 rvm gemset globalcache enabled                    # match=/Disabled/
 
@@ -16,7 +16,7 @@ rvm gemset list                                   # status=0; match=/ testset$/
 [[ -L "$rvm_path/gems/cache" ]]                   # status!=0
 [[ -d "$rvm_path/gems/cache" ]]                   # status=0
 
-rvm gemset copy 2.6.6@testset 2.6.6@testset2
+rvm gemset copy 3.1.3@testset 3.1.3@testset2
 # status=0
 # match=/Copying gemset/
 # match!=/Unknown file type/

@@ -1,6 +1,6 @@
 source "$rvm_path/scripts/rvm"
 
-rvm use 2.4.0 --install
+rvm use 3.0.5 --install
 
 : create/use/rename/delete
 rvm gemset create test_gemset            # status=0 ; match=/gemset created/
@@ -16,17 +16,17 @@ rvm gemset create test_gemset            # status=0 ; match=/gemset created/
 rvm gemset use test_gemset               # status=0 ; match=/Using /
 rvm current                              # match=/test_gemset/
 rvm --force gemset delete test_gemset    # status=0
-rvm use 2.4.0                            # status=0
-rvm current                              # match=/^ruby-2.4.0$/
+rvm use 3.0.5                            # status=0
+rvm current                              # match=/^ruby-3.0.5$/
 rvm gemset list                          # match!=/test_gemset/
 
 : rvm ... do
-rvm 2.4.0 do rvm gemset create test_gemset            # status=0 ; match=/gemset created/
-rvm 2.4.0 do rvm gemset list                          # match=/test_gemset/; match!=/other_gems/
-rvm 2.4.0 do rvm --force gemset delete test_gemset    # status=0
+rvm 3.0.5 do rvm gemset create test_gemset            # status=0 ; match=/gemset created/
+rvm 3.0.5 do rvm gemset list                          # match=/test_gemset/; match!=/other_gems/
+rvm 3.0.5 do rvm --force gemset delete test_gemset    # status=0
 
 : rvm ... do new rvm_gemsets_path
-rvm use 2.4.0
+rvm use 3.0.5
 true TMPDIR:${TMPDIR:=/tmp}:
 d=$TMPDIR/test-rvm_gemsets_path
 mkdir -p $d
@@ -35,14 +35,14 @@ echo rvm_create_flag=1 >> ~/.rvmrc
 rvm gemset create test_gemset            # status=0 ; match=/gemset created/; match=/test-rvm_gemsets_path/
 rvm gemset list                          # match=/test_gemset/; match!=/other_gems/; match=/test-rvm_gemsets_path/
 rvm --force gemset delete test_gemset    # status=0
-rvm 2.4.0 do rvm gemset create test_gemset            # status=0 ; match=/gemset created/; match=/test-rvm_gemsets_path/
-rvm 2.4.0 do rvm gemset list                          # match=/test_gemset/; match!=/other_gems/; match=/test-rvm_gemsets_path/
-rvm 2.4.0 do rvm --force gemset delete test_gemset    # status=0
+rvm 3.0.5 do rvm gemset create test_gemset            # status=0 ; match=/gemset created/; match=/test-rvm_gemsets_path/
+rvm 3.0.5 do rvm gemset list                          # match=/test_gemset/; match!=/other_gems/; match=/test-rvm_gemsets_path/
+rvm 3.0.5 do rvm --force gemset delete test_gemset    # status=0
 \sed -e "\%rvm_gems_path=$d% d" -e "\%rvm_create_flag=1% d" < ~/.rvmrc > ~/.rvmrc.new && \mv -f ~/.rvmrc.new ~/.rvmrc
 rm -rf $d
 
 : export/import/use/empty
-rvm use 2.4.0
+rvm use 3.0.5
 rvm gemset create test_gemset
 rvm gemset use test_gemset               # status=0 ; match=/Using /
 rvm gemdir                               # match=/@test_gemset$/
@@ -55,7 +55,7 @@ rvm gemset import haml.gems              # status=0; match=/Installing /
 rm haml.gems
 gem list                                 # match=/haml/
 rvm gemset use default                   # status=0 ; match=/Using /
-rvm --force --debug gemset empty test_gemset # status=0 ; match=/GEM_HOME=.*ruby-2.4.0@test_gemset/
+rvm --force --debug gemset empty test_gemset # status=0 ; match=/GEM_HOME=.*ruby-3.0.5@test_gemset/
 rvm gemset use test_gemset               # status=0 ; match=/Using /
 gem list                                 # match!=/haml/
 echo yes | rvm gemset delete test_gemset # status=0
