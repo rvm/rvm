@@ -74,6 +74,7 @@
 
 * Replace unkind language that trivializes mental health [\#5134](https://github.com/rvm/rvm/pull/5134)
 * Remove reference to Freenode [\#5317](https://github.com/rvm/rvm/pull/5317)
+* Remove reference to subtrees, as we don't use them anymore [\#5318](https://github.com/rvm/rvm/pull/5318)
 
 ## [1.29.12](https://github.com/rvm/rvm/releases/tag/1.29.12)
 15 January 2021 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...1.29.12)
