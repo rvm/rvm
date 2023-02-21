@@ -35,6 +35,7 @@
 * Don't warn about empty GEM_PATH [\#5292](https://github.com/rvm/rvm/pull/5292)
 * Detect existing Homebrew installs for MacOS arm64e in /opt/homebrew [\#5310](https://github.com/rvm/rvm/pull/5310)
 * Fix installing rubies when home directory includes the gemset separator [\#3790](https://github.com/rvm/rvm/issues/3790)
+* Replace keys.gnupg.net in favour of keyserver.ubuntu.com [\#5316](https://github.com/rvm/rvm/issues/5316)
 
 #### New interpreters
 
