@@ -54,7 +54,3 @@ It should fail.  Now repeat the following steps until the test passes:
 Now `git commit`, `git push` to your GitHub fork, then issue a pull
 request, and if it is accepted then your place in hacker heaven is
 secured.
-
-## Getting help
-
-If you get stuck, you should ask on `#rvm-test` or `#rvm` on Freenode.
