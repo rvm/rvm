@@ -5,13 +5,6 @@
 
 #### New features
 
-* New Ruby versions
-  * 2.6.10, 2.7.6, 3.0.4, 3.1.2, 3.2.0 Preview 1 [\#5200](https://github.com/rvm/rvm/pull/5200)
-  * 2.7.7, 3.0.5, 3.1.3, 3.2.0 Preview 2 and 3.2.0 Preview 3 [\#5271](https://github.com/rvm/rvm/pull/5271)
-  * 3.2.0-rc1 [\#5280](https://github.com/rvm/rvm/pull/5280)
-  * 3.2.0 [\#5283](https://github.com/rvm/rvm/pull/5283)
-  * 3.2.1 [\#5306](https://github.com/rvm/rvm/pull/5306)
-
 * New railsexpress patches for Ruby
   * 2.6.7, 2.7.3, 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066),
   * 2.6.8, 2.7.4, 3.0.2 [\#5117](https://github.com/rvm/rvm/pull/5117),
@@ -22,6 +15,8 @@
   * 2.7.7, 3.0.5 and 3.1.3 [\#5273](https://github.com/rvm/rvm/pull/5273)
   * 3.2.0 [\#5284](https://github.com/rvm/rvm/pull/5284) and [\#5312](https://github.com/rvm/rvm/pull/5312)
   * 3.2.1 [\#5311](https://github.com/rvm/rvm/pull/5311) and [\#5312](https://github.com/rvm/rvm/pull/5312)
+
+* Add Support for OpenSSL 1.1/3.0 to older ruby versions [\#5248](https://github.com/rvm/rvm/pull/5248)
 
 #### Bug fixes
 
@@ -39,13 +34,15 @@
 * Fix building Ruby 2.7 on Fedora 36+ by using openssl1.1 instead of openssl3 [\#5247](https://github.com/rvm/rvm/pull/5247)
 * Don't warn about empty GEM_PATH [\#5292](https://github.com/rvm/rvm/pull/5292)
 * Detect existing Homebrew installs for MacOS arm64e in /opt/homebrew [\#5310](https://github.com/rvm/rvm/pull/5310)
+* Fix installing rubies when home directory includes the gemset separator [\#3790](https://github.com/rvm/rvm/issues/3790)
+* Replace keys.gnupg.net in favour of keyserver.ubuntu.com [\#5316](https://github.com/rvm/rvm/issues/5316)
 * Fix non-silent failure on dash versions of /bin/sh [\#5167](https://github.com/rvm/rvm/pull/5167)
 
 #### New interpreters
 
+* Add support for Ruby 2.5.9, 2.6.7, 2.7.3, 3.0.1 [\#5063](https://github.com/rvm/rvm/pull/5063), 2.6.8, 2.7.4, 3.0.2 [\#5098](https://github.com/rvm/rvm/pull/5098), 3.1.0-preview1 [\#5155](https://github.com/rvm/rvm/pull/5155), 2.6.9, 2.7.5, 3.0.3 [\#5157](https://github.com/rvm/rvm/pull/5157), 3.1.0 [\#5169](https://github.com/rvm/rvm/pull/5169), 3.1.1 [\#5185](https://github.com/rvm/rvm/pull/5185), 2.6.10, 2.7.6, 3.0.4, 3.1.2, 3.2.0 Preview 1 [\#5200](https://github.com/rvm/rvm/pull/5200), 2.7.7, 3.0.5, 3.1.3, 3.2.0 Preview 2 and 3.2.0 Preview 3 [\#5271](https://github.com/rvm/rvm/pull/5271), 3.2.0-rc1 [\#5280](https://github.com/rvm/rvm/pull/5280), 3.2.0 [\#5283](https://github.com/rvm/rvm/pull/5283), 3.2.1 [\#5306](https://github.com/rvm/rvm/pull/5306)
 * Add support for TruffleRuby 21.0.0 [\#5037](https://github.com/rvm/rvm/pull/5037), 21.1.0 [\#5071](https://github.com/rvm/rvm/pull/5071), 21.2.0, 21.2.0.1, 21.3.0 [\#5137](https://github.com/rvm/rvm/pull/5137), 22.0.0.2 [\#5177](https://github.com/rvm/rvm/pull/5177), 22.1.0 [\#5206](https://github.com/rvm/rvm/pull/5206), 22.2.0, 22.3.0, 22.3.1
 * Add support for JRuby 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056), 9.2.17.0 [\#5062](https://github.com/rvm/rvm/pull/5062), 9.2.18.0 [\#5091](https://github.com/rvm/rvm/pull/5091), 9.2.19.0 [\#5094](https://github.com/rvm/rvm/pull/5094), 9.2.20.0 [\#5145](https://github.com/rvm/rvm/pull/5145), 9.2.20.1 [\#5160](https://github.com/rvm/rvm/pull/5160), 9.2.21.0 [\#5230](https://github.com/rvm/rvm/pull/5230), 9.3.0.0 [\#5130](https://github.com/rvm/rvm/pull/5130), 9.3.1.0 [\#5135](https://github.com/rvm/rvm/pull/5135), 9.3.2.0 [\#5163](https://github.com/rvm/rvm/pull/5163), 9.3.3.0 [\#5175](https://github.com/rvm/rvm/pull/5175), 9.3.4.0 [\#5195](https://github.com/rvm/rvm/pull/5163), 9.3.6.0 [\#5230](https://github.com/rvm/rvm/pull/5230), 9.3.7.0 [\#5245](https://github.com/rvm/rvm/pull/5245), 9.3.8.0 [\#5250](https://github.com/rvm/rvm/pull/5250), 9.3.9.0 [\#5258](https://github.com/rvm/rvm/pull/5258), 9.3.10.0 [\#5300](https://github.com/rvm/rvm/pull/5300), 9.4.0.0 [\#5270](https://github.com/rvm/rvm/pull/5270), 9.4.1.0 [\#5304](https://github.com/rvm/rvm/pull/5304)
-* Add support for Ruby 2.5.9, 2.6.7, 2.7.3, 3.0.1 [\#5063](https://github.com/rvm/rvm/pull/5063), 2.6.8, 2.7.4, 3.0.2 [\#5098](https://github.com/rvm/rvm/pull/5098), 3.1.0-preview1 [\#5155](https://github.com/rvm/rvm/pull/5155), 2.6.9, 2.7.5, 3.0.3 [\#5157](https://github.com/rvm/rvm/pull/5157), 3.1.0 [\#5169](https://github.com/rvm/rvm/pull/5169), 3.1.1 [\#5185](https://github.com/rvm/rvm/pull/5185)
 
 #### Binaries
 
@@ -63,10 +60,8 @@
     * 2.5.9 2.6.10 2.6.7 2.6.8 2.6.9 2.7.3 2.7.4 2.7.6 2.7.7 3.0.0 3.0.2 3.0.4 3.0.5 3.1.2 3.1.3 3.2.0 3.2.1 [\#5314](https://github.com/rvm/rvm/pull/5314)
   * Ubuntu 18.04 (Bionic) x86_64 binaries
     * 1.9.3-p392 1.9.3-p551 2.0.0-p648 2.5.9 2.6.10 2.6.7 2.6.8 2.6.9 2.7.3 2.7.4 2.7.5 2.7.6 2.7.7 3.0.0 3.0.1 3.0.2 3.0.3 3.0.4 3.0.5 3.1.0 3.1.1 3.1.2 3.1.3 3.2.0 3.2.1 [\#5314](https://github.com/rvm/rvm/pull/5314)
-
   * Ubuntu 20.04 (Focal) x64 binaries
     * Ruby 2.5.9 2.6.10 2.6.7 2.6.8 2.6.9 2.7.3 2.7.5 2.7.6 2.7.7 3.0.1 3.0.2 3.0.3 3.0.4 3.0.5 3.1.0 3.1.1 3.1.2 3.1.3 3.2.0 3.2.1 [\#5314](https://github.com/rvm/rvm/pull/5314)
-
   * Ubuntu 22.04 (Jammy) x64 binaries
     * Ruby 3.1.3 and 3.2.0 [\#5298](https://github.com/rvm/rvm/issues/5298)
     * Ruby 3.2.1 [\#5307](https://github.com/rvm/rvm/issues/5307)
@@ -79,6 +74,8 @@
 #### Docs
 
 * Replace unkind language that trivializes mental health [\#5134](https://github.com/rvm/rvm/pull/5134)
+* Remove reference to Freenode [\#5317](https://github.com/rvm/rvm/pull/5317)
+* Remove reference to subtrees, as we don't use them anymore [\#5318](https://github.com/rvm/rvm/pull/5318)
 
 ## [1.29.12](https://github.com/rvm/rvm/releases/tag/1.29.12)
 15 January 2021 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...1.29.12)
