@@ -114,6 +114,7 @@
     * Ruby 2.7.6, 2.7.7, 3.0.4, 3.0.5, 3.1.2 [\#5308](https://github.com/rvm/rvm/pull/5308)
   * Ubuntu 22.04 (Jammy) arm64 binaries
     * 2.7.6, 2.7.7, 3.0.4, 3.0.5, 3.1.2, 3.1.3, 3.2.0 and 3.2.1 [\#5308](https://github.com/rvm/rvm/pull/5308)
+    * 3.0.6, 3.1.4 and 3.2.2 [\#5339](https://github.com/rvm/rvm/pull/5339)
   * Ubuntu 22.10 (Kinetic) x64 binaries
     * 3.0.5, 3.1.3, 3.2.0 and 3.2.1 [\#5308](https://github.com/rvm/rvm/pull/5308)
 
