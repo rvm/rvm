@@ -5,7 +5,7 @@
 
 #### New features
 
-* Add Support for OpenSSL 1.1/3.0 to older ruby versions [\#5248](https://github.com/rvm/rvm/pull/5248)
+* Add Support for OpenSSL 1.1/3.0 to older ruby versions [\#5248](https://github.com/rvm/rvm/pull/5248) [\#5340](https://github.com/rvm/rvm/pull/5340)
 * Update truffleruby-dev to use builds based on Ubuntu 20.04 [\#5322](https://github.com/rvm/rvm/issues/5322)
 
 #### Bug fixes
