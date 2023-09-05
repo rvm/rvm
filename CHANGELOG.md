@@ -29,6 +29,7 @@
 * Replace keys.gnupg.net in favour of keyserver.ubuntu.com [\#5316](https://github.com/rvm/rvm/issues/5316)
 * Fix non-silent failure on dash versions of /bin/sh [\#5167](https://github.com/rvm/rvm/pull/5167)
 * Fix building Ruby 2.6, 2.5, 2.4 on Fedora 36+ by using openssl1.1 instead of openssl3 [\#5247](https://github.com/rvm/pull/5325)
+* Fix truffleruby-23.0.0 installation on macos [\#5385](https://github.com/rvm/rvm/pull/5385)
 
 #### New interpreters
 
