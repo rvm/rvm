@@ -50,6 +50,7 @@
 * 3.3.0-preview1 [\#5348](https://github.com/rvm/rvm/pull/5348)
 * 3.3.0-preview2 [\#5391](https://github.com/rvm/rvm/pull/5391)
 * 3.3.0-preview3 [\#5407](https://github.com/rvm/rvm/pull/5407)
+* 3.3.0 [\#5421](https://github.com/rvm/rvm/pull/5421)
 
 ##### TruffleRuby
 
