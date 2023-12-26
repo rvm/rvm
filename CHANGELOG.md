@@ -99,6 +99,7 @@
 * 3.2.0 [\#5284](https://github.com/rvm/rvm/pull/5284) and [\#5312](https://github.com/rvm/rvm/pull/5312)
 * 3.2.1 [\#5311](https://github.com/rvm/rvm/pull/5311) and [\#5312](https://github.com/rvm/rvm/pull/5312)
 * 3.2.2, 3.1.4, 3.0.6 and 2.7.8 [\#5338](https://github.com/rvm/rvm/pull/5338)
+* 3.3.0 [\#5423](https://github.com/rvm/rvm/pull/5423)
 
 
 #### Binaries
