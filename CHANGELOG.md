@@ -59,7 +59,7 @@
 * 21.2.0, 21.2.0.1, 21.3.0 [\#5137](https://github.com/rvm/rvm/pull/5137)
 * 22.0.0.2 [\#5177](https://github.com/rvm/rvm/pull/5177)
 * 22.1.0 [\#5206](https://github.com/rvm/rvm/pull/5206)
-* 22.2.0, 22.3.0, 22.3.1, 23.0.0-preview1, 23.0.0, 23.1.0, 23.1.1
+* 22.2.0, 22.3.0, 22.3.1, 23.0.0-preview1, 23.0.0, 23.1.0, 23.1.1, 23.1.2
 
 ##### JRuby
 * 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056)
