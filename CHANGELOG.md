@@ -30,6 +30,8 @@
 * Fix non-silent failure on dash versions of /bin/sh [\#5167](https://github.com/rvm/rvm/pull/5167)
 * Fix building Ruby 2.6, 2.5, 2.4 on Fedora 36+ by using openssl1.1 instead of openssl3 [\#5247](https://github.com/rvm/pull/5325)
 * Fix truffleruby-23.0.0 installation on macos [\#5385](https://github.com/rvm/rvm/pull/5385)
+* Update location of OpenSSL binary [\#5433](https://github.com/rvm/rvm/pull/5433)
+* Fix gentoo dependencies moved from sys-devel to dev-build [\#5432](https://github.com/rvm/rvm/pull/5432)
 
 #### New interpreters
 
@@ -59,7 +61,7 @@
 * 21.2.0, 21.2.0.1, 21.3.0 [\#5137](https://github.com/rvm/rvm/pull/5137)
 * 22.0.0.2 [\#5177](https://github.com/rvm/rvm/pull/5177)
 * 22.1.0 [\#5206](https://github.com/rvm/rvm/pull/5206)
-* 22.2.0, 22.3.0, 22.3.1, 23.0.0-preview1, 23.0.0, 23.1.0, 23.1.1
+* 22.2.0, 22.3.0, 22.3.1, 23.0.0-preview1, 23.0.0, 23.1.0, 23.1.1, 23.1.2
 
 ##### JRuby
 * 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056)
@@ -100,6 +102,7 @@
 * 3.2.1 [\#5311](https://github.com/rvm/rvm/pull/5311) and [\#5312](https://github.com/rvm/rvm/pull/5312)
 * 3.2.2, 3.1.4, 3.0.6 and 2.7.8 [\#5338](https://github.com/rvm/rvm/pull/5338)
 * 3.3.0 [\#5423](https://github.com/rvm/rvm/pull/5423)
+* 3.2.3 [\#5430](https://github.com/rvm/rvm/pull/5430)
 
 #### Binaries
 
