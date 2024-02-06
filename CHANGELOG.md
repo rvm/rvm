@@ -101,7 +101,6 @@
 * 3.2.2, 3.1.4, 3.0.6 and 2.7.8 [\#5338](https://github.com/rvm/rvm/pull/5338)
 * 3.3.0 [\#5423](https://github.com/rvm/rvm/pull/5423)
 
-
 #### Binaries
 
 * Redhat decendants
@@ -135,6 +134,7 @@
 * Replace unkind language that trivializes mental health [\#5134](https://github.com/rvm/rvm/pull/5134)
 * Remove reference to Freenode [\#5317](https://github.com/rvm/rvm/pull/5317)
 * Remove reference to subtrees, as we don't use them anymore [\#5318](https://github.com/rvm/rvm/pull/5318)
+* Fix incorrect example for rvm_make_flags (string changed to array) [\#5425](https://github.com/rvm/rvm/pull/5425)
 
 ## [1.29.12](https://github.com/rvm/rvm/releases/tag/1.29.12)
 15 January 2021 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...1.29.12)
