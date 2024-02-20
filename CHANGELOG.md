@@ -84,12 +84,14 @@
 * 9.3.10.0 [\#5300](https://github.com/rvm/rvm/pull/5300)
 * 9.3.11.0 [\#5390](https://github.com/rvm/rvm/pull/5390)
 * 9.3.13.0 [\#5405](https://github.com/rvm/rvm/pull/5405)
+* 9.3.14.0 [\#5443](https://github.com/rvm/rvm/pull/5443)
 * 9.4.0.0 [\#5270](https://github.com/rvm/rvm/pull/5270)
 * 9.4.1.0 [\#5304](https://github.com/rvm/rvm/pull/5304)
 * 9.4.2.0 [\#5333](https://github.com/rvm/rvm/pull/5333)
 * 9.4.3.0 [\#5357](https://github.com/rvm/rvm/pull/5357)
 * 9.4.4.0 [\#5399](https://github.com/rvm/rvm/pull/5399)
 * 9.4.5.0 [\#5405](https://github.com/rvm/rvm/pull/5405)
+* 9.4.6.0 [\#5443](https://github.com/rvm/rvm/pull/5443)
 
 ##### Railsexpress patches
 * 2.6.7, 2.7.3, 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066)
