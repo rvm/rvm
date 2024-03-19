@@ -33,4 +33,4 @@ insert_after "config/known_strings", /^truffleruby/, ["truffleruby-#{version}\n"
   insert_after "config/#{algorithm}", /^truffleruby/, digests
 }
 
-replace_line "CHANGELOG.md", /\* Add support for TruffleRuby (.+)/, ", #{version}\n"
+replace_line "CHANGELOG.md", /\* 22.2.0, 22.3.0, .+/, ", #{version}\n"
