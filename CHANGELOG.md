@@ -33,6 +33,7 @@
 * Update location of OpenSSL binary [\#5433](https://github.com/rvm/rvm/pull/5433)
 * Fix gentoo dependencies moved from sys-devel to dev-build [\#5432](https://github.com/rvm/rvm/pull/5432)
 * Fix truffleruby-head installation on macos-aarch64 [\#5446](https://github.com/rvm/rvm/pull/5446)
+* Fix bug with Bootsnap on Ruby 3.3.1 [\#5457](https://github.com/rvm/rvm/pull/5457)
 
 #### New interpreters
 
