@@ -17,6 +17,6 @@ rvm truffleruby-head do ruby -v # status=0; match=/truffleruby/
 rvm remove truffleruby-head # status=0
 
 ## Test that the right version is installed (#4633)
-rvm install truffleruby-1.0.0-rc13 # status=0; match!=/Already installed/
-rvm truffleruby-1.0.0-rc13 do ruby -v # status=0; match=/truffleruby 1.0.0-rc13/
-rvm remove truffleruby-1.0.0-rc13 # status=0
+rvm install truffleruby-23.1.2 # status=0; match!=/Already installed/
+rvm truffleruby-23.1.2 do ruby -v # status=0; match=/truffleruby 23.1.2/
+rvm remove truffleruby-23.1.2 # status=0
