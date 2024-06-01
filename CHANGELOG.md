@@ -10,7 +10,6 @@
 * Install openssl gem for Ruby 3.0.6 [\#5340](https://github.com/rvm/rvm/pull/5340)
 * Speed up Solus requirements check by 25x [\#5472](https://github.com/rvm/rvm/pull/5472/)
 
-
 #### Bug fixes
 
 * Remove unsupported libclang, libclang-dev, openssl-dev and zlib-dev from Termux requirements, and fix installation by not calling getent [\#5101](https://github.com/rvm/rvm/pull/5101)
@@ -36,7 +35,7 @@
 * Fix gentoo dependencies moved from sys-devel to dev-build [\#5432](https://github.com/rvm/rvm/pull/5432)
 * Fix truffleruby-head installation on macos-aarch64 [\#5446](https://github.com/rvm/rvm/pull/5446)
 * Fix bug with Bootsnap on Ruby 3.3.1 [\#5457](https://github.com/rvm/rvm/pull/5457)
-* Use pkgconf instead of pkg0-conf in Solus [\#5471](https://github.com/rvm/rvm/pull/5471)
+* Use pkgconf instead of pkg-config in Solus [\#5471](https://github.com/rvm/rvm/pull/5471)
 
 #### New interpreters
 
