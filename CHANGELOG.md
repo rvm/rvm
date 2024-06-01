@@ -8,6 +8,8 @@
 * Add Support for OpenSSL 1.1/3.0 to older ruby versions [\#5248](https://github.com/rvm/rvm/pull/5248)
 * Update truffleruby-dev to use builds based on Ubuntu 20.04 [\#5322](https://github.com/rvm/rvm/issues/5322)
 * Install openssl gem for Ruby 3.0.6 [\#5340](https://github.com/rvm/rvm/pull/5340)
+* Speed up Solus requirements check by 25x [\#5472](https://github.com/rvm/rvm/pull/5472/)
+
 
 #### Bug fixes
 
@@ -34,7 +36,7 @@
 * Fix gentoo dependencies moved from sys-devel to dev-build [\#5432](https://github.com/rvm/rvm/pull/5432)
 * Fix truffleruby-head installation on macos-aarch64 [\#5446](https://github.com/rvm/rvm/pull/5446)
 * Fix bug with Bootsnap on Ruby 3.3.1 [\#5457](https://github.com/rvm/rvm/pull/5457)
-* Fix Solus requirements check for pkgconf [\#5471](https://github.com/rvm/rvm/pull/5471)
+* Use pkgconf instead of pkg0-conf in Solus [\#5471](https://github.com/rvm/rvm/pull/5471)
 
 #### New interpreters
 
@@ -101,6 +103,7 @@
 * 9.4.7.0 [\#5449](https://github.com/rvm/rvm/pull/5449)
 
 ##### Railsexpress patches
+
 * 2.6.7, 2.7.3, 3.0.1 [\#5066](https://github.com/rvm/rvm/pull/5066)
 * 2.6.8, 2.7.4, 3.0.2 [\#5117](https://github.com/rvm/rvm/pull/5117)
 * 2.6.9, 2.7.5, 3.0.3 [\#5167](https://github.com/rvm/rvm/pull/5167)
