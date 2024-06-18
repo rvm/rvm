@@ -5,6 +5,7 @@
 
 #### New features
 
+* Use OpenSSL 3 for Ruby 3.2 and 3.3 [\#5480](https://github.com/rvm/rvm/pull/5480)
 * Add Support for OpenSSL 1.1/3.0 to older ruby versions [\#5248](https://github.com/rvm/rvm/pull/5248)
 * Update truffleruby-dev to use builds based on Ubuntu 20.04 [\#5322](https://github.com/rvm/rvm/issues/5322)
 * Install openssl gem for Ruby 3.0.6 [\#5340](https://github.com/rvm/rvm/pull/5340)
