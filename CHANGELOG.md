@@ -37,6 +37,8 @@
 * Fix truffleruby-head installation on macos-aarch64 [\#5446](https://github.com/rvm/rvm/pull/5446)
 * Fix bug with Bootsnap on Ruby 3.3.1 [\#5457](https://github.com/rvm/rvm/pull/5457)
 * Use pkgconf instead of pkg-config in Solus [\#5471](https://github.com/rvm/rvm/pull/5471)
+* Install `libncurses-dev` instead of `libncurses5-dev` on newer Debian and Ubuntu versions [\#5477](https://github.com/rvm/rvm/pull/5477)
+* Use `zlib-ng-compat` packages for Fedora 40+ [\#5479](https://github.com/rvm/rvm/pull/5479)
 
 #### New interpreters
 
