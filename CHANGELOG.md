@@ -42,7 +42,6 @@
 * Detect core count on ARM-based machines [\#5498](https://github.com/rvm/rvm/pull/5498)
 * Fix requirement check for Ubuntu [\#5500](https://github.com/rvm/rvm/pull/5500)
 
-
 #### New interpreters
 
 ##### MRI
