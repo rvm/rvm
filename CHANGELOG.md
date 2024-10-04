@@ -41,7 +41,7 @@
 * Use `zlib-ng-compat` packages for Fedora 40+ [\#5479](https://github.com/rvm/rvm/pull/5479)
 * Detect core count on ARM-based machines [\#5498](https://github.com/rvm/rvm/pull/5498)
 * Fix requirement check for Ubuntu [\#5500](https://github.com/rvm/rvm/pull/5500)
-* Update location of homebrew install script on osx
+* Update location of homebrew install script on osx [\#5505](https://github.com/rvm/rvm/pull/5505)
 
 #### New interpreters
 
