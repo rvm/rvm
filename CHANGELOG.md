@@ -42,6 +42,7 @@
 * Detect core count on ARM-based machines [\#5498](https://github.com/rvm/rvm/pull/5498)
 * Fix requirement check for Ubuntu [\#5500](https://github.com/rvm/rvm/pull/5500)
 * Update location of homebrew install script on osx [\#5505](https://github.com/rvm/rvm/pull/5505)
+* Fix detection of Homebrew's write permissions when using Workbrew [\#5528](https://github.com/rvm/rvm/pull/5528)
 
 #### New interpreters
 
