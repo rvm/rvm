@@ -161,6 +161,8 @@
     * 3.0.6, 3.1.4 and 3.2.2 [\#5339](https://github.com/rvm/rvm/pull/5339)
   * Ubuntu 22.10 (Kinetic) x64 binaries
     * 3.0.5, 3.1.3, 3.2.0 and 3.2.1 [\#5308](https://github.com/rvm/rvm/pull/5308)
+  * Ubuntu 24.04 (Noble Numbat) x64 binaries
+    * 3.2.6 and 3.3.6 [\#5529](https://github.com/rvm/rvm/pull/5529)
 
 #### Docs
 
