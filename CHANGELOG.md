@@ -116,6 +116,7 @@
 * 9.4.7.0 [\#5449](https://github.com/rvm/rvm/pull/5449)
 * 9.4.8.0 [\#5484](https://github.com/rvm/rvm/pull/5484)
 * 9.4.9.0 [\#5512](https://github.com/rvm/rvm/pull/5512)
+* 9.4.10.0 [\#5538](https://github.com/rvm/rvm/pull/5538)
 
 ##### Railsexpress patches
 
