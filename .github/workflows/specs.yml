@@ -3,8 +3,12 @@ name: CI
 on:
   pull_request:
 
+env:
+  TERM: ansi
+  RVM_SKIP_BREW_UPDATE: true
+
 jobs:
-  tests:
+  fast-tests:
     strategy:
       fail-fast: false
       matrix:
@@ -18,8 +22,6 @@ jobs:
           - 3.2
           - 3.3
           - 3.4
-        test:
-          - tests/fast/*
         include:
           # TODO: works on local, but fails in CI, needs to be investigated
           - os: ubuntu-latest
@@ -31,41 +33,64 @@ jobs:
             ruby: 3.3
             test: tests/fail-in-ci/ruby_prepare_mount_comment_test.sh
 
-          # TODO: Test failing on 3.4
-          - os:
-              - ubuntu-latest
-              - macos-13        # intel
-            ruby:
-              - 3.1
-              - 3.2
-              - 3.3
-            test: tests/fail-on-3.4/*
-
-          - os:
-              - ubuntu-latest
-              - macos-13        # intel
-            ruby: system
-            test:
-              # JRuby tests
-              - tests/jruby/jruby_comment_test.sh
-              # TruffleRuby tests
-              - tests/truffleruby/truffleruby_comment_test.sh
-
     runs-on: ${{ matrix.os }}
-    env:
-      TERM: ansi
-      RVM_SKIP_BREW_UPDATE: true
     steps:
       - uses: actions/checkout@v4
-      - run: ./install
-      - run: source ~/.rvm/scripts/rvm && rvm use ${{ matrix.ruby }} --install --default
-      - run: source ~/.rvm/scripts/rvm && gem install tf -v '>=0.4.6'
-      - run: source ~/.rvm/scripts/rvm && tf --text ${{ matrix.test }}
+
+      - uses: ./.github/actions/test
+        with:
+          ruby: ${{ matrix.ruby }}
+          test: tests/fast/*
+
+  # TODO: Test failing on 3.4 needs to be fixed
+  failing-on-ruby-3-4-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-13        # intel
+          # TODO: fix arm64 macos install
+          # - macos-latest    # arm64
+        ruby:
+          - 3.1
+          - 3.2
+          - 3.3
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/test
+        with:
+          ruby: ${{ matrix.ruby }}
+          test: tests/fail-on-3.4/*
+
+  alternative-interpreters-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-13        # intel
+          - macos-latest    # arm64
+        interpreter:
+          - jruby
+          - truffleruby
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/test
+        with:
+          ruby: system
+          test: tests/${{ matrix.interpreter }}/*
 
   all-passed:
     runs-on: ubuntu-latest
     if: always()
     needs:
-      - tests
+      - fast-tests
+      - failing-on-ruby-3-4-tests
+      - alternative-interpreters-tests
     steps:
       - run: exit ${{ contains(needs.*.result, 'failure') && 1 || 0 }}
