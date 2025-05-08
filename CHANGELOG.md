@@ -81,6 +81,7 @@
 * 3.1.6, 3.1.7, 3.2.8 [\#5558](https://github.com/rvm/rvm/pull/5558)
 * 3.3.8 [\#5560](https://github.com/rvm/rvm/pull/5560)
 * 3.4.3 [\#5562](https://github.com/rvm/rvm/pull/5562)
+* 3.5.0-preview1 [\#5566](https://github.com/rvm/rvm/pull/5566)
 
 ##### TruffleRuby
 
@@ -89,7 +90,7 @@
 * 21.2.0, 21.2.0.1, 21.3.0 [\#5137](https://github.com/rvm/rvm/pull/5137)
 * 22.0.0.2 [\#5177](https://github.com/rvm/rvm/pull/5177)
 * 22.1.0 [\#5206](https://github.com/rvm/rvm/pull/5206)
-* 22.2.0, 22.3.0, 22.3.1, 23.0.0-preview1, 23.0.0, 23.1.0, 23.1.1, 23.1.2, 24.0.0, 24.0.1, 24.0.2, 24.1.0, 24.1.1, 24.1.2, 24.2.0
+* 22.2.0, 22.3.0, 22.3.1, 23.0.0-preview1, 23.0.0, 23.1.0, 23.1.1, 23.1.2, 24.0.0, 24.0.1, 24.0.2, 24.1.0, 24.1.1, 24.1.2, 24.2.0, 24.2.1
 
 ##### JRuby
 * 9.2.15.0 and 9.2.16.0 [\#5056](https://github.com/rvm/rvm/pull/5056)
@@ -126,6 +127,7 @@
 * 9.4.10.0 [\#5538](https://github.com/rvm/rvm/pull/5538)
 * 9.4.11.0 [\#5541](https://github.com/rvm/rvm/pull/5541)
 * 9.4.12.0 [\#5548](https://github.com/rvm/rvm/pull/5548)
+* 10.0.0.0 [\#5561](https://github.com/rvm/rvm/pull/5561)
 
 ##### Railsexpress patches
 
