@@ -129,6 +129,7 @@
 * 9.4.11.0 [\#5541](https://github.com/rvm/rvm/pull/5541)
 * 9.4.12.0 [\#5548](https://github.com/rvm/rvm/pull/5548)
 * 9.4.12.1 [\#5567](https://github.com/rvm/rvm/pull/5567)
+* 9.4.13.0 [\#5573](https://github.com/rvm/rvm/pull/5573)
 * 10.0.0.0 [\#5561](https://github.com/rvm/rvm/pull/5561)
 * 10.0.0.1 [\#5567](https://github.com/rvm/rvm/pull/5567)
 
