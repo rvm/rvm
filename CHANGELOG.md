@@ -87,6 +87,7 @@
 * 3.3.9 [\#5578](https://github.com/rvm/rvm/pull/5578)
 * 3.2.9 [\#5586](https://github.com/rvm/rvm/pull/5586)
 * 3.4.6 [\#5588](https://github.com/rvm/rvm/pull/5588)
+* 3.4.7 [\#5594](https://github.com/rvm/rvm/pull/5594)
 
 ##### TruffleRuby
 
