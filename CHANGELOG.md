@@ -10,6 +10,7 @@
 * Update truffleruby-dev to use builds based on Ubuntu 20.04 [\#5322](https://github.com/rvm/rvm/issues/5322)
 * Install openssl gem for Ruby 3.0.6 [\#5340](https://github.com/rvm/rvm/pull/5340)
 * Speed up Solus requirements check by 25x [\#5472](https://github.com/rvm/rvm/pull/5472/)
+* Update truffleruby-dev to use builds that do not depend on the Ubuntu version [\#5605](https://github.com/rvm/rvm/pull/5605)
 
 #### Bug fixes
 
@@ -203,6 +204,7 @@
 * Migrate from rvm_io.global.ssl.fastly.net to rvm-io.global.ssl.fastly.net to fix domain fronting report from Fastly [\#5438](https://github.com/rvm/rvm/pull/5438)
 * Upgrade github actions and truffleruby version in CI [\#5456](https://github.com/rvm/rvm/pull/5456)
 * Parallelize GitHub Action jobs in CI [\#5458](https://github.com/rvm/rvm/pull/5458)
+* Update TruffleRuby URLs [\#5605](https://github.com/rvm/rvm/pull/5605)
 
 ## [1.29.12](https://github.com/rvm/rvm/releases/tag/1.29.12)
 15 January 2021 - [Full Changelog](https://github.com/rvm/rvm/compare/1.29.11...1.29.12)
