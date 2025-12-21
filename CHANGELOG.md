@@ -92,6 +92,7 @@
 * 3.3.10 [\#5602](https://github.com/rvm/rvm/pull/5602)
 * 4.0.0-preview2 [\#5604](https://github.com/rvm/rvm/pull/5604)
 * 3.4.8 [\#5608](https://github.com/rvm/rvm/pull/5608)
+* 4.0.0-preview3 [\#5609](https://github.com/rvm/rvm/pull/5609)
 
 ##### TruffleRuby
 
