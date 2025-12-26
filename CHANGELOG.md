@@ -45,6 +45,7 @@
 * Update location of homebrew install script on osx [\#5505](https://github.com/rvm/rvm/pull/5505)
 * Fix detection of Homebrew's write permissions when using Workbrew [\#5528](https://github.com/rvm/rvm/pull/5528)
 * Use pkgconf instead of pkg-config on macOS/Homebrew [\#5564](https://github.com/rvm/rvm/pull/5564)
+* Recognize the 4* as valid MRI Ruby version number. [\#5613](https://github.com/rvm/rvm/pull/5613)
 
 #### New interpreters
 
