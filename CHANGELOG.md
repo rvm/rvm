@@ -11,6 +11,7 @@
 * Install openssl gem for Ruby 3.0.6 [\#5340](https://github.com/rvm/rvm/pull/5340)
 * Speed up Solus requirements check by 25x [\#5472](https://github.com/rvm/rvm/pull/5472/)
 * Update truffleruby-dev to use builds that do not depend on the Ubuntu version [\#5605](https://github.com/rvm/rvm/pull/5605)
+* Recognize "4" as valid MRI Ruby version number [\#5613](https://github.com/rvm/rvm/pull/5613)
 
 #### Bug fixes
 
