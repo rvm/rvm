@@ -11,6 +11,7 @@
 * Install openssl gem for Ruby 3.0.6 [\#5340](https://github.com/rvm/rvm/pull/5340)
 * Speed up Solus requirements check by 25x [\#5472](https://github.com/rvm/rvm/pull/5472/)
 * Update truffleruby-dev to use builds that do not depend on the Ubuntu version [\#5605](https://github.com/rvm/rvm/pull/5605)
+* Recognize "4" as valid MRI Ruby version number [\#5613](https://github.com/rvm/rvm/pull/5613)
 
 #### Bug fixes
 
@@ -45,7 +46,6 @@
 * Update location of homebrew install script on osx [\#5505](https://github.com/rvm/rvm/pull/5505)
 * Fix detection of Homebrew's write permissions when using Workbrew [\#5528](https://github.com/rvm/rvm/pull/5528)
 * Use pkgconf instead of pkg-config on macOS/Homebrew [\#5564](https://github.com/rvm/rvm/pull/5564)
-* Recognize the 4* as valid MRI Ruby version number. [\#5613](https://github.com/rvm/rvm/pull/5613)
 
 #### New interpreters
 
