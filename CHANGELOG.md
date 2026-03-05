@@ -48,6 +48,7 @@
 * Fix detection of Homebrew's write permissions when using Workbrew [\#5528](https://github.com/rvm/rvm/pull/5528)
 * Use pkgconf instead of pkg-config on macOS/Homebrew [\#5564](https://github.com/rvm/rvm/pull/5564)
 * Fix autogen.sh call for MRI's on OpenBSD [\#5620](https://github.com/rvm/rvm/pull/5620)
+* Update TruffleRuby dependencies for TruffleRuby 33+ [\#5632](https://github.com/rvm/rvm/pull/5632)
 
 #### New interpreters
 
