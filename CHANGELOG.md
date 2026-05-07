@@ -16,6 +16,7 @@
 
 #### Bug fixes
 
+* Fix Ruby 3.1-3.4 segfault on macOS with Apple Clang 17+ (Xcode 16.3+) by disabling C23 auto-detection during configure
 * Remove unsupported libclang, libclang-dev, openssl-dev and zlib-dev from Termux requirements, and fix installation by not calling getent [\#5101](https://github.com/rvm/rvm/pull/5101)
 * Allow ruby-head to be installed using ruby 3, not truffleruby [\#5115](https://github.com/rvm/rvm/pull/5115)
 * Fix attempts to install/uninstall ruby picking jruby, mruby or truffleruby instead [\#5116](https://github.com/rvm/rvm/pull/5116)
