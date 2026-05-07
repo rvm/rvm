@@ -361,6 +361,23 @@ __rvm_setup_compile_environment_osx_107_ruby21()
   fi
 }
 
+# Autoconf 2.70+ auto-detects C23 support and bakes -std=gnu23 into CC.
+# Ruby versions prior to 3.5 produce segfaulting binaries when compiled
+# under C23 with Apple Clang 17+ (Xcode 16.3+) on ARM64.
+# Disable C23 detection so configure falls back to C11.
+__rvm_setup_compile_environment_osx_disable_c23()
+{
+  case "$1" in
+    (ruby-3.[1-4].*)
+      if echo "int main(){return 0;}" | ${CC:-cc} -std=gnu23 -x c - -o /dev/null 2>/dev/null
+      then
+        rvm_configure_env+=( ac_cv_prog_cc_c23=no )
+      fi
+      ;;
+  esac
+  true # OSX --trace FIX
+}
+
 __rvm_setup_compile_environment_flags_tcltk()
 {
   case "$1" in
@@ -383,6 +400,7 @@ __rvm_setup_compile_environment_system_OSX()
   __rvm_setup_compile_environment_flags_tcltk  "$@" || return $?
   __rvm_setup_compile_environment_osx_compiler "$@" || return $?
   __rvm_setup_compile_environment_osx_107_ruby21 "$@" || return $?
+  __rvm_setup_compile_environment_osx_disable_c23 "$@" || return $?
   true # OSX --trace FIX
 }
 
