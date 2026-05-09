@@ -16,6 +16,7 @@
 
 #### Bug fixes
 
+* Use RubyGems 2.7.9 for Ruby 1.9.2 and 1.9.3 [\#5651](https://github.com/rvm/rvm/pull/5651)
 * Remove unsupported libclang, libclang-dev, openssl-dev and zlib-dev from Termux requirements, and fix installation by not calling getent [\#5101](https://github.com/rvm/rvm/pull/5101)
 * Allow ruby-head to be installed using ruby 3, not truffleruby [\#5115](https://github.com/rvm/rvm/pull/5115)
 * Fix attempts to install/uninstall ruby picking jruby, mruby or truffleruby instead [\#5116](https://github.com/rvm/rvm/pull/5116)
