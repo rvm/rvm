@@ -164,6 +164,7 @@
 * 10.0.5.0 [\#5642](https://github.com/rvm/rvm/pull/5642)
 * 10.0.6.0 [\#5660](https://github.com/rvm/rvm/pull/5660)
 * 10.1.0.0 [\#5645](https://github.com/rvm/rvm/pull/5645)
+* 10.1.1.0 [\#5664](https://github.com/rvm/rvm/pull/5664)
 
 ##### Railsexpress patches
 
