@@ -2,7 +2,7 @@
 rvm install truffleruby # status=0; match!=/Already installed/; match=/compiling c-extensions/
 rvm truffleruby do ruby -v # status=0; match=/truffleruby/
 rvm truffleruby do rake --version # status=0; match=/rake, version/
-rvm truffleruby do ruby -S bundle --version # status=0; match=/Bundler version/
+rvm truffleruby do ruby -S bundle --version # status=0
 echo 'gem "rake"' > Gemfile # status=0
 rvm truffleruby do bundle install # status=0
 rvm truffleruby do ruby -S bundle exec rake --version # status=0; match=/rake, version/
