@@ -28,6 +28,7 @@
 * Fix building Ruby on Void Linux by using openssl instead of libressl [\#5234](https://github.com/rvm/rvm/pull/5234)
 * Fix building ruby-head by running autogen when available [\#5238](https://github.com/rvm/rvm/pull/5238)
 * Fix building Ruby 2.7 on Fedora 36+ by using openssl1.1 instead of openssl3 [\#5247](https://github.com/rvm/rvm/pull/5247)
+* Fix building Ruby 2.3 and older on openSUSE Leap 15 by using the OpenSSL 1.0 development package [\#4669](https://github.com/rvm/rvm/issues/4669)
 * Don't warn about empty GEM_PATH [\#5292](https://github.com/rvm/rvm/pull/5292)
 * Detect existing Homebrew installs for MacOS arm64e in /opt/homebrew [\#5310](https://github.com/rvm/rvm/pull/5310)
 * Fix installing rubies when home directory includes the gemset separator [\#3790](https://github.com/rvm/rvm/issues/3790)
