@@ -53,8 +53,14 @@ __rvm_strip()
 __rvm_remove_from_path()
 {
   export PATH
-  \typeset _value
+  \typeset _value _prefix
   _value="${1//+(\/)//}"
+  # PATH entries are compared without trailing slashes, see below
+  if
+    [[ "$_value" == *[!/]"/" ]]
+  then
+    _value="${_value%/}"
+  fi
 
   # Guard to prevent removal of the entire path
   # https://github.com/rvm/rvm/issues/4759
@@ -66,7 +72,20 @@ __rvm_remove_from_path()
 
   # remove multiple slashes https://github.com/rvm/rvm/issues/1364
   while [[ "$PATH" == *"//"* ]] ; do PATH="${PATH/\/\///}" ; done
-  while [[ "$PATH" == *"/:"* ]] ; do PATH="${PATH/\/:/:}" ; done
+
+  # remove trailing slashes, but keep "/" entries - turning them into empty
+  # entries would add the current directory to PATH
+  while
+    [[ "$PATH" == *[!:]"/:"* ]]
+  do
+    _prefix="${PATH%%[!:]/:*}"
+    PATH="${PATH:0:${#_prefix}+1}${PATH:${#_prefix}+2}"
+  done
+  if
+    [[ "$PATH" == *[!:]"/" ]]
+  then
+    PATH="${PATH%/}"
+  fi
 
   if
     __rvm_string_match ":$PATH:" "*:${_value}:*"
