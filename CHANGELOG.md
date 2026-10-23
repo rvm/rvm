@@ -111,6 +111,7 @@
 * 4.0.7 [\#5667](https://github.com/rvm/rvm/pull/5667)
 * 3.4.11 [\#5670](https://github.com/rvm/rvm/pull/5670)
 * 4.0.8 [\#5675](https://github.com/rvm/rvm/pull/5675)
+* 3.4.12 [\#5677](https://github.com/rvm/rvm/pull/5677)
 * 3.3.13 [\#5678](https://github.com/rvm/rvm/pull/5678)
 * 4.0.9 [\#5676](https://github.com/rvm/rvm/pull/5676)
 
