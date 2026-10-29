@@ -50,6 +50,7 @@
 * Fix autogen.sh call for MRI's on OpenBSD [\#5620](https://github.com/rvm/rvm/pull/5620)
 * Update TruffleRuby dependencies for TruffleRuby 33+ [\#5632](https://github.com/rvm/rvm/pull/5632)
 * Avoid undefined `rvm_shell_nounset` variable [\#5638](https://github.com/rvm/rvm/pull/5638)
+* Fix Ruby 3.1.7 build and HTTPS with OpenSSL 3.6 [\#5679](https://github.com/rvm/rvm/pull/5679)
 
 #### New interpreters
 
