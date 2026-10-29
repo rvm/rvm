@@ -1,0 +1,72 @@
+name: Ruby 3.1.7 with OpenSSL 3.6.0
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/ruby-3-1-openssl-3-6.yml
+      - install
+      - patches/ruby/3.1.7/**
+      - patchsets/ruby/3.1.7/**
+      - scripts/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure OpenSSL paths
+        run: |
+          {
+            echo "OPENSSL_PREFIX=$RUNNER_TEMP/openssl-3.6.0-install"
+            echo "LD_LIBRARY_PATH=$RUNNER_TEMP/openssl-3.6.0-install/lib"
+            echo "PKG_CONFIG_PATH=$RUNNER_TEMP/openssl-3.6.0-install/lib/pkgconfig"
+          } >> "$GITHUB_ENV"
+
+      - name: Build OpenSSL 3.6.0
+        run: |
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/openssl-3.6.0.tar.gz" \
+            https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz
+          echo "b6a5f44b7eb69e3fa35dbf15524405b44837a481d43d81daddde3ff21fcbb8e9  $RUNNER_TEMP/openssl-3.6.0.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/openssl-3.6.0.tar.gz" -C "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP/openssl-3.6.0"
+          ./Configure --prefix="$OPENSSL_PREFIX" --openssldir=/etc/ssl --libdir=lib shared no-tests
+          make -j"$(nproc)"
+          make install_sw
+
+      - run: ./install
+
+      - name: Build Ruby 3.1.7 from source and verify HTTPS
+        shell: bash
+        run: |
+          # shellcheck source=/dev/null
+          source ~/.rvm/scripts/rvm
+          rvm install 3.1.7 --disable-binary --with-openssl-dir="$OPENSSL_PREFIX"
+          rvm use 3.1.7
+          ruby -ropenssl -rnet/http <<'RUBY'
+          abort "Unexpected Ruby version: #{RUBY_VERSION}" unless RUBY_VERSION == "3.1.7"
+          version = OpenSSL::OPENSSL_LIBRARY_VERSION
+          abort "Unexpected OpenSSL version: #{version}" unless version.start_with?("OpenSSL 3.6.0 ")
+          abort "TLS peer verification disabled" unless OpenSSL::SSL::SSLContext::DEFAULT_PARAMS[:verify_mode] == OpenSSL::SSL::VERIFY_PEER
+          key = OpenSSL::PKey::RSA.new(2048)
+          cert = OpenSSL::X509::Certificate.new
+          cert.version = 2
+          cert.serial = 1
+          cert.subject = cert.issuer = OpenSSL::X509::Name.parse("/CN=untrusted")
+          cert.public_key = key.public_key
+          cert.not_before = Time.now - 60
+          cert.not_after = Time.now + 60
+          cert.sign(key, OpenSSL::Digest::SHA256.new)
+          abort "An untrusted certificate was accepted" if OpenSSL::SSL::SSLContext::DEFAULT_CERT_STORE.verify(cert)
+          response = Net::HTTP.get_response(URI("https://rubygems.org/"))
+          abort "HTTPS returned #{response.code}" unless response.code.to_i.between?(200, 399)
+          puts "Ruby #{RUBY_VERSION} with #{version} HTTPS passed"
+          RUBY
