@@ -50,6 +50,7 @@
 * Fix autogen.sh call for MRI's on OpenBSD [\#5620](https://github.com/rvm/rvm/pull/5620)
 * Update TruffleRuby dependencies for TruffleRuby 33+ [\#5632](https://github.com/rvm/rvm/pull/5632)
 * Avoid undefined `rvm_shell_nounset` variable [\#5638](https://github.com/rvm/rvm/pull/5638)
+* Detect the system again after `__rvm_teardown` so the cd hook and other later lookups use system specific settings, keep `/` entries and strip trailing slashes of the last entry when cleaning `PATH` [\#4618](https://github.com/rvm/rvm/issues/4618)
 
 #### New interpreters
 
