@@ -50,6 +50,7 @@
 * Fix autogen.sh call for MRI's on OpenBSD [\#5620](https://github.com/rvm/rvm/pull/5620)
 * Update TruffleRuby dependencies for TruffleRuby 33+ [\#5632](https://github.com/rvm/rvm/pull/5632)
 * Avoid undefined `rvm_shell_nounset` variable [\#5638](https://github.com/rvm/rvm/pull/5638)
+* Fix `unbound variable` errors when RVM is loaded or used with `set -u` (nounset), including environments without `USER` [\#4694](https://github.com/rvm/rvm/issues/4694)
 
 #### New interpreters
 
