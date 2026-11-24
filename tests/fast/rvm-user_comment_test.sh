@@ -16,8 +16,8 @@ cat $d/.fake-rvmrc
 # match!=/rvm_gemset_path=/
 
 : __rvm_env_string
-rvm use 3.1.2 --install
-__rvm_env_string # match=/3.1.2/
+rvm use 3.3.12 --install
+__rvm_env_string # match=/3.3.12/
 
 : __rvm_env_string fake + gems_path
 export rvm_gems_path=/tmp/gems2
@@ -31,4 +31,4 @@ export GEM_HOME=$rvm_path/gems/3.0.0-p9000
 export PATH=$GEM_HOME/bin:$PATH
 __rvm_env_string # match=/^3.0.0-p9000$/
 
-rvm use 3.1.2
+rvm use 3.3.12

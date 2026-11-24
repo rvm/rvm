@@ -7,8 +7,8 @@ d=$TMPDIR/test-rvmrc
 f=$d/.rvmrc
 mkdir -p $d
 echo "echo loading-rvmrc" > $f
-rvm use 3.0.5 --install # status=0
-rvm use 3.1.2 --install # status=0
+rvm use 3.4.12 --install # status=0
+rvm use 3.3.12 --install # status=0
 
 ## simple
 : trust
@@ -40,42 +40,42 @@ rvm rvmrc trusted "$ds"   # match=/is currently trusted/
 rvm rvmrc reset "$ds"     # match=/^Reset/
 
 : prepare for load/cd test
-rvm alias create default 3.1.2
-rvm alias list            # match=/default => ruby-3.1.2/
+rvm alias create default 3.3.12
+rvm alias list            # match=/default => ruby-3.3.12/
 export rvm_project_rvmrc_default=1
 
 ## load default
 builtin cd
-rvm use 3.0.5
+rvm use 3.4.12
 rvm rvmrc load            # env[GEM_HOME]!=/^$/
 
 ## load ruby
 cd
-rvm use 3.0.5
-echo "rvm use 3.1.2" > "$d/.rvmrc"
+rvm use 3.4.12
+echo "rvm use 3.3.12" > "$d/.rvmrc"
 rvm rvmrc trust "$d"      # match=/ as trusted$/
-cd "$d"                   # env[GEM_HOME]=/3.1.2$/
+cd "$d"                   # env[GEM_HOME]=/3.3.12$/
 
 ## load ruby@gemset
 cd
-rvm use 3.0.5
-echo "rvm use 3.1.2@vee --create" > "$d/.rvmrc"
+rvm use 3.4.12
+echo "rvm use 3.3.12@vee --create" > "$d/.rvmrc"
 rvm rvmrc trust "$d"      # match=/ as trusted$/
-cd "$d"                   # env[GEM_HOME]=/3.1.2@vee$/
+cd "$d"                   # env[GEM_HOME]=/3.3.12@vee$/
 
 ## load @gemset
 cd
-rvm use 3.0.5
+rvm use 3.4.12
 echo "rvm use @vee --create" > "$d/.rvmrc"
 rvm rvmrc trust "$d"      # match=/ as trusted$/
-cd "$d"                   # env[GEM_HOME]=/3.0.5@vee$/
+cd "$d"                   # env[GEM_HOME]=/3.4.12@vee$/
 
 ## load @gemset after system
 cd
 rvm use system
 echo "rvm use @vee --create" > "$d/.rvmrc"
 rvm rvmrc trust "$d"      # match=/ as trusted$/
-cd "$d"                   # env[GEM_HOME]=/3.1.2@vee$/
+cd "$d"                   # env[GEM_HOME]=/3.3.12@vee$/
 
 : clean
 rvm alias delete default  # status=0
