@@ -1,21 +1,21 @@
 source "$rvm_path/scripts/rvm"
 
-rvm use 3.1.3 --install # status=0
+rvm use 3.3.13 --install # status=0
 rvm gemset create test1 # status=0
 rvm gemset create test2 # status=0
-rvm use 3.0.5 --install # status=0
+rvm use 3.4.12 --install # status=0
 
 : do
 rvm 8.9.9 do rvm gemdir # status=1; match=/is not installed/
-rvm 3.1.3 do rvm gemdir # status=0; match=/3.1.3/
-rvm 3.1.3@test0 do rvm gemdir # status=2; match=/Gemset .* does not exist/
-rvm 3.1.3@test1 do rvm gemdir # status=0; match=/3.1.3@test1/
-rvm 3.1.3@test2 do rvm gemdir # status=0; match=/3.1.3@test2/
+rvm 3.3.13 do rvm gemdir # status=0; match=/3.3.13/
+rvm 3.3.13@test0 do rvm gemdir # status=2; match=/Gemset .* does not exist/
+rvm 3.3.13@test1 do rvm gemdir # status=0; match=/3.3.13@test1/
+rvm 3.3.13@test2 do rvm gemdir # status=0; match=/3.3.13@test2/
 
-rvm 3.1.3@global,3.1.3 do rvm gemdir
+rvm 3.3.13@global,3.3.13 do rvm gemdir
 # status=0
-# match=/ruby-3.1.3/lib/ruby/gems/3.1.0$/
-# match=/3.1.3$/
+# match=/ruby-3.3.13/lib/ruby/gems/3.3.0$/
+# match=/3.3.13$/
 
 rvm --force gemset delete test1 # status=0
 rvm --force gemset delete test2 # status=0
@@ -46,41 +46,41 @@ rvm    . do rvm info ruby  # status=1; match=/Could not determine which Ruby to 
 rvm    . do ruby --version # status=1; match=/Could not determine which Ruby to use/
 
 : -----------------------------------------------------------------
-mkdir -p $d/3.1.3
-echo "3.1.3" > $d/3.1.3/.ruby-version
+mkdir -p $d/3.3.13
+echo "3.3.13" > $d/3.3.13/.ruby-version
 
 : absolute directory
-rvm in $d/3.1.3 do rvm info ruby  # status=0; match=/version: *"3.1.3/
-rvm in $d/3.1.3 do ruby --version # status=0; match=/^ruby 3.1.3/
+rvm in $d/3.3.13 do rvm info ruby  # status=0; match=/version: *"3.3.13/
+rvm in $d/3.3.13 do ruby --version # status=0; match=/^ruby 3.3.13/
 
 : relative directory
 cd $d
-rvm in 3.1.3 do rvm info ruby  # status=0; match=/version: *"3.1.3/
-rvm in 3.1.3 do ruby --version # status=0; match=/^ruby 3.1.3/
+rvm in 3.3.13 do rvm info ruby  # status=0; match=/version: *"3.3.13/
+rvm in 3.3.13 do ruby --version # status=0; match=/^ruby 3.3.13/
 
 : current directory
-cd $d/3.1.3
-rvm . do rvm info ruby  # status=0; match=/version: *"3.1.3/
-rvm . do ruby --version # status=0; match=/^ruby 3.1.3/
+cd $d/3.3.13
+rvm . do rvm info ruby  # status=0; match=/version: *"3.3.13/
+rvm . do ruby --version # status=0; match=/^ruby 3.3.13/
 
 : -----------------------------------------------------------------
-ver=3.0.5
-mkdir -p $d/3.0.5
-echo "3.0.5" > $d/3.0.5/.ruby-version
+ver=3.4.12
+mkdir -p $d/3.4.12
+echo "3.4.12" > $d/3.4.12/.ruby-version
 
 : absolute directory
-rvm in $d/3.0.5 do rvm info ruby  # status=0; match=/version: *"3.0.5/
-rvm in $d/3.0.5 do ruby --version # status=0; match=/^ruby 3.0.5/
+rvm in $d/3.4.12 do rvm info ruby  # status=0; match=/version: *"3.4.12/
+rvm in $d/3.4.12 do ruby --version # status=0; match=/^ruby 3.4.12/
 
 : relative directory
 cd $d
-rvm in 3.0.5 do rvm info ruby  # status=0; match=/version: *"3.0.5/
-rvm in 3.0.5 do ruby --version # status=0; match=/^ruby 3.0.5/
+rvm in 3.4.12 do rvm info ruby  # status=0; match=/version: *"3.4.12/
+rvm in 3.4.12 do ruby --version # status=0; match=/^ruby 3.4.12/
 
 : current directory
-cd $d/3.0.5
-rvm . do rvm info ruby  # status=0; match=/version: *"3.0.5/
-rvm . do ruby --version # status=0; match=/^ruby 3.0.5/
+cd $d/3.4.12
+rvm . do rvm info ruby  # status=0; match=/version: *"3.4.12/
+rvm . do ruby --version # status=0; match=/^ruby 3.4.12/
 
 ## cleanup
 rm -rf $d
