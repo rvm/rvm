@@ -50,6 +50,7 @@
 * Fix autogen.sh call for MRI's on OpenBSD [\#5620](https://github.com/rvm/rvm/pull/5620)
 * Update TruffleRuby dependencies for TruffleRuby 33+ [\#5632](https://github.com/rvm/rvm/pull/5632)
 * Avoid undefined `rvm_shell_nounset` variable [\#5638](https://github.com/rvm/rvm/pull/5638)
+* Fix `file_exists_at_url_command` to work correctly behind a http proxy [\#5639](https://github.com/rvm/rvm/pull/5639)
 
 #### New interpreters
 
