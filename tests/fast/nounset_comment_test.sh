@@ -1,0 +1,5 @@
+bash -u -c 'unset GEM_HOME GEM_PATH MY_RUBY_HOME chpwd_functions; export rvm_path="$PWD"; source scripts/rvm >/dev/null && rvm current' # match=/^system$/
+bash -u -c 'unset GEM_HOME GEM_PATH MY_RUBY_HOME chpwd_functions; export rvm_path="$PWD"; source scripts/rvm >/dev/null && rvm use system >/dev/null 2>&1 && rvm current && [[ ":${SHELLOPTS:-}:" == *":nounset:"* ]]' # match=/^system$/
+bash -u -c 'export rvm_path="$PWD" rvm_scripts_path="$PWD/scripts" rvm_user_path="$PWD/user"; source scripts/base >/dev/null; unset _system_name _system_version; __rvm_db_system ruby_version' # match=/^[0-9]+\.[0-9]+\.[0-9]+$/
+bash -u -c 'export rvm_path="$PWD" rvm_scripts_path="$PWD/scripts" rvm_user_path="$PWD/user"; source scripts/base >/dev/null; _system_name=CentOS; _system_version=5; __rvm_db_system ruby_1.8.7_patch_level' # match=/^p374$/
+bash -u -c 'chpwd_functions=(custom_hook); unset GEM_HOME GEM_PATH MY_RUBY_HOME; export rvm_path="$PWD"; source scripts/rvm >/dev/null; [[ " ${chpwd_functions[*]} " == *" custom_hook "* ]]' # status=0
