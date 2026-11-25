@@ -9,25 +9,34 @@
 if
   test -n "${BASH_VERSION:-}" -o -n "${ZSH_VERSION:-}" -o -n "${KSH_VERSION:-}"
 then
-  case "`uname`" in
-    (CYGWIN*|MINGW*)
-      __shell_name="`\command \ps -p $$ | \command \awk 'END {print $NF}'` 2>/dev/null" ;;
+  # Allow explicit shell type as first argument to bypass ps command (useful in sandboxed environments)
+  # Usage: source "$HOME/.rvm/scripts/rvm" bash
+  # In .bashrc: [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" bash
+  # In .zshrc: [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" zsh
+  if [[ -n "${1:-}" ]]
+  then
+    __shell_name="$1"
+  else
+    case "`uname`" in
+      (CYGWIN*|MINGW*)
+        __shell_name="`\command \ps -p $$ | \command \awk 'END {print $NF}'` 2>/dev/null" ;;
 
-    (SunOS)
-      __shell_name="`\command \ps -p $$ -o comm=`" ;;
+      (SunOS)
+        __shell_name="`\command \ps -p $$ -o comm=`" ;;
 
-    (Linux)
-      case "$(command uname -o)" in
-        (Android)
-          __shell_name="gawk 'BEGIN{RS=\"\"}; NR==1{print; exit}' /proc/$$/cmdline | tr - '\0'" ;;
+      (Linux)
+        case "$(command uname -o)" in
+          (Android)
+            __shell_name="gawk 'BEGIN{RS=\"\"}; NR==1{print; exit}' /proc/$$/cmdline | tr - '\0'" ;;
 
-        (*)
-          __shell_name="`\command \ps -p $$ -o ucomm=`" ;;
-      esac ;;
+          (*)
+            __shell_name="`\command \ps -p $$ -o ucomm=`" ;;
+        esac ;;
 
-    (*)
-      __shell_name="`\command \ps -p $$ -o ucomm=`" ;;
-  esac
+      (*)
+        __shell_name="`\command \ps -p $$ -o ucomm=`" ;;
+    esac
+  fi
 
   case "$__shell_name" in
     (""|dash|sh|ksh|*/dash|*/sh|*/ksh) return 0 ;; # silently stop in sh shells
